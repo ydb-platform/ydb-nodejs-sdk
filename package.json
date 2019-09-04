@@ -1,0 +1,20 @@
+{
+  "name": "@yandex-data-ui/ydb-sdk",
+  "version": "0.0.1",
+  "description": "Node.js bindings for working with YDB API over gRPC",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ydb",
+    "sdk",
+    "grpc"
+  ],
+  "author": "Timur Sufiev",
+  "license": "ISC",
+  "dependencies": {
+    "@grpc/proto-loader": "^0.5.1",
+    "grpc": "^1.23.3"
+  }
+}

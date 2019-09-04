@@ -1,0 +1,17 @@
+#npm
+npm-debug.log*
+node_modules
+
+#temporary
+tmp/
+temp/
+
+#personal
+.idea/
+.DS_Store
+
+# git merge leftovers
+*.orig
+
+# secrets
+secrets/*
