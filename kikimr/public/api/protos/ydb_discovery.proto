@@ -1,0 +1,33 @@
+syntax = "proto3";
+option cc_enable_arenas = true;
+
+package Ydb.Discovery;
+option java_package = "com.yandex.ydb.discovery";
+option java_outer_classname = "DiscoveryProtos";
+
+import "kikimr/public/api/protos/ydb_operation.proto";
+
+message ListEndpointsRequest {
+    string database = 1;
+    repeated string service = 2;
+
+// todo: feature flags
+}
+
+message EndpointInfo {
+    string address = 1;
+    uint32 port = 2;
+    float load_factor = 3;
+    bool ssl = 4;
+    repeated string service = 5;
+    string location = 6;
+}
+	
+message ListEndpointsResult {
+    repeated EndpointInfo endpoints = 1;
+    string self_location = 2;
+}
+
+message ListEndpointsResponse {
+    Ydb.Operations.Operation operation = 1;
+}

@@ -1,0 +1,92 @@
+syntax = "proto3";
+option cc_enable_arenas = true;
+
+package Ydb.Experimental;
+option java_package = "com.yandex.ydb.experimental";
+option java_outer_classname = "ExperimentalProtos";
+
+import "kikimr/public/api/protos/ydb_issue_message.proto";
+import "kikimr/public/api/protos/ydb_operation.proto";
+import "kikimr/public/api/protos/ydb_status_codes.proto";
+import "kikimr/public/api/protos/ydb_value.proto";
+
+message UploadRowsRequest {
+    string table = 1;
+    TypedValue rows = 2;  // Must be List of Structs
+    Ydb.Operations.OperationParams operation_params = 3;
+}
+
+message UploadRowsResponse {
+    Ydb.Operations.Operation operation = 1;
+}
+
+message UploadRowsResult {
+    // TODO: ?
+}
+
+
+
+////////////////////////////////////////////////////////////
+
+
+message ReadColumnsRequest {
+    string table = 1;
+    repeated string columns = 2;
+
+    bytes from_key = 3;
+    bool from_key_inclusive = 4;
+    bytes to_key = 5;
+    bool to_key_inclusive = 6;
+
+    uint64 max_rows = 7;
+    uint64 max_bytes = 8;
+
+    Ydb.Operations.OperationParams operation_params = 9;
+}
+
+message ReadColumnsResponse {
+    Ydb.Operations.Operation operation = 1;
+}
+
+message ReadColumnsResult {
+    repeated bytes blocks = 1;
+
+    bool eof = 2; // no more rows
+    bytes last_key = 3;
+    bool last_key_inclusive = 4;
+}
+
+
+message GetShardLocationsRequest {
+    repeated uint64 tablet_ids = 1;
+
+    Ydb.Operations.OperationParams operation_params = 9;
+}
+
+message GetShardLocationsResponse {
+    Ydb.Operations.Operation operation = 1;
+}
+
+message TabletInfo {
+    uint64 tablet_id = 1;
+    string host = 2;
+}
+
+message GetShardLocationsResult {
+    repeated TabletInfo tablets = 1;
+}
+
+message ExecuteStreamQueryRequest {
+    string yql_text = 1;
+    map<string, TypedValue> parameters = 2;
+}
+
+message ExecuteStreamQueryResponse {
+    StatusIds.StatusCode status = 1;
+    repeated Ydb.Issue.IssueMessage issues = 2;
+    ExecuteStreamQueryResult result = 3;
+}
+
+message ExecuteStreamQueryResult {
+    Ydb.ResultSet result_set = 1;
+}

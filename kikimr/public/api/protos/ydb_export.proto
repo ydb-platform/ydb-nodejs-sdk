@@ -1,0 +1,51 @@
+syntax = "proto3";
+option cc_enable_arenas = true;
+
+import "kikimr/public/api/protos/ydb_operation.proto";
+
+package Ydb.Export;
+option java_package = "com.yandex.ydb.export";
+
+message ExportProgress {
+    enum Progress {
+        PROGRESS_UNSPECIFIED = 0;
+        PROGRESS_PREPARING = 1;
+        PROGRESS_TRANSFER_DATA = 2;
+        PROGRESS_DONE = 3;
+        PROGRESS_CANCELLATION = 4;
+        PROGRESS_CANCELLED = 5;
+    }
+}
+
+message ExportToYtSettings {
+    message Item {
+        // Database path to a directory or a table to be exported
+        string source_path = 1;
+        string destination_path = 2;
+    }
+
+    string host = 1;
+    uint32 port = 2;
+    string token = 3;
+    repeated Item items = 4;
+    string description = 5;
+}
+
+message ExportToYtResult {
+}
+
+message ExportToYtMetadata {
+    ExportToYtSettings settings = 1;
+    ExportProgress.Progress progress = 2;
+}
+
+message ExportToYtRequest {
+    Ydb.Operations.OperationParams operation_params = 1;
+    ExportToYtSettings settings = 2;
+}
+
+message ExportToYtResponse {
+    // operation.result = ExportToYtResult
+    // operation.metadata = ExportToYtMetadata
+    Ydb.Operations.Operation operation = 1;
+}
