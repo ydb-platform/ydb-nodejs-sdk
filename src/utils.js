@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const protobuf = require('protobufjs');
+const _ = require('lodash');
 
 
 function getMessageName(type) {
@@ -29,7 +30,22 @@ function loadMessageTypesSync(basePath = path.resolve(__dirname, '../kikimr/publ
     return protobuf.loadSync(paths);
 }
 
+const SERVICE_PROTO_DIR = path.resolve(__dirname, '../kikimr/public/api/grpc');
+const LOADER_OPTS = {
+    keepCase: true,
+    longs: String,
+    enums: String,
+    defaults: true,
+    oneofs: true,
+    protobufjsVersion: 6,
+    includeDirs: [
+        path.resolve(__dirname, '..')
+    ]
+};
+
 module.exports = {
     getMessageName,
-    loadMessageTypesSync
+    loadMessageTypesSync,
+    SERVICE_PROTO_DIR,
+    LOADER_OPTS
 };
