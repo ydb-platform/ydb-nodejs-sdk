@@ -41,8 +41,9 @@ let _endpoints;
 let _selfLocation;
 
 class Endpoint {
-    constructor(endpointInfo) {
+    constructor(endpointInfo, database) {
         this.info = endpointInfo;
+        this.database = database;
         this.priority = 0;
         this.clients = new Set([]);
     }
@@ -54,7 +55,7 @@ function initEndpoints(entryPoint, database) {
             .then(({endpoints, selfLocation}) => {
                 _endpoints = new Map(_.map(endpoints, (endpointInfo) => [
                     endpointInfo,
-                    new Endpoint(endpointInfo)
+                    new Endpoint(endpointInfo, database)
                 ]));
                 _selfLocation = selfLocation;
                 return _endpoints;

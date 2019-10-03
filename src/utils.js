@@ -32,6 +32,10 @@ function loadMessageTypesSync(basePath = path.resolve(__dirname, '../kikimr/publ
 
 const _root = loadMessageTypesSync();
 
+function getType(qualifiedTypeName) {
+    return _root.lookupType(qualifiedTypeName);
+}
+
 function decodeMessage(type, payload) {
     const messageCls = _root.lookupType(getMessageName(type));
     return messageCls.decode(payload);
@@ -51,8 +55,8 @@ const LOADER_OPTS = {
 };
 
 module.exports = {
+    getType,
     decodeMessage,
-    loadMessageTypesSync,
     SERVICE_PROTO_DIR,
     LOADER_OPTS
 };
