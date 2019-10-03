@@ -2,7 +2,7 @@ const path = require('path');
 const grpc = require('grpc');
 const protoLoader = require('@grpc/proto-loader');
 const _ = require('lodash');
-const {loadMessageTypesSync, getMessageName, SERVICE_PROTO_DIR, LOADER_OPTS} = require('./utils');
+const {decodeMessage, SERVICE_PROTO_DIR, LOADER_OPTS} = require('./utils');
 const {getCredentialsMetadata} = require('./credentials');
 
 const packageDefinition = protoLoader.loadSync(
@@ -26,21 +26,50 @@ function discoverEndpoints(entryPoint, database) {
                 reject(err);
             } else {
                 try {
-                    const root = loadMessageTypesSync();
                     const {type_url, value} = response.operation.result;
-
-                    const messageCls = root.lookupType(getMessageName(type_url));
-                    const result = messageCls.decode(value);
-                    resolve(result.endpoints);
+                    const result = decodeMessage(type_url, value);
+                    resolve(result);
                 } catch (err) {
                     reject(err);
                 }
             }
         });
-
     });
 }
 
+let _endpoints;
+let _selfLocation;
+
+function initEndpoints(entryPoint, database) {
+    if (!_endpoints) {
+        return discoverEndpoints(entryPoint, database)
+            .then(({endpoints, selfLocation}) => {
+                _endpoints = new Map(_.map(endpoints, (endpointInfo) => [
+                    endpointInfo,
+                    {
+                        priority: 0,
+                        clients: new Set([])
+                    }
+                ]));
+                _selfLocation = selfLocation;
+                return _endpoints;
+            })
+    } else {
+        return Promise.resolve(_endpoints);
+    }
+}
+
+function getEndpoint(entryPoint, database) {
+    return initEndpoints(entryPoint, database)
+        .then((endpoints) => {
+            // logic for selection the optimal endpoint to be implemented later,
+            // for now return the first one
+            return [...endpoints.keys()][0];
+        })
+}
+
+
+
 module.exports = {
-    discoverEndpoints
+    getEndpoint
 };

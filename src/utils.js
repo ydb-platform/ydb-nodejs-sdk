@@ -30,6 +30,13 @@ function loadMessageTypesSync(basePath = path.resolve(__dirname, '../kikimr/publ
     return protobuf.loadSync(paths);
 }
 
+const _root = loadMessageTypesSync();
+
+function decodeMessage(type, payload) {
+    const messageCls = _root.lookupType(getMessageName(type));
+    return messageCls.decode(payload);
+}
+
 const SERVICE_PROTO_DIR = path.resolve(__dirname, '../kikimr/public/api/grpc');
 const LOADER_OPTS = {
     keepCase: true,
@@ -44,7 +51,7 @@ const LOADER_OPTS = {
 };
 
 module.exports = {
-    getMessageName,
+    decodeMessage,
     loadMessageTypesSync,
     SERVICE_PROTO_DIR,
     LOADER_OPTS
