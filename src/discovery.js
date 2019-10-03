@@ -40,16 +40,21 @@ function discoverEndpoints(entryPoint, database) {
 let _endpoints;
 let _selfLocation;
 
+class Endpoint {
+    constructor(endpointInfo) {
+        this.info = endpointInfo;
+        this.priority = 0;
+        this.clients = new Set([]);
+    }
+}
+
 function initEndpoints(entryPoint, database) {
     if (!_endpoints) {
         return discoverEndpoints(entryPoint, database)
             .then(({endpoints, selfLocation}) => {
                 _endpoints = new Map(_.map(endpoints, (endpointInfo) => [
                     endpointInfo,
-                    {
-                        priority: 0,
-                        clients: new Set([])
-                    }
+                    new Endpoint(endpointInfo)
                 ]));
                 _selfLocation = selfLocation;
                 return _endpoints;
@@ -64,7 +69,7 @@ function getEndpoint(entryPoint, database) {
         .then((endpoints) => {
             // logic for selection the optimal endpoint to be implemented later,
             // for now return the first one
-            return [...endpoints.keys()][0];
+            return [...endpoints.values()][0];
         })
 }
 
