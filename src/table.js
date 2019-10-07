@@ -29,7 +29,7 @@ class EndpointAwareEntity extends EventEmitter {
         this.endpoint = endpoint;
     }
 
-    _performAsyncOp(methodName, args = {}, debug) {
+    _performAsyncOp(methodName, args = {}) {
         return new Promise((resolve, reject) => {
             const client = getClient(this.endpoint);
             const metadata = getCredentialsMetadata();
@@ -140,10 +140,33 @@ class Session extends EndpointAwareEntity {
         return this._performAsyncOp('DescribeTable', {
             session_id: this.id,
             path: `${this.endpoint.database}/${tablePath}`
-        }, true);
+        });
     }
 
+    prepareQuery(queryText) {
+        return this._performAsyncOp('PrepareDataQuery', {
+            session_id: this.id,
+            yql_text: queryText
+        })
+    }
 
+    executeQuery(preparedQuery, parameters = {}) {
+        console.log('preparedQuery', JSON.stringify(preparedQuery, null, 2));
+        console.log('parameters', JSON.stringify(parameters, null, 2));
+        return this._performAsyncOp('ExecuteDataQuery', {
+            session_id: this.id,
+            tx_control: {
+                begin_tx: {
+                    serializable_read_write: {}
+                },
+                commit_tx: true
+            },
+            parameters,
+            query: {
+                id: preparedQuery.queryId
+            }
+        })
+    }
 }
 
 class SessionPool extends EndpointAwareEntity {
