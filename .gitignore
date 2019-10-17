@@ -5,6 +5,7 @@ node_modules
 #temporary
 tmp/
 temp/
+build/
 
 #personal
 .idea/
