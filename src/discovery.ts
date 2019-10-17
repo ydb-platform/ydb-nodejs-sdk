@@ -1,36 +1,26 @@
-import grpc from 'grpc';
-import _ from 'lodash';
-import * as $protobuf from 'protobufjs';
-
-import {getCredentialsMetadata} from './credentials';
 import {Ydb} from "../proto/bundle";
+import {ServiceFactory, BaseService} from "./utils";
 
 
-const DISCOVERY_SERVICE = 'Ydb.Discovery.V1.DiscoveryService';
+export default class DiscoveryService extends BaseService<Ydb.Discovery.V1.DiscoveryService, ServiceFactory<Ydb.Discovery.V1.DiscoveryService>> {
+    private api: Ydb.Discovery.V1.DiscoveryService;
 
-function _getClient(entryPoint: string): Ydb.Discovery.V1.DiscoveryService {
-    const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
-        const path = `/${DISCOVERY_SERVICE}/${method.name}`;
-        const client = new grpc.Client(entryPoint, grpc.credentials.createInsecure());
-        const metadata = getCredentialsMetadata();
-        client.makeUnaryRequest(path, _.identity, _.identity, requestData, metadata, null, callback);
-    };
-    return Ydb.Discovery.V1.DiscoveryService.create(rpcImpl);
+    constructor(entryPoint: string) {
+        super('Ydb.Discovery.V1.DiscoveryService', Ydb.Discovery.V1.DiscoveryService);
+        this.api = this.getClient(entryPoint);
+    }
+
+    public discoverEndpoints(database: string): Promise<Ydb.Discovery.ListEndpointsResult> {
+        return this.api.listEndpoints({database})
+            .then((response) => {
+                if (response && response.operation && response.operation.result && response.operation.result.value) {
+                    return Ydb.Discovery.ListEndpointsResult.decode(response.operation.result.value);
+                }
+                throw new Error('Operation returned no result');
+            });
+    }
 }
-const getClient = _.memoize(_getClient);
 
-
-export function discoverEndpoints(entryPoint: string, database: string) {
-    const client = getClient(entryPoint);
-    return client.listEndpoints({database})
-        .then((response) => {
-            if (response && response.operation && response.operation.result && response.operation.result.value) {
-                console.log(response.operation.result)
-                return Ydb.Discovery.ListEndpointsResult.decode(response.operation.result.value);
-            }
-            throw new Error('Operation returned no result');
-        });
-}
 /*
 let _endpoints;
 let _selfLocation;

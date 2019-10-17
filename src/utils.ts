@@ -1,3 +1,28 @@
+import grpc from 'grpc';
+import * as $protobuf from 'protobufjs';
+import _ from 'lodash';
+
+import {getCredentialsMetadata} from './credentials';
+
+
+export type ServiceFactory<T> = {
+    create(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean): T
+};
+
+export abstract class BaseService<Api extends $protobuf.rpc.Service, ApiCtor extends ServiceFactory<Api>> {
+    protected constructor(private name: string, private apiCtor: ApiCtor) {}
+
+    protected getClient(entryPoint: string): Api {
+        const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
+            const path = `/${this.name}/${method.name}`;
+            const client = new grpc.Client(entryPoint, grpc.credentials.createInsecure());
+            const metadata = getCredentialsMetadata();
+            client.makeUnaryRequest(path, _.identity, _.identity, requestData, metadata, null, callback);
+        };
+        return this.apiCtor.create(rpcImpl);
+    }
+}
+
 // import path from 'path';
 // // import protobuf from 'protobufjs';
 // import {google} from "../protos/typings";
