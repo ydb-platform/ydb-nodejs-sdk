@@ -10,7 +10,11 @@ export type ServiceFactory<T> = {
 };
 
 export abstract class BaseService<Api extends $protobuf.rpc.Service, ApiCtor extends ServiceFactory<Api>> {
-    protected constructor(private name: string, private apiCtor: ApiCtor) {}
+    protected api: Api;
+
+    protected constructor(entryPoint: string, private name: string, private apiCtor: ApiCtor) {
+        this.api = this.getClient(entryPoint);
+    }
 
     protected getClient(entryPoint: string): Api {
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {

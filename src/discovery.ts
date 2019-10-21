@@ -11,8 +11,6 @@ type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {};
 
 export default class DiscoveryService extends BaseService<ApiService, ServiceFactory<ApiService>> {
-    private api: ApiService;
-
     private endpointsPromise: EndpointsPromise;
     private resolveEndpoints: SuccessDiscoveryHandler = noOp;
     private rejectEndpoints: FailureDiscoveryHandler = noOp;
@@ -21,8 +19,7 @@ export default class DiscoveryService extends BaseService<ApiService, ServiceFac
     // private selfLocation: string = '';
 
     constructor(entryPoint: string, database?: string) {
-        super('Ydb.Discovery.V1.DiscoveryService', Ydb.Discovery.V1.DiscoveryService);
-        this.api = this.getClient(entryPoint);
+        super(entryPoint, 'Ydb.Discovery.V1.DiscoveryService', Ydb.Discovery.V1.DiscoveryService);
         this.endpointsPromise = new Promise((resolve, reject) => {
             this.resolveEndpoints = resolve;
             this.rejectEndpoints = reject;
