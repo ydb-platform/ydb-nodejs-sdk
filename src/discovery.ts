@@ -1,17 +1,54 @@
+import _ from 'lodash';
 import {Ydb} from "../proto/bundle";
-import {ServiceFactory, BaseService} from "./utils";
+import {ServiceFactory, BaseService, getOperationPayload} from "./utils";
+import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
+import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 
 
-type EndpointsPromise = Promise<Ydb.Discovery.ListEndpointsResult>;
-type ApiService = Ydb.Discovery.V1.DiscoveryService;
-type IEndpointInfo = Ydb.Discovery.IEndpointInfo;
-type SuccessDiscoveryHandler = (result: Ydb.Discovery.ListEndpointsResult) => void;
+type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
 type FailureDiscoveryHandler = (err: Error) => void;
 
 const noOp = () => {};
 
-export default class DiscoveryService extends BaseService<ApiService, ServiceFactory<ApiService>> {
-    private endpointsPromise: EndpointsPromise;
+export class Endpoint extends Ydb.Discovery.EndpointInfo {
+    static HOST_RE = /^([^:]+):?(\d)*$/;
+
+    static fromString(host: string) {
+        const match = Endpoint.HOST_RE.exec(host);
+        if (match) {
+            const info: Ydb.Discovery.IEndpointInfo = {
+                address: match[1]
+            };
+            if (match[2]) {
+                info.port = Number(match[2]);
+            }
+            return this.create(info);
+        }
+        throw new Error(`Provided incorrect host "${host}"`);
+    }
+
+    public database: string = '';
+
+    constructor(properties: IEndpointInfo, database: string) {
+        super(properties);
+        this.setDatabase(database);
+    }
+
+    public toString(): string {
+        let result = this.address;
+        if (this.port) {
+            result += ':' + this.port;
+        }
+        return result;
+    }
+
+    private setDatabase(database: string) {
+        this.database = database;
+    }
+}
+
+export default class DiscoveryService extends BaseService<DiscoveryServiceAPI, ServiceFactory<DiscoveryServiceAPI>> {
+    private endpointsPromise: Promise<Endpoint[]>;
     private resolveEndpoints: SuccessDiscoveryHandler = noOp;
     private rejectEndpoints: FailureDiscoveryHandler = noOp;
     private isInitStarted: boolean = false;
@@ -19,7 +56,7 @@ export default class DiscoveryService extends BaseService<ApiService, ServiceFac
     // private selfLocation: string = '';
 
     constructor(entryPoint: string, database?: string) {
-        super(entryPoint, 'Ydb.Discovery.V1.DiscoveryService', Ydb.Discovery.V1.DiscoveryService);
+        super(entryPoint, 'Ydb.Discovery.V1.DiscoveryService', DiscoveryServiceAPI);
         this.endpointsPromise = new Promise((resolve, reject) => {
             this.resolveEndpoints = resolve;
             this.rejectEndpoints = reject;
@@ -29,13 +66,13 @@ export default class DiscoveryService extends BaseService<ApiService, ServiceFac
         }
     }
 
-    private discoverEndpoints(database: string): EndpointsPromise {
+    private discoverEndpoints(database: string): Promise<Endpoint[]> {
         return this.api.listEndpoints({database})
             .then((response) => {
-                if (response && response.operation && response.operation.result && response.operation.result.value) {
-                    return Ydb.Discovery.ListEndpointsResult.decode(response.operation.result.value);
-                }
-                throw new Error('Operation returned no result');
+                const payload = getOperationPayload(response);
+                const endpointsResult = Ydb.Discovery.ListEndpointsResult.decode(payload);
+                // this.selfLocation = endpointsResult.selfLocation;
+                return _.map(endpointsResult.endpoints, (endpointInfo) => new Endpoint(endpointInfo, database))
             });
     }
 
@@ -46,15 +83,14 @@ export default class DiscoveryService extends BaseService<ApiService, ServiceFac
             .catch(this.rejectEndpoints);
     }
 
-    private selectEndpoint(): Promise<IEndpointInfo> {
+    private selectEndpoint(): Promise<Endpoint> {
         return this.endpointsPromise
-            .then((endpointsResult) => {
-                // this.selfLocation = endpointsResult.selfLocation;
-                return endpointsResult.endpoints[0];
+            .then((endpoints) => {
+                return endpoints[0];
             });
     }
 
-    public async getEndpoint(database: string): Promise<IEndpointInfo> {
+    public async getEndpoint(database: string): Promise<Endpoint> {
         if (!this.isInitStarted) {
             this.init(database);
         }

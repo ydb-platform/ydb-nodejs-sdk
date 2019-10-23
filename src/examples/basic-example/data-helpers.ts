@@ -1,99 +1,102 @@
-const moment = require('moment');
-const {PrimitiveType} = require('./types');
+// const moment = require('moment');
+const {declareType, TypedData} = require('../../types');
+import {Ydb} from "../../../proto/bundle";
+
+import Type = Ydb.Type;
 
 
-/* data begin */
-function toDays(date) {
-    const timeDelta = moment.duration(moment(date) - moment('1970-01-01'));
-    return timeDelta.asDays();
-}
+// function toDays(date: string) {
+//     const timeDelta = moment.duration(moment(date) - moment('1970-01-01'));
+//     return timeDelta.asDays();
+// }
 
-class Series {
-    constructor(series_id, title, release_date, series_info) {
-        this.series_id = series_id;
+class Series extends TypedData {
+    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    public seriesId: number;
+
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    public title: string;
+
+    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    public releaseDate: string;
+
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    public seriesInfo: string;
+
+    constructor(seriesId: number, title: string, releaseDate: string, seriesInfo: string) {
+        super();
+        this.seriesId = seriesId;
         this.title = title;
-        this.release_date = toDays(release_date);
-        this.series_info = series_info;
-    }
-
-    getType() {
-        return {
-            struct_type: {
-                members: [{
-                    name: 'series_id',
-                    type: {type_id: PrimitiveType.Uint64}
-                }, {
-                    name: 'title',
-                    type: {type_id: PrimitiveType.Utf8}
-                }, {
-                    name: 'release_date',
-                    type: {type_id: PrimitiveType.Date}
-                }, {
-                    name: 'series_info',
-                    type: {type_id: PrimitiveType.Utf8}
-                }]
-            }
-        }
-    }
-
-    getValue() {
-        return {
-            items: [{
-                uint64_value: this.series_id
-            }, {
-                text_value: this.title
-            }, {
-                uint32_value: this.release_date
-            }, {
-                text_value: this.series_info
-            }]
-        }
+        this.releaseDate = releaseDate;
+        this.seriesInfo = seriesInfo;
     }
 }
 
-class Season {
-    constructor(series_id, season_id, title, first_aired, last_aired) {
-        this.series_id = series_id;
-        this.season_id = season_id;
+class Episode extends TypedData {
+    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    public seriesId: number;
+
+    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    public seasonId: number;
+
+    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    public episodeId: number;
+
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    public title: string;
+
+    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    public airDate: string;
+
+    constructor(seriesId: number, seasonId: number, episodeId: number, title: string, airDate: string) {
+        super();
+        this.seriesId = seriesId;
+        this.seasonId = seasonId;
+        this.episodeId = episodeId;
         this.title = title;
-        this.first_aired = toDays(first_aired);
-        this.last_aired = toDays(last_aired);
+        this.airDate = airDate;
     }
 }
 
-class Episode {
-    constructor(series_id, season_id, episode_id, title, air_date) {
-        this.series_id = series_id;
-        this.season_id = season_id;
-        this.episode_id = episode_id;
+class Season extends TypedData {
+    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    public seriesId: number;
+
+    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    public seasonId: number;
+
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    public title: string;
+
+    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    public firstAired: string;
+
+    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    public lastAired: string;
+
+    constructor(seriesId: number, seasonId: number, title: string, firstAired: string, lastAired: string) {
+        super();
+        this.seriesId = seriesId;
+        this.seasonId = seasonId;
         this.title = title;
-        this.air_date = toDays(air_date);
+        this.firstAired = firstAired;
+        this.lastAired = lastAired;
     }
 }
 
-function getSeriesData() {
-    const data = [
+export function getSeriesData() {
+    return Series.asTypedCollection([
         new Series(1, "IT Crowd", "2006-02-03",
             "The IT Crowd is a British sitcom produced by Channel 4, written by Graham Linehan, produced by " +
             "Ash Atalla and starring Chris O'Dowd, Richard Ayoade, Katherine Parkinson, and Matt Berry."),
         new Series(2, "Silicon Valley",  "2014-04-06",
             "Silicon Valley is an American comedy television series created by Mike Judge, John Altschuler and " +
             "Dave Krinsky. The series focuses on five young men who founded a startup company in Silicon Valley.")
-    ];
-    return {
-        type: {
-            list_type: {
-                item: data[0].getType()
-            }
-        },
-        value: {
-            items: data.map((item) => item.getValue())
-        }
-    }
+    ]);
 }
 
-function getSeasonsData() {
-    return [
+export function getSeasonsData() {
+    return Season.asTypedCollection([
         new Season(1, 1, "Season 1", "2006-02-03", "2006-03-03"),
         new Season(1, 2, "Season 2", "2007-08-24", "2007-09-28"),
         new Season(1, 3, "Season 3", "2008-11-21", "2008-12-26"),
@@ -103,11 +106,11 @@ function getSeasonsData() {
         new Season(2, 3, "Season 3", "2016-04-24", "2016-06-26"),
         new Season(2, 4, "Season 4", "2017-04-23", "2017-06-25"),
         new Season(2, 5, "Season 5", "2018-03-25", "2018-05-13")
-    ];
+    ]);
 }
 
-function getEpisodesData() {
-    return [
+export function getEpisodesData() {
+    return Episode.asTypedCollection([
         new Episode(1, 1, 1, "Yesterday's Jam", "2006-02-03"),
         new Episode(1, 1, 2, "Calamity Jen", "2006-02-03"),
         new Episode(1, 1, 3, "Fifty-Fifty", "2006-02-10"),
@@ -178,11 +181,5 @@ function getEpisodesData() {
         new Episode(2, 5, 6, "Artificial Emotional Intelligence", "2018-04-29"),
         new Episode(2, 5, 7, "Initial Coin Offering", "2018-05-06"),
         new Episode(2, 5, 8, "Fifty-One Percent", "2018-05-13"),
-    ];
+    ]);
 }
-
-module.exports = {
-    getSeriesData,
-    getSeasonsData,
-    getEpisodesData
-};

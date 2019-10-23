@@ -1,6 +1,7 @@
 import grpc from 'grpc';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
+import {Ydb} from '../proto/bundle';
 
 import {getCredentialsMetadata} from './credentials';
 
@@ -12,18 +13,39 @@ export type ServiceFactory<T> = {
 export abstract class BaseService<Api extends $protobuf.rpc.Service, ApiCtor extends ServiceFactory<Api>> {
     protected api: Api;
 
-    protected constructor(entryPoint: string, private name: string, private apiCtor: ApiCtor) {
-        this.api = this.getClient(entryPoint);
+    protected constructor(host: string, private name: string, private apiCtor: ApiCtor) {
+        this.api = this.getClient(host);
     }
 
-    protected getClient(entryPoint: string): Api {
+    protected getClient(host: string): Api {
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
-            const client = new grpc.Client(entryPoint, grpc.credentials.createInsecure());
+            const client = new grpc.Client(host, grpc.credentials.createInsecure());
             const metadata = getCredentialsMetadata();
             client.makeUnaryRequest(path, _.identity, _.identity, requestData, metadata, null, callback);
         };
         return this.apiCtor.create(rpcImpl);
+    }
+}
+
+interface AsyncResponse {
+    operation?: Ydb.Operations.IOperation | null
+}
+
+export function getOperationPayload(response: AsyncResponse): Uint8Array {
+    if (response.operation) {
+        if (response.operation.status === Ydb.StatusIds.StatusCode.SUCCESS) {
+            if (response.operation.result) {
+                return response.operation.result.value as Uint8Array;
+            } else {
+                throw new Error('Missing operation result value!');
+            }
+        } else {
+            const issues = JSON.stringify(response.operation.issues, null, 2);
+            throw new Error(`Operation failed with issues ${issues}`);
+        }
+    } else {
+        throw new Error('No operation in response!');
     }
 }
 
