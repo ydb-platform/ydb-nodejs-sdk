@@ -14,6 +14,9 @@ import IType = Ydb.IType;
 import DescribeTableResult = Ydb.Table.DescribeTableResult;
 import PrepareQueryResult = Ydb.Table.PrepareQueryResult;
 import ExecuteQueryResult = Ydb.Table.ExecuteQueryResult;
+import ITransactionSettings = Ydb.Table.ITransactionSettings;
+import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
+import ITransactionMeta = Ydb.Table.ITransactionMeta;
 
 
 class SessionService extends BaseService<TableService, ServiceFactory<TableService>> {
@@ -36,6 +39,26 @@ class SessionService extends BaseService<TableService, ServiceFactory<TableServi
 enum SessionEvent {
     SESSION_RELEASE = 'SESSION_RELEASE',
     SESSION_BROKEN = 'SESSION_BROKEN'
+}
+
+interface IExistingTransaction {
+    txId: string
+}
+
+interface INewTransaction {
+    beginTx: ITransactionSettings,
+    commitTx: boolean
+}
+
+const AUTO_TX: INewTransaction = {
+    beginTx: {
+        serializableReadWrite: {}
+    },
+    commitTx: true
+};
+
+interface IQueryParams {
+    [k: string]: Ydb.ITypedValue
 }
 
 export class Session extends EventEmitter implements ICreateSessionResult {
@@ -102,6 +125,35 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             })
     }
 
+    async beginTransaction(txSettings: ITransactionSettings): Promise<ITransactionMeta> {
+        const response = await this.api.beginTransaction({
+            sessionId: this.sessionId,
+            txSettings
+        });
+        const payload = getOperationPayload(response);
+        const {txMeta} = BeginTransactionResult.decode(payload);
+        if (txMeta) {
+            return txMeta;
+        }
+        throw new Error('Could not begin new transaction, txMeta is empty!');
+    }
+
+    async commitTransaction(txControl: IExistingTransaction): Promise<Uint8Array> {
+        const response = await this.api.commitTransaction({
+            sessionId: this.sessionId,
+            txId: txControl.txId
+        });
+        return getOperationPayload(response);
+    }
+
+    async rollbackTransaction(txControl: IExistingTransaction): Promise<Uint8Array> {
+        const response = await this.api.rollbackTransaction({
+            sessionId: this.sessionId,
+            txId: txControl.txId
+        });
+        return getOperationPayload(response);
+    }
+
     prepareQuery(queryText: string): Promise<PrepareQueryResult> {
         const request = {
             sessionId: this.sessionId,
@@ -114,18 +166,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             })
     }
 
-    executeQuery(preparedQuery: IQuery, parameters: {[k: string]: Ydb.ITypedValue} = {}) {
+    executeQuery(preparedQuery: IQuery, params: IQueryParams = {}, txControl: IExistingTransaction | INewTransaction = AUTO_TX) {
         // console.log('preparedQuery', JSON.stringify(preparedQuery, null, 2));
-        // console.log('parameters', JSON.stringify(parameters, null, 2));
+        // console.log('parameters', JSON.stringify(params, null, 2));
         const request = {
             sessionId: this.sessionId,
-            txControl: {
-                beginTx: {
-                    serializableReadWrite: {}
-                },
-                commitTx: true
-            },
-            parameters,
+            txControl,
+            parameters: params,
             query: {
                 id: preparedQuery.id
             }

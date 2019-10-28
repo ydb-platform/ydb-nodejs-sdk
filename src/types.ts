@@ -119,6 +119,8 @@ function camelToSnake(propertyName: string): string {
 }
 
 export class TypedData {
+    [property: string]: any;
+
     getType(propertyKey: string): IType {
         const typeMeta = Reflect.getMetadata(typeMetadataKey, this, propertyKey);
         if (!typeMeta) {
@@ -159,8 +161,7 @@ export class TypedData {
     getRowValue() {
         return {
             items: _.map(this.typedProperties, (propertyKey: string) => {
-                // @ts-ignore
-                return this.getValue(propertyKey, this[propertyKey] as any)
+                return this.getValue(propertyKey, this[propertyKey])
             })
         }
     }

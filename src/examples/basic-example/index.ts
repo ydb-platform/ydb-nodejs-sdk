@@ -85,7 +85,7 @@ async function createTables(session: Session) {
 }
 
 async function fillTablesWithData(tablePathPrefix: string, session: Session) {
-    console.log('Preparing query...')
+    console.log('Preparing query...');
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 
@@ -160,7 +160,6 @@ async function run() {
         }
     });
 }
-
 
 run();
 
