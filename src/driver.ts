@@ -17,6 +17,7 @@ export default class Driver {
 
     public async ready(timeout: number): Promise<boolean> {
         await this.discoveryService.ready(timeout);
+        console.log('Driver is ready!');
         return true;
     }
 

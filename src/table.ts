@@ -73,10 +73,12 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     acquire() {
         this.free = false;
+        console.log(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         return this;
     }
     release() {
         this.free = true;
+        console.log(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         this.emit(SessionEvent.SESSION_RELEASE, this);
     }
 

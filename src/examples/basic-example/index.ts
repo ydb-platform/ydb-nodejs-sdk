@@ -143,6 +143,7 @@ FROM AS_TABLE($episodesData);`;
 
 async function run() {
     const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME);
+    await driver.ready(5000);
     const pool = new SessionPool(driver);
     await pool.withSession(async (session) => {
         try {
