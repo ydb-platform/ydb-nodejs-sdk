@@ -1,4 +1,4 @@
-import DiscoveryService from '../../discovery';
+import Driver from '../../driver';
 import {Session, SessionPool, TableDescription, Column} from "../../table";
 import {Ydb} from "../../../proto/bundle";
 import {getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
@@ -142,9 +142,8 @@ FROM AS_TABLE($episodesData);`;
 }
 
 async function run() {
-    const discoveryService = new DiscoveryService(DB_ENTRYPOINT);
-    const endpoint = await discoveryService.getEndpoint(DB_PATH_NAME);
-    const pool = new SessionPool(endpoint);
+    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME);
+    const pool = new SessionPool(driver);
     await pool.withSession(async (session) => {
         try {
             await session.dropTable('series1');
@@ -159,6 +158,8 @@ async function run() {
             console.error(err)
         }
     });
+    await pool.destroy();
+    await driver.destroy();
 }
 
 run();

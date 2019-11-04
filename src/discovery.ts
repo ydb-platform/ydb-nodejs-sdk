@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
 import {ServiceFactory, BaseService, getOperationPayload} from "./utils";
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
@@ -27,11 +28,16 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
         throw new Error(`Provided incorrect host "${host}"`);
     }
 
-    public database: string = '';
-
-    constructor(properties: IEndpointInfo, database: string) {
+    constructor(properties: IEndpointInfo, public readonly database: string) {
         super(properties);
-        this.setDatabase(database);
+    }
+
+    /*
+     Update current endpoint with the attributes taken from another endpoint.
+     */
+    public update(_endpoint: Endpoint) {
+        // do nothing for now
+        return this;
     }
 
     public toString(): string {
@@ -41,28 +47,70 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
         }
         return result;
     }
-
-    private setDatabase(database: string) {
-        this.database = database;
-    }
 }
 
 export default class DiscoveryService extends BaseService<DiscoveryServiceAPI, ServiceFactory<DiscoveryServiceAPI>> {
-    private endpointsPromise: Promise<Endpoint[]>;
+    private readonly endpointsPromise: Promise<void>;
     private resolveEndpoints: SuccessDiscoveryHandler = noOp;
     private rejectEndpoints: FailureDiscoveryHandler = noOp;
-    private isInitStarted: boolean = false;
+    private readonly periodicDiscoveryId: NodeJS.Timeout;
+
+    private endpoints: Endpoint[] = [];
+    private currentEndpointIndex: number = 0;
+    private events: EventEmitter = new EventEmitter();
 
     // private selfLocation: string = '';
 
-    constructor(entryPoint: string, database?: string) {
+    constructor(entryPoint: string, private database: string, private discoveryPeriod: number) {
         super(entryPoint, 'Ydb.Discovery.V1.DiscoveryService', DiscoveryServiceAPI);
         this.endpointsPromise = new Promise((resolve, reject) => {
-            this.resolveEndpoints = resolve;
+            this.resolveEndpoints = (endpoints: Endpoint[]) => {
+                this.endpoints = endpoints;
+                resolve();
+            };
             this.rejectEndpoints = reject;
         });
-        if (database) {
-            this.init(database);
+        this.periodicDiscoveryId = this.init();
+    }
+
+    public destroy(): void {
+        clearInterval(this.periodicDiscoveryId);
+    }
+
+    private init(): NodeJS.Timeout {
+        this.discoverEndpoints(this.database)
+            .then(this.resolveEndpoints)
+            .catch(this.rejectEndpoints);
+
+        return setInterval(async () => {
+            await this.endpointsPromise;
+            try {
+                const endpoints = await this.discoverEndpoints(this.database);
+                this.updateEndpoints(endpoints);
+            } catch (error) {
+                console.error(error);
+            }
+        }, this.discoveryPeriod);
+    }
+
+    private updateEndpoints(endpoints: Endpoint[]): void {
+        const getHost = (endpoint: Endpoint) => endpoint.toString();
+        const endpointsToAdd = _.differenceBy(endpoints, this.endpoints, getHost);
+        const endpointsToRemove = _.differenceBy(this.endpoints, endpoints);
+        const endpointsToUpdate = _.intersectionBy(this.endpoints, endpoints, getHost);
+
+        _.forEach(endpointsToRemove, (endpoint) => this.emit('remove', endpoint));
+
+        for (const current of endpointsToUpdate) {
+            const newEndpoint =
+                _.find(endpoints, (incoming) => incoming.toString() === current.toString()) as Endpoint;
+            current.update(newEndpoint);
+        }
+        this.endpoints = _.sortBy(endpointsToUpdate.concat(endpointsToAdd), getHost);
+        // reset round-robin index in case new endpoints have been discovered or existing ones have become stale
+        if (endpointsToRemove.length + endpointsToAdd.length > 0) {
+            this.endpoints = _.shuffle(this.endpoints);
+            this.currentEndpointIndex = 0;
         }
     }
 
@@ -72,28 +120,31 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI, S
                 const payload = getOperationPayload(response);
                 const endpointsResult = Ydb.Discovery.ListEndpointsResult.decode(payload);
                 // this.selfLocation = endpointsResult.selfLocation;
-                return _.map(endpointsResult.endpoints, (endpointInfo) => new Endpoint(endpointInfo, database))
+                const endpoints = _.map(endpointsResult.endpoints, (endpointInfo) => new Endpoint(endpointInfo, database));
+                return _.sortBy(endpoints, (endpoint) => endpoint.toString());
             });
     }
 
-    private init(database: string): void {
-        this.isInitStarted = true;
-        this.discoverEndpoints(database)
-            .then(this.resolveEndpoints)
-            .catch(this.rejectEndpoints);
+    public emit(eventName: string, ...args: any[]): void {
+        this.events.emit(eventName, ...args);
+    }
+    public on(eventName: string, callback: (...args: any[]) => void): void {
+        this.events.on(eventName, callback);
     }
 
-    private selectEndpoint(): Promise<Endpoint> {
-        return this.endpointsPromise
-            .then((endpoints) => {
-                return endpoints[0];
-            });
+    public ready(timeout: number): Promise<any> {
+        const timedRejection = new Promise((_resolve, reject) => {
+            setTimeout(() => reject(`Failed to resolve in ${timeout}ms!`), timeout);
+        });
+        return Promise.race([this.endpointsPromise, timedRejection]);
     }
 
-    public async getEndpoint(database: string): Promise<Endpoint> {
-        if (!this.isInitStarted) {
-            this.init(database);
-        }
-        return this.selectEndpoint();
+    private async getEndpointRR(): Promise<Endpoint> {
+        await this.endpointsPromise;
+        return this.endpoints[this.currentEndpointIndex++ % this.endpoints.length];
+    }
+
+    public async getEndpoint(): Promise<Endpoint> {
+        return this.getEndpointRR();
     }
 }

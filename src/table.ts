@@ -3,6 +3,8 @@ import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
 import {ServiceFactory, BaseService, getOperationPayload} from "./utils";
 import {Endpoint} from './discovery';
+import Driver from "./driver";
+import {SESSION_KEEPALIVE_PERIOD} from "./constants";
 
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
@@ -19,7 +21,7 @@ import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
 import ITransactionMeta = Ydb.Table.ITransactionMeta;
 
 
-class SessionService extends BaseService<TableService, ServiceFactory<TableService>> {
+export class SessionService extends BaseService<TableService, ServiceFactory<TableService>> {
     public endpoint: Endpoint;
 
     constructor(endpoint: Endpoint) {
@@ -191,24 +193,35 @@ export class SessionPool extends EventEmitter {
     private readonly sessions: Set<Session>;
     private newSessionsRequested: number;
     private sessionsBeingDeleted: number;
-    private sessionService: SessionService;
+    private readonly sessionKeepAliveId: NodeJS.Timeout;
+    private driver: Driver;
 
-    constructor(endpoint: Endpoint, minLimit = 5, maxLimit = 20) {
+    constructor(driver: Driver, minLimit = 5, maxLimit = 20, keepAlivePeriod = SESSION_KEEPALIVE_PERIOD) {
         super();
         this.minLimit = minLimit;
         this.maxLimit = maxLimit;
         this.sessions = new Set();
         this.newSessionsRequested = 0;
         this.sessionsBeingDeleted = 0;
-        this.sessionService = new SessionService(endpoint);
+        this.driver = driver;
         this.prepopulateSessions();
-        this.initListeners();
+        this.sessionKeepAliveId = this.initListeners(keepAlivePeriod);
     }
 
-    private initListeners() {
-        this.on(SessionEvent.SESSION_BROKEN, (sessionId) => {
-            this.deleteSession(sessionId);
-        })
+    public async destroy(): Promise<void> {
+        console.log('Destroying pool...');
+        clearInterval(this.sessionKeepAliveId);
+        await Promise.all(_.map([...this.sessions], (session) => this.deleteSession(session)));
+        console.log('Pool has been destroyed.');
+    }
+
+    private initListeners(keepAlivePeriod: number) {
+        this.on(SessionEvent.SESSION_BROKEN, async (sessionId) => {
+            await this.deleteSession(sessionId);
+        });
+        return setInterval(async () => Promise.all(
+            _.map([...this.sessions], (session) => session.keepAlive())
+        ), keepAlivePeriod);
     }
 
     private prepopulateSessions() {
@@ -216,7 +229,8 @@ export class SessionPool extends EventEmitter {
     }
 
     private async createSession(): Promise<Session> {
-        const session = await this.sessionService.create();
+        const sessionCreator = await this.driver.getSessionCreator();
+        const session = await sessionCreator.create();
         this.sessions.add(session);
         return session;
     }
