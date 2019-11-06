@@ -170,16 +170,19 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             })
     }
 
-    executeQuery(preparedQuery: IQuery, params: IQueryParams = {}, txControl: IExistingTransaction | INewTransaction = AUTO_TX) {
+    executeQuery(query: IQuery | string, params: IQueryParams = {}, txControl: IExistingTransaction | INewTransaction = AUTO_TX) {
         // console.log('preparedQuery', JSON.stringify(preparedQuery, null, 2));
         // console.log('parameters', JSON.stringify(params, null, 2));
+        if (typeof query === 'string') {
+            query = {
+                yqlText: query
+            };
+        }
         const request = {
             sessionId: this.sessionId,
             txControl,
             parameters: params,
-            query: {
-                id: preparedQuery.id
-            }
+            query
         };
         return this.api.executeDataQuery(request)
             .then((response) => {
@@ -248,7 +251,7 @@ export class SessionPool extends EventEmitter {
         }
     }
 
-    acquire(timeout: number = 0): Promise<Session> {
+    private acquire(timeout: number = 0): Promise<Session> {
         for (const session of this.sessions) {
             if (session.isFree()) {
                 return Promise.resolve(session.acquire());
@@ -278,12 +281,16 @@ export class SessionPool extends EventEmitter {
         }
     }
 
-    withSession(callback: (session: Session) => void, timeout: number = 0): Promise<void> {
-        return this.acquire(timeout)
-            .then((session) => {
-                return Promise.resolve(callback(session))
-                    .then(() => session.release());
-            });
+    public async withSession(callback: (session: Session) => Promise<any>, timeout: number = 0): Promise<any> {
+        const session = await this.acquire(timeout);
+        try {
+            const result = await callback(session);
+            session.release();
+            return result;
+        } catch (error) {
+            await this.deleteSession(session);
+            // TODO: add retry machinery here
+        }
     }
 }
 

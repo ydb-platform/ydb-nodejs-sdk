@@ -17,7 +17,7 @@ class Series extends TypedData {
     @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public releaseDate: string;
 
     @declareType({typeId: Type.PrimitiveTypeId.UTF8})
@@ -45,7 +45,7 @@ class Episode extends TypedData {
     @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public airDate: string;
 
     constructor(seriesId: number, seasonId: number, episodeId: number, title: string, airDate: string) {
@@ -68,10 +68,10 @@ class Season extends TypedData {
     @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public firstAired: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public lastAired: string;
 
     constructor(seriesId: number, seasonId: number, title: string, firstAired: string, lastAired: string) {

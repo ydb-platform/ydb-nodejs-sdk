@@ -93,26 +93,26 @@ DECLARE $seriesData AS "List<Struct<
     series_id: Uint64,
     title: Utf8,
     series_info: Utf8,
-    release_date: Date>>";
+    release_date: Utf8>>";
 DECLARE $seasonsData AS "List<Struct<
     series_id: Uint64,
     season_id: Uint64,
     title: Utf8,
-    first_aired: Date,
-    last_aired: Date>>";
+    first_aired: Utf8,
+    last_aired: Utf8>>";
 DECLARE $episodesData AS "List<Struct<
     series_id: Uint64,
     season_id: Uint64,
     episode_id: Uint64,
     title: Utf8,
-    air_date: Date>>";
+    air_date: Utf8>>";
 
 REPLACE INTO series1
 SELECT
     series_id,
     title,
     series_info,
-    release_date
+    CAST(release_date as Date) as release_date 
 FROM AS_TABLE($seriesData);
 
 REPLACE INTO seasons1
@@ -120,8 +120,8 @@ SELECT
     series_id,
     season_id,
     title,
-    first_aired,
-    last_aired
+    CAST(first_aired as Date) as first_aired,
+    CAST(last_aired as Date) as last_aired
 FROM AS_TABLE($seasonsData);
 
 REPLACE INTO episodes1
@@ -130,7 +130,7 @@ SELECT
     season_id,
     episode_id,
     title,
-    air_date
+    CAST(air_date as Date) as air_date
 FROM AS_TABLE($episodesData);`;
     const preparedQuery = await session.prepareQuery(query);
     console.log('Query has been prepared, executing...');
@@ -154,9 +154,10 @@ async function run() {
             await createTables(session);
             console.log('Tables have been created, inserting data...');
             await fillTablesWithData(DB_PATH_NAME, session);
-            console.log('The data has been inserted')
+            console.log('The data has been inserted');
         } catch (err) {
-            console.error(err)
+            console.error(err);
+            throw err;
         }
     });
     await pool.destroy();
