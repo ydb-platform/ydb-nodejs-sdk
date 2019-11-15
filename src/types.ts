@@ -6,7 +6,9 @@ import Type = Ydb.Type;
 import IType = Ydb.IType;
 import IStructMember = Ydb.IStructMember;
 import IValue = Ydb.IValue;
+import IColumn = Ydb.IColumn;
 import ITypedValue = Ydb.ITypedValue;
+import IResultSet = Ydb.IResultSet;
 
 
 export const typeMetadataKey = Symbol('type');
@@ -15,32 +17,56 @@ export function declareType(type: IType) {
     return Reflect.metadata(typeMetadataKey, type);
 }
 
-const primitiveTypeToValue: Map<number, string> = new Map([
-    [Type.PrimitiveTypeId.BOOL, 'boolValue'],
-    [Type.PrimitiveTypeId.INT8, 'int32Value'],
-    [Type.PrimitiveTypeId.UINT8, 'uint32Value'],
-    [Type.PrimitiveTypeId.INT16, 'int32Value'],
-    [Type.PrimitiveTypeId.UINT16, 'uint32Value'],
-    [Type.PrimitiveTypeId.INT32, 'int32Value'],
-    [Type.PrimitiveTypeId.UINT32, 'uint32Value'],
-    [Type.PrimitiveTypeId.INT64, 'int64Value'],
-    [Type.PrimitiveTypeId.UINT64, 'uint64Value'],
-    [Type.PrimitiveTypeId.FLOAT, 'floatValue'],
-    [Type.PrimitiveTypeId.DOUBLE, 'doubleValue'],
-    [Type.PrimitiveTypeId.STRING, 'bytesValue'],
-    [Type.PrimitiveTypeId.UTF8, 'textValue'],
-    [Type.PrimitiveTypeId.YSON, 'bytesValue'],
-    [Type.PrimitiveTypeId.JSON, 'textValue'],
-    [Type.PrimitiveTypeId.UUID, 'textValue'],
+const primitiveTypeToValue: Record<number, string> = {
+    [Type.PrimitiveTypeId.BOOL]: 'boolValue',
+    [Type.PrimitiveTypeId.INT8]: 'int32Value',
+    [Type.PrimitiveTypeId.UINT8]: 'uint32Value',
+    [Type.PrimitiveTypeId.INT16]: 'int32Value',
+    [Type.PrimitiveTypeId.UINT16]: 'uint32Value',
+    [Type.PrimitiveTypeId.INT32]: 'int32Value',
+    [Type.PrimitiveTypeId.UINT32]: 'uint32Value',
+    [Type.PrimitiveTypeId.INT64]: 'int64Value',
+    [Type.PrimitiveTypeId.UINT64]: 'uint64Value',
+    [Type.PrimitiveTypeId.FLOAT]: 'floatValue',
+    [Type.PrimitiveTypeId.DOUBLE]: 'doubleValue',
+    [Type.PrimitiveTypeId.STRING]: 'bytesValue',
+    [Type.PrimitiveTypeId.UTF8]: 'textValue',
+    [Type.PrimitiveTypeId.YSON]: 'bytesValue',
+    [Type.PrimitiveTypeId.JSON]: 'textValue',
+    [Type.PrimitiveTypeId.UUID]: 'textValue',
 
-    [Type.PrimitiveTypeId.DATE, 'uint32Value'],
-    [Type.PrimitiveTypeId.DATETIME, 'uint32Value'],
-    [Type.PrimitiveTypeId.TIMESTAMP, 'uint64Value'],
-    [Type.PrimitiveTypeId.INTERVAL, 'uint64Value'],
-    [Type.PrimitiveTypeId.TZ_DATE, 'uint32Value'],
-    [Type.PrimitiveTypeId.TZ_DATETIME, 'uint32Value'],
-    [Type.PrimitiveTypeId.TZ_TIMESTAMP, 'uint64Value'],
-]);
+    [Type.PrimitiveTypeId.DATE]: 'uint32Value',
+    [Type.PrimitiveTypeId.DATETIME]: 'uint32Value',
+    [Type.PrimitiveTypeId.TIMESTAMP]: 'uint64Value',
+    [Type.PrimitiveTypeId.INTERVAL]: 'uint64Value',
+    [Type.PrimitiveTypeId.TZ_DATE]: 'uint32Value',
+    [Type.PrimitiveTypeId.TZ_DATETIME]: 'uint32Value',
+    [Type.PrimitiveTypeId.TZ_TIMESTAMP]: 'uint64Value',
+};
+
+const valueToNativeConverters: Record<string, (input: string) => any> = {
+    'boolValue': (input) => Boolean(input),
+    'int32Value': (input) => Number(input),
+    'uint32Value': (input) => Number(input),
+    'int64Value': (input) => Number(input),
+    'uint64Value': (input) => Number(input),
+    'floatValue': (input) => Number(input),
+    'doubleValue': (input) => Number(input),
+    'bytesValue': (input) => input,
+    'textValue': (input) => input,
+};
+function convertPrimitiveValueToNative(value: IValue) {
+    let label, input;
+    for ([label, input] of Object.entries(value)) {
+        if (label !== 'items' && label !== 'pairs') {
+            break;
+        }
+    }
+    if (!label) {
+        throw new Error(`Expected a primitive value, got ${value} instead!`);
+    }
+    return valueToNativeConverters[label](input);
+}
 
 function typeToValue(type: IType | null | undefined, value: any): IValue {
     if (!type) {
@@ -50,8 +76,8 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
             throw new Error('Both type and value are empty');
         }
     } else if (type.typeId) {
-        if (primitiveTypeToValue.has(type.typeId)) {
-            const valueLabel = primitiveTypeToValue.get(type.typeId) as string;
+        const valueLabel = primitiveTypeToValue[type.typeId];
+        if (valueLabel) {
             return {[valueLabel]: value};
         } else {
             throw new Error(`Unknown PrimitiveTypeId: ${type.typeId}`);
@@ -118,8 +144,23 @@ function camelToSnake(propertyName: string): string {
     return processed;
 }
 
+function snakeToCamel(propertyName?: string|null): string {
+    if (!propertyName) {
+        return '';
+    }
+    const parts = _.filter(propertyName.split('_'), Boolean);
+    return _.map(parts, (part, index) => {
+        return index > 0 ? part[0].toUpperCase() + part.slice(1) : part;
+    }).join('');
+}
+
 export class TypedData {
     [property: string]: any;
+
+    constructor(data: Record<string, any>) {
+        _.assign(this, data);
+    }
+
 
     getType(propertyKey: string): IType {
         const typeMeta = Reflect.getMetadata(typeMetadataKey, this, propertyKey);
@@ -164,6 +205,21 @@ export class TypedData {
                 return this.getValue(propertyKey, this[propertyKey])
             })
         }
+    }
+
+    static createNativeObjects(resultSet: IResultSet): TypedData[] {
+        const {rows, columns} = resultSet;
+        if (!columns) {
+            return [];
+        }
+        return _.map(rows, (row) => {
+            const obj = _.reduce(row.items, (acc: Record<string, any>, value, index) => {
+                const column = columns[index] as IColumn;
+                acc[snakeToCamel(column.name)] = convertPrimitiveValueToNative(value);
+                return acc;
+            }, {});
+            return new this(obj);
+        })
     }
 
     static asTypedCollection(collection: TypedData[]) {

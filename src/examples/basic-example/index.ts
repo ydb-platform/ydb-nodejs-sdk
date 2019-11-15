@@ -1,14 +1,13 @@
 import Driver from '../../driver';
 import {Session, SessionPool, TableDescription, Column} from "../../table";
 import {Ydb} from "../../../proto/bundle";
-import {getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
+import {Series, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
 
 
 const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
 const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
 
 async function createTables(session: Session) {
-    // await session.dropTable('series1')
     await session.createTable(
         'series1',
         new TableDescription()
@@ -141,6 +140,16 @@ FROM AS_TABLE($episodesData);`;
     });
 }
 
+async function selectSimple(tablePathPrefix: string, session: Session): Promise<void> {
+    const query = `
+PRAGMA TablePathPrefix("${tablePathPrefix}");
+SELECT series_id, title, series_info, release_date
+FROM series
+WHERE series_id = 1;`;
+    const {resultSets} = await session.executeQuery(query);
+    return Series.createNativeObjects(resultSets[0]);
+}
+
 async function run() {
     const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME);
     await driver.ready(5000);
@@ -155,6 +164,16 @@ async function run() {
             console.log('Tables have been created, inserting data...');
             await fillTablesWithData(DB_PATH_NAME, session);
             console.log('The data has been inserted');
+        } catch (err) {
+            console.error(err);
+            throw err;
+        }
+    });
+    console.log('Making a simple select...');
+    await pool.withSession(async (session) => {
+        try {
+            const result = await selectSimple(DB_PATH_NAME, session);
+            console.log('selectSimple result:', result);
         } catch (err) {
             console.error(err);
             throw err;
