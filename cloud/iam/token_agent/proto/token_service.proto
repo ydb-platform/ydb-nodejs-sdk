@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package NIam;
+
+import "google/protobuf/timestamp.proto";
+
+// The IAM token service definition.
+service TTokenService {
+    rpc GetToken(TGetTokenRequest) returns (TGetTokenReply) {}
+}
+
+// The request message (empty for now)
+message TGetTokenRequest {
+}
+
+// The response message containing the token
+message TGetTokenReply {
+    string iam_token = 1;
+    google.protobuf.Timestamp expires_at = 2;
+}

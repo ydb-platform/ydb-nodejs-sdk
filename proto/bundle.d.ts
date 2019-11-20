@@ -21154,6 +21154,460 @@ export namespace Ydb {
     }
 }
 
+/** Namespace NIam. */
+export namespace NIam {
+
+    /** Represents a TKeyService */
+    class TKeyService extends $protobuf.rpc.Service {
+
+        /**
+         * Constructs a new TKeyService service.
+         * @param rpcImpl RPC implementation
+         * @param [requestDelimited=false] Whether requests are length-delimited
+         * @param [responseDelimited=false] Whether responses are length-delimited
+         */
+        constructor(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean);
+
+        /**
+         * Creates new TKeyService service using the specified rpc implementation.
+         * @param rpcImpl RPC implementation
+         * @param [requestDelimited=false] Whether requests are length-delimited
+         * @param [responseDelimited=false] Whether responses are length-delimited
+         * @returns RPC service. Useful where requests and/or responses are streamed.
+         */
+        public static create(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean): TKeyService;
+
+        /**
+         * Calls CreateKeyPair.
+         * @param request TCreateKeyPairRequest message or plain object
+         * @param callback Node-style callback called with the error, if any, and TCreateKeyPairReply
+         */
+        public createKeyPair(request: NIam.ITCreateKeyPairRequest, callback: NIam.TKeyService.CreateKeyPairCallback): void;
+
+        /**
+         * Calls CreateKeyPair.
+         * @param request TCreateKeyPairRequest message or plain object
+         * @returns Promise
+         */
+        public createKeyPair(request: NIam.ITCreateKeyPairRequest): Promise<NIam.TCreateKeyPairReply>;
+    }
+
+    namespace TKeyService {
+
+        /**
+         * Callback as used by {@link NIam.TKeyService#createKeyPair}.
+         * @param error Error, if any
+         * @param [response] TCreateKeyPairReply
+         */
+        type CreateKeyPairCallback = (error: (Error|null), response?: NIam.TCreateKeyPairReply) => void;
+    }
+
+    /** Properties of a TCreateKeyPairRequest. */
+    interface ITCreateKeyPairRequest {
+
+        /** TCreateKeyPairRequest role */
+        role?: (string|null);
+    }
+
+    /** Represents a TCreateKeyPairRequest. */
+    class TCreateKeyPairRequest implements ITCreateKeyPairRequest {
+
+        /**
+         * Constructs a new TCreateKeyPairRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: NIam.ITCreateKeyPairRequest);
+
+        /** TCreateKeyPairRequest role. */
+        public role: string;
+
+        /**
+         * Creates a new TCreateKeyPairRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns TCreateKeyPairRequest instance
+         */
+        public static create(properties?: NIam.ITCreateKeyPairRequest): NIam.TCreateKeyPairRequest;
+
+        /**
+         * Encodes the specified TCreateKeyPairRequest message. Does not implicitly {@link NIam.TCreateKeyPairRequest.verify|verify} messages.
+         * @param message TCreateKeyPairRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: NIam.ITCreateKeyPairRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified TCreateKeyPairRequest message, length delimited. Does not implicitly {@link NIam.TCreateKeyPairRequest.verify|verify} messages.
+         * @param message TCreateKeyPairRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: NIam.ITCreateKeyPairRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a TCreateKeyPairRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns TCreateKeyPairRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): NIam.TCreateKeyPairRequest;
+
+        /**
+         * Decodes a TCreateKeyPairRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns TCreateKeyPairRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): NIam.TCreateKeyPairRequest;
+
+        /**
+         * Verifies a TCreateKeyPairRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a TCreateKeyPairRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns TCreateKeyPairRequest
+         */
+        public static fromObject(object: { [k: string]: any }): NIam.TCreateKeyPairRequest;
+
+        /**
+         * Creates a plain object from a TCreateKeyPairRequest message. Also converts values to other types if specified.
+         * @param message TCreateKeyPairRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: NIam.TCreateKeyPairRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this TCreateKeyPairRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+    }
+
+    /** Properties of a TCreateKeyPairReply. */
+    interface ITCreateKeyPairReply {
+
+        /** TCreateKeyPairReply publicKey */
+        publicKey?: (string|null);
+    }
+
+    /** Represents a TCreateKeyPairReply. */
+    class TCreateKeyPairReply implements ITCreateKeyPairReply {
+
+        /**
+         * Constructs a new TCreateKeyPairReply.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: NIam.ITCreateKeyPairReply);
+
+        /** TCreateKeyPairReply publicKey. */
+        public publicKey: string;
+
+        /**
+         * Creates a new TCreateKeyPairReply instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns TCreateKeyPairReply instance
+         */
+        public static create(properties?: NIam.ITCreateKeyPairReply): NIam.TCreateKeyPairReply;
+
+        /**
+         * Encodes the specified TCreateKeyPairReply message. Does not implicitly {@link NIam.TCreateKeyPairReply.verify|verify} messages.
+         * @param message TCreateKeyPairReply message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: NIam.ITCreateKeyPairReply, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified TCreateKeyPairReply message, length delimited. Does not implicitly {@link NIam.TCreateKeyPairReply.verify|verify} messages.
+         * @param message TCreateKeyPairReply message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: NIam.ITCreateKeyPairReply, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a TCreateKeyPairReply message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns TCreateKeyPairReply
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): NIam.TCreateKeyPairReply;
+
+        /**
+         * Decodes a TCreateKeyPairReply message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns TCreateKeyPairReply
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): NIam.TCreateKeyPairReply;
+
+        /**
+         * Verifies a TCreateKeyPairReply message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a TCreateKeyPairReply message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns TCreateKeyPairReply
+         */
+        public static fromObject(object: { [k: string]: any }): NIam.TCreateKeyPairReply;
+
+        /**
+         * Creates a plain object from a TCreateKeyPairReply message. Also converts values to other types if specified.
+         * @param message TCreateKeyPairReply
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: NIam.TCreateKeyPairReply, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this TCreateKeyPairReply to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+    }
+
+    /** Represents a TTokenService */
+    class TTokenService extends $protobuf.rpc.Service {
+
+        /**
+         * Constructs a new TTokenService service.
+         * @param rpcImpl RPC implementation
+         * @param [requestDelimited=false] Whether requests are length-delimited
+         * @param [responseDelimited=false] Whether responses are length-delimited
+         */
+        constructor(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean);
+
+        /**
+         * Creates new TTokenService service using the specified rpc implementation.
+         * @param rpcImpl RPC implementation
+         * @param [requestDelimited=false] Whether requests are length-delimited
+         * @param [responseDelimited=false] Whether responses are length-delimited
+         * @returns RPC service. Useful where requests and/or responses are streamed.
+         */
+        public static create(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean): TTokenService;
+
+        /**
+         * Calls GetToken.
+         * @param request TGetTokenRequest message or plain object
+         * @param callback Node-style callback called with the error, if any, and TGetTokenReply
+         */
+        public getToken(request: NIam.ITGetTokenRequest, callback: NIam.TTokenService.GetTokenCallback): void;
+
+        /**
+         * Calls GetToken.
+         * @param request TGetTokenRequest message or plain object
+         * @returns Promise
+         */
+        public getToken(request: NIam.ITGetTokenRequest): Promise<NIam.TGetTokenReply>;
+    }
+
+    namespace TTokenService {
+
+        /**
+         * Callback as used by {@link NIam.TTokenService#getToken}.
+         * @param error Error, if any
+         * @param [response] TGetTokenReply
+         */
+        type GetTokenCallback = (error: (Error|null), response?: NIam.TGetTokenReply) => void;
+    }
+
+    /** Properties of a TGetTokenRequest. */
+    interface ITGetTokenRequest {
+    }
+
+    /** Represents a TGetTokenRequest. */
+    class TGetTokenRequest implements ITGetTokenRequest {
+
+        /**
+         * Constructs a new TGetTokenRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: NIam.ITGetTokenRequest);
+
+        /**
+         * Creates a new TGetTokenRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns TGetTokenRequest instance
+         */
+        public static create(properties?: NIam.ITGetTokenRequest): NIam.TGetTokenRequest;
+
+        /**
+         * Encodes the specified TGetTokenRequest message. Does not implicitly {@link NIam.TGetTokenRequest.verify|verify} messages.
+         * @param message TGetTokenRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: NIam.ITGetTokenRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified TGetTokenRequest message, length delimited. Does not implicitly {@link NIam.TGetTokenRequest.verify|verify} messages.
+         * @param message TGetTokenRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: NIam.ITGetTokenRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a TGetTokenRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns TGetTokenRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): NIam.TGetTokenRequest;
+
+        /**
+         * Decodes a TGetTokenRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns TGetTokenRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): NIam.TGetTokenRequest;
+
+        /**
+         * Verifies a TGetTokenRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a TGetTokenRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns TGetTokenRequest
+         */
+        public static fromObject(object: { [k: string]: any }): NIam.TGetTokenRequest;
+
+        /**
+         * Creates a plain object from a TGetTokenRequest message. Also converts values to other types if specified.
+         * @param message TGetTokenRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: NIam.TGetTokenRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this TGetTokenRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+    }
+
+    /** Properties of a TGetTokenReply. */
+    interface ITGetTokenReply {
+
+        /** TGetTokenReply iamToken */
+        iamToken?: (string|null);
+
+        /** TGetTokenReply expiresAt */
+        expiresAt?: (google.protobuf.ITimestamp|null);
+    }
+
+    /** Represents a TGetTokenReply. */
+    class TGetTokenReply implements ITGetTokenReply {
+
+        /**
+         * Constructs a new TGetTokenReply.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: NIam.ITGetTokenReply);
+
+        /** TGetTokenReply iamToken. */
+        public iamToken: string;
+
+        /** TGetTokenReply expiresAt. */
+        public expiresAt?: (google.protobuf.ITimestamp|null);
+
+        /**
+         * Creates a new TGetTokenReply instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns TGetTokenReply instance
+         */
+        public static create(properties?: NIam.ITGetTokenReply): NIam.TGetTokenReply;
+
+        /**
+         * Encodes the specified TGetTokenReply message. Does not implicitly {@link NIam.TGetTokenReply.verify|verify} messages.
+         * @param message TGetTokenReply message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: NIam.ITGetTokenReply, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified TGetTokenReply message, length delimited. Does not implicitly {@link NIam.TGetTokenReply.verify|verify} messages.
+         * @param message TGetTokenReply message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: NIam.ITGetTokenReply, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a TGetTokenReply message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns TGetTokenReply
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): NIam.TGetTokenReply;
+
+        /**
+         * Decodes a TGetTokenReply message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns TGetTokenReply
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): NIam.TGetTokenReply;
+
+        /**
+         * Verifies a TGetTokenReply message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a TGetTokenReply message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns TGetTokenReply
+         */
+        public static fromObject(object: { [k: string]: any }): NIam.TGetTokenReply;
+
+        /**
+         * Creates a plain object from a TGetTokenReply message. Also converts values to other types if specified.
+         * @param message TGetTokenReply
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: NIam.TGetTokenReply, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this TGetTokenReply to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+    }
+}
+
 /** Namespace google. */
 export namespace google {
 
@@ -21655,6 +22109,102 @@ export namespace google {
 
             /**
              * Converts this ListValue to JSON.
+             * @returns JSON object
+             */
+            public toJSON(): { [k: string]: any };
+        }
+
+        /** Properties of a Timestamp. */
+        interface ITimestamp {
+
+            /** Timestamp seconds */
+            seconds?: (number|Long|null);
+
+            /** Timestamp nanos */
+            nanos?: (number|null);
+        }
+
+        /** Represents a Timestamp. */
+        class Timestamp implements ITimestamp {
+
+            /**
+             * Constructs a new Timestamp.
+             * @param [properties] Properties to set
+             */
+            constructor(properties?: google.protobuf.ITimestamp);
+
+            /** Timestamp seconds. */
+            public seconds: (number|Long);
+
+            /** Timestamp nanos. */
+            public nanos: number;
+
+            /**
+             * Creates a new Timestamp instance using the specified properties.
+             * @param [properties] Properties to set
+             * @returns Timestamp instance
+             */
+            public static create(properties?: google.protobuf.ITimestamp): google.protobuf.Timestamp;
+
+            /**
+             * Encodes the specified Timestamp message. Does not implicitly {@link google.protobuf.Timestamp.verify|verify} messages.
+             * @param message Timestamp message or plain object to encode
+             * @param [writer] Writer to encode to
+             * @returns Writer
+             */
+            public static encode(message: google.protobuf.ITimestamp, writer?: $protobuf.Writer): $protobuf.Writer;
+
+            /**
+             * Encodes the specified Timestamp message, length delimited. Does not implicitly {@link google.protobuf.Timestamp.verify|verify} messages.
+             * @param message Timestamp message or plain object to encode
+             * @param [writer] Writer to encode to
+             * @returns Writer
+             */
+            public static encodeDelimited(message: google.protobuf.ITimestamp, writer?: $protobuf.Writer): $protobuf.Writer;
+
+            /**
+             * Decodes a Timestamp message from the specified reader or buffer.
+             * @param reader Reader or buffer to decode from
+             * @param [length] Message length if known beforehand
+             * @returns Timestamp
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): google.protobuf.Timestamp;
+
+            /**
+             * Decodes a Timestamp message from the specified reader or buffer, length delimited.
+             * @param reader Reader or buffer to decode from
+             * @returns Timestamp
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): google.protobuf.Timestamp;
+
+            /**
+             * Verifies a Timestamp message.
+             * @param message Plain object to verify
+             * @returns `null` if valid, otherwise the reason why it is not
+             */
+            public static verify(message: { [k: string]: any }): (string|null);
+
+            /**
+             * Creates a Timestamp message from a plain object. Also converts values to their respective internal types.
+             * @param object Plain object
+             * @returns Timestamp
+             */
+            public static fromObject(object: { [k: string]: any }): google.protobuf.Timestamp;
+
+            /**
+             * Creates a plain object from a Timestamp message. Also converts values to other types if specified.
+             * @param message Timestamp
+             * @param [options] Conversion options
+             * @returns Plain object
+             */
+            public static toObject(message: google.protobuf.Timestamp, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+            /**
+             * Converts this Timestamp to JSON.
              * @returns JSON object
              */
             public toJSON(): { [k: string]: any };

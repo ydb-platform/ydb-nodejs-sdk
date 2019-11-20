@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package NIam;
+
+// The Key service definition.
+service TKeyService {
+  rpc CreateKeyPair(TCreateKeyPairRequest) returns (TCreateKeyPairReply) {}
+}
+
+// The request message (empty for now)
+message TCreateKeyPairRequest {
+  string role = 1;
+  // key algorithm
+  // output format
+}
+
+// The response message containing the public key and id
+message TCreateKeyPairReply {
+  string public_key = 1;
+}

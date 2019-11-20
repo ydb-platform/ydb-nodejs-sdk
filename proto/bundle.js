@@ -52189,6 +52189,903 @@ $root.Ydb = (function() {
     return Ydb;
 })();
 
+$root.NIam = (function() {
+
+    /**
+     * Namespace NIam.
+     * @exports NIam
+     * @namespace
+     */
+    var NIam = {};
+
+    NIam.TKeyService = (function() {
+
+        /**
+         * Constructs a new TKeyService service.
+         * @memberof NIam
+         * @classdesc Represents a TKeyService
+         * @extends $protobuf.rpc.Service
+         * @constructor
+         * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+         * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+         * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+         */
+        function TKeyService(rpcImpl, requestDelimited, responseDelimited) {
+            $protobuf.rpc.Service.call(this, rpcImpl, requestDelimited, responseDelimited);
+        }
+
+        (TKeyService.prototype = Object.create($protobuf.rpc.Service.prototype)).constructor = TKeyService;
+
+        /**
+         * Creates new TKeyService service using the specified rpc implementation.
+         * @function create
+         * @memberof NIam.TKeyService
+         * @static
+         * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+         * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+         * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+         * @returns {TKeyService} RPC service. Useful where requests and/or responses are streamed.
+         */
+        TKeyService.create = function create(rpcImpl, requestDelimited, responseDelimited) {
+            return new this(rpcImpl, requestDelimited, responseDelimited);
+        };
+
+        /**
+         * Callback as used by {@link NIam.TKeyService#createKeyPair}.
+         * @memberof NIam.TKeyService
+         * @typedef CreateKeyPairCallback
+         * @type {function}
+         * @param {Error|null} error Error, if any
+         * @param {NIam.TCreateKeyPairReply} [response] TCreateKeyPairReply
+         */
+
+        /**
+         * Calls CreateKeyPair.
+         * @function createKeyPair
+         * @memberof NIam.TKeyService
+         * @instance
+         * @param {NIam.ITCreateKeyPairRequest} request TCreateKeyPairRequest message or plain object
+         * @param {NIam.TKeyService.CreateKeyPairCallback} callback Node-style callback called with the error, if any, and TCreateKeyPairReply
+         * @returns {undefined}
+         * @variation 1
+         */
+        Object.defineProperty(TKeyService.prototype.createKeyPair = function createKeyPair(request, callback) {
+            return this.rpcCall(createKeyPair, $root.NIam.TCreateKeyPairRequest, $root.NIam.TCreateKeyPairReply, request, callback);
+        }, "name", { value: "CreateKeyPair" });
+
+        /**
+         * Calls CreateKeyPair.
+         * @function createKeyPair
+         * @memberof NIam.TKeyService
+         * @instance
+         * @param {NIam.ITCreateKeyPairRequest} request TCreateKeyPairRequest message or plain object
+         * @returns {Promise<NIam.TCreateKeyPairReply>} Promise
+         * @variation 2
+         */
+
+        return TKeyService;
+    })();
+
+    NIam.TCreateKeyPairRequest = (function() {
+
+        /**
+         * Properties of a TCreateKeyPairRequest.
+         * @memberof NIam
+         * @interface ITCreateKeyPairRequest
+         * @property {string|null} [role] TCreateKeyPairRequest role
+         */
+
+        /**
+         * Constructs a new TCreateKeyPairRequest.
+         * @memberof NIam
+         * @classdesc Represents a TCreateKeyPairRequest.
+         * @implements ITCreateKeyPairRequest
+         * @constructor
+         * @param {NIam.ITCreateKeyPairRequest=} [properties] Properties to set
+         */
+        function TCreateKeyPairRequest(properties) {
+            if (properties)
+                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * TCreateKeyPairRequest role.
+         * @member {string} role
+         * @memberof NIam.TCreateKeyPairRequest
+         * @instance
+         */
+        TCreateKeyPairRequest.prototype.role = "";
+
+        /**
+         * Creates a new TCreateKeyPairRequest instance using the specified properties.
+         * @function create
+         * @memberof NIam.TCreateKeyPairRequest
+         * @static
+         * @param {NIam.ITCreateKeyPairRequest=} [properties] Properties to set
+         * @returns {NIam.TCreateKeyPairRequest} TCreateKeyPairRequest instance
+         */
+        TCreateKeyPairRequest.create = function create(properties) {
+            return new TCreateKeyPairRequest(properties);
+        };
+
+        /**
+         * Encodes the specified TCreateKeyPairRequest message. Does not implicitly {@link NIam.TCreateKeyPairRequest.verify|verify} messages.
+         * @function encode
+         * @memberof NIam.TCreateKeyPairRequest
+         * @static
+         * @param {NIam.ITCreateKeyPairRequest} message TCreateKeyPairRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TCreateKeyPairRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.role != null && message.hasOwnProperty("role"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.role);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified TCreateKeyPairRequest message, length delimited. Does not implicitly {@link NIam.TCreateKeyPairRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof NIam.TCreateKeyPairRequest
+         * @static
+         * @param {NIam.ITCreateKeyPairRequest} message TCreateKeyPairRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TCreateKeyPairRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a TCreateKeyPairRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof NIam.TCreateKeyPairRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {NIam.TCreateKeyPairRequest} TCreateKeyPairRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TCreateKeyPairRequest.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.NIam.TCreateKeyPairRequest();
+            while (reader.pos < end) {
+                var tag = reader.uint32();
+                switch (tag >>> 3) {
+                case 1:
+                    message.role = reader.string();
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a TCreateKeyPairRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof NIam.TCreateKeyPairRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {NIam.TCreateKeyPairRequest} TCreateKeyPairRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TCreateKeyPairRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a TCreateKeyPairRequest message.
+         * @function verify
+         * @memberof NIam.TCreateKeyPairRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        TCreateKeyPairRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.role != null && message.hasOwnProperty("role"))
+                if (!$util.isString(message.role))
+                    return "role: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a TCreateKeyPairRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof NIam.TCreateKeyPairRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {NIam.TCreateKeyPairRequest} TCreateKeyPairRequest
+         */
+        TCreateKeyPairRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.NIam.TCreateKeyPairRequest)
+                return object;
+            var message = new $root.NIam.TCreateKeyPairRequest();
+            if (object.role != null)
+                message.role = String(object.role);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a TCreateKeyPairRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof NIam.TCreateKeyPairRequest
+         * @static
+         * @param {NIam.TCreateKeyPairRequest} message TCreateKeyPairRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        TCreateKeyPairRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            var object = {};
+            if (options.defaults)
+                object.role = "";
+            if (message.role != null && message.hasOwnProperty("role"))
+                object.role = message.role;
+            return object;
+        };
+
+        /**
+         * Converts this TCreateKeyPairRequest to JSON.
+         * @function toJSON
+         * @memberof NIam.TCreateKeyPairRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        TCreateKeyPairRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        return TCreateKeyPairRequest;
+    })();
+
+    NIam.TCreateKeyPairReply = (function() {
+
+        /**
+         * Properties of a TCreateKeyPairReply.
+         * @memberof NIam
+         * @interface ITCreateKeyPairReply
+         * @property {string|null} [publicKey] TCreateKeyPairReply publicKey
+         */
+
+        /**
+         * Constructs a new TCreateKeyPairReply.
+         * @memberof NIam
+         * @classdesc Represents a TCreateKeyPairReply.
+         * @implements ITCreateKeyPairReply
+         * @constructor
+         * @param {NIam.ITCreateKeyPairReply=} [properties] Properties to set
+         */
+        function TCreateKeyPairReply(properties) {
+            if (properties)
+                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * TCreateKeyPairReply publicKey.
+         * @member {string} publicKey
+         * @memberof NIam.TCreateKeyPairReply
+         * @instance
+         */
+        TCreateKeyPairReply.prototype.publicKey = "";
+
+        /**
+         * Creates a new TCreateKeyPairReply instance using the specified properties.
+         * @function create
+         * @memberof NIam.TCreateKeyPairReply
+         * @static
+         * @param {NIam.ITCreateKeyPairReply=} [properties] Properties to set
+         * @returns {NIam.TCreateKeyPairReply} TCreateKeyPairReply instance
+         */
+        TCreateKeyPairReply.create = function create(properties) {
+            return new TCreateKeyPairReply(properties);
+        };
+
+        /**
+         * Encodes the specified TCreateKeyPairReply message. Does not implicitly {@link NIam.TCreateKeyPairReply.verify|verify} messages.
+         * @function encode
+         * @memberof NIam.TCreateKeyPairReply
+         * @static
+         * @param {NIam.ITCreateKeyPairReply} message TCreateKeyPairReply message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TCreateKeyPairReply.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.publicKey != null && message.hasOwnProperty("publicKey"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.publicKey);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified TCreateKeyPairReply message, length delimited. Does not implicitly {@link NIam.TCreateKeyPairReply.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof NIam.TCreateKeyPairReply
+         * @static
+         * @param {NIam.ITCreateKeyPairReply} message TCreateKeyPairReply message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TCreateKeyPairReply.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a TCreateKeyPairReply message from the specified reader or buffer.
+         * @function decode
+         * @memberof NIam.TCreateKeyPairReply
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {NIam.TCreateKeyPairReply} TCreateKeyPairReply
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TCreateKeyPairReply.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.NIam.TCreateKeyPairReply();
+            while (reader.pos < end) {
+                var tag = reader.uint32();
+                switch (tag >>> 3) {
+                case 1:
+                    message.publicKey = reader.string();
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a TCreateKeyPairReply message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof NIam.TCreateKeyPairReply
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {NIam.TCreateKeyPairReply} TCreateKeyPairReply
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TCreateKeyPairReply.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a TCreateKeyPairReply message.
+         * @function verify
+         * @memberof NIam.TCreateKeyPairReply
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        TCreateKeyPairReply.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.publicKey != null && message.hasOwnProperty("publicKey"))
+                if (!$util.isString(message.publicKey))
+                    return "publicKey: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a TCreateKeyPairReply message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof NIam.TCreateKeyPairReply
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {NIam.TCreateKeyPairReply} TCreateKeyPairReply
+         */
+        TCreateKeyPairReply.fromObject = function fromObject(object) {
+            if (object instanceof $root.NIam.TCreateKeyPairReply)
+                return object;
+            var message = new $root.NIam.TCreateKeyPairReply();
+            if (object.publicKey != null)
+                message.publicKey = String(object.publicKey);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a TCreateKeyPairReply message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof NIam.TCreateKeyPairReply
+         * @static
+         * @param {NIam.TCreateKeyPairReply} message TCreateKeyPairReply
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        TCreateKeyPairReply.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            var object = {};
+            if (options.defaults)
+                object.publicKey = "";
+            if (message.publicKey != null && message.hasOwnProperty("publicKey"))
+                object.publicKey = message.publicKey;
+            return object;
+        };
+
+        /**
+         * Converts this TCreateKeyPairReply to JSON.
+         * @function toJSON
+         * @memberof NIam.TCreateKeyPairReply
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        TCreateKeyPairReply.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        return TCreateKeyPairReply;
+    })();
+
+    NIam.TTokenService = (function() {
+
+        /**
+         * Constructs a new TTokenService service.
+         * @memberof NIam
+         * @classdesc Represents a TTokenService
+         * @extends $protobuf.rpc.Service
+         * @constructor
+         * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+         * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+         * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+         */
+        function TTokenService(rpcImpl, requestDelimited, responseDelimited) {
+            $protobuf.rpc.Service.call(this, rpcImpl, requestDelimited, responseDelimited);
+        }
+
+        (TTokenService.prototype = Object.create($protobuf.rpc.Service.prototype)).constructor = TTokenService;
+
+        /**
+         * Creates new TTokenService service using the specified rpc implementation.
+         * @function create
+         * @memberof NIam.TTokenService
+         * @static
+         * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+         * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+         * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+         * @returns {TTokenService} RPC service. Useful where requests and/or responses are streamed.
+         */
+        TTokenService.create = function create(rpcImpl, requestDelimited, responseDelimited) {
+            return new this(rpcImpl, requestDelimited, responseDelimited);
+        };
+
+        /**
+         * Callback as used by {@link NIam.TTokenService#getToken}.
+         * @memberof NIam.TTokenService
+         * @typedef GetTokenCallback
+         * @type {function}
+         * @param {Error|null} error Error, if any
+         * @param {NIam.TGetTokenReply} [response] TGetTokenReply
+         */
+
+        /**
+         * Calls GetToken.
+         * @function getToken
+         * @memberof NIam.TTokenService
+         * @instance
+         * @param {NIam.ITGetTokenRequest} request TGetTokenRequest message or plain object
+         * @param {NIam.TTokenService.GetTokenCallback} callback Node-style callback called with the error, if any, and TGetTokenReply
+         * @returns {undefined}
+         * @variation 1
+         */
+        Object.defineProperty(TTokenService.prototype.getToken = function getToken(request, callback) {
+            return this.rpcCall(getToken, $root.NIam.TGetTokenRequest, $root.NIam.TGetTokenReply, request, callback);
+        }, "name", { value: "GetToken" });
+
+        /**
+         * Calls GetToken.
+         * @function getToken
+         * @memberof NIam.TTokenService
+         * @instance
+         * @param {NIam.ITGetTokenRequest} request TGetTokenRequest message or plain object
+         * @returns {Promise<NIam.TGetTokenReply>} Promise
+         * @variation 2
+         */
+
+        return TTokenService;
+    })();
+
+    NIam.TGetTokenRequest = (function() {
+
+        /**
+         * Properties of a TGetTokenRequest.
+         * @memberof NIam
+         * @interface ITGetTokenRequest
+         */
+
+        /**
+         * Constructs a new TGetTokenRequest.
+         * @memberof NIam
+         * @classdesc Represents a TGetTokenRequest.
+         * @implements ITGetTokenRequest
+         * @constructor
+         * @param {NIam.ITGetTokenRequest=} [properties] Properties to set
+         */
+        function TGetTokenRequest(properties) {
+            if (properties)
+                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * Creates a new TGetTokenRequest instance using the specified properties.
+         * @function create
+         * @memberof NIam.TGetTokenRequest
+         * @static
+         * @param {NIam.ITGetTokenRequest=} [properties] Properties to set
+         * @returns {NIam.TGetTokenRequest} TGetTokenRequest instance
+         */
+        TGetTokenRequest.create = function create(properties) {
+            return new TGetTokenRequest(properties);
+        };
+
+        /**
+         * Encodes the specified TGetTokenRequest message. Does not implicitly {@link NIam.TGetTokenRequest.verify|verify} messages.
+         * @function encode
+         * @memberof NIam.TGetTokenRequest
+         * @static
+         * @param {NIam.ITGetTokenRequest} message TGetTokenRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TGetTokenRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            return writer;
+        };
+
+        /**
+         * Encodes the specified TGetTokenRequest message, length delimited. Does not implicitly {@link NIam.TGetTokenRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof NIam.TGetTokenRequest
+         * @static
+         * @param {NIam.ITGetTokenRequest} message TGetTokenRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TGetTokenRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a TGetTokenRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof NIam.TGetTokenRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {NIam.TGetTokenRequest} TGetTokenRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TGetTokenRequest.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.NIam.TGetTokenRequest();
+            while (reader.pos < end) {
+                var tag = reader.uint32();
+                switch (tag >>> 3) {
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a TGetTokenRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof NIam.TGetTokenRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {NIam.TGetTokenRequest} TGetTokenRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TGetTokenRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a TGetTokenRequest message.
+         * @function verify
+         * @memberof NIam.TGetTokenRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        TGetTokenRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            return null;
+        };
+
+        /**
+         * Creates a TGetTokenRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof NIam.TGetTokenRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {NIam.TGetTokenRequest} TGetTokenRequest
+         */
+        TGetTokenRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.NIam.TGetTokenRequest)
+                return object;
+            return new $root.NIam.TGetTokenRequest();
+        };
+
+        /**
+         * Creates a plain object from a TGetTokenRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof NIam.TGetTokenRequest
+         * @static
+         * @param {NIam.TGetTokenRequest} message TGetTokenRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        TGetTokenRequest.toObject = function toObject() {
+            return {};
+        };
+
+        /**
+         * Converts this TGetTokenRequest to JSON.
+         * @function toJSON
+         * @memberof NIam.TGetTokenRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        TGetTokenRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        return TGetTokenRequest;
+    })();
+
+    NIam.TGetTokenReply = (function() {
+
+        /**
+         * Properties of a TGetTokenReply.
+         * @memberof NIam
+         * @interface ITGetTokenReply
+         * @property {string|null} [iamToken] TGetTokenReply iamToken
+         * @property {google.protobuf.ITimestamp|null} [expiresAt] TGetTokenReply expiresAt
+         */
+
+        /**
+         * Constructs a new TGetTokenReply.
+         * @memberof NIam
+         * @classdesc Represents a TGetTokenReply.
+         * @implements ITGetTokenReply
+         * @constructor
+         * @param {NIam.ITGetTokenReply=} [properties] Properties to set
+         */
+        function TGetTokenReply(properties) {
+            if (properties)
+                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * TGetTokenReply iamToken.
+         * @member {string} iamToken
+         * @memberof NIam.TGetTokenReply
+         * @instance
+         */
+        TGetTokenReply.prototype.iamToken = "";
+
+        /**
+         * TGetTokenReply expiresAt.
+         * @member {google.protobuf.ITimestamp|null|undefined} expiresAt
+         * @memberof NIam.TGetTokenReply
+         * @instance
+         */
+        TGetTokenReply.prototype.expiresAt = null;
+
+        /**
+         * Creates a new TGetTokenReply instance using the specified properties.
+         * @function create
+         * @memberof NIam.TGetTokenReply
+         * @static
+         * @param {NIam.ITGetTokenReply=} [properties] Properties to set
+         * @returns {NIam.TGetTokenReply} TGetTokenReply instance
+         */
+        TGetTokenReply.create = function create(properties) {
+            return new TGetTokenReply(properties);
+        };
+
+        /**
+         * Encodes the specified TGetTokenReply message. Does not implicitly {@link NIam.TGetTokenReply.verify|verify} messages.
+         * @function encode
+         * @memberof NIam.TGetTokenReply
+         * @static
+         * @param {NIam.ITGetTokenReply} message TGetTokenReply message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TGetTokenReply.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.iamToken != null && message.hasOwnProperty("iamToken"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.iamToken);
+            if (message.expiresAt != null && message.hasOwnProperty("expiresAt"))
+                $root.google.protobuf.Timestamp.encode(message.expiresAt, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Encodes the specified TGetTokenReply message, length delimited. Does not implicitly {@link NIam.TGetTokenReply.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof NIam.TGetTokenReply
+         * @static
+         * @param {NIam.ITGetTokenReply} message TGetTokenReply message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TGetTokenReply.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a TGetTokenReply message from the specified reader or buffer.
+         * @function decode
+         * @memberof NIam.TGetTokenReply
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {NIam.TGetTokenReply} TGetTokenReply
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TGetTokenReply.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.NIam.TGetTokenReply();
+            while (reader.pos < end) {
+                var tag = reader.uint32();
+                switch (tag >>> 3) {
+                case 1:
+                    message.iamToken = reader.string();
+                    break;
+                case 2:
+                    message.expiresAt = $root.google.protobuf.Timestamp.decode(reader, reader.uint32());
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a TGetTokenReply message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof NIam.TGetTokenReply
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {NIam.TGetTokenReply} TGetTokenReply
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TGetTokenReply.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a TGetTokenReply message.
+         * @function verify
+         * @memberof NIam.TGetTokenReply
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        TGetTokenReply.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.iamToken != null && message.hasOwnProperty("iamToken"))
+                if (!$util.isString(message.iamToken))
+                    return "iamToken: string expected";
+            if (message.expiresAt != null && message.hasOwnProperty("expiresAt")) {
+                var error = $root.google.protobuf.Timestamp.verify(message.expiresAt);
+                if (error)
+                    return "expiresAt." + error;
+            }
+            return null;
+        };
+
+        /**
+         * Creates a TGetTokenReply message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof NIam.TGetTokenReply
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {NIam.TGetTokenReply} TGetTokenReply
+         */
+        TGetTokenReply.fromObject = function fromObject(object) {
+            if (object instanceof $root.NIam.TGetTokenReply)
+                return object;
+            var message = new $root.NIam.TGetTokenReply();
+            if (object.iamToken != null)
+                message.iamToken = String(object.iamToken);
+            if (object.expiresAt != null) {
+                if (typeof object.expiresAt !== "object")
+                    throw TypeError(".NIam.TGetTokenReply.expiresAt: object expected");
+                message.expiresAt = $root.google.protobuf.Timestamp.fromObject(object.expiresAt);
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a TGetTokenReply message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof NIam.TGetTokenReply
+         * @static
+         * @param {NIam.TGetTokenReply} message TGetTokenReply
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        TGetTokenReply.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            var object = {};
+            if (options.defaults) {
+                object.iamToken = "";
+                object.expiresAt = null;
+            }
+            if (message.iamToken != null && message.hasOwnProperty("iamToken"))
+                object.iamToken = message.iamToken;
+            if (message.expiresAt != null && message.hasOwnProperty("expiresAt"))
+                object.expiresAt = $root.google.protobuf.Timestamp.toObject(message.expiresAt, options);
+            return object;
+        };
+
+        /**
+         * Converts this TGetTokenReply to JSON.
+         * @function toJSON
+         * @memberof NIam.TGetTokenReply
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        TGetTokenReply.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        return TGetTokenReply;
+    })();
+
+    return NIam;
+})();
+
 $root.google = (function() {
 
     /**
@@ -53448,6 +54345,230 @@ $root.google = (function() {
             };
 
             return ListValue;
+        })();
+
+        protobuf.Timestamp = (function() {
+
+            /**
+             * Properties of a Timestamp.
+             * @memberof google.protobuf
+             * @interface ITimestamp
+             * @property {number|Long|null} [seconds] Timestamp seconds
+             * @property {number|null} [nanos] Timestamp nanos
+             */
+
+            /**
+             * Constructs a new Timestamp.
+             * @memberof google.protobuf
+             * @classdesc Represents a Timestamp.
+             * @implements ITimestamp
+             * @constructor
+             * @param {google.protobuf.ITimestamp=} [properties] Properties to set
+             */
+            function Timestamp(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Timestamp seconds.
+             * @member {number|Long} seconds
+             * @memberof google.protobuf.Timestamp
+             * @instance
+             */
+            Timestamp.prototype.seconds = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+
+            /**
+             * Timestamp nanos.
+             * @member {number} nanos
+             * @memberof google.protobuf.Timestamp
+             * @instance
+             */
+            Timestamp.prototype.nanos = 0;
+
+            /**
+             * Creates a new Timestamp instance using the specified properties.
+             * @function create
+             * @memberof google.protobuf.Timestamp
+             * @static
+             * @param {google.protobuf.ITimestamp=} [properties] Properties to set
+             * @returns {google.protobuf.Timestamp} Timestamp instance
+             */
+            Timestamp.create = function create(properties) {
+                return new Timestamp(properties);
+            };
+
+            /**
+             * Encodes the specified Timestamp message. Does not implicitly {@link google.protobuf.Timestamp.verify|verify} messages.
+             * @function encode
+             * @memberof google.protobuf.Timestamp
+             * @static
+             * @param {google.protobuf.ITimestamp} message Timestamp message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Timestamp.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.seconds != null && message.hasOwnProperty("seconds"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int64(message.seconds);
+                if (message.nanos != null && message.hasOwnProperty("nanos"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.nanos);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified Timestamp message, length delimited. Does not implicitly {@link google.protobuf.Timestamp.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof google.protobuf.Timestamp
+             * @static
+             * @param {google.protobuf.ITimestamp} message Timestamp message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Timestamp.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a Timestamp message from the specified reader or buffer.
+             * @function decode
+             * @memberof google.protobuf.Timestamp
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {google.protobuf.Timestamp} Timestamp
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Timestamp.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.Timestamp();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.seconds = reader.int64();
+                        break;
+                    case 2:
+                        message.nanos = reader.int32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a Timestamp message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof google.protobuf.Timestamp
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {google.protobuf.Timestamp} Timestamp
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Timestamp.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a Timestamp message.
+             * @function verify
+             * @memberof google.protobuf.Timestamp
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            Timestamp.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.seconds != null && message.hasOwnProperty("seconds"))
+                    if (!$util.isInteger(message.seconds) && !(message.seconds && $util.isInteger(message.seconds.low) && $util.isInteger(message.seconds.high)))
+                        return "seconds: integer|Long expected";
+                if (message.nanos != null && message.hasOwnProperty("nanos"))
+                    if (!$util.isInteger(message.nanos))
+                        return "nanos: integer expected";
+                return null;
+            };
+
+            /**
+             * Creates a Timestamp message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof google.protobuf.Timestamp
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {google.protobuf.Timestamp} Timestamp
+             */
+            Timestamp.fromObject = function fromObject(object) {
+                if (object instanceof $root.google.protobuf.Timestamp)
+                    return object;
+                var message = new $root.google.protobuf.Timestamp();
+                if (object.seconds != null)
+                    if ($util.Long)
+                        (message.seconds = $util.Long.fromValue(object.seconds)).unsigned = false;
+                    else if (typeof object.seconds === "string")
+                        message.seconds = parseInt(object.seconds, 10);
+                    else if (typeof object.seconds === "number")
+                        message.seconds = object.seconds;
+                    else if (typeof object.seconds === "object")
+                        message.seconds = new $util.LongBits(object.seconds.low >>> 0, object.seconds.high >>> 0).toNumber();
+                if (object.nanos != null)
+                    message.nanos = object.nanos | 0;
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a Timestamp message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof google.protobuf.Timestamp
+             * @static
+             * @param {google.protobuf.Timestamp} message Timestamp
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            Timestamp.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    if ($util.Long) {
+                        var long = new $util.Long(0, 0, false);
+                        object.seconds = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                    } else
+                        object.seconds = options.longs === String ? "0" : 0;
+                    object.nanos = 0;
+                }
+                if (message.seconds != null && message.hasOwnProperty("seconds"))
+                    if (typeof message.seconds === "number")
+                        object.seconds = options.longs === String ? String(message.seconds) : message.seconds;
+                    else
+                        object.seconds = options.longs === String ? $util.Long.prototype.toString.call(message.seconds) : options.longs === Number ? new $util.LongBits(message.seconds.low >>> 0, message.seconds.high >>> 0).toNumber() : message.seconds;
+                if (message.nanos != null && message.hasOwnProperty("nanos"))
+                    object.nanos = message.nanos;
+                return object;
+            };
+
+            /**
+             * Converts this Timestamp to JSON.
+             * @function toJSON
+             * @memberof google.protobuf.Timestamp
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            Timestamp.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return Timestamp;
         })();
 
         return protobuf;
