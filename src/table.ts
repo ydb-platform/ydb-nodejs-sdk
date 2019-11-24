@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
-import {ServiceFactory, BaseService, getOperationPayload} from "./utils";
+import {BaseService, getOperationPayload} from "./utils";
 import {Endpoint} from './discovery';
 import Driver from "./driver";
 import {SESSION_KEEPALIVE_PERIOD} from "./constants";
@@ -21,7 +21,7 @@ import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
 import ITransactionMeta = Ydb.Table.ITransactionMeta;
 
 
-export class SessionService extends BaseService<TableService, ServiceFactory<TableService>> {
+export class SessionService extends BaseService<TableService> {
     public endpoint: Endpoint;
 
     constructor(endpoint: Endpoint) {

@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
-import {ServiceFactory, BaseService, getOperationPayload} from "./utils";
+import {BaseService, getOperationPayload} from "./utils";
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 
@@ -49,7 +49,7 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     }
 }
 
-export default class DiscoveryService extends BaseService<DiscoveryServiceAPI, ServiceFactory<DiscoveryServiceAPI>> {
+export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
     private readonly endpointsPromise: Promise<void>;
     private resolveEndpoints: SuccessDiscoveryHandler = noOp;
     private rejectEndpoints: FailureDiscoveryHandler = noOp;

@@ -6,14 +6,14 @@ import {Ydb} from '../proto/bundle';
 import {getCredentialsMetadata} from './credentials';
 
 
-export type ServiceFactory<T> = {
+type ServiceFactory<T> = {
     create(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean): T
 };
 
-export abstract class BaseService<Api extends $protobuf.rpc.Service, ApiCtor extends ServiceFactory<Api>> {
+export abstract class BaseService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
 
-    protected constructor(host: string, private name: string, private apiCtor: ApiCtor) {
+    protected constructor(host: string, private name: string, private apiCtor: ServiceFactory<Api>) {
         this.api = this.getClient(host);
     }
 
