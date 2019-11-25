@@ -1,9 +1,10 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
-import {BaseService, getOperationPayload} from "./utils";
+import {BaseService, getOperationPayload, ISslCredentials} from "./utils";
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
+import {IAuthService} from "./credentials";
 
 
 type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
@@ -61,8 +62,15 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
 
     // private selfLocation: string = '';
 
-    constructor(entryPoint: string, private database: string, private discoveryPeriod: number) {
-        super(entryPoint, 'Ydb.Discovery.V1.DiscoveryService', DiscoveryServiceAPI);
+    constructor(entryPoint: string, private database: string, private discoveryPeriod: number,
+                authService: IAuthService, sslCredentials?: ISslCredentials) {
+        super(
+            entryPoint,
+            'Ydb.Discovery.V1.DiscoveryService',
+            DiscoveryServiceAPI,
+            authService,
+            sslCredentials
+        );
         this.endpointsPromise = new Promise((resolve, reject) => {
             this.resolveEndpoints = (endpoints: Endpoint[]) => {
                 this.endpoints = endpoints;

@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
-import {BaseService, getOperationPayload} from "./utils";
+import {BaseService, getOperationPayload, ISslCredentials} from "./utils";
 import {Endpoint} from './discovery';
 import Driver from "./driver";
 import {SESSION_KEEPALIVE_PERIOD} from "./constants";
@@ -19,14 +19,15 @@ import ExecuteQueryResult = Ydb.Table.ExecuteQueryResult;
 import ITransactionSettings = Ydb.Table.ITransactionSettings;
 import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
 import ITransactionMeta = Ydb.Table.ITransactionMeta;
+import {IAuthService} from "./credentials";
 
 
 export class SessionService extends BaseService<TableService> {
     public endpoint: Endpoint;
 
-    constructor(endpoint: Endpoint) {
+    constructor(endpoint: Endpoint, authService: IAuthService, sslCredentials?: ISslCredentials) {
         const host = endpoint.toString();
-        super(host, 'Ydb.Table.V1.TableService', TableService);
+        super(host, 'Ydb.Table.V1.TableService', TableService, authService, sslCredentials);
         this.endpoint = endpoint;
     }
 

@@ -1,11 +1,15 @@
+import fs from 'fs';
 import Driver from '../../driver';
 import {Session, SessionPool, TableDescription, Column} from "../../table";
 import {Ydb} from "../../../proto/bundle";
 import {Series, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
+import {authService} from "../../credentials";
 
 
-const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
-const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
+// const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
+// const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
+const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
+const DB_ENTRYPOINT = 'localhost:2135';
 
 async function createTables(session: Session) {
     await session.createTable(
@@ -150,8 +154,18 @@ WHERE series_id = 1;`;
     return Series.createNativeObjects(resultSets[0]);
 }
 
+const ROOT_CERTS = fs.readFileSync('/usr/share/yandex-internal-root-ca/yacloud.pem');
+
 async function run() {
-    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME);
+    try {
+        const authMeta = await authService.getAuthMetadata();
+        console.log({authMeta});
+    } catch (e) {
+        console.error('error', e);
+        console.log(JSON.stringify(e.metadata, null, 2) )
+    }
+    return;
+    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService, {rootCertificates: ROOT_CERTS});
     await driver.ready(5000);
     const pool = new SessionPool(driver);
     await pool.withSession(async (session) => {
