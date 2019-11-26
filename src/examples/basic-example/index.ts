@@ -155,7 +155,6 @@ WHERE series_id = 1;`;
     return Series.createNativeObjects(resultSets[0]);
 }
 
-// const ROOT_CERTS = fs.readFileSync('/usr/share/yandex-internal-root-ca/yacloud.pem');
 function getCredentialsFromEnv(): IAuthService {
     if (process.env.YDB_TOKEN) {
         return new TokenAuthService(process.env.YDB_TOKEN);
@@ -184,14 +183,6 @@ function getCredentialsFromEnv(): IAuthService {
 
 async function run() {
     const authService = getCredentialsFromEnv();
-    try {
-        const authMeta = await authService.getAuthMetadata();
-        console.log({authMeta});
-    } catch (e) {
-        console.error('error', e);
-        console.log(JSON.stringify(e.metadata, null, 2) )
-    }
-    return;
     const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService);
     await driver.ready(5000);
     const pool = new SessionPool(driver);

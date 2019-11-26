@@ -2,9 +2,9 @@ import grpc from 'grpc';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
 import {GrpcService, ISslCredentials} from "./utils";
-import {NIam} from "../proto/bundle";
-import TTokenService = NIam.TTokenService;
-import ITGetTokenReply = NIam.ITGetTokenReply;
+import {yandex} from "../proto/bundle";
+import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
+import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 
 
 function makeCredentialsMetadata(token: string): grpc.Metadata {
@@ -50,7 +50,7 @@ export class TokenAuthService implements IAuthService {
     }
 }
 
-export class IamAuthService extends GrpcService<TTokenService> implements IAuthService {
+export class IamAuthService extends GrpcService<IamTokenService> implements IAuthService {
     private jwtExpirationTimeout = 3600 * 1000;
     private tokenExpirationTimeout = 120 * 1000;
     private tokenRequestTimeout = 10 * 1000;
@@ -63,8 +63,8 @@ export class IamAuthService extends GrpcService<TTokenService> implements IAuthS
     constructor(authCredentials: IAuthCredentials) {
         super(
             authCredentials.iamCredentials.iamEndpoint,
-            'NIam.TTokenService',
-            TTokenService,
+            'yandex.cloud.iam.v1.IamTokenService',
+            IamTokenService,
             authCredentials.sslCredentials
         );
         this.iamCredentials = authCredentials.iamCredentials;
@@ -95,12 +95,12 @@ export class IamAuthService extends GrpcService<TTokenService> implements IAuthS
         );
     }
 
-    private sendTokenRequest(): Promise<ITGetTokenReply> {
+    private sendTokenRequest(): Promise<ICreateIamTokenResponse> {
         const timedReject = new Promise((_, reject) => {
             setTimeout(reject, this.tokenRequestTimeout);
         });
-        const tokenPromise = this.api.getToken({jwt: this.getJwtRequest()});
-        return Promise.race([timedReject, tokenPromise]) as Promise<ITGetTokenReply>;
+        const tokenPromise = this.api.create({jwt: this.getJwtRequest()});
+        return Promise.race([timedReject, tokenPromise]) as Promise<ICreateIamTokenResponse>;
     }
 
     private async updateToken() {

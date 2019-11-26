@@ -25,7 +25,7 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
 
     protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
         const client = sslCredentials ?
-            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates)) :
+            new grpc.Client(host, grpc.credentials.createSsl()) :
             new grpc.Client(host, grpc.credentials.createInsecure());
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
