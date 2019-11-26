@@ -1,7 +1,6 @@
 import DiscoveryService, {Endpoint} from "./discovery";
 import {SessionService} from "./table";
 import {ENDPOINT_DISCOVERY_PERIOD} from "./constants";
-import {ISslCredentials} from "./utils";
 import {IAuthService} from "./credentials";
 
 
@@ -9,10 +8,9 @@ export default class Driver {
     private discoveryService: DiscoveryService;
     private sessionCreators: Map<Endpoint, SessionService>;
 
-    constructor(private entryPoint: string, private database: string,
-                private authService: IAuthService, private sslCredentials?: ISslCredentials) {
+    constructor(private entryPoint: string, private database: string, private authService: IAuthService) {
         this.discoveryService = new DiscoveryService(
-            this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService, sslCredentials
+            this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService
         );
         this.discoveryService.on('removed', (endpoint: Endpoint) => {
             this.sessionCreators.delete(endpoint);
@@ -35,7 +33,7 @@ export default class Driver {
     public async getSessionCreator(): Promise<SessionService> {
         const endpoint = await this.discoveryService.getEndpoint();
         if (!this.sessionCreators.has(endpoint)) {
-            this.sessionCreators.set(endpoint, new SessionService(endpoint, this.authService, this.sslCredentials));
+            this.sessionCreators.set(endpoint, new SessionService(endpoint, this.authService));
         }
         return this.sessionCreators.get(endpoint) as SessionService;
     }

@@ -43,11 +43,10 @@ export abstract class BaseService<Api extends $protobuf.rpc.Service> {
         host: string,
         private name: string,
         private apiCtor: ServiceFactory<Api>,
-        private authService: IAuthService,
-        sslCredentials?: ISslCredentials
+        private authService: IAuthService
     ) {
         this.api = new Proxy(
-            this.getClient(host, sslCredentials),
+            this.getClient(host, this.authService.sslCredentials),
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);

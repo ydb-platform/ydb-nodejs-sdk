@@ -3,13 +3,14 @@ import Driver from '../../driver';
 import {Session, SessionPool, TableDescription, Column} from "../../table";
 import {Ydb} from "../../../proto/bundle";
 import {Series, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
-import {authService} from "../../credentials";
+import {IAuthService, TokenAuthService, IamAuthService} from "../../credentials";
+import {ISslCredentials} from "../../utils";
 
 
 // const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
 // const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
 const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
-const DB_ENTRYPOINT = 'localhost:2135';
+const DB_ENTRYPOINT = 'lb.etn02t35ge93lvovo64l.ydb.mdb.yandexcloud.net:2135';
 
 async function createTables(session: Session) {
     await session.createTable(
@@ -154,9 +155,35 @@ WHERE series_id = 1;`;
     return Series.createNativeObjects(resultSets[0]);
 }
 
-const ROOT_CERTS = fs.readFileSync('/usr/share/yandex-internal-root-ca/yacloud.pem');
+// const ROOT_CERTS = fs.readFileSync('/usr/share/yandex-internal-root-ca/yacloud.pem');
+function getCredentialsFromEnv(): IAuthService {
+    if (process.env.YDB_TOKEN) {
+        return new TokenAuthService(process.env.YDB_TOKEN);
+    }
+
+    if (process.env.SA_ID) {
+        const privateKey = fs.readFileSync(process.env.SA_PRIVATE_KEY_FILE || '');
+        const rootCertsFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || '';
+        const sslCredentials: ISslCredentials = {};
+        if (rootCertsFile) {
+            sslCredentials.rootCertificates = fs.readFileSync(rootCertsFile);
+        }
+        return new IamAuthService({
+            sslCredentials,
+            iamCredentials: {
+                iamEndpoint: process.env.SA_ENDPOINT || 'iam.api.cloud.yandex.net:443',
+                serviceAccountId: process.env.SA_ID,
+                accessKeyId: process.env.SA_ACCESS_KEY_ID || '',
+                privateKey
+            }
+        });
+    }
+
+    throw new Error('Either YDB_TOKEN or SA_ID environment variable should be set!');
+}
 
 async function run() {
+    const authService = getCredentialsFromEnv();
     try {
         const authMeta = await authService.getAuthMetadata();
         console.log({authMeta});
@@ -165,7 +192,7 @@ async function run() {
         console.log(JSON.stringify(e.metadata, null, 2) )
     }
     return;
-    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService, {rootCertificates: ROOT_CERTS});
+    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService);
     await driver.ready(5000);
     const pool = new SessionPool(driver);
     await pool.withSession(async (session) => {

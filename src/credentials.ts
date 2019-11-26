@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import grpc from 'grpc';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
@@ -9,18 +7,7 @@ import TTokenService = NIam.TTokenService;
 import ITGetTokenReply = NIam.ITGetTokenReply;
 
 
-function readToken(pathname: string) {
-    if (fs.existsSync(pathname)) {
-        const token = fs.readFileSync(pathname);
-        return String(token).trim();
-    } else {
-        return '';
-    }
-}
-
-const OAUTH_TOKEN = readToken(path.resolve(__dirname, '../secrets/oauth.token'));
-
-function getCredentialsMetadata(token = OAUTH_TOKEN): grpc.Metadata {
+function makeCredentialsMetadata(token: string): grpc.Metadata {
     const metadata = new grpc.Metadata();
     metadata.add('x-ydb-auth-ticket', token);
     return metadata;
@@ -33,7 +20,7 @@ interface IIAmCredentials {
     iamEndpoint: string
 }
 
-interface IAuthCredentials {
+export interface IAuthCredentials {
     sslCredentials: ISslCredentials,
     iamCredentials: IIAmCredentials
 }
@@ -51,23 +38,27 @@ interface IAuthCredentials {
 // )
 
 export interface IAuthService {
-    getAuthMetadata: () => Promise<grpc.Metadata>
+    getAuthMetadata: () => Promise<grpc.Metadata>,
+    sslCredentials?: ISslCredentials
 }
 
-export class OauthAuthService implements IAuthService {
+export class TokenAuthService implements IAuthService {
+    constructor(private token: string) {}
+
     public async getAuthMetadata(): Promise<grpc.Metadata> {
-        return getCredentialsMetadata();
+        return makeCredentialsMetadata(this.token);
     }
 }
 
-class IAmAuthService extends GrpcService<TTokenService> implements IAuthService {
+export class IamAuthService extends GrpcService<TTokenService> implements IAuthService {
     private jwtExpirationTimeout = 3600 * 1000;
     private tokenExpirationTimeout = 120 * 1000;
     private tokenRequestTimeout = 10 * 1000;
-    private token: string|null|undefined;
+    private token: string = '';
     private tokenTimestamp: DateTime|null;
-
     private readonly iamCredentials: IIAmCredentials;
+
+    public readonly sslCredentials: ISslCredentials;
 
     constructor(authCredentials: IAuthCredentials) {
         super(
@@ -77,8 +68,9 @@ class IAmAuthService extends GrpcService<TTokenService> implements IAuthService 
             authCredentials.sslCredentials
         );
         this.iamCredentials = authCredentials.iamCredentials;
-        this.token = null;
         this.tokenTimestamp = null;
+
+        this.sslCredentials = authCredentials.sslCredentials;
     }
 
     getJwtRequest() {
@@ -113,29 +105,18 @@ class IAmAuthService extends GrpcService<TTokenService> implements IAuthService 
 
     private async updateToken() {
         const {iamToken} = await this.sendTokenRequest();
-        this.token = iamToken;
-        this.tokenTimestamp = DateTime.utc();
+        if (iamToken) {
+            this.token = iamToken;
+            this.tokenTimestamp = DateTime.utc();
+        } else {
+            throw new Error('Received empty token from IAM!');
+        }
     }
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         if (this.expired) {
             await this.updateToken();
         }
-        return getCredentialsMetadata(this.token as string);
+        return makeCredentialsMetadata(this.token);
     }
 }
-
-const ROOT_CERTS = fs.readFileSync('/usr/share/yandex-internal-root-ca/yacloud.pem');
-const IAM_ENDPOINT = 'iam.api.cloud.yandex.net:443';
-
-export const authService = new IAmAuthService({
-    sslCredentials: {
-        rootCertificates: ROOT_CERTS
-    },
-    iamCredentials: {
-        iamEndpoint: IAM_ENDPOINT,
-        serviceAccountId: 'ajejpgcj4cr6f2a6be9u',
-        accessKeyId: 'aje2krmo97mhinhb7r44',
-        privateKey: fs.readFileSync(path.resolve(__dirname, '../secrets/auth_hidden_key'))
-    }
-});
