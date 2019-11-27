@@ -39,6 +39,14 @@ export abstract class BaseService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
     private metadata: Metadata | null = null;
 
+    static isServiceAsyncMethod(target: object, prop: string|number|symbol, receiver: any) {
+        return (
+            Reflect.has(target, prop) &&
+            typeof Reflect.get(target, prop, receiver) === 'function' &&
+            prop !== 'create'
+        );
+    }
+
     protected constructor(
         host: string,
         private name: string,
@@ -53,19 +61,11 @@ export abstract class BaseService<Api extends $protobuf.rpc.Service> {
                     return BaseService.isServiceAsyncMethod(target, prop, receiver) ?
                         async (...args: any[]) => {
                             this.metadata = await this.authService.getAuthMetadata();
-                            return property(...args);
+                            return property.call(target, ...args);
                         } :
                         property;
                 }
             }
-        );
-    }
-
-    static isServiceAsyncMethod(target: object, prop: string|number|symbol, receiver: any) {
-        return (
-            Reflect.has(target, prop) &&
-            typeof Reflect.get(target, prop, receiver) === 'function' &&
-            prop !== 'create'
         );
     }
 

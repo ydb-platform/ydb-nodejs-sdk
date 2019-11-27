@@ -183,6 +183,7 @@ function getCredentialsFromEnv(): IAuthService {
 
 async function run() {
     const authService = getCredentialsFromEnv();
+    console.log('Driver initializing...');
     const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService);
     await driver.ready(5000);
     const pool = new SessionPool(driver);
@@ -215,5 +216,12 @@ async function run() {
     await driver.destroy();
 }
 
-run();
+async function main() {
+    try {
+        await run();
+    } catch (error) {
+        console.error(error);
+    }
+}
 
+main();
