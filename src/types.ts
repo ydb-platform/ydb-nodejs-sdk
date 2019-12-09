@@ -127,33 +127,6 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
     }
 }
 
-function camelToSnake(propertyName: string): string {
-    const reBoundary = /^([a-z]+)([A-Z])(.*)$/;
-    let processed = '';
-    let unProcessed = propertyName;
-    while (unProcessed > '') {
-        const match = reBoundary.exec(unProcessed);
-        if (match) {
-            processed += match[1] + '_' + match[2].toLowerCase();
-            unProcessed = match[3];
-        } else {
-            processed += unProcessed;
-            unProcessed = '';
-        }
-    }
-    return processed;
-}
-
-function snakeToCamel(propertyName?: string|null): string {
-    if (!propertyName) {
-        return '';
-    }
-    const parts = _.filter(propertyName.split('_'), Boolean);
-    return _.map(parts, (part, index) => {
-        return index > 0 ? part[0].toUpperCase() + part.slice(1) : part;
-    }).join('');
-}
-
 export class TypedData {
     [property: string]: any;
 
@@ -192,7 +165,7 @@ export class TypedData {
         return {
             structType: {
                 members: _.map(this.typedProperties, (propertyKey) => ({
-                    name: camelToSnake(propertyKey),
+                    name: _.snakeCase(propertyKey),
                     type: this.getType(propertyKey)
                 }))
             }
@@ -215,7 +188,9 @@ export class TypedData {
         return _.map(rows, (row) => {
             const obj = _.reduce(row.items, (acc: Record<string, any>, value, index) => {
                 const column = columns[index] as IColumn;
-                acc[snakeToCamel(column.name)] = convertPrimitiveValueToNative(value);
+                if (column.name) {
+                    acc[_.camelCase(column.name)] = convertPrimitiveValueToNative(value);
+                }
                 return acc;
             }, {});
             return new this(obj);
