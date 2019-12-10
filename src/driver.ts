@@ -3,6 +3,7 @@ import DiscoveryService, {Endpoint} from "./discovery";
 import {SessionService} from "./table";
 import {ENDPOINT_DISCOVERY_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
+import {TimeoutExpired} from "./utils";
 
 
 export default class Driver {
@@ -24,8 +25,12 @@ export default class Driver {
             await this.discoveryService.ready(timeout);
             this.logger.debug('Driver is ready!');
             return true;
-        } catch {
-            return false;
+        } catch (e) {
+            if (e instanceof TimeoutExpired) {
+                return false;
+            } else {
+                throw e;
+            }
         }
     }
 

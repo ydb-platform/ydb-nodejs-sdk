@@ -89,6 +89,7 @@ interface AsyncResponse {
 class MissingOperation extends Error {}
 class MissingValue extends Error {}
 class MissingStatus extends Error {}
+export class TimeoutExpired extends Error {}
 
 class OperationError extends Error {
     constructor(message: string, public code: StatusCode) {
