@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import {Logger} from 'pino';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
 import {BaseService, getOperationPayload} from "./utils";
@@ -24,18 +25,20 @@ import {IAuthService} from "./credentials";
 
 export class SessionService extends BaseService<TableService> {
     public endpoint: Endpoint;
+    private readonly logger: Logger;
 
-    constructor(endpoint: Endpoint, authService: IAuthService) {
+    constructor(endpoint: Endpoint, authService: IAuthService, logger: Logger) {
         const host = endpoint.toString();
         super(host, 'Ydb.Table.V1.TableService', TableService, authService);
         this.endpoint = endpoint;
+        this.logger = logger;
     }
 
     async create(): Promise<Session> {
         const response = await this.api.createSession(CreateSessionRequest.create());
         const payload = getOperationPayload(response);
         const {sessionId} = CreateSessionResult.decode(payload);
-        return new Session(this.api, this.endpoint, sessionId);
+        return new Session(this.api, this.endpoint, sessionId, this.logger);
     }
 }
 
@@ -68,18 +71,18 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
     private free = true;
 
-    constructor(private api: TableService, private endpoint: Endpoint, public sessionId: string) {
+    constructor(private api: TableService, private endpoint: Endpoint, public sessionId: string, private logger: Logger) {
         super();
     }
 
     acquire() {
         this.free = false;
-        console.log(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
+        this.logger.debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         return this;
     }
     release() {
         this.free = true;
-        console.log(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
+        this.logger.debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         this.emit(SessionEvent.SESSION_RELEASE, this);
     }
 
@@ -171,9 +174,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             })
     }
 
-    executeQuery(query: IQuery | string, params: IQueryParams = {}, txControl: IExistingTransaction | INewTransaction = AUTO_TX) {
-        // console.log('preparedQuery', JSON.stringify(preparedQuery, null, 2));
-        // console.log('parameters', JSON.stringify(params, null, 2));
+    async executeQuery(
+        query: IQuery | string,
+        params: IQueryParams = {},
+        txControl: IExistingTransaction | INewTransaction = AUTO_TX
+    ): Promise<ExecuteQueryResult> {
+        this.logger.trace('preparedQuery', JSON.stringify(query, null, 2));
+        this.logger.trace('parameters', JSON.stringify(params, null, 2));
         if (typeof query === 'string') {
             query = {
                 yqlText: query
@@ -185,11 +192,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             parameters: params,
             query
         };
-        return this.api.executeDataQuery(request)
-            .then((response) => {
-                const payload = getOperationPayload(response);
-                return ExecuteQueryResult.decode(payload);
-            })
+        const response = await this.api.executeDataQuery(request);
+        const payload = getOperationPayload(response);
+        return ExecuteQueryResult.decode(payload);
     }
 }
 
@@ -200,25 +205,27 @@ export class SessionPool extends EventEmitter {
     private newSessionsRequested: number;
     private sessionsBeingDeleted: number;
     private readonly sessionKeepAliveId: NodeJS.Timeout;
-    private driver: Driver;
 
-    constructor(driver: Driver, minLimit = 5, maxLimit = 20, keepAlivePeriod = SESSION_KEEPALIVE_PERIOD) {
+    constructor(private driver: Driver, minLimit = 5, maxLimit = 20, keepAlivePeriod = SESSION_KEEPALIVE_PERIOD) {
         super();
         this.minLimit = minLimit;
         this.maxLimit = maxLimit;
         this.sessions = new Set();
         this.newSessionsRequested = 0;
         this.sessionsBeingDeleted = 0;
-        this.driver = driver;
         this.prepopulateSessions();
         this.sessionKeepAliveId = this.initListeners(keepAlivePeriod);
     }
 
+    get logger() {
+        return this.driver.logger;
+    }
+
     public async destroy(): Promise<void> {
-        console.log('Destroying pool...');
+        this.logger.debug('Destroying pool...');
         clearInterval(this.sessionKeepAliveId);
         await Promise.all(_.map([...this.sessions], (session) => this.deleteSession(session)));
-        console.log('Pool has been destroyed.');
+        this.logger.debug('Pool has been destroyed.');
     }
 
     private initListeners(keepAlivePeriod: number) {

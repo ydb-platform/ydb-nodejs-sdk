@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import {Logger} from 'pino';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
 import {BaseService, getOperationPayload} from "./utils";
@@ -62,7 +63,7 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
 
     // private selfLocation: string = '';
 
-    constructor(entryPoint: string, private database: string, private discoveryPeriod: number, authService: IAuthService) {
+    constructor(entryPoint: string, private database: string, private discoveryPeriod: number, authService: IAuthService, private logger: Logger) {
         super(
             entryPoint,
             'Ydb.Discovery.V1.DiscoveryService',
@@ -94,7 +95,7 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
                 const endpoints = await this.discoverEndpoints(this.database);
                 this.updateEndpoints(endpoints);
             } catch (error) {
-                console.error(error);
+                this.logger.error(error);
             }
         }, this.discoveryPeriod);
     }

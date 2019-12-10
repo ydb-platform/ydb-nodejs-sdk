@@ -1,4 +1,6 @@
 import fs from 'fs';
+import pino, {Logger} from 'pino';
+
 import Driver from '../../driver';
 import {Session, SessionPool, TableDescription, Column} from "../../table";
 import {Ydb} from "../../../proto/bundle";
@@ -88,8 +90,8 @@ async function createTables(session: Session) {
     );
 }
 
-async function fillTablesWithData(tablePathPrefix: string, session: Session) {
-    console.log('Preparing query...');
+async function fillTablesWithData(tablePathPrefix: string, session: Session, logger: Logger) {
+    logger.info('Preparing query...');
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 
@@ -137,7 +139,7 @@ SELECT
     CAST(air_date as Date) as air_date
 FROM AS_TABLE($episodesData);`;
     const preparedQuery = await session.prepareQuery(query);
-    console.log('Query has been prepared, executing...');
+    logger.info('Query has been prepared, executing...');
     await session.executeQuery({id: preparedQuery.queryId}, {
         '$seriesData': getSeriesData(),
         '$seasonsData': getSeasonsData(),
@@ -181,10 +183,10 @@ function getCredentialsFromEnv(): IAuthService {
     throw new Error('Either YDB_TOKEN or SA_ID environment variable should be set!');
 }
 
-async function run() {
+async function run(logger: Logger) {
     const authService = getCredentialsFromEnv();
-    console.log('Driver initializing...');
-    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService);
+    logger.info('Driver initializing...');
+    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService, logger);
     await driver.ready(5000);
     const pool = new SessionPool(driver);
     await pool.withSession(async (session) => {
@@ -192,23 +194,23 @@ async function run() {
             await session.dropTable('series1');
             await session.dropTable('episodes1');
             await session.dropTable('seasons1');
-            console.log('Creating tables...');
+            logger.info('Creating tables...');
             await createTables(session);
-            console.log('Tables have been created, inserting data...');
-            await fillTablesWithData(DB_PATH_NAME, session);
-            console.log('The data has been inserted');
+            logger.info('Tables have been created, inserting data...');
+            await fillTablesWithData(DB_PATH_NAME, session, logger);
+            logger.info('The data has been inserted');
         } catch (err) {
-            console.error(err);
+            logger.error(err);
             throw err;
         }
     });
-    console.log('Making a simple select...');
+    logger.info('Making a simple select...');
     await pool.withSession(async (session) => {
         try {
             const result = await selectSimple(DB_PATH_NAME, session);
-            console.log('selectSimple result:', result);
+            logger.info('selectSimple result:', result);
         } catch (err) {
-            console.error(err);
+            logger.error(err);
             throw err;
         }
     });
@@ -217,10 +219,11 @@ async function run() {
 }
 
 async function main() {
+    const logger = pino({level: 'debug'});
     try {
-        await run();
+        await run(logger);
     } catch (error) {
-        console.error(error);
+        logger.error(error);
     }
 }
 
