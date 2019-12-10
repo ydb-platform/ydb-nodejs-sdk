@@ -33,6 +33,6 @@
     "@types/luxon": "^1.21.0",
     "@types/pino": "^5.14.0",
     "pino-pretty": "^3.5.0",
-    "typescript": "^3.6.4"
+    "typescript": "^3.7.0"
   }
 }
