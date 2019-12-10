@@ -9,10 +9,10 @@ import {IAuthService, TokenAuthService, IamAuthService} from "../../credentials"
 import {ISslCredentials} from "../../utils";
 
 
-const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
-const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
-// const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
-// const DB_ENTRYPOINT = 'lb.etn02t35ge93lvovo64l.ydb.mdb.yandexcloud.net:2135';
+// const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
+// const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
+const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
+const DB_ENTRYPOINT = 'lb.etn02t35ge93lvovo64l.ydb.mdb.yandexcloud.net:2135';
 
 const SERIES_TABLE = 'series';
 const SEASONS_TABLE = 'seasons';
@@ -192,7 +192,11 @@ async function run(logger: Logger) {
     const authService = getCredentialsFromEnv();
     logger.info('Driver initializing...');
     const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService, logger);
-    await driver.ready(5000);
+    const timeout = 10000;
+    if (!await driver.ready(timeout)) {
+        logger.fatal(`Driver has not become ready in ${timeout}ms!`);
+        process.exit(1);
+    }
     const pool = new SessionPool(driver);
     await pool.withSession(async (session) => {
         try {

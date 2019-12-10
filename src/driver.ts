@@ -20,9 +20,13 @@ export default class Driver {
     }
 
     public async ready(timeout: number): Promise<boolean> {
-        await this.discoveryService.ready(timeout);
-        this.logger.debug('Driver is ready!');
-        return true;
+        try {
+            await this.discoveryService.ready(timeout);
+            this.logger.debug('Driver is ready!');
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     public destroy(): void {
