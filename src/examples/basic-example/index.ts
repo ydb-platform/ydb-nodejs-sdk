@@ -9,14 +9,18 @@ import {IAuthService, TokenAuthService, IamAuthService} from "../../credentials"
 import {ISslCredentials} from "../../utils";
 
 
-// const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
-// const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
-const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
-const DB_ENTRYPOINT = 'lb.etn02t35ge93lvovo64l.ydb.mdb.yandexcloud.net:2135';
+const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
+const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
+// const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
+// const DB_ENTRYPOINT = 'lb.etn02t35ge93lvovo64l.ydb.mdb.yandexcloud.net:2135';
+
+const SERIES_TABLE = 'series';
+const SEASONS_TABLE = 'seasons';
+const EPISODES_TABLE = 'episodes';
 
 async function createTables(session: Session) {
     await session.createTable(
-        'series1',
+        SERIES_TABLE,
         new TableDescription()
             .withColumn(new Column(
                 'series_id',
@@ -38,7 +42,7 @@ async function createTables(session: Session) {
     );
 
     await session.createTable(
-        'seasons1',
+        SEASONS_TABLE,
         new TableDescription()
             .withColumn(new Column(
                 'series_id',
@@ -64,7 +68,7 @@ async function createTables(session: Session) {
     );
 
     await session.createTable(
-        'episodes1',
+        EPISODES_TABLE,
         new TableDescription()
             .withColumn(new Column(
                 'series_id',
@@ -113,7 +117,7 @@ DECLARE $episodesData AS "List<Struct<
     title: Utf8,
     air_date: Utf8>>";
 
-REPLACE INTO series1
+REPLACE INTO ${SERIES_TABLE}
 SELECT
     series_id,
     title,
@@ -121,7 +125,7 @@ SELECT
     CAST(release_date as Date) as release_date 
 FROM AS_TABLE($seriesData);
 
-REPLACE INTO seasons1
+REPLACE INTO ${SEASONS_TABLE}
 SELECT
     series_id,
     season_id,
@@ -130,7 +134,7 @@ SELECT
     CAST(last_aired as Date) as last_aired
 FROM AS_TABLE($seasonsData);
 
-REPLACE INTO episodes1
+REPLACE INTO ${EPISODES_TABLE}
 SELECT
     series_id,
     season_id,
@@ -151,7 +155,7 @@ async function selectSimple(tablePathPrefix: string, session: Session): Promise<
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 SELECT series_id, title, series_info, release_date
-FROM series
+FROM ${SERIES_TABLE}
 WHERE series_id = 1;`;
     const {resultSets} = await session.executeQuery(query);
     return Series.createNativeObjects(resultSets[0]);
@@ -159,7 +163,8 @@ WHERE series_id = 1;`;
 
 function getCredentialsFromEnv(): IAuthService {
     if (process.env.YDB_TOKEN) {
-        return new TokenAuthService(process.env.YDB_TOKEN);
+        const token = fs.readFileSync(process.env.YDB_TOKEN).toString().trim();
+        return new TokenAuthService(token);
     }
 
     if (process.env.SA_ID) {
@@ -191,9 +196,9 @@ async function run(logger: Logger) {
     const pool = new SessionPool(driver);
     await pool.withSession(async (session) => {
         try {
-            await session.dropTable('series1');
-            await session.dropTable('episodes1');
-            await session.dropTable('seasons1');
+            await session.dropTable(SERIES_TABLE);
+            await session.dropTable(EPISODES_TABLE);
+            await session.dropTable(SEASONS_TABLE);
             logger.info('Creating tables...');
             await createTables(session);
             logger.info('Tables have been created, inserting data...');
