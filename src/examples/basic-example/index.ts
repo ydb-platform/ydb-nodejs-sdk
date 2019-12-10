@@ -199,29 +199,20 @@ async function run(logger: Logger) {
     }
     const pool = new SessionPool(driver);
     await pool.withSession(async (session) => {
-        try {
-            await session.dropTable(SERIES_TABLE);
-            await session.dropTable(EPISODES_TABLE);
-            await session.dropTable(SEASONS_TABLE);
-            logger.info('Creating tables...');
-            await createTables(session);
-            logger.info('Tables have been created, inserting data...');
-            await fillTablesWithData(DB_PATH_NAME, session, logger);
-            logger.info('The data has been inserted');
-        } catch (err) {
-            logger.error(err);
-            throw err;
-        }
+        logger.info('Dropping old tables...');
+        await session.dropTable(SERIES_TABLE);
+        await session.dropTable(EPISODES_TABLE);
+        await session.dropTable(SEASONS_TABLE);
+        logger.info('Creating tables...');
+        await createTables(session);
+        logger.info('Tables have been created, inserting data...');
+        await fillTablesWithData(DB_PATH_NAME, session, logger);
+        logger.info('The data has been inserted');
     });
     logger.info('Making a simple select...');
     await pool.withSession(async (session) => {
-        try {
-            const result = await selectSimple(DB_PATH_NAME, session);
-            logger.info('selectSimple result:', result);
-        } catch (err) {
-            logger.error(err);
-            throw err;
-        }
+        const result = await selectSimple(DB_PATH_NAME, session);
+        logger.info('selectSimple result:', result);
     });
     await pool.destroy();
     await driver.destroy();

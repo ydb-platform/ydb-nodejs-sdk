@@ -4,6 +4,7 @@ import _ from 'lodash';
 import {Ydb} from '../proto/bundle';
 
 import {IAuthService} from './credentials';
+import StatusCode = Ydb.StatusIds.StatusCode;
 
 
 type ServiceFactory<T> = {
@@ -85,19 +86,51 @@ interface AsyncResponse {
     operation?: Ydb.Operations.IOperation | null
 }
 
+class MissingOperation extends Error {}
+class MissingValue extends Error {}
+class MissingStatus extends Error {}
+
+class OperationError extends Error {
+    constructor(message: string, public code: StatusCode) {
+        super(message);
+    }
+}
+
 export function getOperationPayload(response: AsyncResponse): Uint8Array {
-    if (response.operation) {
-        if (response.operation.status === Ydb.StatusIds.StatusCode.SUCCESS) {
-            if (response.operation.result) {
-                return response.operation.result.value as Uint8Array;
+    const {operation} = response;
+
+    if (operation) {
+        const {status} = operation;
+
+        if (!status) {
+            throw new MissingStatus('No operation status!');
+        } else if (status === Ydb.StatusIds.StatusCode.SUCCESS) {
+            if (operation.result) {
+                return operation.result.value as Uint8Array;
             } else {
-                throw new Error('Missing operation result value!');
+                throw new MissingValue('Missing operation result value!');
             }
         } else {
-            const issues = JSON.stringify(response.operation.issues, null, 2);
-            throw new Error(`Operation failed with issues ${issues}`);
+            const issues = JSON.stringify(operation.issues, null, 2);
+            throw new OperationError(`Operation failed with issues ${issues}`, status);
         }
     } else {
-        throw new Error('No operation in response!');
+        throw new MissingOperation('No operation in response!');
+    }
+}
+
+export function ensureOperationSucceeded(response: AsyncResponse, suppressedErrors: StatusCode[] = []): void {
+    try {
+        getOperationPayload(response);
+    } catch (e) {
+        if (e instanceof OperationError) {
+            if (suppressedErrors.indexOf(e.code) > -1) {
+                return;
+            }
+        }
+
+        if (!(e instanceof MissingValue)) {
+            throw e;
+        }
     }
 }

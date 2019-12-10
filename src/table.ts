@@ -2,16 +2,15 @@ import _ from 'lodash';
 import {Logger} from 'pino';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
-import {BaseService, getOperationPayload} from "./utils";
+import {BaseService, ensureOperationSucceeded, getOperationPayload} from "./utils";
 import {Endpoint} from './discovery';
 import Driver from "./driver";
 import {SESSION_KEEPALIVE_PERIOD} from "./constants";
-
+import {IAuthService} from "./credentials";
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 import CreateSessionResult = Ydb.Table.CreateSessionResult;
-import DeleteSessionResponse = Ydb.Table.DeleteSessionResponse;
 import IQuery = Ydb.Table.IQuery;
 import IType = Ydb.IType;
 import DescribeTableResult = Ydb.Table.DescribeTableResult;
@@ -20,7 +19,7 @@ import ExecuteQueryResult = Ydb.Table.ExecuteQueryResult;
 import ITransactionSettings = Ydb.Table.ITransactionSettings;
 import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
 import ITransactionMeta = Ydb.Table.ITransactionMeta;
-import {IAuthService} from "./credentials";
+import StatusCode = Ydb.StatusIds.StatusCode;
 
 
 export class SessionService extends BaseService<TableService> {
@@ -93,47 +92,48 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         return this.beingDeleted;
     }
 
-    public async delete(): Promise<DeleteSessionResponse|null> {
+    public async delete(): Promise<void> {
         if (this.isDeleted()) {
-            return Promise.resolve(null);
+            return Promise.resolve();
         }
         this.beingDeleted = true;
-        return this.api.deleteSession({sessionId: this.sessionId});
+        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
     }
 
-    public keepAlive() {
-        return this.api.keepAlive({sessionId: this.sessionId});
+    public async keepAlive(): Promise<void> {
+        ensureOperationSucceeded(await this.api.keepAlive({sessionId: this.sessionId}));
     }
 
-    createTable(tablePath: string, description: TableDescription) {
-        return this.api.createTable({
+    public async createTable(tablePath: string, description: TableDescription): Promise<void> {
+        const request = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
             columns: description.columns,
             primaryKey: description.primaryKeys
-        });
+        };
+        ensureOperationSucceeded(await this.api.createTable(request));
     }
 
-    dropTable(tablePath: string) {
-        return this.api.dropTable({
-            sessionId: this.sessionId,
-            path: `${this.endpoint.database}/${tablePath}`
-        });
-    }
-
-    describeTable(tablePath: string) {
+    public async dropTable(tablePath: string): Promise<void> {
         const request = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`
         };
-        return this.api.describeTable(request)
-            .then((response) => {
-                const payload = getOperationPayload(response);
-                return DescribeTableResult.decode(payload);
-            })
+        // suppress error when dropping non-existent table
+        ensureOperationSucceeded(await this.api.dropTable(request), [StatusCode.SCHEME_ERROR]);
     }
 
-    async beginTransaction(txSettings: ITransactionSettings): Promise<ITransactionMeta> {
+    public async describeTable(tablePath: string): Promise<DescribeTableResult> {
+        const request = {
+            sessionId: this.sessionId,
+            path: `${this.endpoint.database}/${tablePath}`
+        };
+        const response = await this.api.describeTable(request);
+        const payload = getOperationPayload(response);
+        return DescribeTableResult.decode(payload);
+    }
+
+    public async beginTransaction(txSettings: ITransactionSettings): Promise<ITransactionMeta> {
         const response = await this.api.beginTransaction({
             sessionId: this.sessionId,
             txSettings
@@ -146,32 +146,30 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         throw new Error('Could not begin new transaction, txMeta is empty!');
     }
 
-    async commitTransaction(txControl: IExistingTransaction): Promise<Uint8Array> {
-        const response = await this.api.commitTransaction({
+    public async commitTransaction(txControl: IExistingTransaction): Promise<void> {
+        const request = {
             sessionId: this.sessionId,
             txId: txControl.txId
-        });
-        return getOperationPayload(response);
+        };
+        ensureOperationSucceeded(await this.api.commitTransaction(request));
     }
 
-    async rollbackTransaction(txControl: IExistingTransaction): Promise<Uint8Array> {
-        const response = await this.api.rollbackTransaction({
+    public async rollbackTransaction(txControl: IExistingTransaction): Promise<void> {
+        const request = {
             sessionId: this.sessionId,
             txId: txControl.txId
-        });
-        return getOperationPayload(response);
+        };
+        ensureOperationSucceeded(await this.api.rollbackTransaction(request));
     }
 
-    prepareQuery(queryText: string): Promise<PrepareQueryResult> {
+    public async prepareQuery(queryText: string): Promise<PrepareQueryResult> {
         const request = {
             sessionId: this.sessionId,
             yqlText: queryText
         };
-        return this.api.prepareDataQuery(request)
-            .then((response) => {
-                const payload = getOperationPayload(response);
-                return PrepareQueryResult.decode(payload);
-            })
+        const response = await this.api.prepareDataQuery(request);
+        const payload = getOperationPayload(response);
+        return PrepareQueryResult.decode(payload);
     }
 
     async executeQuery(
@@ -297,6 +295,7 @@ export class SessionPool extends EventEmitter {
             return result;
         } catch (error) {
             await this.deleteSession(session);
+            throw error;
             // TODO: add retry machinery here
         }
     }
