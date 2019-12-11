@@ -25,18 +25,6 @@ export interface IAuthCredentials {
     iamCredentials: IIAmCredentials
 }
 
-// def get_jwt(service_account_id, access_key_id, private_key, jwt_expiration_timeout):
-// now = time.time()
-// now_utc = datetime.utcfromtimestamp(now)
-// exp_utc = datetime.utcfromtimestamp(now + jwt_expiration_timeout)
-// return jwt.encode(
-//     key=private_key, algorithm="PS256", headers={"typ": "JWT", "alg": "PS256", "kid": access_key_id},
-//     payload={
-//         "iss": service_account_id,
-//         "aud": "https://iam.api.cloud.yandex.net/iam/v1/tokens", "iat": now_utc, "exp": exp_utc
-//     }
-// )
-
 export interface IAuthService {
     getAuthMetadata: () => Promise<grpc.Metadata>,
     sslCredentials?: ISslCredentials
