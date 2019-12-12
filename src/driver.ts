@@ -3,7 +3,7 @@ import DiscoveryService, {Endpoint} from "./discovery";
 import {SessionService} from "./table";
 import {ENDPOINT_DISCOVERY_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
-import {TimeoutExpired} from "./utils";
+import {TimeoutExpired} from "./errors";
 
 
 export default class Driver {

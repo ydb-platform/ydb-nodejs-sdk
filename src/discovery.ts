@@ -3,9 +3,11 @@ import {Logger} from 'pino';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
 import {BaseService, getOperationPayload} from "./utils";
+import {IAuthService} from "./credentials";
+import {retryable, StrategyType} from "./retries";
+import {OperationError} from "./errors";
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
-import {IAuthService} from "./credentials";
 
 
 type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
@@ -121,15 +123,15 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
         }
     }
 
-    private discoverEndpoints(database: string): Promise<Endpoint[]> {
-        return this.api.listEndpoints({database})
-            .then((response) => {
-                const payload = getOperationPayload(response);
-                const endpointsResult = Ydb.Discovery.ListEndpointsResult.decode(payload);
-                // this.selfLocation = endpointsResult.selfLocation;
-                const endpoints = _.map(endpointsResult.endpoints, (endpointInfo) => new Endpoint(endpointInfo, database));
-                return _.sortBy(endpoints, (endpoint) => endpoint.toString());
-            });
+    @retryable({strategy: StrategyType.CONSTANT, maxRetries: 5, retryInterval: 2000})
+    private async discoverEndpoints(database: string): Promise<Endpoint[]> {
+        const response = await this.api.listEndpoints({database});
+        throw new OperationError(`Operation failed for testing purposes`, Ydb.StatusIds.StatusCode.UNAVAILABLE);
+        const payload = getOperationPayload(response);
+        const endpointsResult = Ydb.Discovery.ListEndpointsResult.decode(payload);
+        // this.selfLocation = endpointsResult.selfLocation;
+        const endpoints = _.map(endpointsResult.endpoints, (endpointInfo) => new Endpoint(endpointInfo, database));
+        return _.sortBy(endpoints, (endpoint) => endpoint.toString());
     }
 
     public emit(eventName: string, ...args: any[]): void {

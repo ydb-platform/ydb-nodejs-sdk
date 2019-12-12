@@ -4,6 +4,7 @@ import _ from 'lodash';
 import {Ydb} from '../proto/bundle';
 
 import {IAuthService} from './credentials';
+import {MissingValue, OperationError, MissingOperation, MissingStatus} from './errors';
 import StatusCode = Ydb.StatusIds.StatusCode;
 
 
@@ -86,17 +87,6 @@ interface AsyncResponse {
     operation?: Ydb.Operations.IOperation | null
 }
 
-class MissingOperation extends Error {}
-class MissingValue extends Error {}
-class MissingStatus extends Error {}
-export class TimeoutExpired extends Error {}
-
-class OperationError extends Error {
-    constructor(message: string, public code: StatusCode) {
-        super(message);
-    }
-}
-
 export function getOperationPayload(response: AsyncResponse): Uint8Array {
     const {operation} = response;
 
@@ -106,11 +96,11 @@ export function getOperationPayload(response: AsyncResponse): Uint8Array {
         if (!status) {
             throw new MissingStatus('No operation status!');
         } else if (status === Ydb.StatusIds.StatusCode.SUCCESS) {
-            if (operation.result) {
-                return operation.result.value as Uint8Array;
-            } else {
+            const value = operation?.result?.value;
+            if (!value) {
                 throw new MissingValue('Missing operation result value!');
             }
+            return value;
         } else {
             const issues = JSON.stringify(operation.issues, null, 2);
             throw new OperationError(`Operation failed with issues ${issues}`, status);

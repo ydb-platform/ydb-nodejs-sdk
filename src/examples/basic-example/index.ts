@@ -9,10 +9,10 @@ import {IAuthService, TokenAuthService, IamAuthService} from "../../credentials"
 import {ISslCredentials} from "../../utils";
 
 
-// const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
-// const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
-const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
-const DB_ENTRYPOINT = 'lb.etn02t35ge93lvovo64l.ydb.mdb.yandexcloud.net:2135';
+const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
+const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
+// const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
+// const DB_ENTRYPOINT = 'lb.etn02t35ge93lvovo64l.ydb.mdb.yandexcloud.net:2135';
 
 const SERIES_TABLE = 'series';
 const SEASONS_TABLE = 'seasons';
