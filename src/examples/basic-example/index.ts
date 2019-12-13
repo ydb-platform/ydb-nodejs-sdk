@@ -9,11 +9,6 @@ import {ISslCredentials} from "../../utils";
 import getLogger, {Logger} from "../../logging";
 
 
-const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
-const DB_ENTRYPOINT = 'ydb-ru-prestable.yandex.net:2135';
-// const DB_PATH_NAME = '/ru-central1/b1g8mc90m9q5r3vg7h9f/etn02t35ge93lvovo64l';
-// const DB_ENTRYPOINT = 'lb.etn02t35ge93lvovo64l.ydb.mdb.yandexcloud.net:2135';
-
 const SERIES_TABLE = 'series';
 const SEASONS_TABLE = 'seasons';
 const EPISODES_TABLE = 'episodes';
@@ -176,7 +171,7 @@ function getCredentialsFromEnv(): IAuthService {
         return new IamAuthService({
             sslCredentials,
             iamCredentials: {
-                iamEndpoint: process.env.SA_ENDPOINT || 'iam.api.cloud.yandex.net:443',
+                iamEndpoint: process.env.IAM_ENDPOINT || 'iam.api.cloud.yandex.net:443',
                 serviceAccountId: process.env.SA_ID,
                 accessKeyId: process.env.SA_ACCESS_KEY_ID || '',
                 privateKey
@@ -187,10 +182,10 @@ function getCredentialsFromEnv(): IAuthService {
     throw new Error('Either YDB_TOKEN or SA_ID environment variable should be set!');
 }
 
-async function run(logger: Logger) {
+async function run(logger: Logger, entryPoint: string, dbName: string) {
     const authService = getCredentialsFromEnv();
     logger.info('Driver initializing...');
-    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService);
+    const driver = new Driver(entryPoint, dbName, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
@@ -205,12 +200,12 @@ async function run(logger: Logger) {
         logger.info('Creating tables...');
         await createTables(session);
         logger.info('Tables have been created, inserting data...');
-        await fillTablesWithData(DB_PATH_NAME, session, logger);
+        await fillTablesWithData(dbName, session, logger);
         logger.info('The data has been inserted');
     });
     logger.info('Making a simple select...');
     await pool.withSession(async (session) => {
-        const result = await selectSimple(DB_PATH_NAME, session);
+        const result = await selectSimple(dbName, session);
         logger.info('selectSimple result:', result);
     });
     await pool.destroy();
@@ -218,9 +213,19 @@ async function run(logger: Logger) {
 }
 
 async function main() {
+    const [,, entryPoint, dbName] = process.argv;
     const logger = getLogger({level: "debug"});
+    if (!entryPoint) {
+        logger.fatal('Cluster entry-point is missing, cannot run further!');
+        process.exit(1);
+    } else if (!dbName) {
+        logger.fatal('Database name is missing, cannot run further!');
+        process.exit(1);
+    } else {
+        logger.info(`Running basic-example script against entry-point '${entryPoint}' and database '${dbName}'.`);
+    }
     try {
-        await run(logger);
+        await run(logger, entryPoint, dbName);
     } catch (error) {
         logger.error(error);
     }
