@@ -5,7 +5,6 @@ import {BaseService, getOperationPayload} from "./utils";
 import {IAuthService} from "./credentials";
 import {retryable, StrategyType} from "./retries";
 import getLogger, {Logger} from './logging';
-// import {OperationError} from "./errors";
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 
@@ -125,10 +124,9 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
         }
     }
 
-    @retryable({strategy: StrategyType.CONSTANT, maxRetries: 5, retryInterval: 2000})
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 5, retryInterval: 2000})
     private async discoverEndpoints(database: string): Promise<Endpoint[]> {
         const response = await this.api.listEndpoints({database});
-        // throw new OperationError(`Operation failed for testing purposes`, Ydb.StatusIds.StatusCode.UNAVAILABLE);
         const payload = getOperationPayload(response);
         const endpointsResult = Ydb.Discovery.ListEndpointsResult.decode(payload);
         // this.selfLocation = endpointsResult.selfLocation;

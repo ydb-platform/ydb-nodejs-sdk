@@ -1,4 +1,5 @@
 import {YdbError} from "./errors";
+import getLogger from "./logging";
 
 
 export enum StrategyType {
@@ -15,6 +16,7 @@ function isResultRetryable(error: any|YdbError) {
 
 export interface RetryParameters {
     strategy: StrategyType,
+    wrappedMethodName?: string,
     maxRetries?: number,
     retryInterval?: number,
     retryIntervalDelta?: number
@@ -29,18 +31,26 @@ async function muffleErrors(asyncMethod: () => Promise<any>) {
 }
 
 export abstract class RetryStrategy {
+    protected constructor(
+        protected methodName = 'UnknownClass::UnknownMethod',
+        protected maxRetries = 0,
+        protected retryInterval = 0
+    ) {}
+
     static create(params: RetryParameters): RetryStrategy {
         switch (params.strategy) {
             case StrategyType.IMMEDIATE:
-                return new ImmediateRetryStrategy();
+                return new ImmediateRetryStrategy(params.wrappedMethodName);
             case StrategyType.CONSTANT:
-                return new ConstantRetryStrategy(params.maxRetries, params.retryInterval);
+                return new ConstantRetryStrategy(params.wrappedMethodName, params.maxRetries, params.retryInterval);
             case StrategyType.LINEAR:
-                return new LinearRetryStrategy(params.maxRetries, params.retryInterval, params.retryIntervalDelta);
+                return new LinearRetryStrategy(
+                    params.wrappedMethodName, params.maxRetries, params.retryInterval, params.retryIntervalDelta
+                );
             case StrategyType.EXPONENTIAL:
-                return new ExponentialRetryStrategy(params.maxRetries, params.retryInterval);
+                return new ExponentialRetryStrategy(params.wrappedMethodName, params.maxRetries, params.retryInterval);
             case StrategyType.RANDOM:
-                return new RandomRetryStrategy(params.maxRetries, params.retryInterval);
+                return new RandomRetryStrategy(params.wrappedMethodName, params.maxRetries, params.retryInterval);
             default:
                 throw new Error(`Not implemented strategy: ${params.strategy}`);
         }
@@ -48,6 +58,12 @@ export abstract class RetryStrategy {
 
     protected async shouldRetry(_result: any|YdbError): Promise<boolean> {
         return false;
+    }
+
+    protected logAndUpdateMaxRetries() {
+        const logger = getLogger();
+        logger.debug(`${this.methodName} call failed, ${this.maxRetries} attempts left, retrying in ${this.retryInterval} ms`);
+        this.maxRetries--;
     }
 
     static async retry(strategyParams: RetryParameters, asyncMethod: () => Promise<any>) {
@@ -67,21 +83,27 @@ export abstract class RetryStrategy {
 
 class ImmediateRetryStrategy extends RetryStrategy {
     maxRetries = 1;
+    retryInterval = 0;
 
     protected shouldRetry(result: any|YdbError): Promise<boolean> {
-        return Promise.resolve(isResultRetryable(result) && this.maxRetries-- > 0);
+        let retryable = false;
+        if (isResultRetryable(result) && this.maxRetries > 0) {
+            this.logAndUpdateMaxRetries();
+            retryable = true;
+        }
+        return Promise.resolve(retryable);
     }
 }
 
 class ConstantRetryStrategy extends RetryStrategy {
-    constructor(private maxRetries: number = 3, private retryInterval: number = 2000) {
-        super();
+    constructor(methodName?: string, maxRetries: number = 3, retryInterval: number = 2000) {
+        super(methodName, maxRetries, retryInterval);
     }
 
     protected shouldRetry(result: any|YdbError): Promise<boolean> {
         return new Promise((resolve) => {
-            if (isResultRetryable(result) && this.maxRetries-- > 0) {
-                console.log(`result is retriable, ${this.maxRetries} left`);
+            if (isResultRetryable(result) && this.maxRetries > 0) {
+                this.logAndUpdateMaxRetries();
                 setTimeout(() => resolve(true), this.retryInterval);
             } else {
                 resolve(false);
@@ -91,13 +113,19 @@ class ConstantRetryStrategy extends RetryStrategy {
 }
 
 class LinearRetryStrategy extends RetryStrategy {
-    constructor(private maxRetries: number = 3, private retryInterval: number = 2000, private retryIntervalDelta: number = 3000) {
-        super();
+    constructor(
+        methodName?: string,
+        maxRetries: number = 3,
+        retryInterval: number = 2000,
+        private retryIntervalDelta: number = 3000
+    ) {
+        super(methodName, maxRetries, retryInterval);
     }
 
     protected shouldRetry(result: any|YdbError): Promise<boolean> {
         return new Promise((resolve) => {
-            if (isResultRetryable(result) && this.maxRetries-- > 0) {
+            if (isResultRetryable(result) && this.maxRetries > 0) {
+                this.logAndUpdateMaxRetries();
                 setTimeout(() => {
                     this.retryInterval += this.retryIntervalDelta;
                     resolve(true);
@@ -111,13 +139,14 @@ class LinearRetryStrategy extends RetryStrategy {
 
 class ExponentialRetryStrategy extends RetryStrategy {
     private retriesAttempted = 0;
-    constructor(private maxRetries: number = 5, private retryInterval: number = 2000) {
-        super();
+    constructor(methodName?: string, maxRetries: number = 5, retryInterval: number = 2000) {
+        super(methodName, maxRetries, retryInterval);
     }
 
     protected shouldRetry(result: any|YdbError): Promise<boolean> {
         return new Promise((resolve) => {
-            if (isResultRetryable(result) && this.maxRetries-- > 0) {
+            if (isResultRetryable(result) && this.maxRetries > 0) {
+                this.logAndUpdateMaxRetries();
                 setTimeout(() => {
                     this.retriesAttempted++;
                     resolve(true);
@@ -130,13 +159,14 @@ class ExponentialRetryStrategy extends RetryStrategy {
 }
 
 class RandomRetryStrategy extends RetryStrategy {
-    constructor(private maxRetries: number = 5, private retryInterval: number = 5000) {
-        super();
+    constructor(methodName?: string, maxRetries: number = 5, retryInterval: number = 5000) {
+        super(methodName, maxRetries, retryInterval);
     }
 
     protected shouldRetry(result: any|YdbError): Promise<boolean> {
         return new Promise((resolve) => {
-            if (isResultRetryable(result) && this.maxRetries-- > 0) {
+            if (isResultRetryable(result) && this.maxRetries > 0) {
+                this.logAndUpdateMaxRetries();
                 setTimeout(() => {
                     resolve(true);
                 }, this.retryInterval * Math.random());
@@ -148,11 +178,12 @@ class RandomRetryStrategy extends RetryStrategy {
 }
 
 export function retryable(strategyParams: RetryParameters) {
-    return (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) => {
+    return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
         const originalMethod = descriptor.value;
+        const wrappedMethodName = `${target.constructor.name}::${propertyKey}`;
         descriptor.value = async function (...args: any) {
             return await RetryStrategy.retry(
-                strategyParams,
+                {...strategyParams, wrappedMethodName},
                 async () => await originalMethod.call(this, ...args)
             );
         };

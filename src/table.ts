@@ -7,6 +7,7 @@ import Driver from "./driver";
 import {SESSION_KEEPALIVE_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
 import getLogger, {Logger} from './logging';
+import {retryable, StrategyType} from "./retries";
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
@@ -33,6 +34,7 @@ export class SessionService extends BaseService<TableService> {
         this.logger = getLogger();
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     async create(): Promise<Session> {
         const response = await this.api.createSession(CreateSessionRequest.create());
         const payload = getOperationPayload(response);
@@ -92,6 +94,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         return this.beingDeleted;
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async delete(): Promise<void> {
         if (this.isDeleted()) {
             return Promise.resolve();
@@ -100,10 +103,12 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async keepAlive(): Promise<void> {
         ensureOperationSucceeded(await this.api.keepAlive({sessionId: this.sessionId}));
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async createTable(tablePath: string, description: TableDescription): Promise<void> {
         const request = {
             sessionId: this.sessionId,
@@ -114,6 +119,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         ensureOperationSucceeded(await this.api.createTable(request));
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async dropTable(tablePath: string): Promise<void> {
         const request = {
             sessionId: this.sessionId,
@@ -123,6 +129,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         ensureOperationSucceeded(await this.api.dropTable(request), [StatusCode.SCHEME_ERROR]);
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async describeTable(tablePath: string): Promise<DescribeTableResult> {
         const request = {
             sessionId: this.sessionId,
@@ -133,6 +140,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         return DescribeTableResult.decode(payload);
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async beginTransaction(txSettings: ITransactionSettings): Promise<ITransactionMeta> {
         const response = await this.api.beginTransaction({
             sessionId: this.sessionId,
@@ -146,6 +154,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         throw new Error('Could not begin new transaction, txMeta is empty!');
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async commitTransaction(txControl: IExistingTransaction): Promise<void> {
         const request = {
             sessionId: this.sessionId,
@@ -154,6 +163,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         ensureOperationSucceeded(await this.api.commitTransaction(request));
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async rollbackTransaction(txControl: IExistingTransaction): Promise<void> {
         const request = {
             sessionId: this.sessionId,
@@ -162,6 +172,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         ensureOperationSucceeded(await this.api.rollbackTransaction(request));
     }
 
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
     public async prepareQuery(queryText: string): Promise<PrepareQueryResult> {
         const request = {
             sessionId: this.sessionId,
@@ -172,7 +183,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         return PrepareQueryResult.decode(payload);
     }
 
-    async executeQuery(
+    @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    public async executeQuery(
         query: IQuery | string,
         params: IQueryParams = {},
         txControl: IExistingTransaction | INewTransaction = AUTO_TX
