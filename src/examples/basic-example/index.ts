@@ -1,5 +1,4 @@
 import fs from 'fs';
-import pino, {Logger} from 'pino';
 
 import Driver from '../../driver';
 import {Session, SessionPool, TableDescription, Column} from "../../table";
@@ -7,6 +6,7 @@ import {Ydb} from "../../../proto/bundle";
 import {Series, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
 import {IAuthService, TokenAuthService, IamAuthService} from "../../credentials";
 import {ISslCredentials} from "../../utils";
+import getLogger, {Logger} from "../../logging";
 
 
 const DB_PATH_NAME = '/ru-prestable/home/tsufiev/mydb';
@@ -163,8 +163,7 @@ WHERE series_id = 1;`;
 
 function getCredentialsFromEnv(): IAuthService {
     if (process.env.YDB_TOKEN) {
-        const token = fs.readFileSync(process.env.YDB_TOKEN).toString().trim();
-        return new TokenAuthService(token);
+        return new TokenAuthService(process.env.YDB_TOKEN);
     }
 
     if (process.env.SA_ID) {
@@ -191,7 +190,7 @@ function getCredentialsFromEnv(): IAuthService {
 async function run(logger: Logger) {
     const authService = getCredentialsFromEnv();
     logger.info('Driver initializing...');
-    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService, logger);
+    const driver = new Driver(DB_ENTRYPOINT, DB_PATH_NAME, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
@@ -219,7 +218,7 @@ async function run(logger: Logger) {
 }
 
 async function main() {
-    const logger = pino({level: 'debug'});
+    const logger = getLogger({level: "debug"});
     try {
         await run(logger);
     } catch (error) {

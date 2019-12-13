@@ -1,11 +1,11 @@
 import _ from 'lodash';
-import {Logger} from 'pino';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
 import {BaseService, getOperationPayload} from "./utils";
 import {IAuthService} from "./credentials";
 import {retryable, StrategyType} from "./retries";
-import {OperationError} from "./errors";
+import getLogger, {Logger} from './logging';
+// import {OperationError} from "./errors";
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 
@@ -62,16 +62,18 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
     private endpoints: Endpoint[] = [];
     private currentEndpointIndex: number = 0;
     private events: EventEmitter = new EventEmitter();
+    private logger: Logger;
 
     // private selfLocation: string = '';
 
-    constructor(entryPoint: string, private database: string, private discoveryPeriod: number, authService: IAuthService, private logger: Logger) {
+    constructor(entryPoint: string, private database: string, private discoveryPeriod: number, authService: IAuthService) {
         super(
             entryPoint,
             'Ydb.Discovery.V1.DiscoveryService',
             DiscoveryServiceAPI,
             authService
         );
+        this.logger = getLogger();
         this.endpointsPromise = new Promise((resolve, reject) => {
             this.resolveEndpoints = (endpoints: Endpoint[]) => {
                 this.endpoints = endpoints;
@@ -126,7 +128,7 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
     @retryable({strategy: StrategyType.CONSTANT, maxRetries: 5, retryInterval: 2000})
     private async discoverEndpoints(database: string): Promise<Endpoint[]> {
         const response = await this.api.listEndpoints({database});
-        throw new OperationError(`Operation failed for testing purposes`, Ydb.StatusIds.StatusCode.UNAVAILABLE);
+        // throw new OperationError(`Operation failed for testing purposes`, Ydb.StatusIds.StatusCode.UNAVAILABLE);
         const payload = getOperationPayload(response);
         const endpointsResult = Ydb.Discovery.ListEndpointsResult.decode(payload);
         // this.selfLocation = endpointsResult.selfLocation;

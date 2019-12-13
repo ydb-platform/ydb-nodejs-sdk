@@ -1,5 +1,4 @@
 import _ from 'lodash';
-import {Logger} from 'pino';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
 import {BaseService, ensureOperationSucceeded, getOperationPayload} from "./utils";
@@ -7,6 +6,7 @@ import {Endpoint} from './discovery';
 import Driver from "./driver";
 import {SESSION_KEEPALIVE_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
+import getLogger, {Logger} from './logging';
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
@@ -26,11 +26,11 @@ export class SessionService extends BaseService<TableService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 
-    constructor(endpoint: Endpoint, authService: IAuthService, logger: Logger) {
+    constructor(endpoint: Endpoint, authService: IAuthService) {
         const host = endpoint.toString();
         super(host, 'Ydb.Table.V1.TableService', TableService, authService);
         this.endpoint = endpoint;
-        this.logger = logger;
+        this.logger = getLogger();
     }
 
     async create(): Promise<Session> {
@@ -203,6 +203,7 @@ export class SessionPool extends EventEmitter {
     private newSessionsRequested: number;
     private sessionsBeingDeleted: number;
     private readonly sessionKeepAliveId: NodeJS.Timeout;
+    private readonly logger: Logger;
 
     constructor(private driver: Driver, minLimit = 5, maxLimit = 20, keepAlivePeriod = SESSION_KEEPALIVE_PERIOD) {
         super();
@@ -213,10 +214,7 @@ export class SessionPool extends EventEmitter {
         this.sessionsBeingDeleted = 0;
         this.prepopulateSessions();
         this.sessionKeepAliveId = this.initListeners(keepAlivePeriod);
-    }
-
-    get logger() {
-        return this.driver.logger;
+        this.logger = getLogger();
     }
 
     public async destroy(): Promise<void> {
