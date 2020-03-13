@@ -311,6 +311,23 @@ export class SessionPool extends EventEmitter {
     }
 }
 
+export class TableClient extends EventEmitter {
+    private pool: SessionPool;
+
+    constructor(driver: Driver) {
+        super();
+        this.pool = new SessionPool(driver);
+    }
+
+    public async withSession(callback: (session: Session) => Promise<any>, timeout: number = 0): Promise<any> {
+        return this.pool.withSession(callback, timeout);
+    }
+
+    public async destroy() {
+        await this.pool.destroy();
+    }
+}
+
 export class Column {
     constructor(public name: string, public type: IType) {}
 }

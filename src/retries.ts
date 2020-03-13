@@ -52,7 +52,7 @@ export abstract class RetryStrategy {
             case StrategyType.RANDOM:
                 return new RandomRetryStrategy(params.wrappedMethodName, params.maxRetries, params.retryInterval);
             default:
-                throw new Error(`Not implemented strategy: ${params.strategy}`);
+                throw new Error(`Strategy is not implemented: ${params.strategy}`);
         }
     }
 

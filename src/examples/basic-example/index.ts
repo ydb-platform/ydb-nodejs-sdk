@@ -1,7 +1,7 @@
 import fs from 'fs';
 
 import Driver from '../../driver';
-import {Session, SessionPool, TableDescription, Column} from "../../table";
+import {Session, TableDescription, Column} from "../../table";
 import {Ydb} from "../../../proto/bundle";
 import {Series, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
 import {IAuthService, TokenAuthService, IamAuthService} from "../../credentials";
@@ -191,8 +191,7 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
         process.exit(1);
     }
-    const pool = new SessionPool(driver);
-    await pool.withSession(async (session) => {
+    await driver.tableClient.withSession(async (session) => {
         logger.info('Dropping old tables...');
         await session.dropTable(SERIES_TABLE);
         await session.dropTable(EPISODES_TABLE);
@@ -204,11 +203,10 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
         logger.info('The data has been inserted');
     });
     logger.info('Making a simple select...');
-    await pool.withSession(async (session) => {
+    await driver.tableClient.withSession(async (session) => {
         const result = await selectSimple(dbName, session);
         logger.info('selectSimple result:', result);
     });
-    await pool.destroy();
     await driver.destroy();
 }
 
