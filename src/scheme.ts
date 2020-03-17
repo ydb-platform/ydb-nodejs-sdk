@@ -9,6 +9,30 @@ import ListDirectoryResult = Ydb.Scheme.ListDirectoryResult;
 import DescribePathResult = Ydb.Scheme.DescribePathResult;
 import IPermissionsAction = Ydb.Scheme.IPermissionsAction;
 import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
+import IPermissions = Ydb.Scheme.IPermissions;
+
+
+function preparePermissions(action?: IPermissions | null) {
+    if (action && action.permissionNames) {
+        return {
+            ...action,
+            permissionNames: action.permissionNames.map(
+                (name) => name.startsWith('ydb.generic.') ? name : `ydb.generic.${name}`
+            )
+        };
+    }
+    return action;
+}
+
+function preparePermissionAction(action: IPermissionsAction) {
+    const {grant, revoke, set, ...rest} = action;
+    return {
+        ...rest,
+        grant: preparePermissions(grant),
+        revoke: preparePermissions(revoke),
+        set: preparePermissions(set),
+    }
+}
 
 export default class SchemeService extends BaseService<SchemeServiceAPI> {
     private logger: Logger;
@@ -61,7 +85,7 @@ export default class SchemeService extends BaseService<SchemeServiceAPI> {
     public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, operationParams?: IOperationParams) {
         const request = {
             ...this.prepareRequest(path, operationParams),
-            actions: permissionActions,
+            actions: permissionActions.map(preparePermissionAction),
             clearPermissions
         };
         this.logger.debug(`Modifying permissions on path ${request.path} to ${JSON.stringify(permissionActions, null, 2)}`);
