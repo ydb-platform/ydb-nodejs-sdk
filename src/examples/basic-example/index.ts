@@ -207,6 +207,24 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
         const result = await selectSimple(dbName, session);
         logger.info('selectSimple result:', result);
     });
+    logger.info('Testing scheme client capabilities...');
+    await driver.schemeClient.makeDirectory('example-path');
+    await driver.schemeClient.makeDirectory('example-path/subpath');
+    await driver.schemeClient.modifyPermissions(
+        'example-path/subpath',
+        [{
+            grant: {
+                subject: 'tsufiev@staff',
+                permissionNames: ['read', 'use']
+            }
+        }]
+    );
+    const entry = await driver.schemeClient.describePath('example-path');
+    const children = await driver.schemeClient.listDirectory('example-path');
+    logger.info(`Created path: ${JSON.stringify(entry, null, 2)}`);
+    logger.info(`Path contents: ${JSON.stringify(children, null, 2)}`);
+    await driver.schemeClient.removeDirectory('example-path/subpath');
+    await driver.schemeClient.removeDirectory('example-path');
     await driver.destroy();
 }
 

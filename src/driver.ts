@@ -1,5 +1,6 @@
 import DiscoveryService, {Endpoint} from "./discovery";
 import {SessionService, TableClient} from "./table";
+import SchemeService from "./scheme";
 import {ENDPOINT_DISCOVERY_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
 import {TimeoutExpired} from "./errors";
@@ -12,6 +13,7 @@ export default class Driver {
     private logger: Logger;
 
     public tableClient: TableClient;
+    public schemeClient: SchemeService;
 
     constructor(private entryPoint: string, private database: string, private authService: IAuthService) {
         this.discoveryService = new DiscoveryService(
@@ -22,6 +24,7 @@ export default class Driver {
         });
         this.sessionCreators = new Map();
         this.tableClient = new TableClient(this);
+        this.schemeClient = new SchemeService(this.entryPoint, this.database, authService);
         this.logger = getLogger();
     }
 
@@ -43,6 +46,7 @@ export default class Driver {
         this.logger.debug('Destroying driver...');
         this.discoveryService.destroy();
         await this.tableClient.destroy();
+        await this.schemeClient.destroy();
         this.logger.debug('Driver has been destroyed.');
     }
 
