@@ -2,6 +2,8 @@ import {Ydb} from "../proto/bundle";
 import {BaseService, getOperationPayload, ensureOperationSucceeded} from "./utils";
 import {IAuthService} from "./credentials";
 import getLogger, {Logger} from './logging';
+import {Endpoint} from './discovery';
+import Driver from "./driver";
 
 import SchemeServiceAPI = Ydb.Scheme.V1.SchemeService;
 import IOperationParams = Ydb.Operations.IOperationParams;
@@ -10,6 +12,8 @@ import DescribePathResult = Ydb.Scheme.DescribePathResult;
 import IPermissionsAction = Ydb.Scheme.IPermissionsAction;
 import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
+import {util} from "protobufjs";
+import EventEmitter = util.EventEmitter;
 
 
 function preparePermissions(action?: IPermissions | null) {
@@ -34,16 +38,65 @@ function preparePermissionAction(action: IPermissionsAction) {
     }
 }
 
-export default class SchemeService extends BaseService<SchemeServiceAPI> {
-    private logger: Logger;
+export default class SchemeClient extends EventEmitter {
+    private schemeServices: Map<Endpoint, SchemeService>;
 
-    constructor(entryPoint: string, private database: string, authService: IAuthService) {
+    constructor(private driver: Driver) {
+        super();
+        this.schemeServices = new Map();
+    }
+
+    private async getSchemeService(): Promise<SchemeService> {
+        const endpoint = await this.driver.getEndpoint();
+        if (!this.schemeServices.has(endpoint)) {
+            const service = new SchemeService(endpoint, this.driver.database, this.driver.authService);
+            this.schemeServices.set(endpoint, service);
+        }
+        return this.schemeServices.get(endpoint) as SchemeService;
+    }
+
+    public async makeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
+        const service = await this.getSchemeService();
+        return await service.makeDirectory(path, operationParams);
+    }
+
+    public async removeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
+        const service = await this.getSchemeService();
+        return await service.removeDirectory(path, operationParams);
+    }
+
+    public async listDirectory(path: string, operationParams?: IOperationParams): Promise<ListDirectoryResult> {
+        const service = await this.getSchemeService();
+        return await service.listDirectory(path, operationParams);
+    }
+
+    public async describePath(path: string, operationParams?: IOperationParams): Promise<DescribePathResult> {
+        const service = await this.getSchemeService();
+        return await service.describePath(path, operationParams);
+    }
+
+    public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, operationParams?: IOperationParams) {
+        const service = await this.getSchemeService();
+        return await service.modifyPermissions(path, permissionActions, clearPermissions, operationParams);
+    }
+    public async destroy() {
+        return;
+    }
+}
+
+class SchemeService extends BaseService<SchemeServiceAPI> {
+    private logger: Logger;
+    private readonly database: string;
+
+    constructor(endpoint: Endpoint, database: string, authService: IAuthService) {
+        const host = endpoint.toString();
         super(
-            entryPoint,
+            host,
             'Ydb.Scheme.V1.SchemeService',
             SchemeServiceAPI,
             authService
         );
+        this.database = database;
         this.logger = getLogger();
     }
 
@@ -90,9 +143,5 @@ export default class SchemeService extends BaseService<SchemeServiceAPI> {
         };
         this.logger.debug(`Modifying permissions on path ${request.path} to ${JSON.stringify(permissionActions, null, 2)}`);
         ensureOperationSucceeded(await this.api.modifyPermissions(request));
-    }
-
-    public async destroy() {
-        return;
     }
 }

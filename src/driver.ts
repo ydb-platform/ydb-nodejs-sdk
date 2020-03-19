@@ -5,6 +5,7 @@ import {ENDPOINT_DISCOVERY_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
 import {TimeoutExpired} from "./errors";
 import getLogger, {Logger} from "./logging";
+import SchemeClient from "./scheme";
 
 
 export default class Driver {
@@ -15,7 +16,7 @@ export default class Driver {
     public tableClient: TableClient;
     public schemeClient: SchemeService;
 
-    constructor(private entryPoint: string, private database: string, private authService: IAuthService) {
+    constructor(private entryPoint: string, public database: string, public authService: IAuthService) {
         this.discoveryService = new DiscoveryService(
             this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService
         );
@@ -24,7 +25,7 @@ export default class Driver {
         });
         this.sessionCreators = new Map();
         this.tableClient = new TableClient(this);
-        this.schemeClient = new SchemeService(this.entryPoint, this.database, authService);
+        this.schemeClient = new SchemeClient(this);
         this.logger = getLogger();
     }
 
@@ -42,6 +43,10 @@ export default class Driver {
         }
     }
 
+    public async getEndpoint() {
+        return await this.discoveryService.getEndpoint();
+    }
+
     public async destroy(): Promise<void> {
         this.logger.debug('Destroying driver...');
         this.discoveryService.destroy();
@@ -51,7 +56,7 @@ export default class Driver {
     }
 
     public async getSessionCreator(): Promise<SessionService> {
-        const endpoint = await this.discoveryService.getEndpoint();
+        const endpoint = await this.getEndpoint();
         if (!this.sessionCreators.has(endpoint)) {
             this.sessionCreators.set(endpoint, new SessionService(endpoint, this.authService));
         }
