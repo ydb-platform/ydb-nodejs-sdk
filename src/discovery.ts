@@ -1,5 +1,6 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
+import {DateTime} from 'luxon';
 import {Ydb} from "../proto/bundle";
 import {BaseService, getOperationPayload} from "./utils";
 import {IAuthService} from "./credentials";
@@ -16,6 +17,9 @@ const noOp = () => {};
 
 export class Endpoint extends Ydb.Discovery.EndpointInfo {
     static HOST_RE = /^([^:]+):?(\d)*$/;
+    static PESSIMIZATION_WEAR_OFF_PERIOD = 60 * 1000;
+
+    private pessimizedAt: DateTime | null;
 
     static fromString(host: string) {
         const match = Endpoint.HOST_RE.exec(host);
@@ -33,6 +37,7 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
 
     constructor(properties: IEndpointInfo, public readonly database: string) {
         super(properties);
+        this.pessimizedAt = null;
     }
 
     /*
@@ -41,6 +46,17 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     public update(_endpoint: Endpoint) {
         // do nothing for now
         return this;
+    }
+
+    public get pessimized(): boolean {
+        if (this.pessimizedAt) {
+            return DateTime.utc().diff(this.pessimizedAt).valueOf() < Endpoint.PESSIMIZATION_WEAR_OFF_PERIOD;
+        }
+        return false;
+    }
+
+    public pessimize() {
+        this.pessimizedAt = DateTime.utc();
     }
 
     public toString(): string {
@@ -154,6 +170,13 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
     }
 
     public async getEndpoint(): Promise<Endpoint> {
-        return this.getEndpointRR();
+        let endpoint = await this.getEndpointRR();
+        let counter = 0;
+        while (endpoint.pessimized && counter < this.endpoints.length) {
+            endpoint = await this.getEndpointRR();
+            counter++;
+        }
+        // if all endpoints are pessimized, take the original one
+        return endpoint;
     }
 }

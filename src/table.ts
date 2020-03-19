@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
-import {BaseService, ensureOperationSucceeded, getOperationPayload} from "./utils";
+import {BaseService, ensureOperationSucceeded, getOperationPayload, pessimizable} from "./utils";
 import {Endpoint} from './discovery';
 import Driver from "./driver";
 import {SESSION_KEEPALIVE_PERIOD} from "./constants";
@@ -35,6 +35,7 @@ export class SessionService extends BaseService<TableService> {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     async create(): Promise<Session> {
         const response = await this.api.createSession(CreateSessionRequest.create());
         const payload = getOperationPayload(response);
@@ -72,7 +73,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
     private free = true;
 
-    constructor(private api: TableService, private endpoint: Endpoint, public sessionId: string, private logger: Logger) {
+    constructor(private api: TableService, public endpoint: Endpoint, public sessionId: string, private logger: Logger) {
         super();
     }
 
@@ -95,6 +96,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async delete(): Promise<void> {
         if (this.isDeleted()) {
             return Promise.resolve();
@@ -104,11 +106,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async keepAlive(): Promise<void> {
         ensureOperationSucceeded(await this.api.keepAlive({sessionId: this.sessionId}));
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async createTable(tablePath: string, description: TableDescription): Promise<void> {
         const request = {
             sessionId: this.sessionId,
@@ -120,6 +124,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async dropTable(tablePath: string): Promise<void> {
         const request = {
             sessionId: this.sessionId,
@@ -130,6 +135,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async describeTable(tablePath: string): Promise<DescribeTableResult> {
         const request = {
             sessionId: this.sessionId,
@@ -141,6 +147,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async beginTransaction(txSettings: ITransactionSettings): Promise<ITransactionMeta> {
         const response = await this.api.beginTransaction({
             sessionId: this.sessionId,
@@ -155,6 +162,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async commitTransaction(txControl: IExistingTransaction): Promise<void> {
         const request = {
             sessionId: this.sessionId,
@@ -164,6 +172,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async rollbackTransaction(txControl: IExistingTransaction): Promise<void> {
         const request = {
             sessionId: this.sessionId,
@@ -173,6 +182,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async prepareQuery(queryText: string): Promise<PrepareQueryResult> {
         const request = {
             sessionId: this.sessionId,
@@ -184,6 +194,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @retryable({strategy: StrategyType.LINEAR, maxRetries: 3, retryInterval: 2000})
+    @pessimizable
     public async executeQuery(
         query: IQuery | string,
         params: IQueryParams = {},

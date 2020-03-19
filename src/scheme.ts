@@ -1,5 +1,5 @@
 import {Ydb} from "../proto/bundle";
-import {BaseService, getOperationPayload, ensureOperationSucceeded} from "./utils";
+import {BaseService, getOperationPayload, ensureOperationSucceeded, pessimizable} from "./utils";
 import {IAuthService} from "./credentials";
 import getLogger, {Logger} from './logging';
 import {Endpoint} from './discovery';
@@ -79,6 +79,7 @@ export default class SchemeClient extends EventEmitter {
         const service = await this.getSchemeService();
         return await service.modifyPermissions(path, permissionActions, clearPermissions, operationParams);
     }
+
     public async destroy() {
         return;
     }
@@ -87,6 +88,7 @@ export default class SchemeClient extends EventEmitter {
 class SchemeService extends BaseService<SchemeServiceAPI> {
     private logger: Logger;
     private readonly database: string;
+    public endpoint: Endpoint;
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService) {
         const host = endpoint.toString();
@@ -96,6 +98,7 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
             SchemeServiceAPI,
             authService
         );
+        this.endpoint = endpoint;
         this.database = database;
         this.logger = getLogger();
     }
@@ -107,18 +110,21 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
         };
     }
 
+    @pessimizable
     public async makeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
         const request = this.prepareRequest(path, operationParams);
         this.logger.debug(`Making directory ${request.path}`);
         ensureOperationSucceeded(await this.api.makeDirectory(request));
     }
 
+    @pessimizable
     public async removeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
         const request = this.prepareRequest(path, operationParams);
         this.logger.debug(`Removing directory ${request.path}`);
         ensureOperationSucceeded(await this.api.removeDirectory(request));
     }
 
+    @pessimizable
     public async listDirectory(path: string, operationParams?: IOperationParams): Promise<ListDirectoryResult> {
         const request = this.prepareRequest(path, operationParams);
         this.logger.debug(`Listing directory ${request.path} contents`);
@@ -127,6 +133,7 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
         return ListDirectoryResult.decode(payload);
     }
 
+    @pessimizable
     public async describePath(path: string, operationParams?: IOperationParams): Promise<DescribePathResult> {
         const request = this.prepareRequest(path, operationParams);
         this.logger.debug(`Describing path ${request.path}`);
@@ -135,6 +142,7 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
         return DescribePathResult.decode(payload);
     }
 
+    @pessimizable
     public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, operationParams?: IOperationParams) {
         const request = {
             ...this.prepareRequest(path, operationParams),

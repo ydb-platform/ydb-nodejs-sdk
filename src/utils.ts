@@ -3,10 +3,15 @@ import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
 import {Ydb} from '../proto/bundle';
 
+import {Endpoint} from './discovery';
 import {IAuthService} from './credentials';
 import {MissingValue, OperationError, MissingOperation, MissingStatus} from './errors';
 import StatusCode = Ydb.StatusIds.StatusCode;
 
+
+export interface Pessimizable {
+    endpoint: Endpoint;
+}
 
 type ServiceFactory<T> = {
     create(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean): T
@@ -124,4 +129,19 @@ export function ensureOperationSucceeded(response: AsyncResponse, suppressedErro
             throw e;
         }
     }
+}
+
+export function pessimizable(_target: Pessimizable, _propertyKey: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+    descriptor.value = async function (this: Pessimizable, ...args: any) {
+        try {
+            return await originalMethod.call(this, ...args);
+        } catch (error) {
+            if (error instanceof OperationError) {
+                this.endpoint.pessimize();
+            }
+            throw error;
+        }
+    };
+    return descriptor;
 }
