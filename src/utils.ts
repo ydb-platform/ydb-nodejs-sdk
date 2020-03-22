@@ -2,11 +2,11 @@ import grpc, {Metadata} from 'grpc';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
 import {Ydb} from '../proto/bundle';
+import {YdbError, StatusCode} from "./errors";
 
 import {Endpoint} from './discovery';
 import {IAuthService} from './credentials';
-import {MissingValue, OperationError, MissingOperation, MissingStatus} from './errors';
-import StatusCode = Ydb.StatusIds.StatusCode;
+import {MissingValue, OperationError, MissingOperation} from './errors';
 
 
 export interface Pessimizable {
@@ -96,20 +96,12 @@ export function getOperationPayload(response: AsyncResponse): Uint8Array {
     const {operation} = response;
 
     if (operation) {
-        const {status} = operation;
-
-        if (!status) {
-            throw new MissingStatus('No operation status!');
-        } else if (status === Ydb.StatusIds.StatusCode.SUCCESS) {
-            const value = operation?.result?.value;
-            if (!value) {
-                throw new MissingValue('Missing operation result value!');
-            }
-            return value;
-        } else {
-            const issues = JSON.stringify(operation.issues, null, 2);
-            throw new OperationError(`Operation failed with issues ${issues}`, status);
+        YdbError.checkStatus(operation);
+        const value = operation?.result?.value;
+        if (!value) {
+            throw new MissingValue('Missing operation result value!');
         }
+        return value;
     } else {
         throw new MissingOperation('No operation in response!');
     }

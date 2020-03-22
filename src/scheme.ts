@@ -3,6 +3,7 @@ import {BaseService, getOperationPayload, ensureOperationSucceeded, pessimizable
 import {IAuthService} from "./credentials";
 import getLogger, {Logger} from './logging';
 import {Endpoint} from './discovery';
+import {retryable} from "./retries";
 import Driver from "./driver";
 
 import SchemeServiceAPI = Ydb.Scheme.V1.SchemeService;
@@ -110,6 +111,7 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
         };
     }
 
+    @retryable()
     @pessimizable
     public async makeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
         const request = this.prepareRequest(path, operationParams);
@@ -117,6 +119,7 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
         ensureOperationSucceeded(await this.api.makeDirectory(request));
     }
 
+    @retryable()
     @pessimizable
     public async removeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
         const request = this.prepareRequest(path, operationParams);
@@ -124,6 +127,7 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
         ensureOperationSucceeded(await this.api.removeDirectory(request));
     }
 
+    @retryable()
     @pessimizable
     public async listDirectory(path: string, operationParams?: IOperationParams): Promise<ListDirectoryResult> {
         const request = this.prepareRequest(path, operationParams);
@@ -133,6 +137,7 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
         return ListDirectoryResult.decode(payload);
     }
 
+    @retryable()
     @pessimizable
     public async describePath(path: string, operationParams?: IOperationParams): Promise<DescribePathResult> {
         const request = this.prepareRequest(path, operationParams);
@@ -142,6 +147,7 @@ class SchemeService extends BaseService<SchemeServiceAPI> {
         return DescribePathResult.decode(payload);
     }
 
+    @retryable()
     @pessimizable
     public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, operationParams?: IOperationParams) {
         const request = {

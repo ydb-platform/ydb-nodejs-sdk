@@ -4,7 +4,7 @@ import {DateTime} from 'luxon';
 import {Ydb} from "../proto/bundle";
 import {BaseService, getOperationPayload} from "./utils";
 import {IAuthService} from "./credentials";
-import {retryable, StrategyType} from "./retries";
+import {retryable} from "./retries";
 import getLogger, {Logger} from './logging';
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
@@ -140,7 +140,7 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
         }
     }
 
-    @retryable({strategy: StrategyType.LINEAR, maxRetries: 5, retryInterval: 2000})
+    @retryable()
     private async discoverEndpoints(database: string): Promise<Endpoint[]> {
         const response = await this.api.listEndpoints({database});
         const payload = getOperationPayload(response);
