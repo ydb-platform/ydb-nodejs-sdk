@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import Long from 'long';
 import {Ydb} from "../proto/bundle";
 import 'reflect-metadata';
 
@@ -44,12 +45,16 @@ const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.TZ_TIMESTAMP]: 'uint64Value',
 };
 
-const valueToNativeConverters: Record<string, (input: string) => any> = {
+const parseLong = (input: string|number) => {
+   return typeof input === 'string' ? Long.fromString(input) : Long.fromNumber(input);
+};
+
+const valueToNativeConverters: Record<string, (input: string|number) => any> = {
     'boolValue': (input) => Boolean(input),
     'int32Value': (input) => Number(input),
     'uint32Value': (input) => Number(input),
-    'int64Value': (input) => Number(input),
-    'uint64Value': (input) => Number(input),
+    'int64Value': (input) => parseLong(input),
+    'uint64Value': (input) => parseLong(input),
     'floatValue': (input) => Number(input),
     'doubleValue': (input) => Number(input),
     'bytesValue': (input) => input,
@@ -83,7 +88,13 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
             throw new Error(`Unknown PrimitiveTypeId: ${type.typeId}`);
         }
     } else if (type.decimalType) {
-        throw new Error('DecimalType is not implemented yet!')
+        const numericValue = BigInt(value);
+        const low = numericValue & BigInt('0xffffffffffffffff');
+        const hi = numericValue >> BigInt('64');
+        return {
+            low_128: Long.fromString(low.toString()),
+            high_128: Long.fromString(hi.toString())
+        }
     } else if (type.optionalType) {
         const innerType = type.optionalType.item;
         if (value) {
@@ -121,7 +132,34 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
             }))
         }
     } else if (type.variantType) {
-        throw new Error('VariantType is not implemented yet!');
+        let variantIndex = -1;
+        if (type.variantType.tupleItems) {
+            const elements = type.variantType.tupleItems.elements as IType[];
+            return {
+                items: _.map(value, (item, index: number) => {
+                    if (item) {
+                        variantIndex = index;
+                        return typeToValue(elements[index], item);
+                    }
+                    return item;
+                }),
+                variantIndex
+            }
+        } else if (type.variantType.structItems) {
+            const members = type.variantType.structItems.members as IStructMember[];
+            return {
+                items: _.map(value, (item, index: number)=> {
+                    if (item) {
+                        variantIndex = index;
+                        const type = members[index].type;
+                        return typeToValue(type, item);
+                    }
+                    return item;
+                }),
+                variantIndex
+            }
+        }
+        throw new Error('Either tupleItems or structItems should be present in VariantType!');
     } else {
         throw new Error(`Unknown type ${type}`);
     }
