@@ -1,11 +1,8 @@
-import fs from 'fs';
-
 import Driver from '../../driver';
 import {Session, TableDescription, Column} from "../../table";
 import {Ydb} from "../../../proto/bundle";
 import {Series, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
-import {IAuthService, TokenAuthService, IamAuthService} from "../../credentials";
-import {ISslCredentials} from "../../utils";
+import {getCredentialsFromEnv} from "../../parse-env-vars";
 import getLogger, {Logger} from "../../logging";
 
 
@@ -156,31 +153,6 @@ WHERE series_id = 1;`;
     return Series.createNativeObjects(resultSets[0]);
 }
 
-function getCredentialsFromEnv(): IAuthService {
-    if (process.env.YDB_TOKEN) {
-        return new TokenAuthService(process.env.YDB_TOKEN);
-    }
-
-    if (process.env.SA_ID) {
-        const privateKey = fs.readFileSync(process.env.SA_PRIVATE_KEY_FILE || '');
-        const rootCertsFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || '';
-        const sslCredentials: ISslCredentials = {};
-        if (rootCertsFile) {
-            sslCredentials.rootCertificates = fs.readFileSync(rootCertsFile);
-        }
-        return new IamAuthService({
-            sslCredentials,
-            iamCredentials: {
-                iamEndpoint: process.env.IAM_ENDPOINT || 'iam.api.cloud.yandex.net:443',
-                serviceAccountId: process.env.SA_ID,
-                accessKeyId: process.env.SA_ACCESS_KEY_ID || '',
-                privateKey
-            }
-        });
-    }
-
-    throw new Error('Either YDB_TOKEN or SA_ID environment variable should be set!');
-}
 
 async function run(logger: Logger, entryPoint: string, dbName: string) {
     const authService = getCredentialsFromEnv();

@@ -13,7 +13,7 @@ function makeCredentialsMetadata(token: string): grpc.Metadata {
     return metadata;
 }
 
-interface IIAmCredentials {
+export interface IIAmCredentials {
     serviceAccountId: string,
     accessKeyId: string,
     privateKey: Buffer,
