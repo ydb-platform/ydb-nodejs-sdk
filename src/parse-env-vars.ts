@@ -1,6 +1,7 @@
 import fs from 'fs';
-import {IAuthService, TokenAuthService, IamAuthService, IIAmCredentials} from "./credentials";
+import {IAuthService, TokenAuthService, IamAuthService, IIAmCredentials, MetadataAuthService} from "./credentials";
 import {ISslCredentials} from "./utils";
+import getLogger from './logging';
 
 
 function getSslCert(): ISslCredentials {
@@ -32,6 +33,8 @@ function getSACredentialsFromJson(filename: string): IIAmCredentials {
     };
 }
 
+const logger = getLogger();
+
 export function getCredentialsFromEnv(): IAuthService {
     if (process.env.YDB_TOKEN) {
         return new TokenAuthService(process.env.YDB_TOKEN);
@@ -48,7 +51,8 @@ export function getCredentialsFromEnv(): IAuthService {
             sslCredentials,
             iamCredentials: getSACredentialsFromJson(process.env.SA_JSON_FILE)
         });
+    } else {
+        logger.info('Neither YDB_TOKEN nor SA_ID env variable is set, getting token from Metadata Service');
+        return new MetadataAuthService();
     }
-
-    throw new Error('Either YDB_TOKEN or SA_ID environment variable should be set!');
 }
