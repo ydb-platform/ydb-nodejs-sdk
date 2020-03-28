@@ -197,22 +197,27 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async executeQuery(
-        query: IQuery | string,
+        query: PrepareQueryResult | string,
         params: IQueryParams = {},
         txControl: IExistingTransaction | INewTransaction = AUTO_TX
     ): Promise<ExecuteQueryResult> {
         this.logger.trace('preparedQuery', JSON.stringify(query, null, 2));
         this.logger.trace('parameters', JSON.stringify(params, null, 2));
+        let queryToExecute: IQuery;
         if (typeof query === 'string') {
-            query = {
+            queryToExecute = {
                 yqlText: query
+            };
+        } else {
+            queryToExecute = {
+                id: query.queryId
             };
         }
         const request = {
             sessionId: this.sessionId,
             txControl,
             parameters: params,
-            query
+            query: queryToExecute
         };
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(response);

@@ -45,8 +45,9 @@ const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.TZ_TIMESTAMP]: 'uint64Value',
 };
 
-const parseLong = (input: string|number) => {
-   return typeof input === 'string' ? Long.fromString(input) : Long.fromNumber(input);
+const parseLong = (input: string|number): Long|number => {
+   const long = typeof input === 'string' ? Long.fromString(input) : Long.fromNumber(input);
+   return long.high ? long : long.low;
 };
 
 const valueToNativeConverters: Record<string, (input: string|number) => any> = {
@@ -181,15 +182,15 @@ export class TypedData {
         return typeMeta;
     }
 
-    getValue(propertyKey: string, value: any): IValue {
+    getValue(propertyKey: string): IValue {
         const type = this.getType(propertyKey);
-        return typeToValue(type, value);
+        return typeToValue(type, this[propertyKey]);
     }
 
-    getTypedValue(propertyKey: string, value: any): ITypedValue {
+    getTypedValue(propertyKey: string): ITypedValue {
         return {
             type: this.getType(propertyKey),
-            value: this.getValue(propertyKey, value)
+            value: this.getValue(propertyKey)
         };
     }
 
@@ -213,7 +214,7 @@ export class TypedData {
     getRowValue() {
         return {
             items: _.map(this.typedProperties, (propertyKey: string) => {
-                return this.getValue(propertyKey, this[propertyKey])
+                return this.getValue(propertyKey)
             })
         }
     }

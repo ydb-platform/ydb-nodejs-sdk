@@ -38,11 +38,7 @@ export enum StatusCode {
 
 export class YdbError extends Error {
     static formatIssues(issues?: null | any[]) {
-        if (issues) {
-            return issues.map((issue) => issue.toString()).join(' ,');
-        } else {
-            return ''
-        }
+        return issues ? JSON.stringify(issues, null, 2) : '';
     }
 
     static checkStatus(operation: IOperation) {

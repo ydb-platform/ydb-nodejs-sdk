@@ -49,7 +49,7 @@ interface IEpisode {
     title: string,
     airDate: string
 }
-class Episode extends TypedData {
+export class Episode extends TypedData {
     @declareType({typeId: Type.PrimitiveTypeId.UINT64})
     public seriesId: number;
 
@@ -86,7 +86,7 @@ interface ISeason {
     firstAired: string,
     lastAired: string
 }
-class Season extends TypedData {
+export class Season extends TypedData {
     @declareType({typeId: Type.PrimitiveTypeId.UINT64})
     public seriesId: number;
 

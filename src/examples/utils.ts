@@ -7,7 +7,7 @@ export interface Runner {
 
 export async function main(runner: Runner) {
     const [,, entryPoint, dbName] = process.argv;
-    const logger = getLogger({level: "debug"});
+    const logger = getLogger();
     if (!entryPoint) {
         logger.fatal('Cluster entry-point is missing, cannot run further!');
         process.exit(1);
