@@ -3,14 +3,21 @@ import {Session, TableDescription, Column} from "../../table";
 import {Ydb} from "../../../proto/bundle";
 import {Series, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
 import {getCredentialsFromEnv} from "../../parse-env-vars";
-import getLogger, {Logger} from "../../logging";
+import {Logger} from "../../logging";
+import {main} from '../utils';
 
 
 const SERIES_TABLE = 'series';
 const SEASONS_TABLE = 'seasons';
 const EPISODES_TABLE = 'episodes';
 
-async function createTables(session: Session) {
+async function createTables(session: Session, logger: Logger) {
+    logger.info('Dropping old tables...');
+    await session.dropTable(SERIES_TABLE);
+    await session.dropTable(EPISODES_TABLE);
+    await session.dropTable(SEASONS_TABLE);
+
+    logger.info('Creating tables...');
     await session.createTable(
         SERIES_TABLE,
         new TableDescription()
@@ -86,8 +93,16 @@ async function createTables(session: Session) {
     );
 }
 
+async function describeTable(session: Session, tableName: string, logger: Logger) {
+    logger.info(`Describing table: ${tableName}`);
+    const result = await session.describeTable(tableName);
+    for (const column of result.columns) {
+        logger.info(`Column name '${column.name}' has type ${JSON.stringify(column.type)}`);
+    }
+}
+
 async function fillTablesWithData(tablePathPrefix: string, session: Session, logger: Logger) {
-    logger.info('Preparing query...');
+    logger.info('Inserting data to tables, preparing query...');
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 
@@ -146,7 +161,7 @@ FROM AS_TABLE($episodesData);`;
 async function selectSimple(tablePathPrefix: string, session: Session): Promise<void> {
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
-SELECT series_id, title, series_info, release_date
+SELECT series_id, title, series_info, CAST(release_date AS Date)
 FROM ${SERIES_TABLE}
 WHERE series_id = 1;`;
     const {resultSets} = await session.executeQuery(query);
@@ -164,59 +179,16 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
         process.exit(1);
     }
     await driver.tableClient.withSession(async (session) => {
-        logger.info('Dropping old tables...');
-        await session.dropTable(SERIES_TABLE);
-        await session.dropTable(EPISODES_TABLE);
-        await session.dropTable(SEASONS_TABLE);
-        logger.info('Creating tables...');
-        await createTables(session);
-        logger.info('Tables have been created, inserting data...');
+        await createTables(session, logger);
+        await describeTable(session, 'series', logger);
         await fillTablesWithData(dbName, session, logger);
-        logger.info('The data has been inserted');
     });
     logger.info('Making a simple select...');
     await driver.tableClient.withSession(async (session) => {
         const result = await selectSimple(dbName, session);
         logger.info('selectSimple result:', result);
     });
-    logger.info('Testing scheme client capabilities...');
-    await driver.schemeClient.makeDirectory('example-path');
-    await driver.schemeClient.makeDirectory('example-path/subpath');
-    await driver.schemeClient.modifyPermissions(
-        'example-path/subpath',
-        [{
-            grant: {
-                subject: 'tsufiev@staff',
-                permissionNames: ['read', 'use']
-            }
-        }]
-    );
-    const entry = await driver.schemeClient.describePath('example-path');
-    const children = await driver.schemeClient.listDirectory('example-path');
-    logger.info(`Created path: ${JSON.stringify(entry, null, 2)}`);
-    logger.info(`Path contents: ${JSON.stringify(children, null, 2)}`);
-    await driver.schemeClient.removeDirectory('example-path/subpath');
-    await driver.schemeClient.removeDirectory('example-path');
     await driver.destroy();
 }
 
-async function main() {
-    const [,, entryPoint, dbName] = process.argv;
-    const logger = getLogger({level: "debug"});
-    if (!entryPoint) {
-        logger.fatal('Cluster entry-point is missing, cannot run further!');
-        process.exit(1);
-    } else if (!dbName) {
-        logger.fatal('Database name is missing, cannot run further!');
-        process.exit(1);
-    } else {
-        logger.info(`Running basic-example script against entry-point '${entryPoint}' and database '${dbName}'.`);
-    }
-    try {
-        await run(logger, entryPoint, dbName);
-    } catch (error) {
-        logger.error(error);
-    }
-}
-
-main();
+main(run);
