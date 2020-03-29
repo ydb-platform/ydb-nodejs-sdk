@@ -52,10 +52,7 @@ export class YdbError extends Error {
             if (!ErrCls) {
                 throw new Error(`Unexpected status code ${status}!`);
             } else {
-                throw new ErrCls(
-                    YdbError.formatIssues(operation.issues),
-                    operation.issues
-                );
+                throw new ErrCls(`${ErrCls.name}: ${YdbError.formatIssues(operation.issues)}`, operation.issues);
             }
         }
     }
@@ -66,10 +63,6 @@ export class YdbError extends Error {
     constructor(message: string, issues: null | any[] = []) {
         super(message);
         this.issues = issues;
-    }
-
-    get isRetryable() {
-        return false;
     }
 }
 

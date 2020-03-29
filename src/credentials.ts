@@ -36,7 +36,7 @@ export interface IAuthService {
 }
 
 export class TokenAuthService implements IAuthService {
-    constructor(private token: string) {}
+    constructor(private token: string, public sslCredentials?: ISslCredentials) {}
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         return makeCredentialsMetadata(this.token);
@@ -51,19 +51,19 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
     private tokenTimestamp: DateTime|null;
     private readonly iamCredentials: IIAmCredentials;
 
-    public readonly sslCredentials: ISslCredentials;
+    public readonly sslCredentials?: ISslCredentials;
 
-    constructor(authCredentials: IAuthCredentials) {
+    constructor(iamCredentials: IIAmCredentials, sslCredentials?: ISslCredentials) {
         super(
-            authCredentials.iamCredentials.iamEndpoint,
+            iamCredentials.iamEndpoint,
             'yandex.cloud.iam.v1.IamTokenService',
             IamTokenService,
-            authCredentials.sslCredentials
+            sslCredentials
         );
-        this.iamCredentials = authCredentials.iamCredentials;
+        this.iamCredentials = iamCredentials;
         this.tokenTimestamp = null;
 
-        this.sslCredentials = authCredentials.sslCredentials;
+        this.sslCredentials = sslCredentials;
     }
 
     getJwtRequest() {
@@ -120,7 +120,7 @@ export class MetadataAuthService implements IAuthService {
     static MAX_TRIES = 5;
     static TRIES_INTERVAL = 2000;
 
-    constructor() {
+    constructor(public sslCredentials?: ISslCredentials) {
         this.tokenService = new TokenService();
     }
 

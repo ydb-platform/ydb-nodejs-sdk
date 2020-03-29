@@ -23,11 +23,17 @@ export interface ISslCredentials {
     clientCertChain?: Buffer
 }
 
+function removeProtocol(entryPoint: string) {
+    const re = /^(grpc:\/\/|grpcs:\/\/)?(.+)/;
+    const match = re.exec(entryPoint) as string[];
+    return match[2];
+}
+
 export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
 
     protected constructor(host: string, private name: string, private apiCtor: ServiceFactory<Api>, sslCredentials?: ISslCredentials) {
-        this.api = this.getClient(host, sslCredentials);
+        this.api = this.getClient(removeProtocol(host), sslCredentials);
     }
 
     protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
@@ -61,7 +67,7 @@ export abstract class BaseService<Api extends $protobuf.rpc.Service> {
         private authService: IAuthService
     ) {
         this.api = new Proxy(
-            this.getClient(host, this.authService.sslCredentials),
+            this.getClient(removeProtocol(host), this.authService.sslCredentials),
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);

@@ -237,7 +237,7 @@ async function explicitTcl(tablePathPrefix: string, session: Session, ids: Three
 }
 
 async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv();
+    const authService = getCredentialsFromEnv(entryPoint, logger);
     logger.debug('Driver initializing...');
     const driver = new Driver(entryPoint, dbName, authService);
     const timeout = 10000;

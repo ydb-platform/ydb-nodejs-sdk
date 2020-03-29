@@ -1,7 +1,7 @@
 import fs from 'fs';
 import {IAuthService, TokenAuthService, IamAuthService, IIAmCredentials, MetadataAuthService} from "./credentials";
 import {ISslCredentials} from "./utils";
-import getLogger from './logging';
+import {Logger} from './logging';
 
 
 function getSslCert(): ISslCredentials {
@@ -33,26 +33,32 @@ function getSACredentialsFromJson(filename: string): IIAmCredentials {
     };
 }
 
-const logger = getLogger();
+export function getCredentialsFromEnv(entryPoint: string, logger: Logger): IAuthService {
+    let sslCredentials = undefined;
 
-export function getCredentialsFromEnv(): IAuthService {
-    if (process.env.YDB_TOKEN) {
-        return new TokenAuthService(process.env.YDB_TOKEN);
+    if (entryPoint.startsWith('grpcs://')) {
+        logger.debug('Protocol grpcs specified in entry-point, using SSL connection.');
+        sslCredentials = getSslCert();
+    } else if (entryPoint.startsWith('grpc://')) {
+        logger.debug('Protocol grpc specified in entry-point, using insecure connection.');
+    } else {
+        logger.debug('No protocol specified in entry-point, using SSL connection.')
+        sslCredentials = getSslCert();
     }
 
-    const sslCredentials = getSslCert();
+    if (process.env.YDB_TOKEN) {
+        logger.debug('YDB_TOKEN env var found, using TokenAuthService.');
+        return new TokenAuthService(process.env.YDB_TOKEN, sslCredentials);
+    }
+
     if (process.env.SA_ID) {
-        return new IamAuthService({
-            sslCredentials,
-            iamCredentials: getSACredentialsFromEnv(process.env.SA_ID)
-        });
+        logger.debug('SA_ID env var found, using IamAuthService.');
+        return new IamAuthService(getSACredentialsFromEnv(process.env.SA_ID), sslCredentials);
     } else if (process.env.SA_JSON_FILE) {
-        return new IamAuthService({
-            sslCredentials,
-            iamCredentials: getSACredentialsFromJson(process.env.SA_JSON_FILE)
-        });
+        logger.debug('SA_JSON_FILE env var found, using IamAuthService with params from that json.');
+        return new IamAuthService(getSACredentialsFromJson(process.env.SA_JSON_FILE), sslCredentials);
     } else {
-        logger.info('Neither YDB_TOKEN nor SA_ID env variable is set, getting token from Metadata Service');
-        return new MetadataAuthService();
+        logger.debug('Neither YDB_TOKEN nor SA_ID env variable is set, getting token from Metadata Service');
+        return new MetadataAuthService(sslCredentials);
     }
 }

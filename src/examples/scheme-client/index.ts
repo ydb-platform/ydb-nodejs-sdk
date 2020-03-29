@@ -5,7 +5,7 @@ import {main} from '../utils';
 
 
 async function run(logger: Logger, entryPoint: string, dbName: string): Promise<void> {
-    const authService = getCredentialsFromEnv();
+    const authService = getCredentialsFromEnv(entryPoint, logger);
     logger.info('Driver initializing...');
     const driver = new Driver(entryPoint, dbName, authService);
     const timeout = 10000;
