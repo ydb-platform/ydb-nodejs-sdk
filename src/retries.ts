@@ -1,4 +1,5 @@
 import {YdbError} from "./errors";
+import getLogger, {Logger} from './logging';
 import * as errors from './errors';
 
 
@@ -36,10 +37,13 @@ const RETRYABLE_ERRORS = [
 const RETRYABLE_W_DELAY_ERRORS = [errors.Overloaded, errors.ConnectionError];
 
 class RetryStrategy {
+    private logger: Logger;
     constructor(
         public methodName = 'UnknownClass::UnknownMethod',
         public retryParameters: RetryParameters
-    ) {}
+    ) {
+        this.logger = getLogger();
+    }
 
     static async waitBackoffTimeout(retryParameters: RetryParameters, retries: number) {
         const slotsCount = 1 << Math.min(retries, retryParameters.backoffCeiling);
@@ -58,8 +62,11 @@ class RetryStrategy {
             try {
                 return await asyncMethod();
             } catch (e) {
+                const errName = e.constructor.name;
                 error = e;
+                const retriesLeft = retryParameters.maxRetries - retries;
                 if (RETRYABLE_ERRORS.some((cls) => e instanceof cls)) {
+                    this.logger.warn(`Caught an error ${errName}, retrying immediately, ${retriesLeft} retries left`);
                     retryParameters.onYdbErrorCb(e);
 
                     if (e instanceof errors.NotFound && !retryParameters.retryNotFound) {
@@ -70,6 +77,7 @@ class RetryStrategy {
                         throw e;
                     }
                 } else if (RETRYABLE_W_DELAY_ERRORS.some((cls) => e instanceof cls)) {
+                    this.logger.warn(`Caught an error ${errName}, retrying with a backoff, ${retriesLeft} retries left`);
                     retryParameters.onYdbErrorCb(e);
 
                     await RetryStrategy.waitBackoffTimeout(retryParameters, retries);
@@ -84,6 +92,7 @@ class RetryStrategy {
             retries++;
         }
         if (error) {
+            this.logger.debug('All retries have been used, re-throwing error');
             throw error;
         }
     }
@@ -103,4 +112,13 @@ export function retryable(strategyParams?: RetryParameters) {
             );
         };
     };
+}
+
+export async function withRetries(originalFunction: (...args: any) => Promise<any>, strategyParams?: RetryParameters) {
+    const wrappedMethodName = originalFunction.name;
+    if (!strategyParams) {
+        strategyParams = new RetryParameters();
+    }
+    const strategy = new RetryStrategy(wrappedMethodName, strategyParams);
+    return await strategy.retry(originalFunction);
 }

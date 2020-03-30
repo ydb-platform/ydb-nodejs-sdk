@@ -194,7 +194,6 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         return PrepareQueryResult.decode(payload);
     }
 
-    @retryable()
     @pessimizable
     public async executeQuery(
         query: PrepareQueryResult | string,

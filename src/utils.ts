@@ -2,11 +2,11 @@ import grpc, {Metadata} from 'grpc';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
 import {Ydb} from '../proto/bundle';
-import {YdbError, StatusCode} from "./errors";
+import {YdbError, StatusCode, NotFound} from "./errors";
 
 import {Endpoint} from './discovery';
 import {IAuthService} from './credentials';
-import {MissingValue, OperationError, MissingOperation} from './errors';
+import {MissingValue, MissingOperation} from './errors';
 
 
 export interface Pessimizable {
@@ -117,10 +117,8 @@ export function ensureOperationSucceeded(response: AsyncResponse, suppressedErro
     try {
         getOperationPayload(response);
     } catch (e) {
-        if (e instanceof OperationError) {
-            if (suppressedErrors.indexOf(e.code) > -1) {
-                return;
-            }
+        if (suppressedErrors.indexOf(e.code) > -1) {
+            return;
         }
 
         if (!(e instanceof MissingValue)) {
@@ -135,7 +133,7 @@ export function pessimizable(_target: Pessimizable, _propertyKey: string, descri
         try {
             return await originalMethod.call(this, ...args);
         } catch (error) {
-            if (error instanceof OperationError) {
+            if (!(error instanceof NotFound)) {
                 this.endpoint.pessimize();
             }
             throw error;

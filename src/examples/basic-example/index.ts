@@ -4,6 +4,7 @@ import {Ydb} from "../../../proto/bundle";
 import {Series, Episode, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
 import {getCredentialsFromEnv} from "../../parse-env-vars";
 import {Logger} from "../../logging";
+import {withRetries} from "../../retries";
 import {main} from '../utils';
 
 
@@ -102,7 +103,6 @@ async function describeTable(session: Session, tableName: string, logger: Logger
 }
 
 async function fillTablesWithData(tablePathPrefix: string, session: Session, logger: Logger) {
-    logger.info('Inserting data to tables, preparing query...');
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 
@@ -149,13 +149,18 @@ SELECT
     title,
     CAST(air_date as Date) as air_date
 FROM AS_TABLE($episodesData);`;
-    const preparedQuery = await session.prepareQuery(query);
-    logger.info('Query has been prepared, executing...');
-    await session.executeQuery(preparedQuery, {
-        '$seriesData': getSeriesData(),
-        '$seasonsData': getSeasonsData(),
-        '$episodesData': getEpisodesData()
-    });
+    async function fillTable() {
+        logger.info('Inserting data to tables, preparing query...');
+        const preparedQuery = await session.prepareQuery(query);
+        console.log('here we are!!!')
+        logger.info('Query has been prepared, executing...');
+        await session.executeQuery(preparedQuery, {
+            '$seriesData': getSeriesData(),
+            '$seasonsData': getSeasonsData(),
+            '$episodesData': getEpisodesData()
+        });
+    }
+    await withRetries(fillTable);
 }
 
 async function selectSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
@@ -193,19 +198,22 @@ async function selectPrepared(tablePathPrefix: string, session: Session, data: T
     SELECT title, CAST(air_date AS Date) as air_date
     FROM episodes
     WHERE series_id = $seriesId AND season_id = $seasonId AND episode_id = $episodeId;`;
-    logger.info('Preparing query...');
-    const preparedQuery = await session.prepareQuery(query);
-    logger.info('Selecting prepared query...');
-    for (const [seriesId, seasonId, episodeId] of data) {
-        const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: ''});
-        const {resultSets} = await session.executeQuery(preparedQuery, {
-            '$seriesId': episode.getTypedValue('seriesId'),
-            '$seasonId': episode.getTypedValue('seasonId'),
-            '$episodeId': episode.getTypedValue('episodeId')
-        });
-        const result = Series.createNativeObjects(resultSets[0]);
-        logger.info('Select prepared query', result);
+    async function select() {
+        logger.info('Preparing query...');
+        const preparedQuery = await session.prepareQuery(query);
+        logger.info('Selecting prepared query...');
+        for (const [seriesId, seasonId, episodeId] of data) {
+            const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: ''});
+            const {resultSets} = await session.executeQuery(preparedQuery, {
+                '$seriesId': episode.getTypedValue('seriesId'),
+                '$seasonId': episode.getTypedValue('seasonId'),
+                '$episodeId': episode.getTypedValue('episodeId')
+            });
+            const result = Series.createNativeObjects(resultSets[0]);
+            logger.info('Select prepared query', result);
+        }
     }
+    await withRetries(select);
 }
 
 async function explicitTcl(tablePathPrefix: string, session: Session, ids: ThreeIds, logger: Logger) {
@@ -219,21 +227,24 @@ async function explicitTcl(tablePathPrefix: string, session: Session, ids: Three
     UPDATE episodes
     SET air_date = CAST(CAST("2018-09-11T15:15:59.373006Z" AS Timestamp) AS Date)
     WHERE series_id = $seriesId AND season_id = $seasonId AND episode_id = $episodeId;`;
-    logger.info('Running prepared query with explicit transaction control...');
-    const preparedQuery = await session.prepareQuery(query);
-    const txMeta = await session.beginTransaction({serializableReadWrite: {}});
-    const [seriesId, seasonId, episodeId] = ids;
-    const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: ''});
-    const params = {
-        '$seriesId': episode.getTypedValue('seriesId'),
-        '$seasonId': episode.getTypedValue('seasonId'),
-        '$episodeId': episode.getTypedValue('episodeId')
-    };
-    const txId = txMeta.id as string;
-    logger.info(`Executing query with txId ${txId}.`);
-    await session.executeQuery(preparedQuery, params, {txId});
-    await session.commitTransaction({txId});
-    logger.info(`TxId ${txId} committed.`);
+    async function update() {
+        logger.info('Running prepared query with explicit transaction control...');
+        const preparedQuery = await session.prepareQuery(query);
+        const txMeta = await session.beginTransaction({serializableReadWrite: {}});
+        const [seriesId, seasonId, episodeId] = ids;
+        const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: ''});
+        const params = {
+            '$seriesId': episode.getTypedValue('seriesId'),
+            '$seasonId': episode.getTypedValue('seasonId'),
+            '$episodeId': episode.getTypedValue('episodeId')
+        };
+        const txId = txMeta.id as string;
+        logger.info(`Executing query with txId ${txId}.`);
+        await session.executeQuery(preparedQuery, params, {txId});
+        await session.commitTransaction({txId});
+        logger.info(`TxId ${txId} committed.`);
+    }
+    await withRetries(update);
 }
 
 async function run(logger: Logger, entryPoint: string, dbName: string) {
