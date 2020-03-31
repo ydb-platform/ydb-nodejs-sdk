@@ -33,7 +33,7 @@ function getSACredentialsFromJson(filename: string): IIAmCredentials {
     };
 }
 
-export function getCredentialsFromEnv(entryPoint: string, logger: Logger): IAuthService {
+export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger: Logger): IAuthService {
     let sslCredentials = undefined;
 
     if (entryPoint.startsWith('grpcs://')) {
@@ -48,17 +48,17 @@ export function getCredentialsFromEnv(entryPoint: string, logger: Logger): IAuth
 
     if (process.env.YDB_TOKEN) {
         logger.debug('YDB_TOKEN env var found, using TokenAuthService.');
-        return new TokenAuthService(process.env.YDB_TOKEN, sslCredentials);
+        return new TokenAuthService(process.env.YDB_TOKEN, dbName, sslCredentials);
     }
 
     if (process.env.SA_ID) {
         logger.debug('SA_ID env var found, using IamAuthService.');
-        return new IamAuthService(getSACredentialsFromEnv(process.env.SA_ID), sslCredentials);
+        return new IamAuthService(getSACredentialsFromEnv(process.env.SA_ID), dbName, sslCredentials);
     } else if (process.env.SA_JSON_FILE) {
         logger.debug('SA_JSON_FILE env var found, using IamAuthService with params from that json.');
-        return new IamAuthService(getSACredentialsFromJson(process.env.SA_JSON_FILE), sslCredentials);
+        return new IamAuthService(getSACredentialsFromJson(process.env.SA_JSON_FILE), dbName, sslCredentials);
     } else {
         logger.debug('Neither YDB_TOKEN nor SA_ID env variable is set, getting token from Metadata Service');
-        return new MetadataAuthService(sslCredentials);
+        return new MetadataAuthService(dbName, sslCredentials);
     }
 }

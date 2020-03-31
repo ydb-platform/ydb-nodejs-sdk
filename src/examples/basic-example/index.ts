@@ -152,7 +152,6 @@ FROM AS_TABLE($episodesData);`;
     async function fillTable() {
         logger.info('Inserting data to tables, preparing query...');
         const preparedQuery = await session.prepareQuery(query);
-        console.log('here we are!!!')
         logger.info('Query has been prepared, executing...');
         await session.executeQuery(preparedQuery, {
             '$seriesData': getSeriesData(),
@@ -248,7 +247,7 @@ async function explicitTcl(tablePathPrefix: string, session: Session, ids: Three
 }
 
 async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, logger);
+    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
     logger.debug('Driver initializing...');
     const driver = new Driver(entryPoint, dbName, authService);
     const timeout = 10000;
