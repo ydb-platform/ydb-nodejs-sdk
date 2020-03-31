@@ -131,6 +131,7 @@ export class MetadataAuthService implements IAuthService {
         while (!token && tries < MetadataAuthService.MAX_TRIES) {
             token = this.tokenService.getToken();
             await sleep(MetadataAuthService.TRIES_INTERVAL);
+            tries++;
         }
         if (token) {
             return makeCredentialsMetadata(token);
