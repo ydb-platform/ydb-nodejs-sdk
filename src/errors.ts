@@ -57,7 +57,7 @@ export class YdbError extends Error {
         }
     }
 
-    public status: number | null = null;
+    static status = StatusCode.STATUS_CODE_UNSPECIFIED;
     public issues: any[] | null;
 
     constructor(message: string, issues: null | any[] = []) {
@@ -68,88 +68,88 @@ export class YdbError extends Error {
 
 export class ConnectionError extends YdbError {}
 export class ConnectionFailure extends ConnectionError {
-    status = StatusCode.CONNECTION_FAILURE
+    static status = StatusCode.CONNECTION_FAILURE
 }
 export class ConnectionLost extends ConnectionError {
-    status = StatusCode.CONNECTION_LOST
+    static status = StatusCode.CONNECTION_LOST
 }
 export class DeadlineExceed extends ConnectionError {
-    status = StatusCode.DEADLINE_EXCEEDED
+    static status = StatusCode.DEADLINE_EXCEEDED
 }
 export class Unimplemented extends ConnectionError {
-    status = StatusCode.UNIMPLEMENTED
+    static status = StatusCode.UNIMPLEMENTED
 }
 
 export class Unauthenticated extends YdbError {
-    status = StatusCode.UNAUTHENTICATED
+    static status = StatusCode.UNAUTHENTICATED
 }
 
 export class BadRequest extends YdbError {
-    status = StatusCode.BAD_REQUEST
+    static status = StatusCode.BAD_REQUEST
 }
 
 export class Unauthorized extends YdbError {
-    status = StatusCode.UNAUTHORIZED
+    static status = StatusCode.UNAUTHORIZED
 }
 
 export class InternalError extends YdbError {
-    status = StatusCode.INTERNAL_ERROR
+    static status = StatusCode.INTERNAL_ERROR
 }
 
 export class Aborted extends YdbError {
-    status = StatusCode.ABORTED
+    static status = StatusCode.ABORTED
 }
 
 export class Unavailable extends YdbError {
-    status = StatusCode.UNAVAILABLE
+    static status = StatusCode.UNAVAILABLE
 }
 
 export class Overloaded extends YdbError {
-    status = StatusCode.OVERLOADED
+    static status = StatusCode.OVERLOADED
 }
 
 export class SchemeError extends YdbError {
-    status = StatusCode.SCHEME_ERROR
+    static status = StatusCode.SCHEME_ERROR
 }
 
 export class GenericError extends YdbError {
-    status = StatusCode.GENERIC_ERROR
+    static status = StatusCode.GENERIC_ERROR
 }
 
 export class BadSession extends YdbError {
-    status = StatusCode.BAD_SESSION
+    static status = StatusCode.BAD_SESSION
 }
 
 export class Timeout extends YdbError {
-    status = StatusCode.TIMEOUT
+    static status = StatusCode.TIMEOUT
 }
 
 export class PreconditionFailed extends YdbError {
-    status = StatusCode.PRECONDITION_FAILED
+    static status = StatusCode.PRECONDITION_FAILED
 }
 
 export class NotFound extends YdbError {
-    status = StatusCode.NOT_FOUND
+    static status = StatusCode.NOT_FOUND
 }
 
 export class AlreadyExists extends YdbError {
-    status = StatusCode.ALREADY_EXISTS
+    static status = StatusCode.ALREADY_EXISTS
 }
 
 export class SessionExpired extends YdbError {
-    status = StatusCode.SESSION_EXPIRED
+    static status = StatusCode.SESSION_EXPIRED
 }
 
 export class Cancelled extends YdbError {
-    status = StatusCode.CANCELLED
+    static status = StatusCode.CANCELLED
 }
 
 export class Undetermined extends YdbError {
-    status = StatusCode.UNDETERMINED
+    static status = StatusCode.UNDETERMINED
 }
 
 export class Unsupported extends YdbError {
-    status = StatusCode.UNSUPPORTED
+    static status = StatusCode.UNSUPPORTED
 }
 
 const SUCCESS_CODES = new Set([

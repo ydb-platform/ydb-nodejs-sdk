@@ -117,7 +117,7 @@ export function ensureOperationSucceeded(response: AsyncResponse, suppressedErro
     try {
         getOperationPayload(response);
     } catch (e) {
-        if (suppressedErrors.indexOf(e.code) > -1) {
+        if (suppressedErrors.indexOf(e.constructor.status) > -1) {
             return;
         }
 

@@ -8,7 +8,7 @@ import {SESSION_KEEPALIVE_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
 import getLogger, {Logger} from './logging';
 import {retryable} from "./retries";
-import {StatusCode} from "./errors";
+import {SchemeError} from "./errors";
 
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
@@ -132,7 +132,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             path: `${this.endpoint.database}/${tablePath}`
         };
         // suppress error when dropping non-existent table
-        ensureOperationSucceeded(await this.api.dropTable(request), [StatusCode.SCHEME_ERROR]);
+        ensureOperationSucceeded(await this.api.dropTable(request), [SchemeError.status]);
     }
 
     @retryable()
