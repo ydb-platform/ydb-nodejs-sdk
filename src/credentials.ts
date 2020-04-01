@@ -2,7 +2,7 @@ import grpc from 'grpc';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
 import {GrpcService, ISslCredentials} from "./utils";
-// import {TokenService} from 'yandex-cloud';
+import {TokenService} from 'yandex-cloud';
 import {yandex} from "../proto/bundle";
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
@@ -15,9 +15,9 @@ function makeCredentialsMetadata(token: string, dbName: string): grpc.Metadata {
     return metadata;
 }
 
-// async function sleep(milliseconds: number) {
-//     await new Promise((resolve) => setTimeout(resolve, milliseconds));
-// }
+async function sleep(milliseconds: number) {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 export interface IIAmCredentials {
     serviceAccountId: string,
@@ -116,29 +116,29 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
         return makeCredentialsMetadata(this.token, this.dbName);
     }
 }
-//
-// export class MetadataAuthService implements IAuthService {
-//     private tokenService: any;
-//
-//     static MAX_TRIES = 5;
-//     static TRIES_INTERVAL = 2000;
-//
-//     constructor(private dbName: string, public sslCredentials?: ISslCredentials) {
-//         this.tokenService = new TokenService();
-//     }
-//
-//     public async getAuthMetadata(): Promise<grpc.Metadata> {
-//         let token: string|null = null;
-//         let tries = 0;
-//         const MAX_TRIES = 5;
-//         while (!token && tries < MetadataAuthService.MAX_TRIES) {
-//             token = this.tokenService.getToken();
-//             await sleep(MetadataAuthService.TRIES_INTERVAL);
-//             tries++;
-//         }
-//         if (token) {
-//             return makeCredentialsMetadata(token, this.dbName);
-//         }
-//         throw new Error(`Failed to fetch access token via metadata service in ${MAX_TRIES} tries!`);
-//     }
-// }
+
+export class MetadataAuthService implements IAuthService {
+    private tokenService: any;
+
+    static MAX_TRIES = 5;
+    static TRIES_INTERVAL = 2000;
+
+    constructor(private dbName: string, public sslCredentials?: ISslCredentials) {
+        this.tokenService = new TokenService();
+    }
+
+    public async getAuthMetadata(): Promise<grpc.Metadata> {
+        let token: string|null = null;
+        let tries = 0;
+        const MAX_TRIES = 5;
+        while (!token && tries < MetadataAuthService.MAX_TRIES) {
+            token = this.tokenService.getToken();
+            await sleep(MetadataAuthService.TRIES_INTERVAL);
+            tries++;
+        }
+        if (token) {
+            return makeCredentialsMetadata(token, this.dbName);
+        }
+        throw new Error(`Failed to fetch access token via metadata service in ${MAX_TRIES} tries!`);
+    }
+}
