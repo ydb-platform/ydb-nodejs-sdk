@@ -1,5 +1,5 @@
 {
-  "name": "@yandex-data-ui/ydb-sdk",
+  "name": "ydb-sdk",
   "version": "0.0.1",
   "description": "Node.js bindings for working with YDB API over gRPC",
   "main": "src/index.js",
@@ -16,8 +16,12 @@
     "sdk",
     "grpc"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yandex-cloud/ydb-nodejs-sdk.git"
+  },
   "author": "Timur Sufiev",
-  "license": "ISC",
+  "license": "Apache",
   "dependencies": {
     "@grpc/proto-loader": "^0.5.1",
     "grpc": "^1.23.3",
