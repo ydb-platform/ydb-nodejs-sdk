@@ -1,5 +1,11 @@
 import fs from 'fs';
-import {IAuthService, TokenAuthService, IamAuthService, IIAmCredentials, MetadataAuthService} from "./credentials";
+import {
+    IAuthService,
+    TokenAuthService,
+    IamAuthService,
+    IIAmCredentials,
+    // MetadataAuthService
+} from "./credentials";
 import {ISslCredentials} from "./utils";
 import {Logger} from './logging';
 
@@ -58,7 +64,8 @@ export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger
         logger.debug('SA_JSON_FILE env var found, using IamAuthService with params from that json.');
         return new IamAuthService(getSACredentialsFromJson(process.env.SA_JSON_FILE), dbName, sslCredentials);
     } else {
-        logger.debug('Neither YDB_TOKEN nor SA_ID env variable is set, getting token from Metadata Service');
-        return new MetadataAuthService(dbName, sslCredentials);
+        throw new Error('You have to privide either YDB_TOKEN or SA_ID');
+        // logger.debug('Neither YDB_TOKEN nor SA_ID env variable is set, getting token from Metadata Service');
+        // return new MetadataAuthService(dbName, sslCredentials);
     }
 }
