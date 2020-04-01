@@ -58,7 +58,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
     'uint64Value': (input) => parseLong(input),
     'floatValue': (input) => Number(input),
     'doubleValue': (input) => Number(input),
-    'bytesValue': (input) => input,
+    'bytesValue': (input) => Buffer.from(input as string, 'base64').toString(),
     'textValue': (input) => input,
 };
 function convertPrimitiveValueToNative(value: IValue) {

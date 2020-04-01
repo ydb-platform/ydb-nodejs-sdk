@@ -106,23 +106,23 @@ async function fillTablesWithData(tablePathPrefix: string, session: Session, log
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 
-DECLARE $seriesData AS "List<Struct<
+DECLARE $seriesData AS List<Struct<
     series_id: Uint64,
     title: Utf8,
     series_info: Utf8,
-    release_date: Date>>";
-DECLARE $seasonsData AS "List<Struct<
+    release_date: Date>>;
+DECLARE $seasonsData AS List<Struct<
     series_id: Uint64,
     season_id: Uint64,
     title: Utf8,
     first_aired: Date,
-    last_aired: Date>>";
-DECLARE $episodesData AS "List<Struct<
+    last_aired: Date>>;
+DECLARE $episodesData AS List<Struct<
     series_id: Uint64,
     season_id: Uint64,
     episode_id: Uint64,
     title: Utf8,
-    air_date: Date>>";
+    air_date: Date>>;
 
 REPLACE INTO ${SERIES_TABLE}
 SELECT
@@ -151,7 +151,6 @@ SELECT
 FROM AS_TABLE($episodesData);`;
     async function fillTable() {
         logger.info('Inserting data to tables, preparing query...');
-        console.log('series', JSON.stringify(getSeriesData(), null, 2) );
         const preparedQuery = await session.prepareQuery(query);
         logger.info('Query has been prepared, executing...');
         await session.executeQuery(preparedQuery, {
@@ -166,6 +165,7 @@ FROM AS_TABLE($episodesData);`;
 async function selectSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
+$format = DateTime::Format("%Y-%m-%d");
 SELECT series_id, 
        title, 
        $format(DateTime::FromSeconds(CAST(DateTime::ToSeconds(DateTime::IntervalFromDays(CAST(release_date AS Int16))) AS Uint32))) AS release_date
@@ -196,7 +196,8 @@ async function selectPrepared(tablePathPrefix: string, session: Session, data: T
     DECLARE $seriesId AS Uint64;
     DECLARE $seasonId AS Uint64;
     DECLARE $episodeId AS Uint64;
-
+    $format = DateTime::Format("%Y-%m-%d");
+    
     SELECT title, 
            $format(DateTime::FromSeconds(CAST(DateTime::ToSeconds(DateTime::IntervalFromDays(CAST(air_date AS Int16))) AS Uint32))) AS air_date
     FROM episodes

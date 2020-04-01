@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:bundle": "pbjs -t static-module -w commonjs -p . `ls kikimr/public/api/grpc/*.proto` yandex/cloud/iam/v1/iam_token_service.proto > proto/bundle.js && pbts -o proto/bundle.d.ts proto/bundle.js",
     "build": "tsc",
-    "start": "node build/examples/basic-example/index.js $ENTRYPOINT $DB | pino-pretty"
+    "start": "node build/examples/basic-example-v1/index.js $ENTRYPOINT $DB | pino-pretty"
   },
   "keywords": [
     "ydb",
