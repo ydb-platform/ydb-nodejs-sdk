@@ -2,14 +2,15 @@
   "name": "ydb-sdk",
   "version": "1.0.0",
   "description": "Node.js bindings for working with YDB API over gRPC",
-  "main": "src/index.js",
+  "main": "build/driver.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:bundle": "pbjs -t static-module -w commonjs -p . `ls kikimr/public/api/grpc/*.proto` yandex/cloud/iam/v1/iam_token_service.proto > proto/bundle.js && pbts -o proto/bundle.d.ts proto/bundle.js",
     "build": "tsc",
     "basic-example": "node build/examples/basic-example/index.js $ENTRYPOINT $DB | pino-pretty",
     "basic-example-v1": "node build/examples/basic-example-v1/index.js $ENTRYPOINT $DB | pino-pretty",
-    "start": "npm run basic-example"
+    "start": "npm run basic-example",
+    "prepublish": "npm run build"
   },
   "keywords": [
     "ydb",
