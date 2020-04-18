@@ -4,6 +4,8 @@ import {Ydb} from "../../../proto/bundle";
 
 import Type = Ydb.Type;
 
+// Prevent error "'extends' clause of exported class 'Series' has or is using private name 'TypedData'"
+export { TypedData };
 
 // function toDays(date: string) {
 //     const timeDelta = moment.duration(moment(date) - moment('1970-01-01'));

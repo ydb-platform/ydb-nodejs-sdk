@@ -5,6 +5,8 @@ import {Ydb} from "../../../proto/bundle";
 
 import Type = Ydb.Type;
 
+// Prevent error "'extends' clause of exported class 'Series' has or is using private name 'TypedData'"
+export { TypedData };
 
 const UNIX_ZERO = DateTime.fromISO('1970-01-01');
 function toDays(date: string): number {
