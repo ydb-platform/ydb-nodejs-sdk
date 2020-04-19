@@ -232,6 +232,7 @@ export class SessionPool extends EventEmitter {
     private sessionsBeingDeleted: number;
     private readonly sessionKeepAliveId: NodeJS.Timeout;
     private readonly logger: Logger;
+    private readonly waiters: ((session: Session) => void)[] = [];
 
     constructor(private driver: Driver, minLimit = 5, maxLimit = 20, keepAlivePeriod = SESSION_KEEPALIVE_PERIOD) {
         super();
@@ -248,16 +249,13 @@ export class SessionPool extends EventEmitter {
     public async destroy(): Promise<void> {
         this.logger.debug('Destroying pool...');
         clearInterval(this.sessionKeepAliveId);
-        await Promise.all(_.map([...this.sessions], (session) => this.deleteSession(session)));
+        await Promise.all(_.map([...this.sessions], (session: Session) => this.deleteSession(session)));
         this.logger.debug('Pool has been destroyed.');
     }
 
     private initListeners(keepAlivePeriod: number) {
-        this.on(SessionEvent.SESSION_BROKEN, async (sessionId) => {
-            await this.deleteSession(sessionId);
-        });
         return setInterval(async () => Promise.all(
-            _.map([...this.sessions], (session) => session.keepAlive())
+            _.map([...this.sessions], (session: Session) => session.keepAlive())
         ), keepAlivePeriod);
     }
 
@@ -268,6 +266,17 @@ export class SessionPool extends EventEmitter {
     private async createSession(): Promise<Session> {
         const sessionCreator = await this.driver.getSessionCreator();
         const session = await sessionCreator.create();
+        session.on(SessionEvent.SESSION_RELEASE, () => {
+            if (this.waiters.length > 0) {
+                const waiter = this.waiters.shift();
+                if (typeof waiter === "function") {
+                    waiter(session);
+                }
+            }
+        })
+        session.on(SessionEvent.SESSION_BROKEN, async () => {
+            await this.deleteSession(session);
+        });
         this.sessions.add(session);
         return session;
     }
@@ -300,15 +309,17 @@ export class SessionPool extends EventEmitter {
         } else {
             return new Promise((resolve, reject) => {
                 let timeoutId: NodeJS.Timeout;
+                function waiter(session: Session) {
+                    clearTimeout(timeoutId);
+                    resolve(session.acquire());
+                }
                 if (timeout) {
                     timeoutId = setTimeout(() => {
+                        this.waiters.splice(this.waiters.indexOf(waiter), 1);
                         reject(`No session became available within timeout of ${timeout} ms`);
                     }, timeout);
                 }
-                this.once(SessionEvent.SESSION_RELEASE, (session) => {
-                    clearTimeout(timeoutId);
-                    resolve(session);
-                })
+                this.waiters.push(waiter);
             });
         }
     }
