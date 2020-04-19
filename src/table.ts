@@ -22,6 +22,10 @@ import ExecuteQueryResult = Ydb.Table.ExecuteQueryResult;
 import ITransactionSettings = Ydb.Table.ITransactionSettings;
 import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
 import ITransactionMeta = Ydb.Table.ITransactionMeta;
+import AutoPartitioningPolicy = Ydb.Table.PartitioningPolicy.AutoPartitioningPolicy;
+import ITypedValue = Ydb.ITypedValue;
+import FeatureFlag = Ydb.FeatureFlag.Status;
+import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
 
 
 export class SessionService extends BaseService<TableService> {
@@ -115,11 +119,14 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async createTable(tablePath: string, description: TableDescription): Promise<void> {
+        const {columns, primaryKey, indexes, profile} = description;
         const request = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
-            columns: description.columns,
-            primaryKey: description.primaryKeys
+            columns,
+            primaryKey,
+            indexes,
+            profile
         };
         ensureOperationSucceeded(await this.api.createTable(request));
     }
@@ -355,26 +362,265 @@ export class TableClient extends EventEmitter {
     }
 }
 
-export class Column {
+export class Column implements Ydb.Table.IColumnMeta {
     constructor(public name: string, public type: IType) {}
 }
 
+export class StorageSettings implements Ydb.Table.IStorageSettings {
+    constructor(public storageKind: string) {}
+}
+
+export class ColumnFamilyPolicy implements Ydb.Table.IColumnFamilyPolicy {
+    public name?: string;
+    public data?: StorageSettings;
+    public external?: StorageSettings;
+    public keepInMemory?: FeatureFlag;
+    public compression?: Compression;
+
+    withName(name: string) {
+        this.name = name;
+        return this;
+    }
+
+    withData(data: StorageSettings) {
+        this.data = data;
+        return this;
+    }
+
+    withExternal(external: StorageSettings) {
+        this.external = external;
+        return this;
+    }
+
+    withKeepInMemory(keepInMemory: FeatureFlag) {
+        this.keepInMemory = keepInMemory;
+        return this;
+    }
+
+    withCompression(compression: Compression) {
+        this.compression = compression;
+        return this;
+    }
+}
+
+export class StoragePolicy implements Ydb.Table.IStoragePolicy {
+    public presetName?: string;
+    public syslog?: StorageSettings;
+    public log?: StorageSettings;
+    public data?: StorageSettings;
+    public external?: StorageSettings;
+    public keepInMemory?: FeatureFlag;
+    public columnFamilies: ColumnFamilyPolicy[] = [];
+
+    withPresetName(presetName: string) {
+        this.presetName = presetName;
+        return this;
+    }
+
+    withSyslog(syslog: StorageSettings) {
+        this.syslog = syslog;
+        return this;
+    }
+
+    withLog(log: StorageSettings) {
+        this.log = log;
+        return this;
+    }
+
+    withData(data: StorageSettings) {
+        this.data = data;
+        return this;
+    }
+
+    withExternal(external: StorageSettings) {
+        this.external = external;
+        return this;
+    }
+
+    withKeepInMemory(keepInMemory: FeatureFlag) {
+        this.keepInMemory = keepInMemory;
+        return this;
+    }
+
+    withColumnFamilies(...columnFamilies: ColumnFamilyPolicy[]) {
+        for (const policy of columnFamilies) {
+            this.columnFamilies.push(policy);
+        }
+        return this;
+    }
+}
+
+export class ExplicitPartitions implements Ydb.Table.IExplicitPartitions {
+    constructor(public splitPoints: ITypedValue[]) {}
+}
+
+export class PartitioningPolicy implements Ydb.Table.IPartitioningPolicy {
+    public presetName?: string;
+    public autoPartitioning?: AutoPartitioningPolicy;
+    public uniformPartitions?: number;
+    public explicitPartitions?: ExplicitPartitions;
+
+    withPresetName(presetName: string) {
+        this.presetName = presetName;
+        return this;
+    }
+
+    withUniformPartitions(uniformPartitions: number) {
+        this.uniformPartitions = uniformPartitions;
+        return this;
+    }
+
+    withAutoPartitioning(autoPartitioning: AutoPartitioningPolicy) {
+        this.autoPartitioning = autoPartitioning;
+        return this;
+    }
+
+    withExplicitPartitions(explicitPartitions: ExplicitPartitions) {
+        this.explicitPartitions = explicitPartitions;
+        return this;
+    }
+}
+
+export class ReplicationPolicy implements Ydb.Table.IReplicationPolicy {
+    presetName?: string;
+    replicasCount?: number;
+    createPerAvailabilityZone?: FeatureFlag;
+    allowPromotion?: FeatureFlag;
+
+    withPresetName(presetName: string) {
+        this.presetName = presetName;
+        return this;
+    }
+
+    withReplicasCount(replicasCount: number) {
+        this.replicasCount = replicasCount;
+        return this;
+    }
+
+    withCreatePerAvailabilityZone(createPerAvailabilityZone: FeatureFlag) {
+        this.createPerAvailabilityZone = createPerAvailabilityZone;
+        return this;
+    }
+
+    withAllowPromotion(allowPromotion: FeatureFlag) {
+        this.allowPromotion = allowPromotion;
+        return this;
+    }
+}
+
+export class CompactionPolicy implements Ydb.Table.ICompactionPolicy {
+    constructor(public presetName: string) {}
+}
+
+export class ExecutionPolicy implements Ydb.Table.IExecutionPolicy {
+    constructor(public presetName: string) {}
+}
+
+export class CachingPolicy implements Ydb.Table.ICachingPolicy {
+    constructor(public presetName: string) {}
+}
+
+export class TableProfile implements Ydb.Table.ITableProfile {
+    public presetName?: string;
+    public storagePolicy?: StoragePolicy;
+    public compactionPolicy?: CompactionPolicy;
+    public partitioningPolicy?: PartitioningPolicy;
+    public executionPolicy?: ExecutionPolicy;
+    public replicationPolicy?: ReplicationPolicy;
+    public cachingPolicy?: CachingPolicy;
+
+    withPresetName(presetName: string) {
+        this.presetName = presetName;
+        return this;
+    }
+
+    withStoragePolicy(storagePolicy: StoragePolicy) {
+        this.storagePolicy = storagePolicy;
+        return this;
+    }
+
+    withCompactionPolicy(compactionPolicy: CompactionPolicy) {
+        this.compactionPolicy = compactionPolicy;
+        return this;
+    }
+
+    withPartitioningPolicy(partitioningPolicy: PartitioningPolicy) {
+        this.partitioningPolicy = partitioningPolicy;
+        return this;
+    }
+
+    withExecutionPolicy(executionPolicy: ExecutionPolicy) {
+        this.executionPolicy = executionPolicy;
+        return this;
+    }
+
+    withReplicationPolicy(replicationPolicy: ReplicationPolicy) {
+        this.replicationPolicy = replicationPolicy;
+        return this;
+    }
+
+    withCachingPolicy(cachingPolicy: CachingPolicy) {
+        this.cachingPolicy = cachingPolicy;
+        return this;
+    }
+}
+
+export class TableIndex implements Ydb.Table.ITableIndex {
+    public indexColumns: string[] = [];
+
+    constructor(public name: string) {}
+
+    withIndexColumns(...indexColumns: string[]) {
+        for (const index of indexColumns) {
+            this.indexColumns.push(index);
+        }
+        return this;
+    }
+}
+
 export class TableDescription {
-    constructor(public columns: Column[] = [], public primaryKeys: string[] = []) {}
+    public profile?: TableProfile;
+    public indexes: TableIndex[] = [];
+
+    constructor(public columns: Column[] = [], public primaryKey: string[] = []) {}
 
     withColumn(column: Column) {
         this.columns.push(column);
         return this;
     }
 
+    withColumns(...columns: Column[]) {
+        for (const column of columns) {
+            this.columns.push(column);
+        }
+        return this;
+    }
+
     withPrimaryKey(key: string) {
-        this.primaryKeys.push(key);
+        this.primaryKey.push(key);
         return this;
     }
 
     withPrimaryKeys(...keys: string[]) {
         for (const key of keys) {
-            this.primaryKeys.push(key);
+            this.primaryKey.push(key);
+        }
+        return this;
+    }
+
+    withProfile(profile: TableProfile) {
+        this.profile = profile;
+        return this;
+    }
+
+    withIndex(index: TableIndex) {
+        this.indexes.push(index);
+        return this;
+    }
+
+    withIndexes(...indexes: TableIndex[]) {
+        for (const index of indexes) {
+            this.indexes.push(index);
         }
         return this;
     }
