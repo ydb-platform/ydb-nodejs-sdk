@@ -8,14 +8,14 @@ export class RetryParameters {
     public retryInternalError: boolean;
     public unknownErrorHandler: (_error: Error) => void;
     public maxRetries: number;
-    public onYdbErrorCb: (_error: Error) => void;
+    public onYdbErrorCb: (_error: YdbError) => void;
     public backoffCeiling: number;
     public backoffSlotDuration: number;
 
     constructor(
         {
             maxRetries = 10,
-            onYdbErrorCb = (_error: Error) => {},
+            onYdbErrorCb = (_error: YdbError) => {},
             backoffCeiling = 6,
             backoffSlotDuration = 1,
         } = {}
@@ -32,9 +32,9 @@ export class RetryParameters {
 }
 
 const RETRYABLE_ERRORS = [
-    errors.Unavailable, errors.Aborted, errors.BadSession, errors.NotFound, errors.InternalError
+    errors.Unavailable, errors.Aborted, errors.NotFound, errors.InternalError
 ];
-const RETRYABLE_W_DELAY_ERRORS = [errors.Overloaded, errors.ConnectionError];
+const RETRYABLE_W_DELAY_ERRORS = [errors.Overloaded, errors.ConnectionError, errors.SessionBusy];
 
 class RetryStrategy {
     private logger: Logger;
@@ -66,7 +66,6 @@ class RetryStrategy {
                 error = e;
                 const retriesLeft = retryParameters.maxRetries - retries;
                 if (RETRYABLE_ERRORS.some((cls) => e instanceof cls)) {
-                    this.logger.warn(`Caught an error ${errName}, retrying immediately, ${retriesLeft} retries left`);
                     retryParameters.onYdbErrorCb(e);
 
                     if (e instanceof errors.NotFound && !retryParameters.retryNotFound) {
@@ -76,6 +75,7 @@ class RetryStrategy {
                     if (e instanceof errors.InternalError && !retryParameters.retryInternalError) {
                         throw e;
                     }
+                    this.logger.warn(`Caught an error ${errName}, retrying immediately, ${retriesLeft} retries left`);
                 } else if (RETRYABLE_W_DELAY_ERRORS.some((cls) => e instanceof cls)) {
                     this.logger.warn(`Caught an error ${errName}, retrying with a backoff, ${retriesLeft} retries left`);
                     retryParameters.onYdbErrorCb(e);
