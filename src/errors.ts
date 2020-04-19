@@ -26,6 +26,7 @@ export enum StatusCode {
     CANCELLED = ApiStatusCode.CANCELLED,
     UNDETERMINED = ApiStatusCode.UNDETERMINED,
     UNSUPPORTED = ApiStatusCode.UNSUPPORTED,
+    SESSION_BUSY = ApiStatusCode.SESSION_BUSY,
 
     CONNECTION_LOST = TRANSPORT_STATUSES_FIRST + 10,
     CONNECTION_FAILURE = TRANSPORT_STATUSES_FIRST + 20,
@@ -152,6 +153,10 @@ export class Unsupported extends YdbError {
     static status = StatusCode.UNSUPPORTED
 }
 
+export class SessionBusy extends YdbError {
+    static status = StatusCode.SESSION_BUSY
+}
+
 const SUCCESS_CODES = new Set([
     StatusCode.STATUS_CODE_UNSPECIFIED,
     StatusCode.SUCCESS
@@ -175,6 +180,7 @@ const SERVER_SIDE_ERROR_CODES = new Map([
     [StatusCode.CANCELLED, Cancelled],
     [StatusCode.UNDETERMINED, Undetermined],
     [StatusCode.UNSUPPORTED, Unsupported],
+    [StatusCode.SESSION_BUSY, SessionBusy],
 ]);
 
 export class MissingOperation extends YdbError {}
