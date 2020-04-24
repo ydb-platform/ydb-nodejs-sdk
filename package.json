@@ -9,7 +9,7 @@
     "build": "tsc",
     "basic-example": "node build/examples/basic-example/index.js $ENTRYPOINT $DB | pino-pretty",
     "basic-example-v1": "node build/examples/basic-example-v1/index.js $ENTRYPOINT $DB | pino-pretty",
-    "url-shortener-example": "npm run build && source .env && node build/examples/url-shortener-example/index.js $ENTRYPOINT $DB | pino-pretty",
+    "url-shortener-example": "node build/examples/url-shortener-example/index.js $ENTRYPOINT $DB | pino-pretty",
     "start": "npm run basic-example",
     "prepublish": "npm run build"
   },

@@ -18,15 +18,11 @@ export class UrlsMatch extends TypedData {
     public source: string;
 
     static isSourceUrlCorrect(sourceUrl: string): boolean {
-        return !(sourceUrl.match(SOURCE_URL_REGEX) === null);
+        return SOURCE_URL_REGEX.test(sourceUrl);
     }
 
     static calculateShortenUrl(sourceUrl: string): string {
         return crc.crc32(sourceUrl, 0).toString(16);
-    }
-
-    static create(shorten: string, source: string): UrlsMatch {
-        return new this({shorten, source});
     }
 
     constructor(data: IUrlsMatch) {
@@ -45,11 +41,7 @@ export class RequestSourceUrl extends TypedData {
     public shorten: string;
 
     static isShortenCorrect(shorten: string): boolean {
-        return !(shorten.match(SHORTEN_REGEX) === null);
-    }
-
-    static create(shorten: string): RequestSourceUrl {
-        return new this({shorten});
+        return SHORTEN_REGEX.test(shorten);
     }
 
     constructor(data: IRequestSourceUrl) {

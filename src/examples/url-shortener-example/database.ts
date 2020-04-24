@@ -31,7 +31,7 @@ export async function createTable(session: Session, logger: Logger) : Promise<vo
 
 export async function createShorten(sourceUrl: string, tablePathPrefix: string,
                                     session: Session, logger: Logger) : Promise<string> {
-    const shortenUrl: string = UrlsMatch.calculateShortenUrl(sourceUrl);
+    const shortenUrl = UrlsMatch.calculateShortenUrl(sourceUrl);
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 

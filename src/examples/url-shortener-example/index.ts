@@ -38,11 +38,11 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
     const app: express.Application = express();
     app.use(express.json());
 
-    app.get('/', async function(_, res) {
+    app.get('/', async function(_, res) : Promise<void> {
         await res.send(indexPageContent);
     });
 
-    app.get(API_PREFIX + '/:shorten', async function(req, res) {
+    app.get(API_PREFIX + '/:shorten', async function(req, res) : Promise<void> {
         if (RequestSourceUrl.isShortenCorrect(req.params.shorten || '') ) {
             await driver.tableClient.withSession(async (session) => {
                 const source = await selectSource(req.params.shorten, dbName, session, logger);
@@ -69,8 +69,8 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
     });
 
     const server = new http.Server(app);
-    server.listen(PORT, async function() {
-        logger.info('Server starting. Base url is', BASE_URL);
+    server.listen(PORT, '0.0.0.0', async function() {
+        logger.info('Server starting.');
         logger.info('Listening on port', PORT);
     });
 }
