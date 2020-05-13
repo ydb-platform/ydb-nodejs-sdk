@@ -9,9 +9,6 @@ service ExperimentalService {
     // Fast bulk load rows to a table bypassing transaction logic.
     rpc UploadRows(Experimental.UploadRowsRequest) returns (Experimental.UploadRowsResponse);
 
-    rpc ReadColumns(Experimental.ReadColumnsRequest) returns (Experimental.ReadColumnsResponse);
-    rpc GetShardLocations(Experimental.GetShardLocationsRequest) returns (Experimental.GetShardLocationsResponse);
-
     rpc ExecuteStreamQuery(Experimental.ExecuteStreamQueryRequest) returns (stream Experimental.ExecuteStreamQueryResponse);
 }
 

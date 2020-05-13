@@ -1233,6 +1233,7 @@ $root.Ydb = (function() {
              * @memberof Ydb.Cms
              * @interface IDatabaseOptions
              * @property {boolean|null} [disableTxService] DatabaseOptions disableTxService
+             * @property {boolean|null} [disableExternalSubdomain] DatabaseOptions disableExternalSubdomain
              */
 
             /**
@@ -1257,6 +1258,14 @@ $root.Ydb = (function() {
              * @instance
              */
             DatabaseOptions.prototype.disableTxService = false;
+
+            /**
+             * DatabaseOptions disableExternalSubdomain.
+             * @member {boolean} disableExternalSubdomain
+             * @memberof Ydb.Cms.DatabaseOptions
+             * @instance
+             */
+            DatabaseOptions.prototype.disableExternalSubdomain = false;
 
             /**
              * Creates a new DatabaseOptions instance using the specified properties.
@@ -1284,6 +1293,8 @@ $root.Ydb = (function() {
                     writer = $Writer.create();
                 if (message.disableTxService != null && message.hasOwnProperty("disableTxService"))
                     writer.uint32(/* id 1, wireType 0 =*/8).bool(message.disableTxService);
+                if (message.disableExternalSubdomain != null && message.hasOwnProperty("disableExternalSubdomain"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).bool(message.disableExternalSubdomain);
                 return writer;
             };
 
@@ -1320,6 +1331,9 @@ $root.Ydb = (function() {
                     switch (tag >>> 3) {
                     case 1:
                         message.disableTxService = reader.bool();
+                        break;
+                    case 2:
+                        message.disableExternalSubdomain = reader.bool();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -1359,6 +1373,9 @@ $root.Ydb = (function() {
                 if (message.disableTxService != null && message.hasOwnProperty("disableTxService"))
                     if (typeof message.disableTxService !== "boolean")
                         return "disableTxService: boolean expected";
+                if (message.disableExternalSubdomain != null && message.hasOwnProperty("disableExternalSubdomain"))
+                    if (typeof message.disableExternalSubdomain !== "boolean")
+                        return "disableExternalSubdomain: boolean expected";
                 return null;
             };
 
@@ -1376,6 +1393,8 @@ $root.Ydb = (function() {
                 var message = new $root.Ydb.Cms.DatabaseOptions();
                 if (object.disableTxService != null)
                     message.disableTxService = Boolean(object.disableTxService);
+                if (object.disableExternalSubdomain != null)
+                    message.disableExternalSubdomain = Boolean(object.disableExternalSubdomain);
                 return message;
             };
 
@@ -1392,10 +1411,14 @@ $root.Ydb = (function() {
                 if (!options)
                     options = {};
                 var object = {};
-                if (options.defaults)
+                if (options.defaults) {
                     object.disableTxService = false;
+                    object.disableExternalSubdomain = false;
+                }
                 if (message.disableTxService != null && message.hasOwnProperty("disableTxService"))
                     object.disableTxService = message.disableTxService;
+                if (message.disableExternalSubdomain != null && message.hasOwnProperty("disableExternalSubdomain"))
+                    object.disableExternalSubdomain = message.disableExternalSubdomain;
                 return object;
             };
 
@@ -7061,6 +7084,7 @@ $root.Ydb = (function() {
                     case 400160:
                     case 400170:
                     case 400180:
+                    case 400190:
                         break;
                     }
                 if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -7163,6 +7187,10 @@ $root.Ydb = (function() {
                 case "UNSUPPORTED":
                 case 400180:
                     message.status = 400180;
+                    break;
+                case "SESSION_BUSY":
+                case 400190:
+                    message.status = 400190;
                     break;
                 }
                 if (object.issues) {
@@ -7577,6 +7605,7 @@ $root.Ydb = (function() {
                     case 400160:
                     case 400170:
                     case 400180:
+                    case 400190:
                         break;
                     }
                 if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -7679,6 +7708,10 @@ $root.Ydb = (function() {
                 case "UNSUPPORTED":
                 case 400180:
                     message.status = 400180;
+                    break;
+                case "SESSION_BUSY":
+                case 400190:
+                    message.status = 400190;
                     break;
                 }
                 if (object.issues) {
@@ -7987,6 +8020,8 @@ $root.Ydb = (function() {
              * Properties of a ListOperationsResponse.
              * @memberof Ydb.Operations
              * @interface IListOperationsResponse
+             * @property {Ydb.StatusIds.StatusCode|null} [status] ListOperationsResponse status
+             * @property {Array.<Ydb.Issue.IIssueMessage>|null} [issues] ListOperationsResponse issues
              * @property {Array.<Ydb.Operations.IOperation>|null} [operations] ListOperationsResponse operations
              * @property {string|null} [nextPageToken] ListOperationsResponse nextPageToken
              */
@@ -8000,12 +8035,29 @@ $root.Ydb = (function() {
              * @param {Ydb.Operations.IListOperationsResponse=} [properties] Properties to set
              */
             function ListOperationsResponse(properties) {
+                this.issues = [];
                 this.operations = [];
                 if (properties)
                     for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                         if (properties[keys[i]] != null)
                             this[keys[i]] = properties[keys[i]];
             }
+
+            /**
+             * ListOperationsResponse status.
+             * @member {Ydb.StatusIds.StatusCode} status
+             * @memberof Ydb.Operations.ListOperationsResponse
+             * @instance
+             */
+            ListOperationsResponse.prototype.status = 0;
+
+            /**
+             * ListOperationsResponse issues.
+             * @member {Array.<Ydb.Issue.IIssueMessage>} issues
+             * @memberof Ydb.Operations.ListOperationsResponse
+             * @instance
+             */
+            ListOperationsResponse.prototype.issues = $util.emptyArray;
 
             /**
              * ListOperationsResponse operations.
@@ -8047,11 +8099,16 @@ $root.Ydb = (function() {
             ListOperationsResponse.encode = function encode(message, writer) {
                 if (!writer)
                     writer = $Writer.create();
+                if (message.status != null && message.hasOwnProperty("status"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.status);
+                if (message.issues != null && message.issues.length)
+                    for (var i = 0; i < message.issues.length; ++i)
+                        $root.Ydb.Issue.IssueMessage.encode(message.issues[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
                 if (message.operations != null && message.operations.length)
                     for (var i = 0; i < message.operations.length; ++i)
-                        $root.Ydb.Operations.Operation.encode(message.operations[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                        $root.Ydb.Operations.Operation.encode(message.operations[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
                 if (message.nextPageToken != null && message.hasOwnProperty("nextPageToken"))
-                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.nextPageToken);
+                    writer.uint32(/* id 4, wireType 2 =*/34).string(message.nextPageToken);
                 return writer;
             };
 
@@ -8087,11 +8144,19 @@ $root.Ydb = (function() {
                     var tag = reader.uint32();
                     switch (tag >>> 3) {
                     case 1:
+                        message.status = reader.int32();
+                        break;
+                    case 2:
+                        if (!(message.issues && message.issues.length))
+                            message.issues = [];
+                        message.issues.push($root.Ydb.Issue.IssueMessage.decode(reader, reader.uint32()));
+                        break;
+                    case 3:
                         if (!(message.operations && message.operations.length))
                             message.operations = [];
                         message.operations.push($root.Ydb.Operations.Operation.decode(reader, reader.uint32()));
                         break;
-                    case 2:
+                    case 4:
                         message.nextPageToken = reader.string();
                         break;
                     default:
@@ -8129,6 +8194,41 @@ $root.Ydb = (function() {
             ListOperationsResponse.verify = function verify(message) {
                 if (typeof message !== "object" || message === null)
                     return "object expected";
+                if (message.status != null && message.hasOwnProperty("status"))
+                    switch (message.status) {
+                    default:
+                        return "status: enum value expected";
+                    case 0:
+                    case 400000:
+                    case 400010:
+                    case 400020:
+                    case 400030:
+                    case 400040:
+                    case 400050:
+                    case 400060:
+                    case 400070:
+                    case 400080:
+                    case 400090:
+                    case 400100:
+                    case 400120:
+                    case 400130:
+                    case 400140:
+                    case 400150:
+                    case 400160:
+                    case 400170:
+                    case 400180:
+                    case 400190:
+                        break;
+                    }
+                if (message.issues != null && message.hasOwnProperty("issues")) {
+                    if (!Array.isArray(message.issues))
+                        return "issues: array expected";
+                    for (var i = 0; i < message.issues.length; ++i) {
+                        var error = $root.Ydb.Issue.IssueMessage.verify(message.issues[i]);
+                        if (error)
+                            return "issues." + error;
+                    }
+                }
                 if (message.operations != null && message.hasOwnProperty("operations")) {
                     if (!Array.isArray(message.operations))
                         return "operations: array expected";
@@ -8156,6 +8256,98 @@ $root.Ydb = (function() {
                 if (object instanceof $root.Ydb.Operations.ListOperationsResponse)
                     return object;
                 var message = new $root.Ydb.Operations.ListOperationsResponse();
+                switch (object.status) {
+                case "STATUS_CODE_UNSPECIFIED":
+                case 0:
+                    message.status = 0;
+                    break;
+                case "SUCCESS":
+                case 400000:
+                    message.status = 400000;
+                    break;
+                case "BAD_REQUEST":
+                case 400010:
+                    message.status = 400010;
+                    break;
+                case "UNAUTHORIZED":
+                case 400020:
+                    message.status = 400020;
+                    break;
+                case "INTERNAL_ERROR":
+                case 400030:
+                    message.status = 400030;
+                    break;
+                case "ABORTED":
+                case 400040:
+                    message.status = 400040;
+                    break;
+                case "UNAVAILABLE":
+                case 400050:
+                    message.status = 400050;
+                    break;
+                case "OVERLOADED":
+                case 400060:
+                    message.status = 400060;
+                    break;
+                case "SCHEME_ERROR":
+                case 400070:
+                    message.status = 400070;
+                    break;
+                case "GENERIC_ERROR":
+                case 400080:
+                    message.status = 400080;
+                    break;
+                case "TIMEOUT":
+                case 400090:
+                    message.status = 400090;
+                    break;
+                case "BAD_SESSION":
+                case 400100:
+                    message.status = 400100;
+                    break;
+                case "PRECONDITION_FAILED":
+                case 400120:
+                    message.status = 400120;
+                    break;
+                case "ALREADY_EXISTS":
+                case 400130:
+                    message.status = 400130;
+                    break;
+                case "NOT_FOUND":
+                case 400140:
+                    message.status = 400140;
+                    break;
+                case "SESSION_EXPIRED":
+                case 400150:
+                    message.status = 400150;
+                    break;
+                case "CANCELLED":
+                case 400160:
+                    message.status = 400160;
+                    break;
+                case "UNDETERMINED":
+                case 400170:
+                    message.status = 400170;
+                    break;
+                case "UNSUPPORTED":
+                case 400180:
+                    message.status = 400180;
+                    break;
+                case "SESSION_BUSY":
+                case 400190:
+                    message.status = 400190;
+                    break;
+                }
+                if (object.issues) {
+                    if (!Array.isArray(object.issues))
+                        throw TypeError(".Ydb.Operations.ListOperationsResponse.issues: array expected");
+                    message.issues = [];
+                    for (var i = 0; i < object.issues.length; ++i) {
+                        if (typeof object.issues[i] !== "object")
+                            throw TypeError(".Ydb.Operations.ListOperationsResponse.issues: object expected");
+                        message.issues[i] = $root.Ydb.Issue.IssueMessage.fromObject(object.issues[i]);
+                    }
+                }
                 if (object.operations) {
                     if (!Array.isArray(object.operations))
                         throw TypeError(".Ydb.Operations.ListOperationsResponse.operations: array expected");
@@ -8184,10 +8376,21 @@ $root.Ydb = (function() {
                 if (!options)
                     options = {};
                 var object = {};
-                if (options.arrays || options.defaults)
+                if (options.arrays || options.defaults) {
+                    object.issues = [];
                     object.operations = [];
-                if (options.defaults)
+                }
+                if (options.defaults) {
+                    object.status = options.enums === String ? "STATUS_CODE_UNSPECIFIED" : 0;
                     object.nextPageToken = "";
+                }
+                if (message.status != null && message.hasOwnProperty("status"))
+                    object.status = options.enums === String ? $root.Ydb.StatusIds.StatusCode[message.status] : message.status;
+                if (message.issues && message.issues.length) {
+                    object.issues = [];
+                    for (var j = 0; j < message.issues.length; ++j)
+                        object.issues[j] = $root.Ydb.Issue.IssueMessage.toObject(message.issues[j], options);
+                }
                 if (message.operations && message.operations.length) {
                     object.operations = [];
                     for (var j = 0; j < message.operations.length; ++j)
@@ -8445,6 +8648,7 @@ $root.Ydb = (function() {
                     case 400160:
                     case 400170:
                     case 400180:
+                    case 400190:
                         break;
                     }
                 if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -8562,6 +8766,10 @@ $root.Ydb = (function() {
                 case 400180:
                     message.status = 400180;
                     break;
+                case "SESSION_BUSY":
+                case 400190:
+                    message.status = 400190;
+                    break;
                 }
                 if (object.issues) {
                     if (!Array.isArray(object.issues))
@@ -8641,6 +8849,759 @@ $root.Ydb = (function() {
         })();
 
         return Operations;
+    })();
+
+    Ydb.Limit = (function() {
+
+        /**
+         * Properties of a Limit.
+         * @memberof Ydb
+         * @interface ILimit
+         * @property {Ydb.Limit.IRange|null} [range] Limit range
+         * @property {number|null} [lt] Limit lt
+         * @property {number|null} [le] Limit le
+         * @property {number|null} [eq] Limit eq
+         * @property {number|null} [ge] Limit ge
+         * @property {number|null} [gt] Limit gt
+         */
+
+        /**
+         * Constructs a new Limit.
+         * @memberof Ydb
+         * @classdesc Represents a Limit.
+         * @implements ILimit
+         * @constructor
+         * @param {Ydb.ILimit=} [properties] Properties to set
+         */
+        function Limit(properties) {
+            if (properties)
+                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * Limit range.
+         * @member {Ydb.Limit.IRange|null|undefined} range
+         * @memberof Ydb.Limit
+         * @instance
+         */
+        Limit.prototype.range = null;
+
+        /**
+         * Limit lt.
+         * @member {number} lt
+         * @memberof Ydb.Limit
+         * @instance
+         */
+        Limit.prototype.lt = 0;
+
+        /**
+         * Limit le.
+         * @member {number} le
+         * @memberof Ydb.Limit
+         * @instance
+         */
+        Limit.prototype.le = 0;
+
+        /**
+         * Limit eq.
+         * @member {number} eq
+         * @memberof Ydb.Limit
+         * @instance
+         */
+        Limit.prototype.eq = 0;
+
+        /**
+         * Limit ge.
+         * @member {number} ge
+         * @memberof Ydb.Limit
+         * @instance
+         */
+        Limit.prototype.ge = 0;
+
+        /**
+         * Limit gt.
+         * @member {number} gt
+         * @memberof Ydb.Limit
+         * @instance
+         */
+        Limit.prototype.gt = 0;
+
+        // OneOf field names bound to virtual getters and setters
+        var $oneOfFields;
+
+        /**
+         * Limit kind.
+         * @member {"range"|"lt"|"le"|"eq"|"ge"|"gt"|undefined} kind
+         * @memberof Ydb.Limit
+         * @instance
+         */
+        Object.defineProperty(Limit.prototype, "kind", {
+            get: $util.oneOfGetter($oneOfFields = ["range", "lt", "le", "eq", "ge", "gt"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        /**
+         * Creates a new Limit instance using the specified properties.
+         * @function create
+         * @memberof Ydb.Limit
+         * @static
+         * @param {Ydb.ILimit=} [properties] Properties to set
+         * @returns {Ydb.Limit} Limit instance
+         */
+        Limit.create = function create(properties) {
+            return new Limit(properties);
+        };
+
+        /**
+         * Encodes the specified Limit message. Does not implicitly {@link Ydb.Limit.verify|verify} messages.
+         * @function encode
+         * @memberof Ydb.Limit
+         * @static
+         * @param {Ydb.ILimit} message Limit message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        Limit.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.range != null && message.hasOwnProperty("range"))
+                $root.Ydb.Limit.Range.encode(message.range, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            if (message.lt != null && message.hasOwnProperty("lt"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.lt);
+            if (message.le != null && message.hasOwnProperty("le"))
+                writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.le);
+            if (message.eq != null && message.hasOwnProperty("eq"))
+                writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.eq);
+            if (message.ge != null && message.hasOwnProperty("ge"))
+                writer.uint32(/* id 5, wireType 0 =*/40).uint32(message.ge);
+            if (message.gt != null && message.hasOwnProperty("gt"))
+                writer.uint32(/* id 6, wireType 0 =*/48).uint32(message.gt);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified Limit message, length delimited. Does not implicitly {@link Ydb.Limit.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof Ydb.Limit
+         * @static
+         * @param {Ydb.ILimit} message Limit message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        Limit.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a Limit message from the specified reader or buffer.
+         * @function decode
+         * @memberof Ydb.Limit
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Ydb.Limit} Limit
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        Limit.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Limit();
+            while (reader.pos < end) {
+                var tag = reader.uint32();
+                switch (tag >>> 3) {
+                case 1:
+                    message.range = $root.Ydb.Limit.Range.decode(reader, reader.uint32());
+                    break;
+                case 2:
+                    message.lt = reader.uint32();
+                    break;
+                case 3:
+                    message.le = reader.uint32();
+                    break;
+                case 4:
+                    message.eq = reader.uint32();
+                    break;
+                case 5:
+                    message.ge = reader.uint32();
+                    break;
+                case 6:
+                    message.gt = reader.uint32();
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a Limit message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof Ydb.Limit
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {Ydb.Limit} Limit
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        Limit.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a Limit message.
+         * @function verify
+         * @memberof Ydb.Limit
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        Limit.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            var properties = {};
+            if (message.range != null && message.hasOwnProperty("range")) {
+                properties.kind = 1;
+                {
+                    var error = $root.Ydb.Limit.Range.verify(message.range);
+                    if (error)
+                        return "range." + error;
+                }
+            }
+            if (message.lt != null && message.hasOwnProperty("lt")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                if (!$util.isInteger(message.lt))
+                    return "lt: integer expected";
+            }
+            if (message.le != null && message.hasOwnProperty("le")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                if (!$util.isInteger(message.le))
+                    return "le: integer expected";
+            }
+            if (message.eq != null && message.hasOwnProperty("eq")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                if (!$util.isInteger(message.eq))
+                    return "eq: integer expected";
+            }
+            if (message.ge != null && message.hasOwnProperty("ge")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                if (!$util.isInteger(message.ge))
+                    return "ge: integer expected";
+            }
+            if (message.gt != null && message.hasOwnProperty("gt")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                if (!$util.isInteger(message.gt))
+                    return "gt: integer expected";
+            }
+            return null;
+        };
+
+        /**
+         * Creates a Limit message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof Ydb.Limit
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {Ydb.Limit} Limit
+         */
+        Limit.fromObject = function fromObject(object) {
+            if (object instanceof $root.Ydb.Limit)
+                return object;
+            var message = new $root.Ydb.Limit();
+            if (object.range != null) {
+                if (typeof object.range !== "object")
+                    throw TypeError(".Ydb.Limit.range: object expected");
+                message.range = $root.Ydb.Limit.Range.fromObject(object.range);
+            }
+            if (object.lt != null)
+                message.lt = object.lt >>> 0;
+            if (object.le != null)
+                message.le = object.le >>> 0;
+            if (object.eq != null)
+                message.eq = object.eq >>> 0;
+            if (object.ge != null)
+                message.ge = object.ge >>> 0;
+            if (object.gt != null)
+                message.gt = object.gt >>> 0;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a Limit message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof Ydb.Limit
+         * @static
+         * @param {Ydb.Limit} message Limit
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        Limit.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            var object = {};
+            if (message.range != null && message.hasOwnProperty("range")) {
+                object.range = $root.Ydb.Limit.Range.toObject(message.range, options);
+                if (options.oneofs)
+                    object.kind = "range";
+            }
+            if (message.lt != null && message.hasOwnProperty("lt")) {
+                object.lt = message.lt;
+                if (options.oneofs)
+                    object.kind = "lt";
+            }
+            if (message.le != null && message.hasOwnProperty("le")) {
+                object.le = message.le;
+                if (options.oneofs)
+                    object.kind = "le";
+            }
+            if (message.eq != null && message.hasOwnProperty("eq")) {
+                object.eq = message.eq;
+                if (options.oneofs)
+                    object.kind = "eq";
+            }
+            if (message.ge != null && message.hasOwnProperty("ge")) {
+                object.ge = message.ge;
+                if (options.oneofs)
+                    object.kind = "ge";
+            }
+            if (message.gt != null && message.hasOwnProperty("gt")) {
+                object.gt = message.gt;
+                if (options.oneofs)
+                    object.kind = "gt";
+            }
+            return object;
+        };
+
+        /**
+         * Converts this Limit to JSON.
+         * @function toJSON
+         * @memberof Ydb.Limit
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        Limit.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        Limit.Range = (function() {
+
+            /**
+             * Properties of a Range.
+             * @memberof Ydb.Limit
+             * @interface IRange
+             * @property {number|null} [min] Range min
+             * @property {number|null} [max] Range max
+             */
+
+            /**
+             * Constructs a new Range.
+             * @memberof Ydb.Limit
+             * @classdesc Represents a Range.
+             * @implements IRange
+             * @constructor
+             * @param {Ydb.Limit.IRange=} [properties] Properties to set
+             */
+            function Range(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Range min.
+             * @member {number} min
+             * @memberof Ydb.Limit.Range
+             * @instance
+             */
+            Range.prototype.min = 0;
+
+            /**
+             * Range max.
+             * @member {number} max
+             * @memberof Ydb.Limit.Range
+             * @instance
+             */
+            Range.prototype.max = 0;
+
+            /**
+             * Creates a new Range instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Limit.Range
+             * @static
+             * @param {Ydb.Limit.IRange=} [properties] Properties to set
+             * @returns {Ydb.Limit.Range} Range instance
+             */
+            Range.create = function create(properties) {
+                return new Range(properties);
+            };
+
+            /**
+             * Encodes the specified Range message. Does not implicitly {@link Ydb.Limit.Range.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Limit.Range
+             * @static
+             * @param {Ydb.Limit.IRange} message Range message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Range.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.min != null && message.hasOwnProperty("min"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.min);
+                if (message.max != null && message.hasOwnProperty("max"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.max);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified Range message, length delimited. Does not implicitly {@link Ydb.Limit.Range.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Limit.Range
+             * @static
+             * @param {Ydb.Limit.IRange} message Range message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Range.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a Range message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Limit.Range
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Limit.Range} Range
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Range.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Limit.Range();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.min = reader.uint32();
+                        break;
+                    case 2:
+                        message.max = reader.uint32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a Range message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Limit.Range
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Limit.Range} Range
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Range.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a Range message.
+             * @function verify
+             * @memberof Ydb.Limit.Range
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            Range.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.min != null && message.hasOwnProperty("min"))
+                    if (!$util.isInteger(message.min))
+                        return "min: integer expected";
+                if (message.max != null && message.hasOwnProperty("max"))
+                    if (!$util.isInteger(message.max))
+                        return "max: integer expected";
+                return null;
+            };
+
+            /**
+             * Creates a Range message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Limit.Range
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Limit.Range} Range
+             */
+            Range.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Limit.Range)
+                    return object;
+                var message = new $root.Ydb.Limit.Range();
+                if (object.min != null)
+                    message.min = object.min >>> 0;
+                if (object.max != null)
+                    message.max = object.max >>> 0;
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a Range message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Limit.Range
+             * @static
+             * @param {Ydb.Limit.Range} message Range
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            Range.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.min = 0;
+                    object.max = 0;
+                }
+                if (message.min != null && message.hasOwnProperty("min"))
+                    object.min = message.min;
+                if (message.max != null && message.hasOwnProperty("max"))
+                    object.max = message.max;
+                return object;
+            };
+
+            /**
+             * Converts this Range to JSON.
+             * @function toJSON
+             * @memberof Ydb.Limit.Range
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            Range.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return Range;
+        })();
+
+        return Limit;
+    })();
+
+    Ydb.MapKey = (function() {
+
+        /**
+         * Properties of a MapKey.
+         * @memberof Ydb
+         * @interface IMapKey
+         * @property {Ydb.ILimit|null} [length] MapKey length
+         */
+
+        /**
+         * Constructs a new MapKey.
+         * @memberof Ydb
+         * @classdesc Represents a MapKey.
+         * @implements IMapKey
+         * @constructor
+         * @param {Ydb.IMapKey=} [properties] Properties to set
+         */
+        function MapKey(properties) {
+            if (properties)
+                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * MapKey length.
+         * @member {Ydb.ILimit|null|undefined} length
+         * @memberof Ydb.MapKey
+         * @instance
+         */
+        MapKey.prototype.length = null;
+
+        /**
+         * Creates a new MapKey instance using the specified properties.
+         * @function create
+         * @memberof Ydb.MapKey
+         * @static
+         * @param {Ydb.IMapKey=} [properties] Properties to set
+         * @returns {Ydb.MapKey} MapKey instance
+         */
+        MapKey.create = function create(properties) {
+            return new MapKey(properties);
+        };
+
+        /**
+         * Encodes the specified MapKey message. Does not implicitly {@link Ydb.MapKey.verify|verify} messages.
+         * @function encode
+         * @memberof Ydb.MapKey
+         * @static
+         * @param {Ydb.IMapKey} message MapKey message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        MapKey.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.length != null && message.hasOwnProperty("length"))
+                $root.Ydb.Limit.encode(message.length, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Encodes the specified MapKey message, length delimited. Does not implicitly {@link Ydb.MapKey.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof Ydb.MapKey
+         * @static
+         * @param {Ydb.IMapKey} message MapKey message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        MapKey.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a MapKey message from the specified reader or buffer.
+         * @function decode
+         * @memberof Ydb.MapKey
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Ydb.MapKey} MapKey
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        MapKey.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.MapKey();
+            while (reader.pos < end) {
+                var tag = reader.uint32();
+                switch (tag >>> 3) {
+                case 1:
+                    message.length = $root.Ydb.Limit.decode(reader, reader.uint32());
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a MapKey message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof Ydb.MapKey
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {Ydb.MapKey} MapKey
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        MapKey.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a MapKey message.
+         * @function verify
+         * @memberof Ydb.MapKey
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        MapKey.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.length != null && message.hasOwnProperty("length")) {
+                var error = $root.Ydb.Limit.verify(message.length);
+                if (error)
+                    return "length." + error;
+            }
+            return null;
+        };
+
+        /**
+         * Creates a MapKey message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof Ydb.MapKey
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {Ydb.MapKey} MapKey
+         */
+        MapKey.fromObject = function fromObject(object) {
+            if (object instanceof $root.Ydb.MapKey)
+                return object;
+            var message = new $root.Ydb.MapKey();
+            if (object.length != null) {
+                if (typeof object.length !== "object")
+                    throw TypeError(".Ydb.MapKey.length: object expected");
+                message.length = $root.Ydb.Limit.fromObject(object.length);
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a MapKey message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof Ydb.MapKey
+         * @static
+         * @param {Ydb.MapKey} message MapKey
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        MapKey.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            var object = {};
+            if (options.defaults)
+                object.length = null;
+            if (message.length != null && message.hasOwnProperty("length"))
+                object.length = $root.Ydb.Limit.toObject(message.length, options);
+            return object;
+        };
+
+        /**
+         * Converts this MapKey to JSON.
+         * @function toJSON
+         * @memberof Ydb.MapKey
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        MapKey.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        return MapKey;
     })();
 
     Ydb.Issue = (function() {
@@ -9397,6 +10358,7 @@ $root.Ydb = (function() {
          * @property {number} CANCELLED=400160 CANCELLED value
          * @property {number} UNDETERMINED=400170 UNDETERMINED value
          * @property {number} UNSUPPORTED=400180 UNSUPPORTED value
+         * @property {number} SESSION_BUSY=400190 SESSION_BUSY value
          */
         StatusIds.StatusCode = (function() {
             var valuesById = {}, values = Object.create(valuesById);
@@ -9419,6 +10381,7 @@ $root.Ydb = (function() {
             values[valuesById[400160] = "CANCELLED"] = 400160;
             values[valuesById[400170] = "UNDETERMINED"] = 400170;
             values[valuesById[400180] = "UNSUPPORTED"] = 400180;
+            values[valuesById[400190] = "SESSION_BUSY"] = 400190;
             return values;
         })();
 
@@ -9485,7 +10448,13 @@ $root.Ydb = (function() {
                  */
 
                 /**
-                 * Calls Session.
+                 * Bidirectional stream used to establish a session with a coordination node
+                 * 
+                 * Relevant APIs for managing semaphores, distributed locking, creating or
+                 * restoring a previously established session are described using nested
+                 * messages in SessionRequest and SessionResponse. Session is established
+                 * with a specific coordination node (previously created using CreateNode
+                 * below) and semaphores are local to that coordination node.
                  * @function session
                  * @memberof Ydb.Coordination.V1.CoordinationService
                  * @instance
@@ -9499,7 +10468,13 @@ $root.Ydb = (function() {
                 }, "name", { value: "Session" });
 
                 /**
-                 * Calls Session.
+                 * Bidirectional stream used to establish a session with a coordination node
+                 * 
+                 * Relevant APIs for managing semaphores, distributed locking, creating or
+                 * restoring a previously established session are described using nested
+                 * messages in SessionRequest and SessionResponse. Session is established
+                 * with a specific coordination node (previously created using CreateNode
+                 * below) and semaphores are local to that coordination node.
                  * @function session
                  * @memberof Ydb.Coordination.V1.CoordinationService
                  * @instance
@@ -9822,6 +10797,22 @@ $root.Ydb = (function() {
             return values;
         })();
 
+        /**
+         * Counters mode
+         * @name Ydb.Coordination.RateLimiterCountersMode
+         * @enum {string}
+         * @property {number} RATE_LIMITER_COUNTERS_MODE_UNSET=0 RATE_LIMITER_COUNTERS_MODE_UNSET value
+         * @property {number} RATE_LIMITER_COUNTERS_MODE_AGGREGATED=1 RATE_LIMITER_COUNTERS_MODE_AGGREGATED value
+         * @property {number} RATE_LIMITER_COUNTERS_MODE_DETAILED=2 RATE_LIMITER_COUNTERS_MODE_DETAILED value
+         */
+        Coordination.RateLimiterCountersMode = (function() {
+            var valuesById = {}, values = Object.create(valuesById);
+            values[valuesById[0] = "RATE_LIMITER_COUNTERS_MODE_UNSET"] = 0;
+            values[valuesById[1] = "RATE_LIMITER_COUNTERS_MODE_AGGREGATED"] = 1;
+            values[valuesById[2] = "RATE_LIMITER_COUNTERS_MODE_DETAILED"] = 2;
+            return values;
+        })();
+
         Coordination.Config = (function() {
 
             /**
@@ -9833,6 +10824,7 @@ $root.Ydb = (function() {
              * @property {number|null} [sessionGracePeriodMillis] Config sessionGracePeriodMillis
              * @property {Ydb.Coordination.ConsistencyMode|null} [readConsistencyMode] Config readConsistencyMode
              * @property {Ydb.Coordination.ConsistencyMode|null} [attachConsistencyMode] Config attachConsistencyMode
+             * @property {Ydb.Coordination.RateLimiterCountersMode|null} [rateLimiterCountersMode] Config rateLimiterCountersMode
              */
 
             /**
@@ -9891,6 +10883,14 @@ $root.Ydb = (function() {
             Config.prototype.attachConsistencyMode = 0;
 
             /**
+             * Config rateLimiterCountersMode.
+             * @member {Ydb.Coordination.RateLimiterCountersMode} rateLimiterCountersMode
+             * @memberof Ydb.Coordination.Config
+             * @instance
+             */
+            Config.prototype.rateLimiterCountersMode = 0;
+
+            /**
              * Creates a new Config instance using the specified properties.
              * @function create
              * @memberof Ydb.Coordination.Config
@@ -9924,6 +10924,8 @@ $root.Ydb = (function() {
                     writer.uint32(/* id 4, wireType 0 =*/32).int32(message.readConsistencyMode);
                 if (message.attachConsistencyMode != null && message.hasOwnProperty("attachConsistencyMode"))
                     writer.uint32(/* id 5, wireType 0 =*/40).int32(message.attachConsistencyMode);
+                if (message.rateLimiterCountersMode != null && message.hasOwnProperty("rateLimiterCountersMode"))
+                    writer.uint32(/* id 6, wireType 0 =*/48).int32(message.rateLimiterCountersMode);
                 return writer;
             };
 
@@ -9972,6 +10974,9 @@ $root.Ydb = (function() {
                         break;
                     case 5:
                         message.attachConsistencyMode = reader.int32();
+                        break;
+                    case 6:
+                        message.rateLimiterCountersMode = reader.int32();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -10035,6 +11040,15 @@ $root.Ydb = (function() {
                     case 2:
                         break;
                     }
+                if (message.rateLimiterCountersMode != null && message.hasOwnProperty("rateLimiterCountersMode"))
+                    switch (message.rateLimiterCountersMode) {
+                    default:
+                        return "rateLimiterCountersMode: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                        break;
+                    }
                 return null;
             };
 
@@ -10084,6 +11098,20 @@ $root.Ydb = (function() {
                     message.attachConsistencyMode = 2;
                     break;
                 }
+                switch (object.rateLimiterCountersMode) {
+                case "RATE_LIMITER_COUNTERS_MODE_UNSET":
+                case 0:
+                    message.rateLimiterCountersMode = 0;
+                    break;
+                case "RATE_LIMITER_COUNTERS_MODE_AGGREGATED":
+                case 1:
+                    message.rateLimiterCountersMode = 1;
+                    break;
+                case "RATE_LIMITER_COUNTERS_MODE_DETAILED":
+                case 2:
+                    message.rateLimiterCountersMode = 2;
+                    break;
+                }
                 return message;
             };
 
@@ -10106,6 +11134,7 @@ $root.Ydb = (function() {
                     object.sessionGracePeriodMillis = 0;
                     object.readConsistencyMode = options.enums === String ? "CONSISTENCY_MODE_UNSET" : 0;
                     object.attachConsistencyMode = options.enums === String ? "CONSISTENCY_MODE_UNSET" : 0;
+                    object.rateLimiterCountersMode = options.enums === String ? "RATE_LIMITER_COUNTERS_MODE_UNSET" : 0;
                 }
                 if (message.path != null && message.hasOwnProperty("path"))
                     object.path = message.path;
@@ -10117,6 +11146,8 @@ $root.Ydb = (function() {
                     object.readConsistencyMode = options.enums === String ? $root.Ydb.Coordination.ConsistencyMode[message.readConsistencyMode] : message.readConsistencyMode;
                 if (message.attachConsistencyMode != null && message.hasOwnProperty("attachConsistencyMode"))
                     object.attachConsistencyMode = options.enums === String ? $root.Ydb.Coordination.ConsistencyMode[message.attachConsistencyMode] : message.attachConsistencyMode;
+                if (message.rateLimiterCountersMode != null && message.hasOwnProperty("rateLimiterCountersMode"))
+                    object.rateLimiterCountersMode = options.enums === String ? $root.Ydb.Coordination.RateLimiterCountersMode[message.rateLimiterCountersMode] : message.rateLimiterCountersMode;
                 return object;
             };
 
@@ -15402,6 +16433,7 @@ $root.Ydb = (function() {
                         case 400160:
                         case 400170:
                         case 400180:
+                        case 400190:
                             break;
                         }
                     if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -15504,6 +16536,10 @@ $root.Ydb = (function() {
                     case "UNSUPPORTED":
                     case 400180:
                         message.status = 400180;
+                        break;
+                    case "SESSION_BUSY":
+                    case 400190:
+                        message.status = 400190;
                         break;
                     }
                     if (object.issues) {
@@ -16402,6 +17438,7 @@ $root.Ydb = (function() {
                         case 400160:
                         case 400170:
                         case 400180:
+                        case 400190:
                             break;
                         }
                     if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -16516,6 +17553,10 @@ $root.Ydb = (function() {
                     case "UNSUPPORTED":
                     case 400180:
                         message.status = 400180;
+                        break;
+                    case "SESSION_BUSY":
+                    case 400190:
+                        message.status = 400190;
                         break;
                     }
                     if (object.issues) {
@@ -16790,6 +17831,7 @@ $root.Ydb = (function() {
                         case 400160:
                         case 400170:
                         case 400180:
+                        case 400190:
                             break;
                         }
                     if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -16904,6 +17946,10 @@ $root.Ydb = (function() {
                     case "UNSUPPORTED":
                     case 400180:
                         message.status = 400180;
+                        break;
+                    case "SESSION_BUSY":
+                    case 400190:
+                        message.status = 400190;
                         break;
                     }
                     if (object.issues) {
@@ -17192,6 +18238,7 @@ $root.Ydb = (function() {
                         case 400160:
                         case 400170:
                         case 400180:
+                        case 400190:
                             break;
                         }
                     if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -17311,6 +18358,10 @@ $root.Ydb = (function() {
                     case "UNSUPPORTED":
                     case 400180:
                         message.status = 400180;
+                        break;
+                    case "SESSION_BUSY":
+                    case 400190:
+                        message.status = 400190;
                         break;
                     }
                     if (object.issues) {
@@ -17825,6 +18876,7 @@ $root.Ydb = (function() {
                         case 400160:
                         case 400170:
                         case 400180:
+                        case 400190:
                             break;
                         }
                     if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -17936,6 +18988,10 @@ $root.Ydb = (function() {
                     case "UNSUPPORTED":
                     case 400180:
                         message.status = 400180;
+                        break;
+                    case "SESSION_BUSY":
+                    case 400190:
+                        message.status = 400190;
                         break;
                     }
                     if (object.issues) {
@@ -18191,6 +19247,7 @@ $root.Ydb = (function() {
                         case 400160:
                         case 400170:
                         case 400180:
+                        case 400190:
                             break;
                         }
                     if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -18302,6 +19359,10 @@ $root.Ydb = (function() {
                     case "UNSUPPORTED":
                     case 400180:
                         message.status = 400180;
+                        break;
+                    case "SESSION_BUSY":
+                    case 400190:
+                        message.status = 400190;
                         break;
                     }
                     if (object.issues) {
@@ -18557,6 +19618,7 @@ $root.Ydb = (function() {
                         case 400160:
                         case 400170:
                         case 400180:
+                        case 400190:
                             break;
                         }
                     if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -18668,6 +19730,10 @@ $root.Ydb = (function() {
                     case "UNSUPPORTED":
                     case 400180:
                         message.status = 400180;
+                        break;
+                    case "SESSION_BUSY":
+                    case 400190:
+                        message.status = 400190;
                         break;
                     }
                     if (object.issues) {
@@ -24401,6 +25467,39 @@ $root.Ydb = (function() {
                  * @variation 2
                  */
 
+                /**
+                 * Callback as used by {@link Ydb.Discovery.V1.DiscoveryService#whoAmI}.
+                 * @memberof Ydb.Discovery.V1.DiscoveryService
+                 * @typedef WhoAmICallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.Discovery.WhoAmIResponse} [response] WhoAmIResponse
+                 */
+
+                /**
+                 * Calls WhoAmI.
+                 * @function whoAmI
+                 * @memberof Ydb.Discovery.V1.DiscoveryService
+                 * @instance
+                 * @param {Ydb.Discovery.IWhoAmIRequest} request WhoAmIRequest message or plain object
+                 * @param {Ydb.Discovery.V1.DiscoveryService.WhoAmICallback} callback Node-style callback called with the error, if any, and WhoAmIResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(DiscoveryService.prototype.whoAmI = function whoAmI(request, callback) {
+                    return this.rpcCall(whoAmI, $root.Ydb.Discovery.WhoAmIRequest, $root.Ydb.Discovery.WhoAmIResponse, request, callback);
+                }, "name", { value: "WhoAmI" });
+
+                /**
+                 * Calls WhoAmI.
+                 * @function whoAmI
+                 * @memberof Ydb.Discovery.V1.DiscoveryService
+                 * @instance
+                 * @param {Ydb.Discovery.IWhoAmIRequest} request WhoAmIRequest message or plain object
+                 * @returns {Promise<Ydb.Discovery.WhoAmIResponse>} Promise
+                 * @variation 2
+                 */
+
                 return DiscoveryService;
             })();
 
@@ -25371,6 +26470,611 @@ $root.Ydb = (function() {
             return ListEndpointsResponse;
         })();
 
+        Discovery.WhoAmIRequest = (function() {
+
+            /**
+             * Properties of a WhoAmIRequest.
+             * @memberof Ydb.Discovery
+             * @interface IWhoAmIRequest
+             * @property {boolean|null} [includeGroups] WhoAmIRequest includeGroups
+             */
+
+            /**
+             * Constructs a new WhoAmIRequest.
+             * @memberof Ydb.Discovery
+             * @classdesc Represents a WhoAmIRequest.
+             * @implements IWhoAmIRequest
+             * @constructor
+             * @param {Ydb.Discovery.IWhoAmIRequest=} [properties] Properties to set
+             */
+            function WhoAmIRequest(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * WhoAmIRequest includeGroups.
+             * @member {boolean} includeGroups
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @instance
+             */
+            WhoAmIRequest.prototype.includeGroups = false;
+
+            /**
+             * Creates a new WhoAmIRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIRequest=} [properties] Properties to set
+             * @returns {Ydb.Discovery.WhoAmIRequest} WhoAmIRequest instance
+             */
+            WhoAmIRequest.create = function create(properties) {
+                return new WhoAmIRequest(properties);
+            };
+
+            /**
+             * Encodes the specified WhoAmIRequest message. Does not implicitly {@link Ydb.Discovery.WhoAmIRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIRequest} message WhoAmIRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            WhoAmIRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.includeGroups != null && message.hasOwnProperty("includeGroups"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).bool(message.includeGroups);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified WhoAmIRequest message, length delimited. Does not implicitly {@link Ydb.Discovery.WhoAmIRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIRequest} message WhoAmIRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            WhoAmIRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a WhoAmIRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Discovery.WhoAmIRequest} WhoAmIRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            WhoAmIRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Discovery.WhoAmIRequest();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.includeGroups = reader.bool();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a WhoAmIRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Discovery.WhoAmIRequest} WhoAmIRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            WhoAmIRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a WhoAmIRequest message.
+             * @function verify
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            WhoAmIRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.includeGroups != null && message.hasOwnProperty("includeGroups"))
+                    if (typeof message.includeGroups !== "boolean")
+                        return "includeGroups: boolean expected";
+                return null;
+            };
+
+            /**
+             * Creates a WhoAmIRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Discovery.WhoAmIRequest} WhoAmIRequest
+             */
+            WhoAmIRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Discovery.WhoAmIRequest)
+                    return object;
+                var message = new $root.Ydb.Discovery.WhoAmIRequest();
+                if (object.includeGroups != null)
+                    message.includeGroups = Boolean(object.includeGroups);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a WhoAmIRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @static
+             * @param {Ydb.Discovery.WhoAmIRequest} message WhoAmIRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            WhoAmIRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.includeGroups = false;
+                if (message.includeGroups != null && message.hasOwnProperty("includeGroups"))
+                    object.includeGroups = message.includeGroups;
+                return object;
+            };
+
+            /**
+             * Converts this WhoAmIRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.Discovery.WhoAmIRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            WhoAmIRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return WhoAmIRequest;
+        })();
+
+        Discovery.WhoAmIResult = (function() {
+
+            /**
+             * Properties of a WhoAmIResult.
+             * @memberof Ydb.Discovery
+             * @interface IWhoAmIResult
+             * @property {string|null} [user] WhoAmIResult user
+             * @property {Array.<string>|null} [groups] WhoAmIResult groups
+             */
+
+            /**
+             * Constructs a new WhoAmIResult.
+             * @memberof Ydb.Discovery
+             * @classdesc Represents a WhoAmIResult.
+             * @implements IWhoAmIResult
+             * @constructor
+             * @param {Ydb.Discovery.IWhoAmIResult=} [properties] Properties to set
+             */
+            function WhoAmIResult(properties) {
+                this.groups = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * WhoAmIResult user.
+             * @member {string} user
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @instance
+             */
+            WhoAmIResult.prototype.user = "";
+
+            /**
+             * WhoAmIResult groups.
+             * @member {Array.<string>} groups
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @instance
+             */
+            WhoAmIResult.prototype.groups = $util.emptyArray;
+
+            /**
+             * Creates a new WhoAmIResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIResult=} [properties] Properties to set
+             * @returns {Ydb.Discovery.WhoAmIResult} WhoAmIResult instance
+             */
+            WhoAmIResult.create = function create(properties) {
+                return new WhoAmIResult(properties);
+            };
+
+            /**
+             * Encodes the specified WhoAmIResult message. Does not implicitly {@link Ydb.Discovery.WhoAmIResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIResult} message WhoAmIResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            WhoAmIResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.user != null && message.hasOwnProperty("user"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.user);
+                if (message.groups != null && message.groups.length)
+                    for (var i = 0; i < message.groups.length; ++i)
+                        writer.uint32(/* id 2, wireType 2 =*/18).string(message.groups[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified WhoAmIResult message, length delimited. Does not implicitly {@link Ydb.Discovery.WhoAmIResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIResult} message WhoAmIResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            WhoAmIResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a WhoAmIResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Discovery.WhoAmIResult} WhoAmIResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            WhoAmIResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Discovery.WhoAmIResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.user = reader.string();
+                        break;
+                    case 2:
+                        if (!(message.groups && message.groups.length))
+                            message.groups = [];
+                        message.groups.push(reader.string());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a WhoAmIResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Discovery.WhoAmIResult} WhoAmIResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            WhoAmIResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a WhoAmIResult message.
+             * @function verify
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            WhoAmIResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.user != null && message.hasOwnProperty("user"))
+                    if (!$util.isString(message.user))
+                        return "user: string expected";
+                if (message.groups != null && message.hasOwnProperty("groups")) {
+                    if (!Array.isArray(message.groups))
+                        return "groups: array expected";
+                    for (var i = 0; i < message.groups.length; ++i)
+                        if (!$util.isString(message.groups[i]))
+                            return "groups: string[] expected";
+                }
+                return null;
+            };
+
+            /**
+             * Creates a WhoAmIResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Discovery.WhoAmIResult} WhoAmIResult
+             */
+            WhoAmIResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Discovery.WhoAmIResult)
+                    return object;
+                var message = new $root.Ydb.Discovery.WhoAmIResult();
+                if (object.user != null)
+                    message.user = String(object.user);
+                if (object.groups) {
+                    if (!Array.isArray(object.groups))
+                        throw TypeError(".Ydb.Discovery.WhoAmIResult.groups: array expected");
+                    message.groups = [];
+                    for (var i = 0; i < object.groups.length; ++i)
+                        message.groups[i] = String(object.groups[i]);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a WhoAmIResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @static
+             * @param {Ydb.Discovery.WhoAmIResult} message WhoAmIResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            WhoAmIResult.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.groups = [];
+                if (options.defaults)
+                    object.user = "";
+                if (message.user != null && message.hasOwnProperty("user"))
+                    object.user = message.user;
+                if (message.groups && message.groups.length) {
+                    object.groups = [];
+                    for (var j = 0; j < message.groups.length; ++j)
+                        object.groups[j] = message.groups[j];
+                }
+                return object;
+            };
+
+            /**
+             * Converts this WhoAmIResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.Discovery.WhoAmIResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            WhoAmIResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return WhoAmIResult;
+        })();
+
+        Discovery.WhoAmIResponse = (function() {
+
+            /**
+             * Properties of a WhoAmIResponse.
+             * @memberof Ydb.Discovery
+             * @interface IWhoAmIResponse
+             * @property {Ydb.Operations.IOperation|null} [operation] WhoAmIResponse operation
+             */
+
+            /**
+             * Constructs a new WhoAmIResponse.
+             * @memberof Ydb.Discovery
+             * @classdesc Represents a WhoAmIResponse.
+             * @implements IWhoAmIResponse
+             * @constructor
+             * @param {Ydb.Discovery.IWhoAmIResponse=} [properties] Properties to set
+             */
+            function WhoAmIResponse(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * WhoAmIResponse operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @instance
+             */
+            WhoAmIResponse.prototype.operation = null;
+
+            /**
+             * Creates a new WhoAmIResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIResponse=} [properties] Properties to set
+             * @returns {Ydb.Discovery.WhoAmIResponse} WhoAmIResponse instance
+             */
+            WhoAmIResponse.create = function create(properties) {
+                return new WhoAmIResponse(properties);
+            };
+
+            /**
+             * Encodes the specified WhoAmIResponse message. Does not implicitly {@link Ydb.Discovery.WhoAmIResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIResponse} message WhoAmIResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            WhoAmIResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified WhoAmIResponse message, length delimited. Does not implicitly {@link Ydb.Discovery.WhoAmIResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @static
+             * @param {Ydb.Discovery.IWhoAmIResponse} message WhoAmIResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            WhoAmIResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a WhoAmIResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Discovery.WhoAmIResponse} WhoAmIResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            WhoAmIResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Discovery.WhoAmIResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a WhoAmIResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Discovery.WhoAmIResponse} WhoAmIResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            WhoAmIResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a WhoAmIResponse message.
+             * @function verify
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            WhoAmIResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a WhoAmIResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Discovery.WhoAmIResponse} WhoAmIResponse
+             */
+            WhoAmIResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Discovery.WhoAmIResponse)
+                    return object;
+                var message = new $root.Ydb.Discovery.WhoAmIResponse();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.Discovery.WhoAmIResponse.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a WhoAmIResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @static
+             * @param {Ydb.Discovery.WhoAmIResponse} message WhoAmIResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            WhoAmIResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this WhoAmIResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.Discovery.WhoAmIResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            WhoAmIResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return WhoAmIResponse;
+        })();
+
         return Discovery;
     })();
 
@@ -25457,6 +27161,39 @@ $root.Ydb = (function() {
                  * @variation 2
                  */
 
+                /**
+                 * Callback as used by {@link Ydb.Export.V1.ExportService#exportToS3}.
+                 * @memberof Ydb.Export.V1.ExportService
+                 * @typedef ExportToS3Callback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.Export.ExportToS3Response} [response] ExportToS3Response
+                 */
+
+                /**
+                 * Calls ExportToS3.
+                 * @function exportToS3
+                 * @memberof Ydb.Export.V1.ExportService
+                 * @instance
+                 * @param {Ydb.Export.IExportToS3Request} request ExportToS3Request message or plain object
+                 * @param {Ydb.Export.V1.ExportService.ExportToS3Callback} callback Node-style callback called with the error, if any, and ExportToS3Response
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(ExportService.prototype.exportToS3 = function exportToS3(request, callback) {
+                    return this.rpcCall(exportToS3, $root.Ydb.Export.ExportToS3Request, $root.Ydb.Export.ExportToS3Response, request, callback);
+                }, "name", { value: "ExportToS3" });
+
+                /**
+                 * Calls ExportToS3.
+                 * @function exportToS3
+                 * @memberof Ydb.Export.V1.ExportService
+                 * @instance
+                 * @param {Ydb.Export.IExportToS3Request} request ExportToS3Request message or plain object
+                 * @returns {Promise<Ydb.Export.ExportToS3Response>} Promise
+                 * @variation 2
+                 */
+
                 return ExportService;
             })();
 
@@ -25474,7 +27211,7 @@ $root.Ydb = (function() {
             /**
              * Constructs a new ExportProgress.
              * @memberof Ydb.Export
-             * @classdesc Represents an ExportProgress.
+             * @classdesc Common
              * @implements IExportProgress
              * @constructor
              * @param {Ydb.Export.IExportProgress=} [properties] Properties to set
@@ -25656,12 +27393,14 @@ $root.Ydb = (function() {
              * @property {string|null} [token] ExportToYtSettings token
              * @property {Array.<Ydb.Export.ExportToYtSettings.IItem>|null} [items] ExportToYtSettings items
              * @property {string|null} [description] ExportToYtSettings description
+             * @property {number|null} [numberOfRetries] ExportToYtSettings numberOfRetries
+             * @property {boolean|null} [useTypeV3] ExportToYtSettings useTypeV3
              */
 
             /**
              * Constructs a new ExportToYtSettings.
              * @memberof Ydb.Export
-             * @classdesc Represents an ExportToYtSettings.
+             * @classdesc YT
              * @implements IExportToYtSettings
              * @constructor
              * @param {Ydb.Export.IExportToYtSettings=} [properties] Properties to set
@@ -25715,6 +27454,22 @@ $root.Ydb = (function() {
             ExportToYtSettings.prototype.description = "";
 
             /**
+             * ExportToYtSettings numberOfRetries.
+             * @member {number} numberOfRetries
+             * @memberof Ydb.Export.ExportToYtSettings
+             * @instance
+             */
+            ExportToYtSettings.prototype.numberOfRetries = 0;
+
+            /**
+             * ExportToYtSettings useTypeV3.
+             * @member {boolean} useTypeV3
+             * @memberof Ydb.Export.ExportToYtSettings
+             * @instance
+             */
+            ExportToYtSettings.prototype.useTypeV3 = false;
+
+            /**
              * Creates a new ExportToYtSettings instance using the specified properties.
              * @function create
              * @memberof Ydb.Export.ExportToYtSettings
@@ -25749,6 +27504,10 @@ $root.Ydb = (function() {
                         $root.Ydb.Export.ExportToYtSettings.Item.encode(message.items[i], writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
                 if (message.description != null && message.hasOwnProperty("description"))
                     writer.uint32(/* id 5, wireType 2 =*/42).string(message.description);
+                if (message.numberOfRetries != null && message.hasOwnProperty("numberOfRetries"))
+                    writer.uint32(/* id 6, wireType 0 =*/48).uint32(message.numberOfRetries);
+                if (message.useTypeV3 != null && message.hasOwnProperty("useTypeV3"))
+                    writer.uint32(/* id 7, wireType 0 =*/56).bool(message.useTypeV3);
                 return writer;
             };
 
@@ -25799,6 +27558,12 @@ $root.Ydb = (function() {
                         break;
                     case 5:
                         message.description = reader.string();
+                        break;
+                    case 6:
+                        message.numberOfRetries = reader.uint32();
+                        break;
+                    case 7:
+                        message.useTypeV3 = reader.bool();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -25856,6 +27621,12 @@ $root.Ydb = (function() {
                 if (message.description != null && message.hasOwnProperty("description"))
                     if (!$util.isString(message.description))
                         return "description: string expected";
+                if (message.numberOfRetries != null && message.hasOwnProperty("numberOfRetries"))
+                    if (!$util.isInteger(message.numberOfRetries))
+                        return "numberOfRetries: integer expected";
+                if (message.useTypeV3 != null && message.hasOwnProperty("useTypeV3"))
+                    if (typeof message.useTypeV3 !== "boolean")
+                        return "useTypeV3: boolean expected";
                 return null;
             };
 
@@ -25889,6 +27660,10 @@ $root.Ydb = (function() {
                 }
                 if (object.description != null)
                     message.description = String(object.description);
+                if (object.numberOfRetries != null)
+                    message.numberOfRetries = object.numberOfRetries >>> 0;
+                if (object.useTypeV3 != null)
+                    message.useTypeV3 = Boolean(object.useTypeV3);
                 return message;
             };
 
@@ -25912,6 +27687,8 @@ $root.Ydb = (function() {
                     object.port = 0;
                     object.token = "";
                     object.description = "";
+                    object.numberOfRetries = 0;
+                    object.useTypeV3 = false;
                 }
                 if (message.host != null && message.hasOwnProperty("host"))
                     object.host = message.host;
@@ -25926,6 +27703,10 @@ $root.Ydb = (function() {
                 }
                 if (message.description != null && message.hasOwnProperty("description"))
                     object.description = message.description;
+                if (message.numberOfRetries != null && message.hasOwnProperty("numberOfRetries"))
+                    object.numberOfRetries = message.numberOfRetries;
+                if (message.useTypeV3 != null && message.hasOwnProperty("useTypeV3"))
+                    object.useTypeV3 = message.useTypeV3;
                 return object;
             };
 
@@ -26973,7 +28754,8188 @@ $root.Ydb = (function() {
             return ExportToYtResponse;
         })();
 
+        Export.ExportToS3Settings = (function() {
+
+            /**
+             * Properties of an ExportToS3Settings.
+             * @memberof Ydb.Export
+             * @interface IExportToS3Settings
+             * @property {string|null} [endpoint] ExportToS3Settings endpoint
+             * @property {Ydb.Export.ExportToS3Settings.Scheme|null} [scheme] ExportToS3Settings scheme
+             * @property {string|null} [bucket] ExportToS3Settings bucket
+             * @property {string|null} [accessKey] ExportToS3Settings accessKey
+             * @property {string|null} [secretKey] ExportToS3Settings secretKey
+             * @property {Array.<Ydb.Export.ExportToS3Settings.IItem>|null} [items] ExportToS3Settings items
+             * @property {string|null} [description] ExportToS3Settings description
+             * @property {number|null} [numberOfRetries] ExportToS3Settings numberOfRetries
+             */
+
+            /**
+             * Constructs a new ExportToS3Settings.
+             * @memberof Ydb.Export
+             * @classdesc S3
+             * @implements IExportToS3Settings
+             * @constructor
+             * @param {Ydb.Export.IExportToS3Settings=} [properties] Properties to set
+             */
+            function ExportToS3Settings(properties) {
+                this.items = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ExportToS3Settings endpoint.
+             * @member {string} endpoint
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             */
+            ExportToS3Settings.prototype.endpoint = "";
+
+            /**
+             * ExportToS3Settings scheme.
+             * @member {Ydb.Export.ExportToS3Settings.Scheme} scheme
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             */
+            ExportToS3Settings.prototype.scheme = 0;
+
+            /**
+             * ExportToS3Settings bucket.
+             * @member {string} bucket
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             */
+            ExportToS3Settings.prototype.bucket = "";
+
+            /**
+             * ExportToS3Settings accessKey.
+             * @member {string} accessKey
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             */
+            ExportToS3Settings.prototype.accessKey = "";
+
+            /**
+             * ExportToS3Settings secretKey.
+             * @member {string} secretKey
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             */
+            ExportToS3Settings.prototype.secretKey = "";
+
+            /**
+             * ExportToS3Settings items.
+             * @member {Array.<Ydb.Export.ExportToS3Settings.IItem>} items
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             */
+            ExportToS3Settings.prototype.items = $util.emptyArray;
+
+            /**
+             * ExportToS3Settings description.
+             * @member {string} description
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             */
+            ExportToS3Settings.prototype.description = "";
+
+            /**
+             * ExportToS3Settings numberOfRetries.
+             * @member {number} numberOfRetries
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             */
+            ExportToS3Settings.prototype.numberOfRetries = 0;
+
+            /**
+             * Creates a new ExportToS3Settings instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @static
+             * @param {Ydb.Export.IExportToS3Settings=} [properties] Properties to set
+             * @returns {Ydb.Export.ExportToS3Settings} ExportToS3Settings instance
+             */
+            ExportToS3Settings.create = function create(properties) {
+                return new ExportToS3Settings(properties);
+            };
+
+            /**
+             * Encodes the specified ExportToS3Settings message. Does not implicitly {@link Ydb.Export.ExportToS3Settings.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @static
+             * @param {Ydb.Export.IExportToS3Settings} message ExportToS3Settings message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Settings.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.endpoint != null && message.hasOwnProperty("endpoint"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.endpoint);
+                if (message.scheme != null && message.hasOwnProperty("scheme"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.scheme);
+                if (message.bucket != null && message.hasOwnProperty("bucket"))
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.bucket);
+                if (message.accessKey != null && message.hasOwnProperty("accessKey"))
+                    writer.uint32(/* id 4, wireType 2 =*/34).string(message.accessKey);
+                if (message.secretKey != null && message.hasOwnProperty("secretKey"))
+                    writer.uint32(/* id 5, wireType 2 =*/42).string(message.secretKey);
+                if (message.items != null && message.items.length)
+                    for (var i = 0; i < message.items.length; ++i)
+                        $root.Ydb.Export.ExportToS3Settings.Item.encode(message.items[i], writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
+                if (message.description != null && message.hasOwnProperty("description"))
+                    writer.uint32(/* id 7, wireType 2 =*/58).string(message.description);
+                if (message.numberOfRetries != null && message.hasOwnProperty("numberOfRetries"))
+                    writer.uint32(/* id 8, wireType 0 =*/64).uint32(message.numberOfRetries);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ExportToS3Settings message, length delimited. Does not implicitly {@link Ydb.Export.ExportToS3Settings.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @static
+             * @param {Ydb.Export.IExportToS3Settings} message ExportToS3Settings message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Settings.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an ExportToS3Settings message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Export.ExportToS3Settings} ExportToS3Settings
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Settings.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Export.ExportToS3Settings();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.endpoint = reader.string();
+                        break;
+                    case 2:
+                        message.scheme = reader.int32();
+                        break;
+                    case 3:
+                        message.bucket = reader.string();
+                        break;
+                    case 4:
+                        message.accessKey = reader.string();
+                        break;
+                    case 5:
+                        message.secretKey = reader.string();
+                        break;
+                    case 6:
+                        if (!(message.items && message.items.length))
+                            message.items = [];
+                        message.items.push($root.Ydb.Export.ExportToS3Settings.Item.decode(reader, reader.uint32()));
+                        break;
+                    case 7:
+                        message.description = reader.string();
+                        break;
+                    case 8:
+                        message.numberOfRetries = reader.uint32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an ExportToS3Settings message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Export.ExportToS3Settings} ExportToS3Settings
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Settings.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an ExportToS3Settings message.
+             * @function verify
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ExportToS3Settings.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.endpoint != null && message.hasOwnProperty("endpoint"))
+                    if (!$util.isString(message.endpoint))
+                        return "endpoint: string expected";
+                if (message.scheme != null && message.hasOwnProperty("scheme"))
+                    switch (message.scheme) {
+                    default:
+                        return "scheme: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                        break;
+                    }
+                if (message.bucket != null && message.hasOwnProperty("bucket"))
+                    if (!$util.isString(message.bucket))
+                        return "bucket: string expected";
+                if (message.accessKey != null && message.hasOwnProperty("accessKey"))
+                    if (!$util.isString(message.accessKey))
+                        return "accessKey: string expected";
+                if (message.secretKey != null && message.hasOwnProperty("secretKey"))
+                    if (!$util.isString(message.secretKey))
+                        return "secretKey: string expected";
+                if (message.items != null && message.hasOwnProperty("items")) {
+                    if (!Array.isArray(message.items))
+                        return "items: array expected";
+                    for (var i = 0; i < message.items.length; ++i) {
+                        var error = $root.Ydb.Export.ExportToS3Settings.Item.verify(message.items[i]);
+                        if (error)
+                            return "items." + error;
+                    }
+                }
+                if (message.description != null && message.hasOwnProperty("description"))
+                    if (!$util.isString(message.description))
+                        return "description: string expected";
+                if (message.numberOfRetries != null && message.hasOwnProperty("numberOfRetries"))
+                    if (!$util.isInteger(message.numberOfRetries))
+                        return "numberOfRetries: integer expected";
+                return null;
+            };
+
+            /**
+             * Creates an ExportToS3Settings message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Export.ExportToS3Settings} ExportToS3Settings
+             */
+            ExportToS3Settings.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Export.ExportToS3Settings)
+                    return object;
+                var message = new $root.Ydb.Export.ExportToS3Settings();
+                if (object.endpoint != null)
+                    message.endpoint = String(object.endpoint);
+                switch (object.scheme) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.scheme = 0;
+                    break;
+                case "HTTP":
+                case 1:
+                    message.scheme = 1;
+                    break;
+                case "HTTPS":
+                case 2:
+                    message.scheme = 2;
+                    break;
+                }
+                if (object.bucket != null)
+                    message.bucket = String(object.bucket);
+                if (object.accessKey != null)
+                    message.accessKey = String(object.accessKey);
+                if (object.secretKey != null)
+                    message.secretKey = String(object.secretKey);
+                if (object.items) {
+                    if (!Array.isArray(object.items))
+                        throw TypeError(".Ydb.Export.ExportToS3Settings.items: array expected");
+                    message.items = [];
+                    for (var i = 0; i < object.items.length; ++i) {
+                        if (typeof object.items[i] !== "object")
+                            throw TypeError(".Ydb.Export.ExportToS3Settings.items: object expected");
+                        message.items[i] = $root.Ydb.Export.ExportToS3Settings.Item.fromObject(object.items[i]);
+                    }
+                }
+                if (object.description != null)
+                    message.description = String(object.description);
+                if (object.numberOfRetries != null)
+                    message.numberOfRetries = object.numberOfRetries >>> 0;
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an ExportToS3Settings message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @static
+             * @param {Ydb.Export.ExportToS3Settings} message ExportToS3Settings
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ExportToS3Settings.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.items = [];
+                if (options.defaults) {
+                    object.endpoint = "";
+                    object.scheme = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.bucket = "";
+                    object.accessKey = "";
+                    object.secretKey = "";
+                    object.description = "";
+                    object.numberOfRetries = 0;
+                }
+                if (message.endpoint != null && message.hasOwnProperty("endpoint"))
+                    object.endpoint = message.endpoint;
+                if (message.scheme != null && message.hasOwnProperty("scheme"))
+                    object.scheme = options.enums === String ? $root.Ydb.Export.ExportToS3Settings.Scheme[message.scheme] : message.scheme;
+                if (message.bucket != null && message.hasOwnProperty("bucket"))
+                    object.bucket = message.bucket;
+                if (message.accessKey != null && message.hasOwnProperty("accessKey"))
+                    object.accessKey = message.accessKey;
+                if (message.secretKey != null && message.hasOwnProperty("secretKey"))
+                    object.secretKey = message.secretKey;
+                if (message.items && message.items.length) {
+                    object.items = [];
+                    for (var j = 0; j < message.items.length; ++j)
+                        object.items[j] = $root.Ydb.Export.ExportToS3Settings.Item.toObject(message.items[j], options);
+                }
+                if (message.description != null && message.hasOwnProperty("description"))
+                    object.description = message.description;
+                if (message.numberOfRetries != null && message.hasOwnProperty("numberOfRetries"))
+                    object.numberOfRetries = message.numberOfRetries;
+                return object;
+            };
+
+            /**
+             * Converts this ExportToS3Settings to JSON.
+             * @function toJSON
+             * @memberof Ydb.Export.ExportToS3Settings
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ExportToS3Settings.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Scheme enum.
+             * @name Ydb.Export.ExportToS3Settings.Scheme
+             * @enum {string}
+             * @property {number} UNSPECIFIED=0 UNSPECIFIED value
+             * @property {number} HTTP=1 HTTP value
+             * @property {number} HTTPS=2 HTTPS value
+             */
+            ExportToS3Settings.Scheme = (function() {
+                var valuesById = {}, values = Object.create(valuesById);
+                values[valuesById[0] = "UNSPECIFIED"] = 0;
+                values[valuesById[1] = "HTTP"] = 1;
+                values[valuesById[2] = "HTTPS"] = 2;
+                return values;
+            })();
+
+            ExportToS3Settings.Item = (function() {
+
+                /**
+                 * Properties of an Item.
+                 * @memberof Ydb.Export.ExportToS3Settings
+                 * @interface IItem
+                 * @property {string|null} [sourcePath] Item sourcePath
+                 * @property {string|null} [destinationPrefix] Item destinationPrefix
+                 */
+
+                /**
+                 * Constructs a new Item.
+                 * @memberof Ydb.Export.ExportToS3Settings
+                 * @classdesc Represents an Item.
+                 * @implements IItem
+                 * @constructor
+                 * @param {Ydb.Export.ExportToS3Settings.IItem=} [properties] Properties to set
+                 */
+                function Item(properties) {
+                    if (properties)
+                        for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                            if (properties[keys[i]] != null)
+                                this[keys[i]] = properties[keys[i]];
+                }
+
+                /**
+                 * Item sourcePath.
+                 * @member {string} sourcePath
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @instance
+                 */
+                Item.prototype.sourcePath = "";
+
+                /**
+                 * Item destinationPrefix.
+                 * @member {string} destinationPrefix
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @instance
+                 */
+                Item.prototype.destinationPrefix = "";
+
+                /**
+                 * Creates a new Item instance using the specified properties.
+                 * @function create
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @static
+                 * @param {Ydb.Export.ExportToS3Settings.IItem=} [properties] Properties to set
+                 * @returns {Ydb.Export.ExportToS3Settings.Item} Item instance
+                 */
+                Item.create = function create(properties) {
+                    return new Item(properties);
+                };
+
+                /**
+                 * Encodes the specified Item message. Does not implicitly {@link Ydb.Export.ExportToS3Settings.Item.verify|verify} messages.
+                 * @function encode
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @static
+                 * @param {Ydb.Export.ExportToS3Settings.IItem} message Item message or plain object to encode
+                 * @param {$protobuf.Writer} [writer] Writer to encode to
+                 * @returns {$protobuf.Writer} Writer
+                 */
+                Item.encode = function encode(message, writer) {
+                    if (!writer)
+                        writer = $Writer.create();
+                    if (message.sourcePath != null && message.hasOwnProperty("sourcePath"))
+                        writer.uint32(/* id 1, wireType 2 =*/10).string(message.sourcePath);
+                    if (message.destinationPrefix != null && message.hasOwnProperty("destinationPrefix"))
+                        writer.uint32(/* id 2, wireType 2 =*/18).string(message.destinationPrefix);
+                    return writer;
+                };
+
+                /**
+                 * Encodes the specified Item message, length delimited. Does not implicitly {@link Ydb.Export.ExportToS3Settings.Item.verify|verify} messages.
+                 * @function encodeDelimited
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @static
+                 * @param {Ydb.Export.ExportToS3Settings.IItem} message Item message or plain object to encode
+                 * @param {$protobuf.Writer} [writer] Writer to encode to
+                 * @returns {$protobuf.Writer} Writer
+                 */
+                Item.encodeDelimited = function encodeDelimited(message, writer) {
+                    return this.encode(message, writer).ldelim();
+                };
+
+                /**
+                 * Decodes an Item message from the specified reader or buffer.
+                 * @function decode
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @static
+                 * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+                 * @param {number} [length] Message length if known beforehand
+                 * @returns {Ydb.Export.ExportToS3Settings.Item} Item
+                 * @throws {Error} If the payload is not a reader or valid buffer
+                 * @throws {$protobuf.util.ProtocolError} If required fields are missing
+                 */
+                Item.decode = function decode(reader, length) {
+                    if (!(reader instanceof $Reader))
+                        reader = $Reader.create(reader);
+                    var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Export.ExportToS3Settings.Item();
+                    while (reader.pos < end) {
+                        var tag = reader.uint32();
+                        switch (tag >>> 3) {
+                        case 1:
+                            message.sourcePath = reader.string();
+                            break;
+                        case 2:
+                            message.destinationPrefix = reader.string();
+                            break;
+                        default:
+                            reader.skipType(tag & 7);
+                            break;
+                        }
+                    }
+                    return message;
+                };
+
+                /**
+                 * Decodes an Item message from the specified reader or buffer, length delimited.
+                 * @function decodeDelimited
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @static
+                 * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+                 * @returns {Ydb.Export.ExportToS3Settings.Item} Item
+                 * @throws {Error} If the payload is not a reader or valid buffer
+                 * @throws {$protobuf.util.ProtocolError} If required fields are missing
+                 */
+                Item.decodeDelimited = function decodeDelimited(reader) {
+                    if (!(reader instanceof $Reader))
+                        reader = new $Reader(reader);
+                    return this.decode(reader, reader.uint32());
+                };
+
+                /**
+                 * Verifies an Item message.
+                 * @function verify
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @static
+                 * @param {Object.<string,*>} message Plain object to verify
+                 * @returns {string|null} `null` if valid, otherwise the reason why it is not
+                 */
+                Item.verify = function verify(message) {
+                    if (typeof message !== "object" || message === null)
+                        return "object expected";
+                    if (message.sourcePath != null && message.hasOwnProperty("sourcePath"))
+                        if (!$util.isString(message.sourcePath))
+                            return "sourcePath: string expected";
+                    if (message.destinationPrefix != null && message.hasOwnProperty("destinationPrefix"))
+                        if (!$util.isString(message.destinationPrefix))
+                            return "destinationPrefix: string expected";
+                    return null;
+                };
+
+                /**
+                 * Creates an Item message from a plain object. Also converts values to their respective internal types.
+                 * @function fromObject
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @static
+                 * @param {Object.<string,*>} object Plain object
+                 * @returns {Ydb.Export.ExportToS3Settings.Item} Item
+                 */
+                Item.fromObject = function fromObject(object) {
+                    if (object instanceof $root.Ydb.Export.ExportToS3Settings.Item)
+                        return object;
+                    var message = new $root.Ydb.Export.ExportToS3Settings.Item();
+                    if (object.sourcePath != null)
+                        message.sourcePath = String(object.sourcePath);
+                    if (object.destinationPrefix != null)
+                        message.destinationPrefix = String(object.destinationPrefix);
+                    return message;
+                };
+
+                /**
+                 * Creates a plain object from an Item message. Also converts values to other types if specified.
+                 * @function toObject
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @static
+                 * @param {Ydb.Export.ExportToS3Settings.Item} message Item
+                 * @param {$protobuf.IConversionOptions} [options] Conversion options
+                 * @returns {Object.<string,*>} Plain object
+                 */
+                Item.toObject = function toObject(message, options) {
+                    if (!options)
+                        options = {};
+                    var object = {};
+                    if (options.defaults) {
+                        object.sourcePath = "";
+                        object.destinationPrefix = "";
+                    }
+                    if (message.sourcePath != null && message.hasOwnProperty("sourcePath"))
+                        object.sourcePath = message.sourcePath;
+                    if (message.destinationPrefix != null && message.hasOwnProperty("destinationPrefix"))
+                        object.destinationPrefix = message.destinationPrefix;
+                    return object;
+                };
+
+                /**
+                 * Converts this Item to JSON.
+                 * @function toJSON
+                 * @memberof Ydb.Export.ExportToS3Settings.Item
+                 * @instance
+                 * @returns {Object.<string,*>} JSON object
+                 */
+                Item.prototype.toJSON = function toJSON() {
+                    return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+                };
+
+                return Item;
+            })();
+
+            return ExportToS3Settings;
+        })();
+
+        Export.ExportToS3Result = (function() {
+
+            /**
+             * Properties of an ExportToS3Result.
+             * @memberof Ydb.Export
+             * @interface IExportToS3Result
+             */
+
+            /**
+             * Constructs a new ExportToS3Result.
+             * @memberof Ydb.Export
+             * @classdesc Represents an ExportToS3Result.
+             * @implements IExportToS3Result
+             * @constructor
+             * @param {Ydb.Export.IExportToS3Result=} [properties] Properties to set
+             */
+            function ExportToS3Result(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Creates a new ExportToS3Result instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Export.ExportToS3Result
+             * @static
+             * @param {Ydb.Export.IExportToS3Result=} [properties] Properties to set
+             * @returns {Ydb.Export.ExportToS3Result} ExportToS3Result instance
+             */
+            ExportToS3Result.create = function create(properties) {
+                return new ExportToS3Result(properties);
+            };
+
+            /**
+             * Encodes the specified ExportToS3Result message. Does not implicitly {@link Ydb.Export.ExportToS3Result.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Export.ExportToS3Result
+             * @static
+             * @param {Ydb.Export.IExportToS3Result} message ExportToS3Result message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Result.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ExportToS3Result message, length delimited. Does not implicitly {@link Ydb.Export.ExportToS3Result.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Export.ExportToS3Result
+             * @static
+             * @param {Ydb.Export.IExportToS3Result} message ExportToS3Result message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Result.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an ExportToS3Result message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Export.ExportToS3Result
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Export.ExportToS3Result} ExportToS3Result
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Result.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Export.ExportToS3Result();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an ExportToS3Result message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Export.ExportToS3Result
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Export.ExportToS3Result} ExportToS3Result
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Result.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an ExportToS3Result message.
+             * @function verify
+             * @memberof Ydb.Export.ExportToS3Result
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ExportToS3Result.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                return null;
+            };
+
+            /**
+             * Creates an ExportToS3Result message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Export.ExportToS3Result
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Export.ExportToS3Result} ExportToS3Result
+             */
+            ExportToS3Result.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Export.ExportToS3Result)
+                    return object;
+                return new $root.Ydb.Export.ExportToS3Result();
+            };
+
+            /**
+             * Creates a plain object from an ExportToS3Result message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Export.ExportToS3Result
+             * @static
+             * @param {Ydb.Export.ExportToS3Result} message ExportToS3Result
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ExportToS3Result.toObject = function toObject() {
+                return {};
+            };
+
+            /**
+             * Converts this ExportToS3Result to JSON.
+             * @function toJSON
+             * @memberof Ydb.Export.ExportToS3Result
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ExportToS3Result.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ExportToS3Result;
+        })();
+
+        Export.ExportToS3Metadata = (function() {
+
+            /**
+             * Properties of an ExportToS3Metadata.
+             * @memberof Ydb.Export
+             * @interface IExportToS3Metadata
+             * @property {Ydb.Export.IExportToS3Settings|null} [settings] ExportToS3Metadata settings
+             * @property {Ydb.Export.ExportProgress.Progress|null} [progress] ExportToS3Metadata progress
+             */
+
+            /**
+             * Constructs a new ExportToS3Metadata.
+             * @memberof Ydb.Export
+             * @classdesc Represents an ExportToS3Metadata.
+             * @implements IExportToS3Metadata
+             * @constructor
+             * @param {Ydb.Export.IExportToS3Metadata=} [properties] Properties to set
+             */
+            function ExportToS3Metadata(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ExportToS3Metadata settings.
+             * @member {Ydb.Export.IExportToS3Settings|null|undefined} settings
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @instance
+             */
+            ExportToS3Metadata.prototype.settings = null;
+
+            /**
+             * ExportToS3Metadata progress.
+             * @member {Ydb.Export.ExportProgress.Progress} progress
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @instance
+             */
+            ExportToS3Metadata.prototype.progress = 0;
+
+            /**
+             * Creates a new ExportToS3Metadata instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @static
+             * @param {Ydb.Export.IExportToS3Metadata=} [properties] Properties to set
+             * @returns {Ydb.Export.ExportToS3Metadata} ExportToS3Metadata instance
+             */
+            ExportToS3Metadata.create = function create(properties) {
+                return new ExportToS3Metadata(properties);
+            };
+
+            /**
+             * Encodes the specified ExportToS3Metadata message. Does not implicitly {@link Ydb.Export.ExportToS3Metadata.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @static
+             * @param {Ydb.Export.IExportToS3Metadata} message ExportToS3Metadata message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Metadata.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.settings != null && message.hasOwnProperty("settings"))
+                    $root.Ydb.Export.ExportToS3Settings.encode(message.settings, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.progress != null && message.hasOwnProperty("progress"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.progress);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ExportToS3Metadata message, length delimited. Does not implicitly {@link Ydb.Export.ExportToS3Metadata.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @static
+             * @param {Ydb.Export.IExportToS3Metadata} message ExportToS3Metadata message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Metadata.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an ExportToS3Metadata message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Export.ExportToS3Metadata} ExportToS3Metadata
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Metadata.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Export.ExportToS3Metadata();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.settings = $root.Ydb.Export.ExportToS3Settings.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.progress = reader.int32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an ExportToS3Metadata message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Export.ExportToS3Metadata} ExportToS3Metadata
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Metadata.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an ExportToS3Metadata message.
+             * @function verify
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ExportToS3Metadata.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.settings != null && message.hasOwnProperty("settings")) {
+                    var error = $root.Ydb.Export.ExportToS3Settings.verify(message.settings);
+                    if (error)
+                        return "settings." + error;
+                }
+                if (message.progress != null && message.hasOwnProperty("progress"))
+                    switch (message.progress) {
+                    default:
+                        return "progress: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                        break;
+                    }
+                return null;
+            };
+
+            /**
+             * Creates an ExportToS3Metadata message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Export.ExportToS3Metadata} ExportToS3Metadata
+             */
+            ExportToS3Metadata.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Export.ExportToS3Metadata)
+                    return object;
+                var message = new $root.Ydb.Export.ExportToS3Metadata();
+                if (object.settings != null) {
+                    if (typeof object.settings !== "object")
+                        throw TypeError(".Ydb.Export.ExportToS3Metadata.settings: object expected");
+                    message.settings = $root.Ydb.Export.ExportToS3Settings.fromObject(object.settings);
+                }
+                switch (object.progress) {
+                case "PROGRESS_UNSPECIFIED":
+                case 0:
+                    message.progress = 0;
+                    break;
+                case "PROGRESS_PREPARING":
+                case 1:
+                    message.progress = 1;
+                    break;
+                case "PROGRESS_TRANSFER_DATA":
+                case 2:
+                    message.progress = 2;
+                    break;
+                case "PROGRESS_DONE":
+                case 3:
+                    message.progress = 3;
+                    break;
+                case "PROGRESS_CANCELLATION":
+                case 4:
+                    message.progress = 4;
+                    break;
+                case "PROGRESS_CANCELLED":
+                case 5:
+                    message.progress = 5;
+                    break;
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an ExportToS3Metadata message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @static
+             * @param {Ydb.Export.ExportToS3Metadata} message ExportToS3Metadata
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ExportToS3Metadata.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.settings = null;
+                    object.progress = options.enums === String ? "PROGRESS_UNSPECIFIED" : 0;
+                }
+                if (message.settings != null && message.hasOwnProperty("settings"))
+                    object.settings = $root.Ydb.Export.ExportToS3Settings.toObject(message.settings, options);
+                if (message.progress != null && message.hasOwnProperty("progress"))
+                    object.progress = options.enums === String ? $root.Ydb.Export.ExportProgress.Progress[message.progress] : message.progress;
+                return object;
+            };
+
+            /**
+             * Converts this ExportToS3Metadata to JSON.
+             * @function toJSON
+             * @memberof Ydb.Export.ExportToS3Metadata
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ExportToS3Metadata.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ExportToS3Metadata;
+        })();
+
+        Export.ExportToS3Request = (function() {
+
+            /**
+             * Properties of an ExportToS3Request.
+             * @memberof Ydb.Export
+             * @interface IExportToS3Request
+             * @property {Ydb.Operations.IOperationParams|null} [operationParams] ExportToS3Request operationParams
+             * @property {Ydb.Export.IExportToS3Settings|null} [settings] ExportToS3Request settings
+             */
+
+            /**
+             * Constructs a new ExportToS3Request.
+             * @memberof Ydb.Export
+             * @classdesc Represents an ExportToS3Request.
+             * @implements IExportToS3Request
+             * @constructor
+             * @param {Ydb.Export.IExportToS3Request=} [properties] Properties to set
+             */
+            function ExportToS3Request(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ExportToS3Request operationParams.
+             * @member {Ydb.Operations.IOperationParams|null|undefined} operationParams
+             * @memberof Ydb.Export.ExportToS3Request
+             * @instance
+             */
+            ExportToS3Request.prototype.operationParams = null;
+
+            /**
+             * ExportToS3Request settings.
+             * @member {Ydb.Export.IExportToS3Settings|null|undefined} settings
+             * @memberof Ydb.Export.ExportToS3Request
+             * @instance
+             */
+            ExportToS3Request.prototype.settings = null;
+
+            /**
+             * Creates a new ExportToS3Request instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Export.ExportToS3Request
+             * @static
+             * @param {Ydb.Export.IExportToS3Request=} [properties] Properties to set
+             * @returns {Ydb.Export.ExportToS3Request} ExportToS3Request instance
+             */
+            ExportToS3Request.create = function create(properties) {
+                return new ExportToS3Request(properties);
+            };
+
+            /**
+             * Encodes the specified ExportToS3Request message. Does not implicitly {@link Ydb.Export.ExportToS3Request.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Export.ExportToS3Request
+             * @static
+             * @param {Ydb.Export.IExportToS3Request} message ExportToS3Request message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Request.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.settings != null && message.hasOwnProperty("settings"))
+                    $root.Ydb.Export.ExportToS3Settings.encode(message.settings, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ExportToS3Request message, length delimited. Does not implicitly {@link Ydb.Export.ExportToS3Request.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Export.ExportToS3Request
+             * @static
+             * @param {Ydb.Export.IExportToS3Request} message ExportToS3Request message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Request.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an ExportToS3Request message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Export.ExportToS3Request
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Export.ExportToS3Request} ExportToS3Request
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Request.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Export.ExportToS3Request();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operationParams = $root.Ydb.Operations.OperationParams.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.settings = $root.Ydb.Export.ExportToS3Settings.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an ExportToS3Request message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Export.ExportToS3Request
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Export.ExportToS3Request} ExportToS3Request
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Request.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an ExportToS3Request message.
+             * @function verify
+             * @memberof Ydb.Export.ExportToS3Request
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ExportToS3Request.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operationParams != null && message.hasOwnProperty("operationParams")) {
+                    var error = $root.Ydb.Operations.OperationParams.verify(message.operationParams);
+                    if (error)
+                        return "operationParams." + error;
+                }
+                if (message.settings != null && message.hasOwnProperty("settings")) {
+                    var error = $root.Ydb.Export.ExportToS3Settings.verify(message.settings);
+                    if (error)
+                        return "settings." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates an ExportToS3Request message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Export.ExportToS3Request
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Export.ExportToS3Request} ExportToS3Request
+             */
+            ExportToS3Request.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Export.ExportToS3Request)
+                    return object;
+                var message = new $root.Ydb.Export.ExportToS3Request();
+                if (object.operationParams != null) {
+                    if (typeof object.operationParams !== "object")
+                        throw TypeError(".Ydb.Export.ExportToS3Request.operationParams: object expected");
+                    message.operationParams = $root.Ydb.Operations.OperationParams.fromObject(object.operationParams);
+                }
+                if (object.settings != null) {
+                    if (typeof object.settings !== "object")
+                        throw TypeError(".Ydb.Export.ExportToS3Request.settings: object expected");
+                    message.settings = $root.Ydb.Export.ExportToS3Settings.fromObject(object.settings);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an ExportToS3Request message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Export.ExportToS3Request
+             * @static
+             * @param {Ydb.Export.ExportToS3Request} message ExportToS3Request
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ExportToS3Request.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.operationParams = null;
+                    object.settings = null;
+                }
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
+                if (message.settings != null && message.hasOwnProperty("settings"))
+                    object.settings = $root.Ydb.Export.ExportToS3Settings.toObject(message.settings, options);
+                return object;
+            };
+
+            /**
+             * Converts this ExportToS3Request to JSON.
+             * @function toJSON
+             * @memberof Ydb.Export.ExportToS3Request
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ExportToS3Request.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ExportToS3Request;
+        })();
+
+        Export.ExportToS3Response = (function() {
+
+            /**
+             * Properties of an ExportToS3Response.
+             * @memberof Ydb.Export
+             * @interface IExportToS3Response
+             * @property {Ydb.Operations.IOperation|null} [operation] ExportToS3Response operation
+             */
+
+            /**
+             * Constructs a new ExportToS3Response.
+             * @memberof Ydb.Export
+             * @classdesc Represents an ExportToS3Response.
+             * @implements IExportToS3Response
+             * @constructor
+             * @param {Ydb.Export.IExportToS3Response=} [properties] Properties to set
+             */
+            function ExportToS3Response(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ExportToS3Response operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.Export.ExportToS3Response
+             * @instance
+             */
+            ExportToS3Response.prototype.operation = null;
+
+            /**
+             * Creates a new ExportToS3Response instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Export.ExportToS3Response
+             * @static
+             * @param {Ydb.Export.IExportToS3Response=} [properties] Properties to set
+             * @returns {Ydb.Export.ExportToS3Response} ExportToS3Response instance
+             */
+            ExportToS3Response.create = function create(properties) {
+                return new ExportToS3Response(properties);
+            };
+
+            /**
+             * Encodes the specified ExportToS3Response message. Does not implicitly {@link Ydb.Export.ExportToS3Response.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Export.ExportToS3Response
+             * @static
+             * @param {Ydb.Export.IExportToS3Response} message ExportToS3Response message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Response.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ExportToS3Response message, length delimited. Does not implicitly {@link Ydb.Export.ExportToS3Response.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Export.ExportToS3Response
+             * @static
+             * @param {Ydb.Export.IExportToS3Response} message ExportToS3Response message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExportToS3Response.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an ExportToS3Response message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Export.ExportToS3Response
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Export.ExportToS3Response} ExportToS3Response
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Response.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Export.ExportToS3Response();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an ExportToS3Response message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Export.ExportToS3Response
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Export.ExportToS3Response} ExportToS3Response
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExportToS3Response.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an ExportToS3Response message.
+             * @function verify
+             * @memberof Ydb.Export.ExportToS3Response
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ExportToS3Response.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates an ExportToS3Response message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Export.ExportToS3Response
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Export.ExportToS3Response} ExportToS3Response
+             */
+            ExportToS3Response.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Export.ExportToS3Response)
+                    return object;
+                var message = new $root.Ydb.Export.ExportToS3Response();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.Export.ExportToS3Response.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an ExportToS3Response message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Export.ExportToS3Response
+             * @static
+             * @param {Ydb.Export.ExportToS3Response} message ExportToS3Response
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ExportToS3Response.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this ExportToS3Response to JSON.
+             * @function toJSON
+             * @memberof Ydb.Export.ExportToS3Response
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ExportToS3Response.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ExportToS3Response;
+        })();
+
         return Export;
+    })();
+
+    Ydb.Monitoring = (function() {
+
+        /**
+         * Namespace Monitoring.
+         * @memberof Ydb
+         * @namespace
+         */
+        var Monitoring = {};
+
+        Monitoring.V1 = (function() {
+
+            /**
+             * Namespace V1.
+             * @memberof Ydb.Monitoring
+             * @namespace
+             */
+            var V1 = {};
+
+            V1.MonitoringService = (function() {
+
+                /**
+                 * Constructs a new MonitoringService service.
+                 * @memberof Ydb.Monitoring.V1
+                 * @classdesc Represents a MonitoringService
+                 * @extends $protobuf.rpc.Service
+                 * @constructor
+                 * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+                 * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+                 * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+                 */
+                function MonitoringService(rpcImpl, requestDelimited, responseDelimited) {
+                    $protobuf.rpc.Service.call(this, rpcImpl, requestDelimited, responseDelimited);
+                }
+
+                (MonitoringService.prototype = Object.create($protobuf.rpc.Service.prototype)).constructor = MonitoringService;
+
+                /**
+                 * Creates new MonitoringService service using the specified rpc implementation.
+                 * @function create
+                 * @memberof Ydb.Monitoring.V1.MonitoringService
+                 * @static
+                 * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+                 * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+                 * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+                 * @returns {MonitoringService} RPC service. Useful where requests and/or responses are streamed.
+                 */
+                MonitoringService.create = function create(rpcImpl, requestDelimited, responseDelimited) {
+                    return new this(rpcImpl, requestDelimited, responseDelimited);
+                };
+
+                /**
+                 * Callback as used by {@link Ydb.Monitoring.V1.MonitoringService#selfCheck}.
+                 * @memberof Ydb.Monitoring.V1.MonitoringService
+                 * @typedef SelfCheckCallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.Monitoring.SelfCheckResponse} [response] SelfCheckResponse
+                 */
+
+                /**
+                 * Calls SelfCheck.
+                 * @function selfCheck
+                 * @memberof Ydb.Monitoring.V1.MonitoringService
+                 * @instance
+                 * @param {Ydb.Monitoring.ISelfCheckRequest} request SelfCheckRequest message or plain object
+                 * @param {Ydb.Monitoring.V1.MonitoringService.SelfCheckCallback} callback Node-style callback called with the error, if any, and SelfCheckResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(MonitoringService.prototype.selfCheck = function selfCheck(request, callback) {
+                    return this.rpcCall(selfCheck, $root.Ydb.Monitoring.SelfCheckRequest, $root.Ydb.Monitoring.SelfCheckResponse, request, callback);
+                }, "name", { value: "SelfCheck" });
+
+                /**
+                 * Calls SelfCheck.
+                 * @function selfCheck
+                 * @memberof Ydb.Monitoring.V1.MonitoringService
+                 * @instance
+                 * @param {Ydb.Monitoring.ISelfCheckRequest} request SelfCheckRequest message or plain object
+                 * @returns {Promise<Ydb.Monitoring.SelfCheckResponse>} Promise
+                 * @variation 2
+                 */
+
+                return MonitoringService;
+            })();
+
+            return V1;
+        })();
+
+        Monitoring.SelfCheckRequest = (function() {
+
+            /**
+             * Properties of a SelfCheckRequest.
+             * @memberof Ydb.Monitoring
+             * @interface ISelfCheckRequest
+             * @property {Ydb.Operations.IOperationParams|null} [operationParams] SelfCheckRequest operationParams
+             * @property {boolean|null} [returnVerboseStatus] SelfCheckRequest returnVerboseStatus
+             */
+
+            /**
+             * Constructs a new SelfCheckRequest.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a SelfCheckRequest.
+             * @implements ISelfCheckRequest
+             * @constructor
+             * @param {Ydb.Monitoring.ISelfCheckRequest=} [properties] Properties to set
+             */
+            function SelfCheckRequest(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * SelfCheckRequest operationParams.
+             * @member {Ydb.Operations.IOperationParams|null|undefined} operationParams
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @instance
+             */
+            SelfCheckRequest.prototype.operationParams = null;
+
+            /**
+             * SelfCheckRequest returnVerboseStatus.
+             * @member {boolean} returnVerboseStatus
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @instance
+             */
+            SelfCheckRequest.prototype.returnVerboseStatus = false;
+
+            /**
+             * Creates a new SelfCheckRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckRequest=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.SelfCheckRequest} SelfCheckRequest instance
+             */
+            SelfCheckRequest.create = function create(properties) {
+                return new SelfCheckRequest(properties);
+            };
+
+            /**
+             * Encodes the specified SelfCheckRequest message. Does not implicitly {@link Ydb.Monitoring.SelfCheckRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckRequest} message SelfCheckRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SelfCheckRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.returnVerboseStatus != null && message.hasOwnProperty("returnVerboseStatus"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).bool(message.returnVerboseStatus);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified SelfCheckRequest message, length delimited. Does not implicitly {@link Ydb.Monitoring.SelfCheckRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckRequest} message SelfCheckRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SelfCheckRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a SelfCheckRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.SelfCheckRequest} SelfCheckRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SelfCheckRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.SelfCheckRequest();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operationParams = $root.Ydb.Operations.OperationParams.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.returnVerboseStatus = reader.bool();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a SelfCheckRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.SelfCheckRequest} SelfCheckRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SelfCheckRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a SelfCheckRequest message.
+             * @function verify
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            SelfCheckRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operationParams != null && message.hasOwnProperty("operationParams")) {
+                    var error = $root.Ydb.Operations.OperationParams.verify(message.operationParams);
+                    if (error)
+                        return "operationParams." + error;
+                }
+                if (message.returnVerboseStatus != null && message.hasOwnProperty("returnVerboseStatus"))
+                    if (typeof message.returnVerboseStatus !== "boolean")
+                        return "returnVerboseStatus: boolean expected";
+                return null;
+            };
+
+            /**
+             * Creates a SelfCheckRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.SelfCheckRequest} SelfCheckRequest
+             */
+            SelfCheckRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.SelfCheckRequest)
+                    return object;
+                var message = new $root.Ydb.Monitoring.SelfCheckRequest();
+                if (object.operationParams != null) {
+                    if (typeof object.operationParams !== "object")
+                        throw TypeError(".Ydb.Monitoring.SelfCheckRequest.operationParams: object expected");
+                    message.operationParams = $root.Ydb.Operations.OperationParams.fromObject(object.operationParams);
+                }
+                if (object.returnVerboseStatus != null)
+                    message.returnVerboseStatus = Boolean(object.returnVerboseStatus);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a SelfCheckRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @static
+             * @param {Ydb.Monitoring.SelfCheckRequest} message SelfCheckRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            SelfCheckRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.operationParams = null;
+                    object.returnVerboseStatus = false;
+                }
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
+                if (message.returnVerboseStatus != null && message.hasOwnProperty("returnVerboseStatus"))
+                    object.returnVerboseStatus = message.returnVerboseStatus;
+                return object;
+            };
+
+            /**
+             * Converts this SelfCheckRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.SelfCheckRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            SelfCheckRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return SelfCheckRequest;
+        })();
+
+        Monitoring.SelfCheckResponse = (function() {
+
+            /**
+             * Properties of a SelfCheckResponse.
+             * @memberof Ydb.Monitoring
+             * @interface ISelfCheckResponse
+             * @property {Ydb.Operations.IOperation|null} [operation] SelfCheckResponse operation
+             */
+
+            /**
+             * Constructs a new SelfCheckResponse.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a SelfCheckResponse.
+             * @implements ISelfCheckResponse
+             * @constructor
+             * @param {Ydb.Monitoring.ISelfCheckResponse=} [properties] Properties to set
+             */
+            function SelfCheckResponse(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * SelfCheckResponse operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @instance
+             */
+            SelfCheckResponse.prototype.operation = null;
+
+            /**
+             * Creates a new SelfCheckResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckResponse=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.SelfCheckResponse} SelfCheckResponse instance
+             */
+            SelfCheckResponse.create = function create(properties) {
+                return new SelfCheckResponse(properties);
+            };
+
+            /**
+             * Encodes the specified SelfCheckResponse message. Does not implicitly {@link Ydb.Monitoring.SelfCheckResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckResponse} message SelfCheckResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SelfCheckResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified SelfCheckResponse message, length delimited. Does not implicitly {@link Ydb.Monitoring.SelfCheckResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckResponse} message SelfCheckResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SelfCheckResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a SelfCheckResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.SelfCheckResponse} SelfCheckResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SelfCheckResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.SelfCheckResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a SelfCheckResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.SelfCheckResponse} SelfCheckResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SelfCheckResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a SelfCheckResponse message.
+             * @function verify
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            SelfCheckResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a SelfCheckResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.SelfCheckResponse} SelfCheckResponse
+             */
+            SelfCheckResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.SelfCheckResponse)
+                    return object;
+                var message = new $root.Ydb.Monitoring.SelfCheckResponse();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.Monitoring.SelfCheckResponse.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a SelfCheckResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @static
+             * @param {Ydb.Monitoring.SelfCheckResponse} message SelfCheckResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            SelfCheckResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this SelfCheckResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.SelfCheckResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            SelfCheckResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return SelfCheckResponse;
+        })();
+
+        Monitoring.StatusFlag = (function() {
+
+            /**
+             * Properties of a StatusFlag.
+             * @memberof Ydb.Monitoring
+             * @interface IStatusFlag
+             */
+
+            /**
+             * Constructs a new StatusFlag.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a StatusFlag.
+             * @implements IStatusFlag
+             * @constructor
+             * @param {Ydb.Monitoring.IStatusFlag=} [properties] Properties to set
+             */
+            function StatusFlag(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Creates a new StatusFlag instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @static
+             * @param {Ydb.Monitoring.IStatusFlag=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.StatusFlag} StatusFlag instance
+             */
+            StatusFlag.create = function create(properties) {
+                return new StatusFlag(properties);
+            };
+
+            /**
+             * Encodes the specified StatusFlag message. Does not implicitly {@link Ydb.Monitoring.StatusFlag.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @static
+             * @param {Ydb.Monitoring.IStatusFlag} message StatusFlag message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StatusFlag.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified StatusFlag message, length delimited. Does not implicitly {@link Ydb.Monitoring.StatusFlag.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @static
+             * @param {Ydb.Monitoring.IStatusFlag} message StatusFlag message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StatusFlag.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a StatusFlag message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.StatusFlag} StatusFlag
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StatusFlag.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.StatusFlag();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a StatusFlag message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.StatusFlag} StatusFlag
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StatusFlag.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a StatusFlag message.
+             * @function verify
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            StatusFlag.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                return null;
+            };
+
+            /**
+             * Creates a StatusFlag message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.StatusFlag} StatusFlag
+             */
+            StatusFlag.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.StatusFlag)
+                    return object;
+                return new $root.Ydb.Monitoring.StatusFlag();
+            };
+
+            /**
+             * Creates a plain object from a StatusFlag message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @static
+             * @param {Ydb.Monitoring.StatusFlag} message StatusFlag
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            StatusFlag.toObject = function toObject() {
+                return {};
+            };
+
+            /**
+             * Converts this StatusFlag to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.StatusFlag
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            StatusFlag.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Status enum.
+             * @name Ydb.Monitoring.StatusFlag.Status
+             * @enum {string}
+             * @property {number} UNSPECIFIED=0 UNSPECIFIED value
+             * @property {number} GREY=1 GREY value
+             * @property {number} GREEN=2 GREEN value
+             * @property {number} BLUE=3 BLUE value
+             * @property {number} YELLOW=4 YELLOW value
+             * @property {number} ORANGE=5 ORANGE value
+             * @property {number} RED=6 RED value
+             */
+            StatusFlag.Status = (function() {
+                var valuesById = {}, values = Object.create(valuesById);
+                values[valuesById[0] = "UNSPECIFIED"] = 0;
+                values[valuesById[1] = "GREY"] = 1;
+                values[valuesById[2] = "GREEN"] = 2;
+                values[valuesById[3] = "BLUE"] = 3;
+                values[valuesById[4] = "YELLOW"] = 4;
+                values[valuesById[5] = "ORANGE"] = 5;
+                values[valuesById[6] = "RED"] = 6;
+                return values;
+            })();
+
+            return StatusFlag;
+        })();
+
+        Monitoring.SelfCheck = (function() {
+
+            /**
+             * Properties of a SelfCheck.
+             * @memberof Ydb.Monitoring
+             * @interface ISelfCheck
+             */
+
+            /**
+             * Constructs a new SelfCheck.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a SelfCheck.
+             * @implements ISelfCheck
+             * @constructor
+             * @param {Ydb.Monitoring.ISelfCheck=} [properties] Properties to set
+             */
+            function SelfCheck(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Creates a new SelfCheck instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheck=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.SelfCheck} SelfCheck instance
+             */
+            SelfCheck.create = function create(properties) {
+                return new SelfCheck(properties);
+            };
+
+            /**
+             * Encodes the specified SelfCheck message. Does not implicitly {@link Ydb.Monitoring.SelfCheck.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheck} message SelfCheck message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SelfCheck.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified SelfCheck message, length delimited. Does not implicitly {@link Ydb.Monitoring.SelfCheck.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheck} message SelfCheck message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SelfCheck.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a SelfCheck message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.SelfCheck} SelfCheck
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SelfCheck.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.SelfCheck();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a SelfCheck message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.SelfCheck} SelfCheck
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SelfCheck.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a SelfCheck message.
+             * @function verify
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            SelfCheck.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                return null;
+            };
+
+            /**
+             * Creates a SelfCheck message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.SelfCheck} SelfCheck
+             */
+            SelfCheck.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.SelfCheck)
+                    return object;
+                return new $root.Ydb.Monitoring.SelfCheck();
+            };
+
+            /**
+             * Creates a plain object from a SelfCheck message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @static
+             * @param {Ydb.Monitoring.SelfCheck} message SelfCheck
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            SelfCheck.toObject = function toObject() {
+                return {};
+            };
+
+            /**
+             * Converts this SelfCheck to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.SelfCheck
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            SelfCheck.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Result enum.
+             * @name Ydb.Monitoring.SelfCheck.Result
+             * @enum {string}
+             * @property {number} UNSPECIFIED=0 UNSPECIFIED value
+             * @property {number} GOOD=1 GOOD value
+             * @property {number} DEGRADED=2 DEGRADED value
+             * @property {number} MAINTENANCE_REQUIRED=3 MAINTENANCE_REQUIRED value
+             * @property {number} EMERGENCY=4 EMERGENCY value
+             */
+            SelfCheck.Result = (function() {
+                var valuesById = {}, values = Object.create(valuesById);
+                values[valuesById[0] = "UNSPECIFIED"] = 0;
+                values[valuesById[1] = "GOOD"] = 1;
+                values[valuesById[2] = "DEGRADED"] = 2;
+                values[valuesById[3] = "MAINTENANCE_REQUIRED"] = 3;
+                values[valuesById[4] = "EMERGENCY"] = 4;
+                return values;
+            })();
+
+            return SelfCheck;
+        })();
+
+        Monitoring.StoragePDiskStatus = (function() {
+
+            /**
+             * Properties of a StoragePDiskStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IStoragePDiskStatus
+             * @property {string|null} [id] StoragePDiskStatus id
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] StoragePDiskStatus overall
+             */
+
+            /**
+             * Constructs a new StoragePDiskStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a StoragePDiskStatus.
+             * @implements IStoragePDiskStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IStoragePDiskStatus=} [properties] Properties to set
+             */
+            function StoragePDiskStatus(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * StoragePDiskStatus id.
+             * @member {string} id
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @instance
+             */
+            StoragePDiskStatus.prototype.id = "";
+
+            /**
+             * StoragePDiskStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @instance
+             */
+            StoragePDiskStatus.prototype.overall = 0;
+
+            /**
+             * Creates a new StoragePDiskStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @static
+             * @param {Ydb.Monitoring.IStoragePDiskStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.StoragePDiskStatus} StoragePDiskStatus instance
+             */
+            StoragePDiskStatus.create = function create(properties) {
+                return new StoragePDiskStatus(properties);
+            };
+
+            /**
+             * Encodes the specified StoragePDiskStatus message. Does not implicitly {@link Ydb.Monitoring.StoragePDiskStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @static
+             * @param {Ydb.Monitoring.IStoragePDiskStatus} message StoragePDiskStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StoragePDiskStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.overall);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified StoragePDiskStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.StoragePDiskStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @static
+             * @param {Ydb.Monitoring.IStoragePDiskStatus} message StoragePDiskStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StoragePDiskStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a StoragePDiskStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.StoragePDiskStatus} StoragePDiskStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StoragePDiskStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.StoragePDiskStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.string();
+                        break;
+                    case 2:
+                        message.overall = reader.int32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a StoragePDiskStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.StoragePDiskStatus} StoragePDiskStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StoragePDiskStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a StoragePDiskStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            StoragePDiskStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isString(message.id))
+                        return "id: string expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                return null;
+            };
+
+            /**
+             * Creates a StoragePDiskStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.StoragePDiskStatus} StoragePDiskStatus
+             */
+            StoragePDiskStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.StoragePDiskStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.StoragePDiskStatus();
+                if (object.id != null)
+                    message.id = String(object.id);
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a StoragePDiskStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @static
+             * @param {Ydb.Monitoring.StoragePDiskStatus} message StoragePDiskStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            StoragePDiskStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.id = "";
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                return object;
+            };
+
+            /**
+             * Converts this StoragePDiskStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.StoragePDiskStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            StoragePDiskStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return StoragePDiskStatus;
+        })();
+
+        Monitoring.StorageVDiskStatus = (function() {
+
+            /**
+             * Properties of a StorageVDiskStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IStorageVDiskStatus
+             * @property {string|null} [id] StorageVDiskStatus id
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] StorageVDiskStatus overall
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [vdiskStatus] StorageVDiskStatus vdiskStatus
+             * @property {Ydb.Monitoring.IStoragePDiskStatus|null} [pdisk] StorageVDiskStatus pdisk
+             */
+
+            /**
+             * Constructs a new StorageVDiskStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a StorageVDiskStatus.
+             * @implements IStorageVDiskStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IStorageVDiskStatus=} [properties] Properties to set
+             */
+            function StorageVDiskStatus(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * StorageVDiskStatus id.
+             * @member {string} id
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @instance
+             */
+            StorageVDiskStatus.prototype.id = "";
+
+            /**
+             * StorageVDiskStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @instance
+             */
+            StorageVDiskStatus.prototype.overall = 0;
+
+            /**
+             * StorageVDiskStatus vdiskStatus.
+             * @member {Ydb.Monitoring.StatusFlag.Status} vdiskStatus
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @instance
+             */
+            StorageVDiskStatus.prototype.vdiskStatus = 0;
+
+            /**
+             * StorageVDiskStatus pdisk.
+             * @member {Ydb.Monitoring.IStoragePDiskStatus|null|undefined} pdisk
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @instance
+             */
+            StorageVDiskStatus.prototype.pdisk = null;
+
+            /**
+             * Creates a new StorageVDiskStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageVDiskStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.StorageVDiskStatus} StorageVDiskStatus instance
+             */
+            StorageVDiskStatus.create = function create(properties) {
+                return new StorageVDiskStatus(properties);
+            };
+
+            /**
+             * Encodes the specified StorageVDiskStatus message. Does not implicitly {@link Ydb.Monitoring.StorageVDiskStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageVDiskStatus} message StorageVDiskStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StorageVDiskStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.overall);
+                if (message.vdiskStatus != null && message.hasOwnProperty("vdiskStatus"))
+                    writer.uint32(/* id 3, wireType 0 =*/24).int32(message.vdiskStatus);
+                if (message.pdisk != null && message.hasOwnProperty("pdisk"))
+                    $root.Ydb.Monitoring.StoragePDiskStatus.encode(message.pdisk, writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified StorageVDiskStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.StorageVDiskStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageVDiskStatus} message StorageVDiskStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StorageVDiskStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a StorageVDiskStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.StorageVDiskStatus} StorageVDiskStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StorageVDiskStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.StorageVDiskStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.string();
+                        break;
+                    case 2:
+                        message.overall = reader.int32();
+                        break;
+                    case 3:
+                        message.vdiskStatus = reader.int32();
+                        break;
+                    case 4:
+                        message.pdisk = $root.Ydb.Monitoring.StoragePDiskStatus.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a StorageVDiskStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.StorageVDiskStatus} StorageVDiskStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StorageVDiskStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a StorageVDiskStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            StorageVDiskStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isString(message.id))
+                        return "id: string expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.vdiskStatus != null && message.hasOwnProperty("vdiskStatus"))
+                    switch (message.vdiskStatus) {
+                    default:
+                        return "vdiskStatus: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.pdisk != null && message.hasOwnProperty("pdisk")) {
+                    var error = $root.Ydb.Monitoring.StoragePDiskStatus.verify(message.pdisk);
+                    if (error)
+                        return "pdisk." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a StorageVDiskStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.StorageVDiskStatus} StorageVDiskStatus
+             */
+            StorageVDiskStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.StorageVDiskStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.StorageVDiskStatus();
+                if (object.id != null)
+                    message.id = String(object.id);
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                switch (object.vdiskStatus) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.vdiskStatus = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.vdiskStatus = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.vdiskStatus = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.vdiskStatus = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.vdiskStatus = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.vdiskStatus = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.vdiskStatus = 6;
+                    break;
+                }
+                if (object.pdisk != null) {
+                    if (typeof object.pdisk !== "object")
+                        throw TypeError(".Ydb.Monitoring.StorageVDiskStatus.pdisk: object expected");
+                    message.pdisk = $root.Ydb.Monitoring.StoragePDiskStatus.fromObject(object.pdisk);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a StorageVDiskStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @static
+             * @param {Ydb.Monitoring.StorageVDiskStatus} message StorageVDiskStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            StorageVDiskStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.id = "";
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.vdiskStatus = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.pdisk = null;
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.vdiskStatus != null && message.hasOwnProperty("vdiskStatus"))
+                    object.vdiskStatus = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.vdiskStatus] : message.vdiskStatus;
+                if (message.pdisk != null && message.hasOwnProperty("pdisk"))
+                    object.pdisk = $root.Ydb.Monitoring.StoragePDiskStatus.toObject(message.pdisk, options);
+                return object;
+            };
+
+            /**
+             * Converts this StorageVDiskStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.StorageVDiskStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            StorageVDiskStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return StorageVDiskStatus;
+        })();
+
+        Monitoring.StorageGroupStatus = (function() {
+
+            /**
+             * Properties of a StorageGroupStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IStorageGroupStatus
+             * @property {string|null} [id] StorageGroupStatus id
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] StorageGroupStatus overall
+             * @property {Array.<Ydb.Monitoring.IStorageVDiskStatus>|null} [vdisks] StorageGroupStatus vdisks
+             */
+
+            /**
+             * Constructs a new StorageGroupStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a StorageGroupStatus.
+             * @implements IStorageGroupStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IStorageGroupStatus=} [properties] Properties to set
+             */
+            function StorageGroupStatus(properties) {
+                this.vdisks = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * StorageGroupStatus id.
+             * @member {string} id
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @instance
+             */
+            StorageGroupStatus.prototype.id = "";
+
+            /**
+             * StorageGroupStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @instance
+             */
+            StorageGroupStatus.prototype.overall = 0;
+
+            /**
+             * StorageGroupStatus vdisks.
+             * @member {Array.<Ydb.Monitoring.IStorageVDiskStatus>} vdisks
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @instance
+             */
+            StorageGroupStatus.prototype.vdisks = $util.emptyArray;
+
+            /**
+             * Creates a new StorageGroupStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageGroupStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.StorageGroupStatus} StorageGroupStatus instance
+             */
+            StorageGroupStatus.create = function create(properties) {
+                return new StorageGroupStatus(properties);
+            };
+
+            /**
+             * Encodes the specified StorageGroupStatus message. Does not implicitly {@link Ydb.Monitoring.StorageGroupStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageGroupStatus} message StorageGroupStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StorageGroupStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.overall);
+                if (message.vdisks != null && message.vdisks.length)
+                    for (var i = 0; i < message.vdisks.length; ++i)
+                        $root.Ydb.Monitoring.StorageVDiskStatus.encode(message.vdisks[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified StorageGroupStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.StorageGroupStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageGroupStatus} message StorageGroupStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StorageGroupStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a StorageGroupStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.StorageGroupStatus} StorageGroupStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StorageGroupStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.StorageGroupStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.string();
+                        break;
+                    case 2:
+                        message.overall = reader.int32();
+                        break;
+                    case 3:
+                        if (!(message.vdisks && message.vdisks.length))
+                            message.vdisks = [];
+                        message.vdisks.push($root.Ydb.Monitoring.StorageVDiskStatus.decode(reader, reader.uint32()));
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a StorageGroupStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.StorageGroupStatus} StorageGroupStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StorageGroupStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a StorageGroupStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            StorageGroupStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isString(message.id))
+                        return "id: string expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.vdisks != null && message.hasOwnProperty("vdisks")) {
+                    if (!Array.isArray(message.vdisks))
+                        return "vdisks: array expected";
+                    for (var i = 0; i < message.vdisks.length; ++i) {
+                        var error = $root.Ydb.Monitoring.StorageVDiskStatus.verify(message.vdisks[i]);
+                        if (error)
+                            return "vdisks." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a StorageGroupStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.StorageGroupStatus} StorageGroupStatus
+             */
+            StorageGroupStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.StorageGroupStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.StorageGroupStatus();
+                if (object.id != null)
+                    message.id = String(object.id);
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.vdisks) {
+                    if (!Array.isArray(object.vdisks))
+                        throw TypeError(".Ydb.Monitoring.StorageGroupStatus.vdisks: array expected");
+                    message.vdisks = [];
+                    for (var i = 0; i < object.vdisks.length; ++i) {
+                        if (typeof object.vdisks[i] !== "object")
+                            throw TypeError(".Ydb.Monitoring.StorageGroupStatus.vdisks: object expected");
+                        message.vdisks[i] = $root.Ydb.Monitoring.StorageVDiskStatus.fromObject(object.vdisks[i]);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a StorageGroupStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @static
+             * @param {Ydb.Monitoring.StorageGroupStatus} message StorageGroupStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            StorageGroupStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.vdisks = [];
+                if (options.defaults) {
+                    object.id = "";
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.vdisks && message.vdisks.length) {
+                    object.vdisks = [];
+                    for (var j = 0; j < message.vdisks.length; ++j)
+                        object.vdisks[j] = $root.Ydb.Monitoring.StorageVDiskStatus.toObject(message.vdisks[j], options);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this StorageGroupStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.StorageGroupStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            StorageGroupStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return StorageGroupStatus;
+        })();
+
+        Monitoring.StoragePoolStatus = (function() {
+
+            /**
+             * Properties of a StoragePoolStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IStoragePoolStatus
+             * @property {string|null} [id] StoragePoolStatus id
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] StoragePoolStatus overall
+             * @property {Array.<Ydb.Monitoring.IStorageGroupStatus>|null} [groups] StoragePoolStatus groups
+             */
+
+            /**
+             * Constructs a new StoragePoolStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a StoragePoolStatus.
+             * @implements IStoragePoolStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IStoragePoolStatus=} [properties] Properties to set
+             */
+            function StoragePoolStatus(properties) {
+                this.groups = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * StoragePoolStatus id.
+             * @member {string} id
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @instance
+             */
+            StoragePoolStatus.prototype.id = "";
+
+            /**
+             * StoragePoolStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @instance
+             */
+            StoragePoolStatus.prototype.overall = 0;
+
+            /**
+             * StoragePoolStatus groups.
+             * @member {Array.<Ydb.Monitoring.IStorageGroupStatus>} groups
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @instance
+             */
+            StoragePoolStatus.prototype.groups = $util.emptyArray;
+
+            /**
+             * Creates a new StoragePoolStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @static
+             * @param {Ydb.Monitoring.IStoragePoolStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.StoragePoolStatus} StoragePoolStatus instance
+             */
+            StoragePoolStatus.create = function create(properties) {
+                return new StoragePoolStatus(properties);
+            };
+
+            /**
+             * Encodes the specified StoragePoolStatus message. Does not implicitly {@link Ydb.Monitoring.StoragePoolStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @static
+             * @param {Ydb.Monitoring.IStoragePoolStatus} message StoragePoolStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StoragePoolStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.overall);
+                if (message.groups != null && message.groups.length)
+                    for (var i = 0; i < message.groups.length; ++i)
+                        $root.Ydb.Monitoring.StorageGroupStatus.encode(message.groups[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified StoragePoolStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.StoragePoolStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @static
+             * @param {Ydb.Monitoring.IStoragePoolStatus} message StoragePoolStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StoragePoolStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a StoragePoolStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.StoragePoolStatus} StoragePoolStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StoragePoolStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.StoragePoolStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.string();
+                        break;
+                    case 2:
+                        message.overall = reader.int32();
+                        break;
+                    case 3:
+                        if (!(message.groups && message.groups.length))
+                            message.groups = [];
+                        message.groups.push($root.Ydb.Monitoring.StorageGroupStatus.decode(reader, reader.uint32()));
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a StoragePoolStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.StoragePoolStatus} StoragePoolStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StoragePoolStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a StoragePoolStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            StoragePoolStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isString(message.id))
+                        return "id: string expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.groups != null && message.hasOwnProperty("groups")) {
+                    if (!Array.isArray(message.groups))
+                        return "groups: array expected";
+                    for (var i = 0; i < message.groups.length; ++i) {
+                        var error = $root.Ydb.Monitoring.StorageGroupStatus.verify(message.groups[i]);
+                        if (error)
+                            return "groups." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a StoragePoolStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.StoragePoolStatus} StoragePoolStatus
+             */
+            StoragePoolStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.StoragePoolStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.StoragePoolStatus();
+                if (object.id != null)
+                    message.id = String(object.id);
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.groups) {
+                    if (!Array.isArray(object.groups))
+                        throw TypeError(".Ydb.Monitoring.StoragePoolStatus.groups: array expected");
+                    message.groups = [];
+                    for (var i = 0; i < object.groups.length; ++i) {
+                        if (typeof object.groups[i] !== "object")
+                            throw TypeError(".Ydb.Monitoring.StoragePoolStatus.groups: object expected");
+                        message.groups[i] = $root.Ydb.Monitoring.StorageGroupStatus.fromObject(object.groups[i]);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a StoragePoolStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @static
+             * @param {Ydb.Monitoring.StoragePoolStatus} message StoragePoolStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            StoragePoolStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.groups = [];
+                if (options.defaults) {
+                    object.id = "";
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.groups && message.groups.length) {
+                    object.groups = [];
+                    for (var j = 0; j < message.groups.length; ++j)
+                        object.groups[j] = $root.Ydb.Monitoring.StorageGroupStatus.toObject(message.groups[j], options);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this StoragePoolStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.StoragePoolStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            StoragePoolStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return StoragePoolStatus;
+        })();
+
+        Monitoring.StorageStatus = (function() {
+
+            /**
+             * Properties of a StorageStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IStorageStatus
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] StorageStatus overall
+             * @property {Array.<Ydb.Monitoring.IStoragePoolStatus>|null} [pools] StorageStatus pools
+             */
+
+            /**
+             * Constructs a new StorageStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a StorageStatus.
+             * @implements IStorageStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IStorageStatus=} [properties] Properties to set
+             */
+            function StorageStatus(properties) {
+                this.pools = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * StorageStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @instance
+             */
+            StorageStatus.prototype.overall = 0;
+
+            /**
+             * StorageStatus pools.
+             * @member {Array.<Ydb.Monitoring.IStoragePoolStatus>} pools
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @instance
+             */
+            StorageStatus.prototype.pools = $util.emptyArray;
+
+            /**
+             * Creates a new StorageStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.StorageStatus} StorageStatus instance
+             */
+            StorageStatus.create = function create(properties) {
+                return new StorageStatus(properties);
+            };
+
+            /**
+             * Encodes the specified StorageStatus message. Does not implicitly {@link Ydb.Monitoring.StorageStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageStatus} message StorageStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StorageStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.overall);
+                if (message.pools != null && message.pools.length)
+                    for (var i = 0; i < message.pools.length; ++i)
+                        $root.Ydb.Monitoring.StoragePoolStatus.encode(message.pools[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified StorageStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.StorageStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @static
+             * @param {Ydb.Monitoring.IStorageStatus} message StorageStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            StorageStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a StorageStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.StorageStatus} StorageStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StorageStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.StorageStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.overall = reader.int32();
+                        break;
+                    case 2:
+                        if (!(message.pools && message.pools.length))
+                            message.pools = [];
+                        message.pools.push($root.Ydb.Monitoring.StoragePoolStatus.decode(reader, reader.uint32()));
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a StorageStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.StorageStatus} StorageStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            StorageStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a StorageStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            StorageStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.pools != null && message.hasOwnProperty("pools")) {
+                    if (!Array.isArray(message.pools))
+                        return "pools: array expected";
+                    for (var i = 0; i < message.pools.length; ++i) {
+                        var error = $root.Ydb.Monitoring.StoragePoolStatus.verify(message.pools[i]);
+                        if (error)
+                            return "pools." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a StorageStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.StorageStatus} StorageStatus
+             */
+            StorageStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.StorageStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.StorageStatus();
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.pools) {
+                    if (!Array.isArray(object.pools))
+                        throw TypeError(".Ydb.Monitoring.StorageStatus.pools: array expected");
+                    message.pools = [];
+                    for (var i = 0; i < object.pools.length; ++i) {
+                        if (typeof object.pools[i] !== "object")
+                            throw TypeError(".Ydb.Monitoring.StorageStatus.pools: object expected");
+                        message.pools[i] = $root.Ydb.Monitoring.StoragePoolStatus.fromObject(object.pools[i]);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a StorageStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @static
+             * @param {Ydb.Monitoring.StorageStatus} message StorageStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            StorageStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.pools = [];
+                if (options.defaults)
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.pools && message.pools.length) {
+                    object.pools = [];
+                    for (var j = 0; j < message.pools.length; ++j)
+                        object.pools[j] = $root.Ydb.Monitoring.StoragePoolStatus.toObject(message.pools[j], options);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this StorageStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.StorageStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            StorageStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return StorageStatus;
+        })();
+
+        Monitoring.ComputeTabletStatus = (function() {
+
+            /**
+             * Properties of a ComputeTabletStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IComputeTabletStatus
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] ComputeTabletStatus overall
+             * @property {string|null} [type] ComputeTabletStatus type
+             * @property {string|null} [state] ComputeTabletStatus state
+             * @property {number|null} [count] ComputeTabletStatus count
+             */
+
+            /**
+             * Constructs a new ComputeTabletStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a ComputeTabletStatus.
+             * @implements IComputeTabletStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IComputeTabletStatus=} [properties] Properties to set
+             */
+            function ComputeTabletStatus(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ComputeTabletStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @instance
+             */
+            ComputeTabletStatus.prototype.overall = 0;
+
+            /**
+             * ComputeTabletStatus type.
+             * @member {string} type
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @instance
+             */
+            ComputeTabletStatus.prototype.type = "";
+
+            /**
+             * ComputeTabletStatus state.
+             * @member {string} state
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @instance
+             */
+            ComputeTabletStatus.prototype.state = "";
+
+            /**
+             * ComputeTabletStatus count.
+             * @member {number} count
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @instance
+             */
+            ComputeTabletStatus.prototype.count = 0;
+
+            /**
+             * Creates a new ComputeTabletStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeTabletStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.ComputeTabletStatus} ComputeTabletStatus instance
+             */
+            ComputeTabletStatus.create = function create(properties) {
+                return new ComputeTabletStatus(properties);
+            };
+
+            /**
+             * Encodes the specified ComputeTabletStatus message. Does not implicitly {@link Ydb.Monitoring.ComputeTabletStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeTabletStatus} message ComputeTabletStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputeTabletStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.overall);
+                if (message.type != null && message.hasOwnProperty("type"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.type);
+                if (message.state != null && message.hasOwnProperty("state"))
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.state);
+                if (message.count != null && message.hasOwnProperty("count"))
+                    writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.count);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ComputeTabletStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.ComputeTabletStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeTabletStatus} message ComputeTabletStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputeTabletStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a ComputeTabletStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.ComputeTabletStatus} ComputeTabletStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputeTabletStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.ComputeTabletStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.overall = reader.int32();
+                        break;
+                    case 2:
+                        message.type = reader.string();
+                        break;
+                    case 3:
+                        message.state = reader.string();
+                        break;
+                    case 4:
+                        message.count = reader.uint32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a ComputeTabletStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.ComputeTabletStatus} ComputeTabletStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputeTabletStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ComputeTabletStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ComputeTabletStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.type != null && message.hasOwnProperty("type"))
+                    if (!$util.isString(message.type))
+                        return "type: string expected";
+                if (message.state != null && message.hasOwnProperty("state"))
+                    if (!$util.isString(message.state))
+                        return "state: string expected";
+                if (message.count != null && message.hasOwnProperty("count"))
+                    if (!$util.isInteger(message.count))
+                        return "count: integer expected";
+                return null;
+            };
+
+            /**
+             * Creates a ComputeTabletStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.ComputeTabletStatus} ComputeTabletStatus
+             */
+            ComputeTabletStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.ComputeTabletStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.ComputeTabletStatus();
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.type != null)
+                    message.type = String(object.type);
+                if (object.state != null)
+                    message.state = String(object.state);
+                if (object.count != null)
+                    message.count = object.count >>> 0;
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ComputeTabletStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @static
+             * @param {Ydb.Monitoring.ComputeTabletStatus} message ComputeTabletStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ComputeTabletStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.type = "";
+                    object.state = "";
+                    object.count = 0;
+                }
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.type != null && message.hasOwnProperty("type"))
+                    object.type = message.type;
+                if (message.state != null && message.hasOwnProperty("state"))
+                    object.state = message.state;
+                if (message.count != null && message.hasOwnProperty("count"))
+                    object.count = message.count;
+                return object;
+            };
+
+            /**
+             * Converts this ComputeTabletStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.ComputeTabletStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ComputeTabletStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ComputeTabletStatus;
+        })();
+
+        Monitoring.ThreadPoolStatus = (function() {
+
+            /**
+             * Properties of a ThreadPoolStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IThreadPoolStatus
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] ThreadPoolStatus overall
+             * @property {string|null} [name] ThreadPoolStatus name
+             * @property {number|null} [usage] ThreadPoolStatus usage
+             */
+
+            /**
+             * Constructs a new ThreadPoolStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a ThreadPoolStatus.
+             * @implements IThreadPoolStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IThreadPoolStatus=} [properties] Properties to set
+             */
+            function ThreadPoolStatus(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ThreadPoolStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @instance
+             */
+            ThreadPoolStatus.prototype.overall = 0;
+
+            /**
+             * ThreadPoolStatus name.
+             * @member {string} name
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @instance
+             */
+            ThreadPoolStatus.prototype.name = "";
+
+            /**
+             * ThreadPoolStatus usage.
+             * @member {number} usage
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @instance
+             */
+            ThreadPoolStatus.prototype.usage = 0;
+
+            /**
+             * Creates a new ThreadPoolStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @static
+             * @param {Ydb.Monitoring.IThreadPoolStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.ThreadPoolStatus} ThreadPoolStatus instance
+             */
+            ThreadPoolStatus.create = function create(properties) {
+                return new ThreadPoolStatus(properties);
+            };
+
+            /**
+             * Encodes the specified ThreadPoolStatus message. Does not implicitly {@link Ydb.Monitoring.ThreadPoolStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @static
+             * @param {Ydb.Monitoring.IThreadPoolStatus} message ThreadPoolStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ThreadPoolStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.overall);
+                if (message.name != null && message.hasOwnProperty("name"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.name);
+                if (message.usage != null && message.hasOwnProperty("usage"))
+                    writer.uint32(/* id 3, wireType 5 =*/29).float(message.usage);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ThreadPoolStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.ThreadPoolStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @static
+             * @param {Ydb.Monitoring.IThreadPoolStatus} message ThreadPoolStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ThreadPoolStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a ThreadPoolStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.ThreadPoolStatus} ThreadPoolStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ThreadPoolStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.ThreadPoolStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.overall = reader.int32();
+                        break;
+                    case 2:
+                        message.name = reader.string();
+                        break;
+                    case 3:
+                        message.usage = reader.float();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a ThreadPoolStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.ThreadPoolStatus} ThreadPoolStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ThreadPoolStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ThreadPoolStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ThreadPoolStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.name != null && message.hasOwnProperty("name"))
+                    if (!$util.isString(message.name))
+                        return "name: string expected";
+                if (message.usage != null && message.hasOwnProperty("usage"))
+                    if (typeof message.usage !== "number")
+                        return "usage: number expected";
+                return null;
+            };
+
+            /**
+             * Creates a ThreadPoolStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.ThreadPoolStatus} ThreadPoolStatus
+             */
+            ThreadPoolStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.ThreadPoolStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.ThreadPoolStatus();
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.name != null)
+                    message.name = String(object.name);
+                if (object.usage != null)
+                    message.usage = Number(object.usage);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ThreadPoolStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @static
+             * @param {Ydb.Monitoring.ThreadPoolStatus} message ThreadPoolStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ThreadPoolStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.name = "";
+                    object.usage = 0;
+                }
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.name != null && message.hasOwnProperty("name"))
+                    object.name = message.name;
+                if (message.usage != null && message.hasOwnProperty("usage"))
+                    object.usage = options.json && !isFinite(message.usage) ? String(message.usage) : message.usage;
+                return object;
+            };
+
+            /**
+             * Converts this ThreadPoolStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.ThreadPoolStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ThreadPoolStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ThreadPoolStatus;
+        })();
+
+        Monitoring.LoadAverageStatus = (function() {
+
+            /**
+             * Properties of a LoadAverageStatus.
+             * @memberof Ydb.Monitoring
+             * @interface ILoadAverageStatus
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] LoadAverageStatus overall
+             * @property {number|null} [load] LoadAverageStatus load
+             * @property {number|null} [cores] LoadAverageStatus cores
+             */
+
+            /**
+             * Constructs a new LoadAverageStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LoadAverageStatus.
+             * @implements ILoadAverageStatus
+             * @constructor
+             * @param {Ydb.Monitoring.ILoadAverageStatus=} [properties] Properties to set
+             */
+            function LoadAverageStatus(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LoadAverageStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @instance
+             */
+            LoadAverageStatus.prototype.overall = 0;
+
+            /**
+             * LoadAverageStatus load.
+             * @member {number} load
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @instance
+             */
+            LoadAverageStatus.prototype.load = 0;
+
+            /**
+             * LoadAverageStatus cores.
+             * @member {number} cores
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @instance
+             */
+            LoadAverageStatus.prototype.cores = 0;
+
+            /**
+             * Creates a new LoadAverageStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @static
+             * @param {Ydb.Monitoring.ILoadAverageStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LoadAverageStatus} LoadAverageStatus instance
+             */
+            LoadAverageStatus.create = function create(properties) {
+                return new LoadAverageStatus(properties);
+            };
+
+            /**
+             * Encodes the specified LoadAverageStatus message. Does not implicitly {@link Ydb.Monitoring.LoadAverageStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @static
+             * @param {Ydb.Monitoring.ILoadAverageStatus} message LoadAverageStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LoadAverageStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.overall);
+                if (message.load != null && message.hasOwnProperty("load"))
+                    writer.uint32(/* id 2, wireType 5 =*/21).float(message.load);
+                if (message.cores != null && message.hasOwnProperty("cores"))
+                    writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.cores);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LoadAverageStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.LoadAverageStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @static
+             * @param {Ydb.Monitoring.ILoadAverageStatus} message LoadAverageStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LoadAverageStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LoadAverageStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LoadAverageStatus} LoadAverageStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LoadAverageStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LoadAverageStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.overall = reader.int32();
+                        break;
+                    case 2:
+                        message.load = reader.float();
+                        break;
+                    case 3:
+                        message.cores = reader.uint32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LoadAverageStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LoadAverageStatus} LoadAverageStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LoadAverageStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LoadAverageStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LoadAverageStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.load != null && message.hasOwnProperty("load"))
+                    if (typeof message.load !== "number")
+                        return "load: number expected";
+                if (message.cores != null && message.hasOwnProperty("cores"))
+                    if (!$util.isInteger(message.cores))
+                        return "cores: integer expected";
+                return null;
+            };
+
+            /**
+             * Creates a LoadAverageStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LoadAverageStatus} LoadAverageStatus
+             */
+            LoadAverageStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LoadAverageStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LoadAverageStatus();
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.load != null)
+                    message.load = Number(object.load);
+                if (object.cores != null)
+                    message.cores = object.cores >>> 0;
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LoadAverageStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @static
+             * @param {Ydb.Monitoring.LoadAverageStatus} message LoadAverageStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LoadAverageStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.load = 0;
+                    object.cores = 0;
+                }
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.load != null && message.hasOwnProperty("load"))
+                    object.load = options.json && !isFinite(message.load) ? String(message.load) : message.load;
+                if (message.cores != null && message.hasOwnProperty("cores"))
+                    object.cores = message.cores;
+                return object;
+            };
+
+            /**
+             * Converts this LoadAverageStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LoadAverageStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LoadAverageStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LoadAverageStatus;
+        })();
+
+        Monitoring.ComputeNodeStatus = (function() {
+
+            /**
+             * Properties of a ComputeNodeStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IComputeNodeStatus
+             * @property {string|null} [id] ComputeNodeStatus id
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] ComputeNodeStatus overall
+             * @property {Array.<Ydb.Monitoring.IComputeTabletStatus>|null} [tablets] ComputeNodeStatus tablets
+             * @property {Array.<Ydb.Monitoring.IThreadPoolStatus>|null} [pools] ComputeNodeStatus pools
+             * @property {Ydb.Monitoring.ILoadAverageStatus|null} [load] ComputeNodeStatus load
+             */
+
+            /**
+             * Constructs a new ComputeNodeStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a ComputeNodeStatus.
+             * @implements IComputeNodeStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IComputeNodeStatus=} [properties] Properties to set
+             */
+            function ComputeNodeStatus(properties) {
+                this.tablets = [];
+                this.pools = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ComputeNodeStatus id.
+             * @member {string} id
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @instance
+             */
+            ComputeNodeStatus.prototype.id = "";
+
+            /**
+             * ComputeNodeStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @instance
+             */
+            ComputeNodeStatus.prototype.overall = 0;
+
+            /**
+             * ComputeNodeStatus tablets.
+             * @member {Array.<Ydb.Monitoring.IComputeTabletStatus>} tablets
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @instance
+             */
+            ComputeNodeStatus.prototype.tablets = $util.emptyArray;
+
+            /**
+             * ComputeNodeStatus pools.
+             * @member {Array.<Ydb.Monitoring.IThreadPoolStatus>} pools
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @instance
+             */
+            ComputeNodeStatus.prototype.pools = $util.emptyArray;
+
+            /**
+             * ComputeNodeStatus load.
+             * @member {Ydb.Monitoring.ILoadAverageStatus|null|undefined} load
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @instance
+             */
+            ComputeNodeStatus.prototype.load = null;
+
+            /**
+             * Creates a new ComputeNodeStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeNodeStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.ComputeNodeStatus} ComputeNodeStatus instance
+             */
+            ComputeNodeStatus.create = function create(properties) {
+                return new ComputeNodeStatus(properties);
+            };
+
+            /**
+             * Encodes the specified ComputeNodeStatus message. Does not implicitly {@link Ydb.Monitoring.ComputeNodeStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeNodeStatus} message ComputeNodeStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputeNodeStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.overall);
+                if (message.tablets != null && message.tablets.length)
+                    for (var i = 0; i < message.tablets.length; ++i)
+                        $root.Ydb.Monitoring.ComputeTabletStatus.encode(message.tablets[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                if (message.pools != null && message.pools.length)
+                    for (var i = 0; i < message.pools.length; ++i)
+                        $root.Ydb.Monitoring.ThreadPoolStatus.encode(message.pools[i], writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
+                if (message.load != null && message.hasOwnProperty("load"))
+                    $root.Ydb.Monitoring.LoadAverageStatus.encode(message.load, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ComputeNodeStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.ComputeNodeStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeNodeStatus} message ComputeNodeStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputeNodeStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a ComputeNodeStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.ComputeNodeStatus} ComputeNodeStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputeNodeStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.ComputeNodeStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.string();
+                        break;
+                    case 2:
+                        message.overall = reader.int32();
+                        break;
+                    case 3:
+                        if (!(message.tablets && message.tablets.length))
+                            message.tablets = [];
+                        message.tablets.push($root.Ydb.Monitoring.ComputeTabletStatus.decode(reader, reader.uint32()));
+                        break;
+                    case 4:
+                        if (!(message.pools && message.pools.length))
+                            message.pools = [];
+                        message.pools.push($root.Ydb.Monitoring.ThreadPoolStatus.decode(reader, reader.uint32()));
+                        break;
+                    case 5:
+                        message.load = $root.Ydb.Monitoring.LoadAverageStatus.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a ComputeNodeStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.ComputeNodeStatus} ComputeNodeStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputeNodeStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ComputeNodeStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ComputeNodeStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isString(message.id))
+                        return "id: string expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.tablets != null && message.hasOwnProperty("tablets")) {
+                    if (!Array.isArray(message.tablets))
+                        return "tablets: array expected";
+                    for (var i = 0; i < message.tablets.length; ++i) {
+                        var error = $root.Ydb.Monitoring.ComputeTabletStatus.verify(message.tablets[i]);
+                        if (error)
+                            return "tablets." + error;
+                    }
+                }
+                if (message.pools != null && message.hasOwnProperty("pools")) {
+                    if (!Array.isArray(message.pools))
+                        return "pools: array expected";
+                    for (var i = 0; i < message.pools.length; ++i) {
+                        var error = $root.Ydb.Monitoring.ThreadPoolStatus.verify(message.pools[i]);
+                        if (error)
+                            return "pools." + error;
+                    }
+                }
+                if (message.load != null && message.hasOwnProperty("load")) {
+                    var error = $root.Ydb.Monitoring.LoadAverageStatus.verify(message.load);
+                    if (error)
+                        return "load." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a ComputeNodeStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.ComputeNodeStatus} ComputeNodeStatus
+             */
+            ComputeNodeStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.ComputeNodeStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.ComputeNodeStatus();
+                if (object.id != null)
+                    message.id = String(object.id);
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.tablets) {
+                    if (!Array.isArray(object.tablets))
+                        throw TypeError(".Ydb.Monitoring.ComputeNodeStatus.tablets: array expected");
+                    message.tablets = [];
+                    for (var i = 0; i < object.tablets.length; ++i) {
+                        if (typeof object.tablets[i] !== "object")
+                            throw TypeError(".Ydb.Monitoring.ComputeNodeStatus.tablets: object expected");
+                        message.tablets[i] = $root.Ydb.Monitoring.ComputeTabletStatus.fromObject(object.tablets[i]);
+                    }
+                }
+                if (object.pools) {
+                    if (!Array.isArray(object.pools))
+                        throw TypeError(".Ydb.Monitoring.ComputeNodeStatus.pools: array expected");
+                    message.pools = [];
+                    for (var i = 0; i < object.pools.length; ++i) {
+                        if (typeof object.pools[i] !== "object")
+                            throw TypeError(".Ydb.Monitoring.ComputeNodeStatus.pools: object expected");
+                        message.pools[i] = $root.Ydb.Monitoring.ThreadPoolStatus.fromObject(object.pools[i]);
+                    }
+                }
+                if (object.load != null) {
+                    if (typeof object.load !== "object")
+                        throw TypeError(".Ydb.Monitoring.ComputeNodeStatus.load: object expected");
+                    message.load = $root.Ydb.Monitoring.LoadAverageStatus.fromObject(object.load);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ComputeNodeStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @static
+             * @param {Ydb.Monitoring.ComputeNodeStatus} message ComputeNodeStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ComputeNodeStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults) {
+                    object.tablets = [];
+                    object.pools = [];
+                }
+                if (options.defaults) {
+                    object.id = "";
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.load = null;
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.tablets && message.tablets.length) {
+                    object.tablets = [];
+                    for (var j = 0; j < message.tablets.length; ++j)
+                        object.tablets[j] = $root.Ydb.Monitoring.ComputeTabletStatus.toObject(message.tablets[j], options);
+                }
+                if (message.pools && message.pools.length) {
+                    object.pools = [];
+                    for (var j = 0; j < message.pools.length; ++j)
+                        object.pools[j] = $root.Ydb.Monitoring.ThreadPoolStatus.toObject(message.pools[j], options);
+                }
+                if (message.load != null && message.hasOwnProperty("load"))
+                    object.load = $root.Ydb.Monitoring.LoadAverageStatus.toObject(message.load, options);
+                return object;
+            };
+
+            /**
+             * Converts this ComputeNodeStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.ComputeNodeStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ComputeNodeStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ComputeNodeStatus;
+        })();
+
+        Monitoring.ComputeStatus = (function() {
+
+            /**
+             * Properties of a ComputeStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IComputeStatus
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] ComputeStatus overall
+             * @property {Array.<Ydb.Monitoring.IComputeNodeStatus>|null} [nodes] ComputeStatus nodes
+             */
+
+            /**
+             * Constructs a new ComputeStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a ComputeStatus.
+             * @implements IComputeStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IComputeStatus=} [properties] Properties to set
+             */
+            function ComputeStatus(properties) {
+                this.nodes = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ComputeStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @instance
+             */
+            ComputeStatus.prototype.overall = 0;
+
+            /**
+             * ComputeStatus nodes.
+             * @member {Array.<Ydb.Monitoring.IComputeNodeStatus>} nodes
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @instance
+             */
+            ComputeStatus.prototype.nodes = $util.emptyArray;
+
+            /**
+             * Creates a new ComputeStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.ComputeStatus} ComputeStatus instance
+             */
+            ComputeStatus.create = function create(properties) {
+                return new ComputeStatus(properties);
+            };
+
+            /**
+             * Encodes the specified ComputeStatus message. Does not implicitly {@link Ydb.Monitoring.ComputeStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeStatus} message ComputeStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputeStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.overall);
+                if (message.nodes != null && message.nodes.length)
+                    for (var i = 0; i < message.nodes.length; ++i)
+                        $root.Ydb.Monitoring.ComputeNodeStatus.encode(message.nodes[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ComputeStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.ComputeStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @static
+             * @param {Ydb.Monitoring.IComputeStatus} message ComputeStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputeStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a ComputeStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.ComputeStatus} ComputeStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputeStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.ComputeStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.overall = reader.int32();
+                        break;
+                    case 2:
+                        if (!(message.nodes && message.nodes.length))
+                            message.nodes = [];
+                        message.nodes.push($root.Ydb.Monitoring.ComputeNodeStatus.decode(reader, reader.uint32()));
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a ComputeStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.ComputeStatus} ComputeStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputeStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ComputeStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ComputeStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.nodes != null && message.hasOwnProperty("nodes")) {
+                    if (!Array.isArray(message.nodes))
+                        return "nodes: array expected";
+                    for (var i = 0; i < message.nodes.length; ++i) {
+                        var error = $root.Ydb.Monitoring.ComputeNodeStatus.verify(message.nodes[i]);
+                        if (error)
+                            return "nodes." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a ComputeStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.ComputeStatus} ComputeStatus
+             */
+            ComputeStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.ComputeStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.ComputeStatus();
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.nodes) {
+                    if (!Array.isArray(object.nodes))
+                        throw TypeError(".Ydb.Monitoring.ComputeStatus.nodes: array expected");
+                    message.nodes = [];
+                    for (var i = 0; i < object.nodes.length; ++i) {
+                        if (typeof object.nodes[i] !== "object")
+                            throw TypeError(".Ydb.Monitoring.ComputeStatus.nodes: object expected");
+                        message.nodes[i] = $root.Ydb.Monitoring.ComputeNodeStatus.fromObject(object.nodes[i]);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ComputeStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @static
+             * @param {Ydb.Monitoring.ComputeStatus} message ComputeStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ComputeStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.nodes = [];
+                if (options.defaults)
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.nodes && message.nodes.length) {
+                    object.nodes = [];
+                    for (var j = 0; j < message.nodes.length; ++j)
+                        object.nodes[j] = $root.Ydb.Monitoring.ComputeNodeStatus.toObject(message.nodes[j], options);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this ComputeStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.ComputeStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ComputeStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ComputeStatus;
+        })();
+
+        Monitoring.LocationNode = (function() {
+
+            /**
+             * Properties of a LocationNode.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationNode
+             * @property {number|null} [id] LocationNode id
+             * @property {string|null} [host] LocationNode host
+             * @property {number|null} [port] LocationNode port
+             */
+
+            /**
+             * Constructs a new LocationNode.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationNode.
+             * @implements ILocationNode
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationNode=} [properties] Properties to set
+             */
+            function LocationNode(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationNode id.
+             * @member {number} id
+             * @memberof Ydb.Monitoring.LocationNode
+             * @instance
+             */
+            LocationNode.prototype.id = 0;
+
+            /**
+             * LocationNode host.
+             * @member {string} host
+             * @memberof Ydb.Monitoring.LocationNode
+             * @instance
+             */
+            LocationNode.prototype.host = "";
+
+            /**
+             * LocationNode port.
+             * @member {number} port
+             * @memberof Ydb.Monitoring.LocationNode
+             * @instance
+             */
+            LocationNode.prototype.port = 0;
+
+            /**
+             * Creates a new LocationNode instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationNode
+             * @static
+             * @param {Ydb.Monitoring.ILocationNode=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationNode} LocationNode instance
+             */
+            LocationNode.create = function create(properties) {
+                return new LocationNode(properties);
+            };
+
+            /**
+             * Encodes the specified LocationNode message. Does not implicitly {@link Ydb.Monitoring.LocationNode.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationNode
+             * @static
+             * @param {Ydb.Monitoring.ILocationNode} message LocationNode message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationNode.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.id);
+                if (message.host != null && message.hasOwnProperty("host"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.host);
+                if (message.port != null && message.hasOwnProperty("port"))
+                    writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.port);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationNode message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationNode.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationNode
+             * @static
+             * @param {Ydb.Monitoring.ILocationNode} message LocationNode message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationNode.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationNode message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationNode
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationNode} LocationNode
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationNode.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationNode();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.uint32();
+                        break;
+                    case 2:
+                        message.host = reader.string();
+                        break;
+                    case 3:
+                        message.port = reader.uint32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationNode message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationNode
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationNode} LocationNode
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationNode.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationNode message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationNode
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationNode.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isInteger(message.id))
+                        return "id: integer expected";
+                if (message.host != null && message.hasOwnProperty("host"))
+                    if (!$util.isString(message.host))
+                        return "host: string expected";
+                if (message.port != null && message.hasOwnProperty("port"))
+                    if (!$util.isInteger(message.port))
+                        return "port: integer expected";
+                return null;
+            };
+
+            /**
+             * Creates a LocationNode message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationNode
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationNode} LocationNode
+             */
+            LocationNode.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationNode)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationNode();
+                if (object.id != null)
+                    message.id = object.id >>> 0;
+                if (object.host != null)
+                    message.host = String(object.host);
+                if (object.port != null)
+                    message.port = object.port >>> 0;
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationNode message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationNode
+             * @static
+             * @param {Ydb.Monitoring.LocationNode} message LocationNode
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationNode.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.id = 0;
+                    object.host = "";
+                    object.port = 0;
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.host != null && message.hasOwnProperty("host"))
+                    object.host = message.host;
+                if (message.port != null && message.hasOwnProperty("port"))
+                    object.port = message.port;
+                return object;
+            };
+
+            /**
+             * Converts this LocationNode to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationNode
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationNode.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationNode;
+        })();
+
+        Monitoring.LocationStoragePDisk = (function() {
+
+            /**
+             * Properties of a LocationStoragePDisk.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationStoragePDisk
+             * @property {string|null} [id] LocationStoragePDisk id
+             * @property {string|null} [path] LocationStoragePDisk path
+             */
+
+            /**
+             * Constructs a new LocationStoragePDisk.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationStoragePDisk.
+             * @implements ILocationStoragePDisk
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationStoragePDisk=} [properties] Properties to set
+             */
+            function LocationStoragePDisk(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationStoragePDisk id.
+             * @member {string} id
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @instance
+             */
+            LocationStoragePDisk.prototype.id = "";
+
+            /**
+             * LocationStoragePDisk path.
+             * @member {string} path
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @instance
+             */
+            LocationStoragePDisk.prototype.path = "";
+
+            /**
+             * Creates a new LocationStoragePDisk instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @static
+             * @param {Ydb.Monitoring.ILocationStoragePDisk=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationStoragePDisk} LocationStoragePDisk instance
+             */
+            LocationStoragePDisk.create = function create(properties) {
+                return new LocationStoragePDisk(properties);
+            };
+
+            /**
+             * Encodes the specified LocationStoragePDisk message. Does not implicitly {@link Ydb.Monitoring.LocationStoragePDisk.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @static
+             * @param {Ydb.Monitoring.ILocationStoragePDisk} message LocationStoragePDisk message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStoragePDisk.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+                if (message.path != null && message.hasOwnProperty("path"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.path);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationStoragePDisk message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationStoragePDisk.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @static
+             * @param {Ydb.Monitoring.ILocationStoragePDisk} message LocationStoragePDisk message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStoragePDisk.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationStoragePDisk message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationStoragePDisk} LocationStoragePDisk
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStoragePDisk.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationStoragePDisk();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.string();
+                        break;
+                    case 2:
+                        message.path = reader.string();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationStoragePDisk message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationStoragePDisk} LocationStoragePDisk
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStoragePDisk.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationStoragePDisk message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationStoragePDisk.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isString(message.id))
+                        return "id: string expected";
+                if (message.path != null && message.hasOwnProperty("path"))
+                    if (!$util.isString(message.path))
+                        return "path: string expected";
+                return null;
+            };
+
+            /**
+             * Creates a LocationStoragePDisk message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationStoragePDisk} LocationStoragePDisk
+             */
+            LocationStoragePDisk.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationStoragePDisk)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationStoragePDisk();
+                if (object.id != null)
+                    message.id = String(object.id);
+                if (object.path != null)
+                    message.path = String(object.path);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationStoragePDisk message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @static
+             * @param {Ydb.Monitoring.LocationStoragePDisk} message LocationStoragePDisk
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationStoragePDisk.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.id = "";
+                    object.path = "";
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.path != null && message.hasOwnProperty("path"))
+                    object.path = message.path;
+                return object;
+            };
+
+            /**
+             * Converts this LocationStoragePDisk to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationStoragePDisk
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationStoragePDisk.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationStoragePDisk;
+        })();
+
+        Monitoring.LocationStorageVDisk = (function() {
+
+            /**
+             * Properties of a LocationStorageVDisk.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationStorageVDisk
+             * @property {string|null} [id] LocationStorageVDisk id
+             * @property {Ydb.Monitoring.ILocationStoragePDisk|null} [pdisk] LocationStorageVDisk pdisk
+             */
+
+            /**
+             * Constructs a new LocationStorageVDisk.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationStorageVDisk.
+             * @implements ILocationStorageVDisk
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationStorageVDisk=} [properties] Properties to set
+             */
+            function LocationStorageVDisk(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationStorageVDisk id.
+             * @member {string} id
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @instance
+             */
+            LocationStorageVDisk.prototype.id = "";
+
+            /**
+             * LocationStorageVDisk pdisk.
+             * @member {Ydb.Monitoring.ILocationStoragePDisk|null|undefined} pdisk
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @instance
+             */
+            LocationStorageVDisk.prototype.pdisk = null;
+
+            /**
+             * Creates a new LocationStorageVDisk instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorageVDisk=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationStorageVDisk} LocationStorageVDisk instance
+             */
+            LocationStorageVDisk.create = function create(properties) {
+                return new LocationStorageVDisk(properties);
+            };
+
+            /**
+             * Encodes the specified LocationStorageVDisk message. Does not implicitly {@link Ydb.Monitoring.LocationStorageVDisk.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorageVDisk} message LocationStorageVDisk message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStorageVDisk.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+                if (message.pdisk != null && message.hasOwnProperty("pdisk"))
+                    $root.Ydb.Monitoring.LocationStoragePDisk.encode(message.pdisk, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationStorageVDisk message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationStorageVDisk.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorageVDisk} message LocationStorageVDisk message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStorageVDisk.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationStorageVDisk message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationStorageVDisk} LocationStorageVDisk
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStorageVDisk.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationStorageVDisk();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.string();
+                        break;
+                    case 2:
+                        message.pdisk = $root.Ydb.Monitoring.LocationStoragePDisk.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationStorageVDisk message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationStorageVDisk} LocationStorageVDisk
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStorageVDisk.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationStorageVDisk message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationStorageVDisk.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isString(message.id))
+                        return "id: string expected";
+                if (message.pdisk != null && message.hasOwnProperty("pdisk")) {
+                    var error = $root.Ydb.Monitoring.LocationStoragePDisk.verify(message.pdisk);
+                    if (error)
+                        return "pdisk." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a LocationStorageVDisk message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationStorageVDisk} LocationStorageVDisk
+             */
+            LocationStorageVDisk.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationStorageVDisk)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationStorageVDisk();
+                if (object.id != null)
+                    message.id = String(object.id);
+                if (object.pdisk != null) {
+                    if (typeof object.pdisk !== "object")
+                        throw TypeError(".Ydb.Monitoring.LocationStorageVDisk.pdisk: object expected");
+                    message.pdisk = $root.Ydb.Monitoring.LocationStoragePDisk.fromObject(object.pdisk);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationStorageVDisk message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @static
+             * @param {Ydb.Monitoring.LocationStorageVDisk} message LocationStorageVDisk
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationStorageVDisk.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.id = "";
+                    object.pdisk = null;
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.pdisk != null && message.hasOwnProperty("pdisk"))
+                    object.pdisk = $root.Ydb.Monitoring.LocationStoragePDisk.toObject(message.pdisk, options);
+                return object;
+            };
+
+            /**
+             * Converts this LocationStorageVDisk to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationStorageVDisk
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationStorageVDisk.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationStorageVDisk;
+        })();
+
+        Monitoring.LocationStorageGroup = (function() {
+
+            /**
+             * Properties of a LocationStorageGroup.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationStorageGroup
+             * @property {number|null} [id] LocationStorageGroup id
+             * @property {Ydb.Monitoring.ILocationStorageVDisk|null} [vdisk] LocationStorageGroup vdisk
+             */
+
+            /**
+             * Constructs a new LocationStorageGroup.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationStorageGroup.
+             * @implements ILocationStorageGroup
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationStorageGroup=} [properties] Properties to set
+             */
+            function LocationStorageGroup(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationStorageGroup id.
+             * @member {number} id
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @instance
+             */
+            LocationStorageGroup.prototype.id = 0;
+
+            /**
+             * LocationStorageGroup vdisk.
+             * @member {Ydb.Monitoring.ILocationStorageVDisk|null|undefined} vdisk
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @instance
+             */
+            LocationStorageGroup.prototype.vdisk = null;
+
+            /**
+             * Creates a new LocationStorageGroup instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorageGroup=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationStorageGroup} LocationStorageGroup instance
+             */
+            LocationStorageGroup.create = function create(properties) {
+                return new LocationStorageGroup(properties);
+            };
+
+            /**
+             * Encodes the specified LocationStorageGroup message. Does not implicitly {@link Ydb.Monitoring.LocationStorageGroup.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorageGroup} message LocationStorageGroup message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStorageGroup.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.id);
+                if (message.vdisk != null && message.hasOwnProperty("vdisk"))
+                    $root.Ydb.Monitoring.LocationStorageVDisk.encode(message.vdisk, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationStorageGroup message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationStorageGroup.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorageGroup} message LocationStorageGroup message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStorageGroup.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationStorageGroup message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationStorageGroup} LocationStorageGroup
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStorageGroup.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationStorageGroup();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.id = reader.uint32();
+                        break;
+                    case 2:
+                        message.vdisk = $root.Ydb.Monitoring.LocationStorageVDisk.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationStorageGroup message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationStorageGroup} LocationStorageGroup
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStorageGroup.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationStorageGroup message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationStorageGroup.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!$util.isInteger(message.id))
+                        return "id: integer expected";
+                if (message.vdisk != null && message.hasOwnProperty("vdisk")) {
+                    var error = $root.Ydb.Monitoring.LocationStorageVDisk.verify(message.vdisk);
+                    if (error)
+                        return "vdisk." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a LocationStorageGroup message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationStorageGroup} LocationStorageGroup
+             */
+            LocationStorageGroup.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationStorageGroup)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationStorageGroup();
+                if (object.id != null)
+                    message.id = object.id >>> 0;
+                if (object.vdisk != null) {
+                    if (typeof object.vdisk !== "object")
+                        throw TypeError(".Ydb.Monitoring.LocationStorageGroup.vdisk: object expected");
+                    message.vdisk = $root.Ydb.Monitoring.LocationStorageVDisk.fromObject(object.vdisk);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationStorageGroup message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @static
+             * @param {Ydb.Monitoring.LocationStorageGroup} message LocationStorageGroup
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationStorageGroup.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.id = 0;
+                    object.vdisk = null;
+                }
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = message.id;
+                if (message.vdisk != null && message.hasOwnProperty("vdisk"))
+                    object.vdisk = $root.Ydb.Monitoring.LocationStorageVDisk.toObject(message.vdisk, options);
+                return object;
+            };
+
+            /**
+             * Converts this LocationStorageGroup to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationStorageGroup
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationStorageGroup.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationStorageGroup;
+        })();
+
+        Monitoring.LocationStoragePool = (function() {
+
+            /**
+             * Properties of a LocationStoragePool.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationStoragePool
+             * @property {string|null} [name] LocationStoragePool name
+             * @property {Ydb.Monitoring.ILocationStorageGroup|null} [group] LocationStoragePool group
+             */
+
+            /**
+             * Constructs a new LocationStoragePool.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationStoragePool.
+             * @implements ILocationStoragePool
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationStoragePool=} [properties] Properties to set
+             */
+            function LocationStoragePool(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationStoragePool name.
+             * @member {string} name
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @instance
+             */
+            LocationStoragePool.prototype.name = "";
+
+            /**
+             * LocationStoragePool group.
+             * @member {Ydb.Monitoring.ILocationStorageGroup|null|undefined} group
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @instance
+             */
+            LocationStoragePool.prototype.group = null;
+
+            /**
+             * Creates a new LocationStoragePool instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @static
+             * @param {Ydb.Monitoring.ILocationStoragePool=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationStoragePool} LocationStoragePool instance
+             */
+            LocationStoragePool.create = function create(properties) {
+                return new LocationStoragePool(properties);
+            };
+
+            /**
+             * Encodes the specified LocationStoragePool message. Does not implicitly {@link Ydb.Monitoring.LocationStoragePool.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @static
+             * @param {Ydb.Monitoring.ILocationStoragePool} message LocationStoragePool message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStoragePool.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.name != null && message.hasOwnProperty("name"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.name);
+                if (message.group != null && message.hasOwnProperty("group"))
+                    $root.Ydb.Monitoring.LocationStorageGroup.encode(message.group, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationStoragePool message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationStoragePool.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @static
+             * @param {Ydb.Monitoring.ILocationStoragePool} message LocationStoragePool message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStoragePool.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationStoragePool message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationStoragePool} LocationStoragePool
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStoragePool.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationStoragePool();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.name = reader.string();
+                        break;
+                    case 2:
+                        message.group = $root.Ydb.Monitoring.LocationStorageGroup.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationStoragePool message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationStoragePool} LocationStoragePool
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStoragePool.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationStoragePool message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationStoragePool.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.name != null && message.hasOwnProperty("name"))
+                    if (!$util.isString(message.name))
+                        return "name: string expected";
+                if (message.group != null && message.hasOwnProperty("group")) {
+                    var error = $root.Ydb.Monitoring.LocationStorageGroup.verify(message.group);
+                    if (error)
+                        return "group." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a LocationStoragePool message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationStoragePool} LocationStoragePool
+             */
+            LocationStoragePool.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationStoragePool)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationStoragePool();
+                if (object.name != null)
+                    message.name = String(object.name);
+                if (object.group != null) {
+                    if (typeof object.group !== "object")
+                        throw TypeError(".Ydb.Monitoring.LocationStoragePool.group: object expected");
+                    message.group = $root.Ydb.Monitoring.LocationStorageGroup.fromObject(object.group);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationStoragePool message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @static
+             * @param {Ydb.Monitoring.LocationStoragePool} message LocationStoragePool
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationStoragePool.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.name = "";
+                    object.group = null;
+                }
+                if (message.name != null && message.hasOwnProperty("name"))
+                    object.name = message.name;
+                if (message.group != null && message.hasOwnProperty("group"))
+                    object.group = $root.Ydb.Monitoring.LocationStorageGroup.toObject(message.group, options);
+                return object;
+            };
+
+            /**
+             * Converts this LocationStoragePool to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationStoragePool
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationStoragePool.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationStoragePool;
+        })();
+
+        Monitoring.LocationStorage = (function() {
+
+            /**
+             * Properties of a LocationStorage.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationStorage
+             * @property {Ydb.Monitoring.ILocationNode|null} [node] LocationStorage node
+             * @property {Ydb.Monitoring.ILocationStoragePool|null} [pool] LocationStorage pool
+             */
+
+            /**
+             * Constructs a new LocationStorage.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationStorage.
+             * @implements ILocationStorage
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationStorage=} [properties] Properties to set
+             */
+            function LocationStorage(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationStorage node.
+             * @member {Ydb.Monitoring.ILocationNode|null|undefined} node
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @instance
+             */
+            LocationStorage.prototype.node = null;
+
+            /**
+             * LocationStorage pool.
+             * @member {Ydb.Monitoring.ILocationStoragePool|null|undefined} pool
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @instance
+             */
+            LocationStorage.prototype.pool = null;
+
+            /**
+             * Creates a new LocationStorage instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorage=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationStorage} LocationStorage instance
+             */
+            LocationStorage.create = function create(properties) {
+                return new LocationStorage(properties);
+            };
+
+            /**
+             * Encodes the specified LocationStorage message. Does not implicitly {@link Ydb.Monitoring.LocationStorage.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorage} message LocationStorage message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStorage.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.node != null && message.hasOwnProperty("node"))
+                    $root.Ydb.Monitoring.LocationNode.encode(message.node, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.pool != null && message.hasOwnProperty("pool"))
+                    $root.Ydb.Monitoring.LocationStoragePool.encode(message.pool, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationStorage message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationStorage.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @static
+             * @param {Ydb.Monitoring.ILocationStorage} message LocationStorage message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationStorage.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationStorage message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationStorage} LocationStorage
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStorage.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationStorage();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.node = $root.Ydb.Monitoring.LocationNode.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.pool = $root.Ydb.Monitoring.LocationStoragePool.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationStorage message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationStorage} LocationStorage
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationStorage.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationStorage message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationStorage.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.node != null && message.hasOwnProperty("node")) {
+                    var error = $root.Ydb.Monitoring.LocationNode.verify(message.node);
+                    if (error)
+                        return "node." + error;
+                }
+                if (message.pool != null && message.hasOwnProperty("pool")) {
+                    var error = $root.Ydb.Monitoring.LocationStoragePool.verify(message.pool);
+                    if (error)
+                        return "pool." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a LocationStorage message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationStorage} LocationStorage
+             */
+            LocationStorage.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationStorage)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationStorage();
+                if (object.node != null) {
+                    if (typeof object.node !== "object")
+                        throw TypeError(".Ydb.Monitoring.LocationStorage.node: object expected");
+                    message.node = $root.Ydb.Monitoring.LocationNode.fromObject(object.node);
+                }
+                if (object.pool != null) {
+                    if (typeof object.pool !== "object")
+                        throw TypeError(".Ydb.Monitoring.LocationStorage.pool: object expected");
+                    message.pool = $root.Ydb.Monitoring.LocationStoragePool.fromObject(object.pool);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationStorage message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @static
+             * @param {Ydb.Monitoring.LocationStorage} message LocationStorage
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationStorage.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.node = null;
+                    object.pool = null;
+                }
+                if (message.node != null && message.hasOwnProperty("node"))
+                    object.node = $root.Ydb.Monitoring.LocationNode.toObject(message.node, options);
+                if (message.pool != null && message.hasOwnProperty("pool"))
+                    object.pool = $root.Ydb.Monitoring.LocationStoragePool.toObject(message.pool, options);
+                return object;
+            };
+
+            /**
+             * Converts this LocationStorage to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationStorage
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationStorage.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationStorage;
+        })();
+
+        Monitoring.LocationComputePool = (function() {
+
+            /**
+             * Properties of a LocationComputePool.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationComputePool
+             * @property {string|null} [name] LocationComputePool name
+             */
+
+            /**
+             * Constructs a new LocationComputePool.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationComputePool.
+             * @implements ILocationComputePool
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationComputePool=} [properties] Properties to set
+             */
+            function LocationComputePool(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationComputePool name.
+             * @member {string} name
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @instance
+             */
+            LocationComputePool.prototype.name = "";
+
+            /**
+             * Creates a new LocationComputePool instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @static
+             * @param {Ydb.Monitoring.ILocationComputePool=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationComputePool} LocationComputePool instance
+             */
+            LocationComputePool.create = function create(properties) {
+                return new LocationComputePool(properties);
+            };
+
+            /**
+             * Encodes the specified LocationComputePool message. Does not implicitly {@link Ydb.Monitoring.LocationComputePool.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @static
+             * @param {Ydb.Monitoring.ILocationComputePool} message LocationComputePool message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationComputePool.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.name != null && message.hasOwnProperty("name"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.name);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationComputePool message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationComputePool.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @static
+             * @param {Ydb.Monitoring.ILocationComputePool} message LocationComputePool message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationComputePool.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationComputePool message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationComputePool} LocationComputePool
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationComputePool.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationComputePool();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.name = reader.string();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationComputePool message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationComputePool} LocationComputePool
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationComputePool.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationComputePool message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationComputePool.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.name != null && message.hasOwnProperty("name"))
+                    if (!$util.isString(message.name))
+                        return "name: string expected";
+                return null;
+            };
+
+            /**
+             * Creates a LocationComputePool message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationComputePool} LocationComputePool
+             */
+            LocationComputePool.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationComputePool)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationComputePool();
+                if (object.name != null)
+                    message.name = String(object.name);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationComputePool message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @static
+             * @param {Ydb.Monitoring.LocationComputePool} message LocationComputePool
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationComputePool.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.name = "";
+                if (message.name != null && message.hasOwnProperty("name"))
+                    object.name = message.name;
+                return object;
+            };
+
+            /**
+             * Converts this LocationComputePool to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationComputePool
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationComputePool.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationComputePool;
+        })();
+
+        Monitoring.LocationComputeTablet = (function() {
+
+            /**
+             * Properties of a LocationComputeTablet.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationComputeTablet
+             * @property {string|null} [type] LocationComputeTablet type
+             */
+
+            /**
+             * Constructs a new LocationComputeTablet.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationComputeTablet.
+             * @implements ILocationComputeTablet
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationComputeTablet=} [properties] Properties to set
+             */
+            function LocationComputeTablet(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationComputeTablet type.
+             * @member {string} type
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @instance
+             */
+            LocationComputeTablet.prototype.type = "";
+
+            /**
+             * Creates a new LocationComputeTablet instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @static
+             * @param {Ydb.Monitoring.ILocationComputeTablet=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationComputeTablet} LocationComputeTablet instance
+             */
+            LocationComputeTablet.create = function create(properties) {
+                return new LocationComputeTablet(properties);
+            };
+
+            /**
+             * Encodes the specified LocationComputeTablet message. Does not implicitly {@link Ydb.Monitoring.LocationComputeTablet.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @static
+             * @param {Ydb.Monitoring.ILocationComputeTablet} message LocationComputeTablet message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationComputeTablet.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.type != null && message.hasOwnProperty("type"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.type);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationComputeTablet message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationComputeTablet.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @static
+             * @param {Ydb.Monitoring.ILocationComputeTablet} message LocationComputeTablet message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationComputeTablet.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationComputeTablet message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationComputeTablet} LocationComputeTablet
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationComputeTablet.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationComputeTablet();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.type = reader.string();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationComputeTablet message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationComputeTablet} LocationComputeTablet
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationComputeTablet.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationComputeTablet message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationComputeTablet.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.type != null && message.hasOwnProperty("type"))
+                    if (!$util.isString(message.type))
+                        return "type: string expected";
+                return null;
+            };
+
+            /**
+             * Creates a LocationComputeTablet message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationComputeTablet} LocationComputeTablet
+             */
+            LocationComputeTablet.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationComputeTablet)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationComputeTablet();
+                if (object.type != null)
+                    message.type = String(object.type);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationComputeTablet message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @static
+             * @param {Ydb.Monitoring.LocationComputeTablet} message LocationComputeTablet
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationComputeTablet.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.type = "";
+                if (message.type != null && message.hasOwnProperty("type"))
+                    object.type = message.type;
+                return object;
+            };
+
+            /**
+             * Converts this LocationComputeTablet to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationComputeTablet
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationComputeTablet.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationComputeTablet;
+        })();
+
+        Monitoring.LocationCompute = (function() {
+
+            /**
+             * Properties of a LocationCompute.
+             * @memberof Ydb.Monitoring
+             * @interface ILocationCompute
+             * @property {Ydb.Monitoring.ILocationNode|null} [node] LocationCompute node
+             * @property {Ydb.Monitoring.ILocationComputePool|null} [pool] LocationCompute pool
+             * @property {Ydb.Monitoring.ILocationComputeTablet|null} [tablet] LocationCompute tablet
+             */
+
+            /**
+             * Constructs a new LocationCompute.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a LocationCompute.
+             * @implements ILocationCompute
+             * @constructor
+             * @param {Ydb.Monitoring.ILocationCompute=} [properties] Properties to set
+             */
+            function LocationCompute(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * LocationCompute node.
+             * @member {Ydb.Monitoring.ILocationNode|null|undefined} node
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @instance
+             */
+            LocationCompute.prototype.node = null;
+
+            /**
+             * LocationCompute pool.
+             * @member {Ydb.Monitoring.ILocationComputePool|null|undefined} pool
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @instance
+             */
+            LocationCompute.prototype.pool = null;
+
+            /**
+             * LocationCompute tablet.
+             * @member {Ydb.Monitoring.ILocationComputeTablet|null|undefined} tablet
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @instance
+             */
+            LocationCompute.prototype.tablet = null;
+
+            /**
+             * Creates a new LocationCompute instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @static
+             * @param {Ydb.Monitoring.ILocationCompute=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.LocationCompute} LocationCompute instance
+             */
+            LocationCompute.create = function create(properties) {
+                return new LocationCompute(properties);
+            };
+
+            /**
+             * Encodes the specified LocationCompute message. Does not implicitly {@link Ydb.Monitoring.LocationCompute.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @static
+             * @param {Ydb.Monitoring.ILocationCompute} message LocationCompute message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationCompute.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.node != null && message.hasOwnProperty("node"))
+                    $root.Ydb.Monitoring.LocationNode.encode(message.node, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.pool != null && message.hasOwnProperty("pool"))
+                    $root.Ydb.Monitoring.LocationComputePool.encode(message.pool, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                if (message.tablet != null && message.hasOwnProperty("tablet"))
+                    $root.Ydb.Monitoring.LocationComputeTablet.encode(message.tablet, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified LocationCompute message, length delimited. Does not implicitly {@link Ydb.Monitoring.LocationCompute.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @static
+             * @param {Ydb.Monitoring.ILocationCompute} message LocationCompute message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            LocationCompute.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a LocationCompute message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.LocationCompute} LocationCompute
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationCompute.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.LocationCompute();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.node = $root.Ydb.Monitoring.LocationNode.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.pool = $root.Ydb.Monitoring.LocationComputePool.decode(reader, reader.uint32());
+                        break;
+                    case 3:
+                        message.tablet = $root.Ydb.Monitoring.LocationComputeTablet.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a LocationCompute message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.LocationCompute} LocationCompute
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            LocationCompute.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a LocationCompute message.
+             * @function verify
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            LocationCompute.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.node != null && message.hasOwnProperty("node")) {
+                    var error = $root.Ydb.Monitoring.LocationNode.verify(message.node);
+                    if (error)
+                        return "node." + error;
+                }
+                if (message.pool != null && message.hasOwnProperty("pool")) {
+                    var error = $root.Ydb.Monitoring.LocationComputePool.verify(message.pool);
+                    if (error)
+                        return "pool." + error;
+                }
+                if (message.tablet != null && message.hasOwnProperty("tablet")) {
+                    var error = $root.Ydb.Monitoring.LocationComputeTablet.verify(message.tablet);
+                    if (error)
+                        return "tablet." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a LocationCompute message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.LocationCompute} LocationCompute
+             */
+            LocationCompute.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.LocationCompute)
+                    return object;
+                var message = new $root.Ydb.Monitoring.LocationCompute();
+                if (object.node != null) {
+                    if (typeof object.node !== "object")
+                        throw TypeError(".Ydb.Monitoring.LocationCompute.node: object expected");
+                    message.node = $root.Ydb.Monitoring.LocationNode.fromObject(object.node);
+                }
+                if (object.pool != null) {
+                    if (typeof object.pool !== "object")
+                        throw TypeError(".Ydb.Monitoring.LocationCompute.pool: object expected");
+                    message.pool = $root.Ydb.Monitoring.LocationComputePool.fromObject(object.pool);
+                }
+                if (object.tablet != null) {
+                    if (typeof object.tablet !== "object")
+                        throw TypeError(".Ydb.Monitoring.LocationCompute.tablet: object expected");
+                    message.tablet = $root.Ydb.Monitoring.LocationComputeTablet.fromObject(object.tablet);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a LocationCompute message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @static
+             * @param {Ydb.Monitoring.LocationCompute} message LocationCompute
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            LocationCompute.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.node = null;
+                    object.pool = null;
+                    object.tablet = null;
+                }
+                if (message.node != null && message.hasOwnProperty("node"))
+                    object.node = $root.Ydb.Monitoring.LocationNode.toObject(message.node, options);
+                if (message.pool != null && message.hasOwnProperty("pool"))
+                    object.pool = $root.Ydb.Monitoring.LocationComputePool.toObject(message.pool, options);
+                if (message.tablet != null && message.hasOwnProperty("tablet"))
+                    object.tablet = $root.Ydb.Monitoring.LocationComputeTablet.toObject(message.tablet, options);
+                return object;
+            };
+
+            /**
+             * Converts this LocationCompute to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.LocationCompute
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            LocationCompute.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return LocationCompute;
+        })();
+
+        Monitoring.Location = (function() {
+
+            /**
+             * Properties of a Location.
+             * @memberof Ydb.Monitoring
+             * @interface ILocation
+             * @property {Ydb.Monitoring.ILocationStorage|null} [storage] Location storage
+             * @property {Ydb.Monitoring.ILocationCompute|null} [compute] Location compute
+             */
+
+            /**
+             * Constructs a new Location.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a Location.
+             * @implements ILocation
+             * @constructor
+             * @param {Ydb.Monitoring.ILocation=} [properties] Properties to set
+             */
+            function Location(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Location storage.
+             * @member {Ydb.Monitoring.ILocationStorage|null|undefined} storage
+             * @memberof Ydb.Monitoring.Location
+             * @instance
+             */
+            Location.prototype.storage = null;
+
+            /**
+             * Location compute.
+             * @member {Ydb.Monitoring.ILocationCompute|null|undefined} compute
+             * @memberof Ydb.Monitoring.Location
+             * @instance
+             */
+            Location.prototype.compute = null;
+
+            /**
+             * Creates a new Location instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.Location
+             * @static
+             * @param {Ydb.Monitoring.ILocation=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.Location} Location instance
+             */
+            Location.create = function create(properties) {
+                return new Location(properties);
+            };
+
+            /**
+             * Encodes the specified Location message. Does not implicitly {@link Ydb.Monitoring.Location.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.Location
+             * @static
+             * @param {Ydb.Monitoring.ILocation} message Location message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Location.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.storage != null && message.hasOwnProperty("storage"))
+                    $root.Ydb.Monitoring.LocationStorage.encode(message.storage, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.compute != null && message.hasOwnProperty("compute"))
+                    $root.Ydb.Monitoring.LocationCompute.encode(message.compute, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified Location message, length delimited. Does not implicitly {@link Ydb.Monitoring.Location.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.Location
+             * @static
+             * @param {Ydb.Monitoring.ILocation} message Location message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Location.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a Location message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.Location
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.Location} Location
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Location.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.Location();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.storage = $root.Ydb.Monitoring.LocationStorage.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.compute = $root.Ydb.Monitoring.LocationCompute.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a Location message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.Location
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.Location} Location
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Location.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a Location message.
+             * @function verify
+             * @memberof Ydb.Monitoring.Location
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            Location.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.storage != null && message.hasOwnProperty("storage")) {
+                    var error = $root.Ydb.Monitoring.LocationStorage.verify(message.storage);
+                    if (error)
+                        return "storage." + error;
+                }
+                if (message.compute != null && message.hasOwnProperty("compute")) {
+                    var error = $root.Ydb.Monitoring.LocationCompute.verify(message.compute);
+                    if (error)
+                        return "compute." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a Location message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.Location
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.Location} Location
+             */
+            Location.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.Location)
+                    return object;
+                var message = new $root.Ydb.Monitoring.Location();
+                if (object.storage != null) {
+                    if (typeof object.storage !== "object")
+                        throw TypeError(".Ydb.Monitoring.Location.storage: object expected");
+                    message.storage = $root.Ydb.Monitoring.LocationStorage.fromObject(object.storage);
+                }
+                if (object.compute != null) {
+                    if (typeof object.compute !== "object")
+                        throw TypeError(".Ydb.Monitoring.Location.compute: object expected");
+                    message.compute = $root.Ydb.Monitoring.LocationCompute.fromObject(object.compute);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a Location message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.Location
+             * @static
+             * @param {Ydb.Monitoring.Location} message Location
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            Location.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.storage = null;
+                    object.compute = null;
+                }
+                if (message.storage != null && message.hasOwnProperty("storage"))
+                    object.storage = $root.Ydb.Monitoring.LocationStorage.toObject(message.storage, options);
+                if (message.compute != null && message.hasOwnProperty("compute"))
+                    object.compute = $root.Ydb.Monitoring.LocationCompute.toObject(message.compute, options);
+                return object;
+            };
+
+            /**
+             * Converts this Location to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.Location
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            Location.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return Location;
+        })();
+
+        Monitoring.IssueLog = (function() {
+
+            /**
+             * Properties of an IssueLog.
+             * @memberof Ydb.Monitoring
+             * @interface IIssueLog
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [status] IssueLog status
+             * @property {string|null} [message] IssueLog message
+             * @property {Ydb.Monitoring.ILocation|null} [location] IssueLog location
+             */
+
+            /**
+             * Constructs a new IssueLog.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents an IssueLog.
+             * @implements IIssueLog
+             * @constructor
+             * @param {Ydb.Monitoring.IIssueLog=} [properties] Properties to set
+             */
+            function IssueLog(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * IssueLog status.
+             * @member {Ydb.Monitoring.StatusFlag.Status} status
+             * @memberof Ydb.Monitoring.IssueLog
+             * @instance
+             */
+            IssueLog.prototype.status = 0;
+
+            /**
+             * IssueLog message.
+             * @member {string} message
+             * @memberof Ydb.Monitoring.IssueLog
+             * @instance
+             */
+            IssueLog.prototype.message = "";
+
+            /**
+             * IssueLog location.
+             * @member {Ydb.Monitoring.ILocation|null|undefined} location
+             * @memberof Ydb.Monitoring.IssueLog
+             * @instance
+             */
+            IssueLog.prototype.location = null;
+
+            /**
+             * Creates a new IssueLog instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.IssueLog
+             * @static
+             * @param {Ydb.Monitoring.IIssueLog=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.IssueLog} IssueLog instance
+             */
+            IssueLog.create = function create(properties) {
+                return new IssueLog(properties);
+            };
+
+            /**
+             * Encodes the specified IssueLog message. Does not implicitly {@link Ydb.Monitoring.IssueLog.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.IssueLog
+             * @static
+             * @param {Ydb.Monitoring.IIssueLog} message IssueLog message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            IssueLog.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.status != null && message.hasOwnProperty("status"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.status);
+                if (message.message != null && message.hasOwnProperty("message"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.message);
+                if (message.location != null && message.hasOwnProperty("location"))
+                    $root.Ydb.Monitoring.Location.encode(message.location, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified IssueLog message, length delimited. Does not implicitly {@link Ydb.Monitoring.IssueLog.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.IssueLog
+             * @static
+             * @param {Ydb.Monitoring.IIssueLog} message IssueLog message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            IssueLog.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an IssueLog message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.IssueLog
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.IssueLog} IssueLog
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            IssueLog.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.IssueLog();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.status = reader.int32();
+                        break;
+                    case 2:
+                        message.message = reader.string();
+                        break;
+                    case 3:
+                        message.location = $root.Ydb.Monitoring.Location.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an IssueLog message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.IssueLog
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.IssueLog} IssueLog
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            IssueLog.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an IssueLog message.
+             * @function verify
+             * @memberof Ydb.Monitoring.IssueLog
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            IssueLog.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.status != null && message.hasOwnProperty("status"))
+                    switch (message.status) {
+                    default:
+                        return "status: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.message != null && message.hasOwnProperty("message"))
+                    if (!$util.isString(message.message))
+                        return "message: string expected";
+                if (message.location != null && message.hasOwnProperty("location")) {
+                    var error = $root.Ydb.Monitoring.Location.verify(message.location);
+                    if (error)
+                        return "location." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates an IssueLog message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.IssueLog
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.IssueLog} IssueLog
+             */
+            IssueLog.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.IssueLog)
+                    return object;
+                var message = new $root.Ydb.Monitoring.IssueLog();
+                switch (object.status) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.status = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.status = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.status = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.status = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.status = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.status = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.status = 6;
+                    break;
+                }
+                if (object.message != null)
+                    message.message = String(object.message);
+                if (object.location != null) {
+                    if (typeof object.location !== "object")
+                        throw TypeError(".Ydb.Monitoring.IssueLog.location: object expected");
+                    message.location = $root.Ydb.Monitoring.Location.fromObject(object.location);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an IssueLog message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.IssueLog
+             * @static
+             * @param {Ydb.Monitoring.IssueLog} message IssueLog
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            IssueLog.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.status = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.message = "";
+                    object.location = null;
+                }
+                if (message.status != null && message.hasOwnProperty("status"))
+                    object.status = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.status] : message.status;
+                if (message.message != null && message.hasOwnProperty("message"))
+                    object.message = message.message;
+                if (message.location != null && message.hasOwnProperty("location"))
+                    object.location = $root.Ydb.Monitoring.Location.toObject(message.location, options);
+                return object;
+            };
+
+            /**
+             * Converts this IssueLog to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.IssueLog
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            IssueLog.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return IssueLog;
+        })();
+
+        Monitoring.DatabaseStatus = (function() {
+
+            /**
+             * Properties of a DatabaseStatus.
+             * @memberof Ydb.Monitoring
+             * @interface IDatabaseStatus
+             * @property {Ydb.Monitoring.StatusFlag.Status|null} [overall] DatabaseStatus overall
+             * @property {Ydb.Monitoring.IStorageStatus|null} [storage] DatabaseStatus storage
+             * @property {Ydb.Monitoring.IComputeStatus|null} [compute] DatabaseStatus compute
+             */
+
+            /**
+             * Constructs a new DatabaseStatus.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a DatabaseStatus.
+             * @implements IDatabaseStatus
+             * @constructor
+             * @param {Ydb.Monitoring.IDatabaseStatus=} [properties] Properties to set
+             */
+            function DatabaseStatus(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * DatabaseStatus overall.
+             * @member {Ydb.Monitoring.StatusFlag.Status} overall
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @instance
+             */
+            DatabaseStatus.prototype.overall = 0;
+
+            /**
+             * DatabaseStatus storage.
+             * @member {Ydb.Monitoring.IStorageStatus|null|undefined} storage
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @instance
+             */
+            DatabaseStatus.prototype.storage = null;
+
+            /**
+             * DatabaseStatus compute.
+             * @member {Ydb.Monitoring.IComputeStatus|null|undefined} compute
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @instance
+             */
+            DatabaseStatus.prototype.compute = null;
+
+            /**
+             * Creates a new DatabaseStatus instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @static
+             * @param {Ydb.Monitoring.IDatabaseStatus=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.DatabaseStatus} DatabaseStatus instance
+             */
+            DatabaseStatus.create = function create(properties) {
+                return new DatabaseStatus(properties);
+            };
+
+            /**
+             * Encodes the specified DatabaseStatus message. Does not implicitly {@link Ydb.Monitoring.DatabaseStatus.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @static
+             * @param {Ydb.Monitoring.IDatabaseStatus} message DatabaseStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DatabaseStatus.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.overall);
+                if (message.storage != null && message.hasOwnProperty("storage"))
+                    $root.Ydb.Monitoring.StorageStatus.encode(message.storage, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                if (message.compute != null && message.hasOwnProperty("compute"))
+                    $root.Ydb.Monitoring.ComputeStatus.encode(message.compute, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DatabaseStatus message, length delimited. Does not implicitly {@link Ydb.Monitoring.DatabaseStatus.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @static
+             * @param {Ydb.Monitoring.IDatabaseStatus} message DatabaseStatus message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DatabaseStatus.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a DatabaseStatus message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.DatabaseStatus} DatabaseStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DatabaseStatus.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.DatabaseStatus();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.overall = reader.int32();
+                        break;
+                    case 2:
+                        message.storage = $root.Ydb.Monitoring.StorageStatus.decode(reader, reader.uint32());
+                        break;
+                    case 3:
+                        message.compute = $root.Ydb.Monitoring.ComputeStatus.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a DatabaseStatus message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.DatabaseStatus} DatabaseStatus
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DatabaseStatus.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DatabaseStatus message.
+             * @function verify
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DatabaseStatus.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    switch (message.overall) {
+                    default:
+                        return "overall: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                        break;
+                    }
+                if (message.storage != null && message.hasOwnProperty("storage")) {
+                    var error = $root.Ydb.Monitoring.StorageStatus.verify(message.storage);
+                    if (error)
+                        return "storage." + error;
+                }
+                if (message.compute != null && message.hasOwnProperty("compute")) {
+                    var error = $root.Ydb.Monitoring.ComputeStatus.verify(message.compute);
+                    if (error)
+                        return "compute." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a DatabaseStatus message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.DatabaseStatus} DatabaseStatus
+             */
+            DatabaseStatus.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.DatabaseStatus)
+                    return object;
+                var message = new $root.Ydb.Monitoring.DatabaseStatus();
+                switch (object.overall) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.overall = 0;
+                    break;
+                case "GREY":
+                case 1:
+                    message.overall = 1;
+                    break;
+                case "GREEN":
+                case 2:
+                    message.overall = 2;
+                    break;
+                case "BLUE":
+                case 3:
+                    message.overall = 3;
+                    break;
+                case "YELLOW":
+                case 4:
+                    message.overall = 4;
+                    break;
+                case "ORANGE":
+                case 5:
+                    message.overall = 5;
+                    break;
+                case "RED":
+                case 6:
+                    message.overall = 6;
+                    break;
+                }
+                if (object.storage != null) {
+                    if (typeof object.storage !== "object")
+                        throw TypeError(".Ydb.Monitoring.DatabaseStatus.storage: object expected");
+                    message.storage = $root.Ydb.Monitoring.StorageStatus.fromObject(object.storage);
+                }
+                if (object.compute != null) {
+                    if (typeof object.compute !== "object")
+                        throw TypeError(".Ydb.Monitoring.DatabaseStatus.compute: object expected");
+                    message.compute = $root.Ydb.Monitoring.ComputeStatus.fromObject(object.compute);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DatabaseStatus message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @static
+             * @param {Ydb.Monitoring.DatabaseStatus} message DatabaseStatus
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DatabaseStatus.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.overall = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.storage = null;
+                    object.compute = null;
+                }
+                if (message.overall != null && message.hasOwnProperty("overall"))
+                    object.overall = options.enums === String ? $root.Ydb.Monitoring.StatusFlag.Status[message.overall] : message.overall;
+                if (message.storage != null && message.hasOwnProperty("storage"))
+                    object.storage = $root.Ydb.Monitoring.StorageStatus.toObject(message.storage, options);
+                if (message.compute != null && message.hasOwnProperty("compute"))
+                    object.compute = $root.Ydb.Monitoring.ComputeStatus.toObject(message.compute, options);
+                return object;
+            };
+
+            /**
+             * Converts this DatabaseStatus to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.DatabaseStatus
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DatabaseStatus.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return DatabaseStatus;
+        })();
+
+        Monitoring.SelfCheckResult = (function() {
+
+            /**
+             * Properties of a SelfCheckResult.
+             * @memberof Ydb.Monitoring
+             * @interface ISelfCheckResult
+             * @property {Ydb.Monitoring.SelfCheck.Result|null} [selfCheckResult] SelfCheckResult selfCheckResult
+             * @property {Array.<Ydb.Monitoring.IIssueLog>|null} [issueLog] SelfCheckResult issueLog
+             * @property {Ydb.Monitoring.IDatabaseStatus|null} [databaseStatus] SelfCheckResult databaseStatus
+             */
+
+            /**
+             * Constructs a new SelfCheckResult.
+             * @memberof Ydb.Monitoring
+             * @classdesc Represents a SelfCheckResult.
+             * @implements ISelfCheckResult
+             * @constructor
+             * @param {Ydb.Monitoring.ISelfCheckResult=} [properties] Properties to set
+             */
+            function SelfCheckResult(properties) {
+                this.issueLog = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * SelfCheckResult selfCheckResult.
+             * @member {Ydb.Monitoring.SelfCheck.Result} selfCheckResult
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @instance
+             */
+            SelfCheckResult.prototype.selfCheckResult = 0;
+
+            /**
+             * SelfCheckResult issueLog.
+             * @member {Array.<Ydb.Monitoring.IIssueLog>} issueLog
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @instance
+             */
+            SelfCheckResult.prototype.issueLog = $util.emptyArray;
+
+            /**
+             * SelfCheckResult databaseStatus.
+             * @member {Ydb.Monitoring.IDatabaseStatus|null|undefined} databaseStatus
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @instance
+             */
+            SelfCheckResult.prototype.databaseStatus = null;
+
+            /**
+             * Creates a new SelfCheckResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckResult=} [properties] Properties to set
+             * @returns {Ydb.Monitoring.SelfCheckResult} SelfCheckResult instance
+             */
+            SelfCheckResult.create = function create(properties) {
+                return new SelfCheckResult(properties);
+            };
+
+            /**
+             * Encodes the specified SelfCheckResult message. Does not implicitly {@link Ydb.Monitoring.SelfCheckResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckResult} message SelfCheckResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SelfCheckResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.selfCheckResult != null && message.hasOwnProperty("selfCheckResult"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.selfCheckResult);
+                if (message.issueLog != null && message.issueLog.length)
+                    for (var i = 0; i < message.issueLog.length; ++i)
+                        $root.Ydb.Monitoring.IssueLog.encode(message.issueLog[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                if (message.databaseStatus != null && message.hasOwnProperty("databaseStatus"))
+                    $root.Ydb.Monitoring.DatabaseStatus.encode(message.databaseStatus, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified SelfCheckResult message, length delimited. Does not implicitly {@link Ydb.Monitoring.SelfCheckResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @static
+             * @param {Ydb.Monitoring.ISelfCheckResult} message SelfCheckResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SelfCheckResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a SelfCheckResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Monitoring.SelfCheckResult} SelfCheckResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SelfCheckResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Monitoring.SelfCheckResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.selfCheckResult = reader.int32();
+                        break;
+                    case 2:
+                        if (!(message.issueLog && message.issueLog.length))
+                            message.issueLog = [];
+                        message.issueLog.push($root.Ydb.Monitoring.IssueLog.decode(reader, reader.uint32()));
+                        break;
+                    case 3:
+                        message.databaseStatus = $root.Ydb.Monitoring.DatabaseStatus.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a SelfCheckResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Monitoring.SelfCheckResult} SelfCheckResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SelfCheckResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a SelfCheckResult message.
+             * @function verify
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            SelfCheckResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.selfCheckResult != null && message.hasOwnProperty("selfCheckResult"))
+                    switch (message.selfCheckResult) {
+                    default:
+                        return "selfCheckResult: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                        break;
+                    }
+                if (message.issueLog != null && message.hasOwnProperty("issueLog")) {
+                    if (!Array.isArray(message.issueLog))
+                        return "issueLog: array expected";
+                    for (var i = 0; i < message.issueLog.length; ++i) {
+                        var error = $root.Ydb.Monitoring.IssueLog.verify(message.issueLog[i]);
+                        if (error)
+                            return "issueLog." + error;
+                    }
+                }
+                if (message.databaseStatus != null && message.hasOwnProperty("databaseStatus")) {
+                    var error = $root.Ydb.Monitoring.DatabaseStatus.verify(message.databaseStatus);
+                    if (error)
+                        return "databaseStatus." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a SelfCheckResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Monitoring.SelfCheckResult} SelfCheckResult
+             */
+            SelfCheckResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Monitoring.SelfCheckResult)
+                    return object;
+                var message = new $root.Ydb.Monitoring.SelfCheckResult();
+                switch (object.selfCheckResult) {
+                case "UNSPECIFIED":
+                case 0:
+                    message.selfCheckResult = 0;
+                    break;
+                case "GOOD":
+                case 1:
+                    message.selfCheckResult = 1;
+                    break;
+                case "DEGRADED":
+                case 2:
+                    message.selfCheckResult = 2;
+                    break;
+                case "MAINTENANCE_REQUIRED":
+                case 3:
+                    message.selfCheckResult = 3;
+                    break;
+                case "EMERGENCY":
+                case 4:
+                    message.selfCheckResult = 4;
+                    break;
+                }
+                if (object.issueLog) {
+                    if (!Array.isArray(object.issueLog))
+                        throw TypeError(".Ydb.Monitoring.SelfCheckResult.issueLog: array expected");
+                    message.issueLog = [];
+                    for (var i = 0; i < object.issueLog.length; ++i) {
+                        if (typeof object.issueLog[i] !== "object")
+                            throw TypeError(".Ydb.Monitoring.SelfCheckResult.issueLog: object expected");
+                        message.issueLog[i] = $root.Ydb.Monitoring.IssueLog.fromObject(object.issueLog[i]);
+                    }
+                }
+                if (object.databaseStatus != null) {
+                    if (typeof object.databaseStatus !== "object")
+                        throw TypeError(".Ydb.Monitoring.SelfCheckResult.databaseStatus: object expected");
+                    message.databaseStatus = $root.Ydb.Monitoring.DatabaseStatus.fromObject(object.databaseStatus);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a SelfCheckResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @static
+             * @param {Ydb.Monitoring.SelfCheckResult} message SelfCheckResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            SelfCheckResult.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.issueLog = [];
+                if (options.defaults) {
+                    object.selfCheckResult = options.enums === String ? "UNSPECIFIED" : 0;
+                    object.databaseStatus = null;
+                }
+                if (message.selfCheckResult != null && message.hasOwnProperty("selfCheckResult"))
+                    object.selfCheckResult = options.enums === String ? $root.Ydb.Monitoring.SelfCheck.Result[message.selfCheckResult] : message.selfCheckResult;
+                if (message.issueLog && message.issueLog.length) {
+                    object.issueLog = [];
+                    for (var j = 0; j < message.issueLog.length; ++j)
+                        object.issueLog[j] = $root.Ydb.Monitoring.IssueLog.toObject(message.issueLog[j], options);
+                }
+                if (message.databaseStatus != null && message.hasOwnProperty("databaseStatus"))
+                    object.databaseStatus = $root.Ydb.Monitoring.DatabaseStatus.toObject(message.databaseStatus, options);
+                return object;
+            };
+
+            /**
+             * Converts this SelfCheckResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.Monitoring.SelfCheckResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            SelfCheckResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return SelfCheckResult;
+        })();
+
+        return Monitoring;
     })();
 
     Ydb.Operation = (function() {
@@ -27165,6 +37127,3726 @@ $root.Ydb = (function() {
         })();
 
         return Operation;
+    })();
+
+    Ydb.RateLimiter = (function() {
+
+        /**
+         * Namespace RateLimiter.
+         * @memberof Ydb
+         * @namespace
+         */
+        var RateLimiter = {};
+
+        RateLimiter.V1 = (function() {
+
+            /**
+             * Namespace V1.
+             * @memberof Ydb.RateLimiter
+             * @namespace
+             */
+            var V1 = {};
+
+            V1.RateLimiterService = (function() {
+
+                /**
+                 * Constructs a new RateLimiterService service.
+                 * @memberof Ydb.RateLimiter.V1
+                 * @classdesc Represents a RateLimiterService
+                 * @extends $protobuf.rpc.Service
+                 * @constructor
+                 * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+                 * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+                 * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+                 */
+                function RateLimiterService(rpcImpl, requestDelimited, responseDelimited) {
+                    $protobuf.rpc.Service.call(this, rpcImpl, requestDelimited, responseDelimited);
+                }
+
+                (RateLimiterService.prototype = Object.create($protobuf.rpc.Service.prototype)).constructor = RateLimiterService;
+
+                /**
+                 * Creates new RateLimiterService service using the specified rpc implementation.
+                 * @function create
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @static
+                 * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+                 * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+                 * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+                 * @returns {RateLimiterService} RPC service. Useful where requests and/or responses are streamed.
+                 */
+                RateLimiterService.create = function create(rpcImpl, requestDelimited, responseDelimited) {
+                    return new this(rpcImpl, requestDelimited, responseDelimited);
+                };
+
+                /**
+                 * Callback as used by {@link Ydb.RateLimiter.V1.RateLimiterService#createResource}.
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @typedef CreateResourceCallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.RateLimiter.CreateResourceResponse} [response] CreateResourceResponse
+                 */
+
+                /**
+                 * Calls CreateResource.
+                 * @function createResource
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.ICreateResourceRequest} request CreateResourceRequest message or plain object
+                 * @param {Ydb.RateLimiter.V1.RateLimiterService.CreateResourceCallback} callback Node-style callback called with the error, if any, and CreateResourceResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(RateLimiterService.prototype.createResource = function createResource(request, callback) {
+                    return this.rpcCall(createResource, $root.Ydb.RateLimiter.CreateResourceRequest, $root.Ydb.RateLimiter.CreateResourceResponse, request, callback);
+                }, "name", { value: "CreateResource" });
+
+                /**
+                 * Calls CreateResource.
+                 * @function createResource
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.ICreateResourceRequest} request CreateResourceRequest message or plain object
+                 * @returns {Promise<Ydb.RateLimiter.CreateResourceResponse>} Promise
+                 * @variation 2
+                 */
+
+                /**
+                 * Callback as used by {@link Ydb.RateLimiter.V1.RateLimiterService#alterResource}.
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @typedef AlterResourceCallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.RateLimiter.AlterResourceResponse} [response] AlterResourceResponse
+                 */
+
+                /**
+                 * Calls AlterResource.
+                 * @function alterResource
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.IAlterResourceRequest} request AlterResourceRequest message or plain object
+                 * @param {Ydb.RateLimiter.V1.RateLimiterService.AlterResourceCallback} callback Node-style callback called with the error, if any, and AlterResourceResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(RateLimiterService.prototype.alterResource = function alterResource(request, callback) {
+                    return this.rpcCall(alterResource, $root.Ydb.RateLimiter.AlterResourceRequest, $root.Ydb.RateLimiter.AlterResourceResponse, request, callback);
+                }, "name", { value: "AlterResource" });
+
+                /**
+                 * Calls AlterResource.
+                 * @function alterResource
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.IAlterResourceRequest} request AlterResourceRequest message or plain object
+                 * @returns {Promise<Ydb.RateLimiter.AlterResourceResponse>} Promise
+                 * @variation 2
+                 */
+
+                /**
+                 * Callback as used by {@link Ydb.RateLimiter.V1.RateLimiterService#dropResource}.
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @typedef DropResourceCallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.RateLimiter.DropResourceResponse} [response] DropResourceResponse
+                 */
+
+                /**
+                 * Calls DropResource.
+                 * @function dropResource
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.IDropResourceRequest} request DropResourceRequest message or plain object
+                 * @param {Ydb.RateLimiter.V1.RateLimiterService.DropResourceCallback} callback Node-style callback called with the error, if any, and DropResourceResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(RateLimiterService.prototype.dropResource = function dropResource(request, callback) {
+                    return this.rpcCall(dropResource, $root.Ydb.RateLimiter.DropResourceRequest, $root.Ydb.RateLimiter.DropResourceResponse, request, callback);
+                }, "name", { value: "DropResource" });
+
+                /**
+                 * Calls DropResource.
+                 * @function dropResource
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.IDropResourceRequest} request DropResourceRequest message or plain object
+                 * @returns {Promise<Ydb.RateLimiter.DropResourceResponse>} Promise
+                 * @variation 2
+                 */
+
+                /**
+                 * Callback as used by {@link Ydb.RateLimiter.V1.RateLimiterService#listResources}.
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @typedef ListResourcesCallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.RateLimiter.ListResourcesResponse} [response] ListResourcesResponse
+                 */
+
+                /**
+                 * Calls ListResources.
+                 * @function listResources
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.IListResourcesRequest} request ListResourcesRequest message or plain object
+                 * @param {Ydb.RateLimiter.V1.RateLimiterService.ListResourcesCallback} callback Node-style callback called with the error, if any, and ListResourcesResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(RateLimiterService.prototype.listResources = function listResources(request, callback) {
+                    return this.rpcCall(listResources, $root.Ydb.RateLimiter.ListResourcesRequest, $root.Ydb.RateLimiter.ListResourcesResponse, request, callback);
+                }, "name", { value: "ListResources" });
+
+                /**
+                 * Calls ListResources.
+                 * @function listResources
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.IListResourcesRequest} request ListResourcesRequest message or plain object
+                 * @returns {Promise<Ydb.RateLimiter.ListResourcesResponse>} Promise
+                 * @variation 2
+                 */
+
+                /**
+                 * Callback as used by {@link Ydb.RateLimiter.V1.RateLimiterService#describeResource}.
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @typedef DescribeResourceCallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.RateLimiter.DescribeResourceResponse} [response] DescribeResourceResponse
+                 */
+
+                /**
+                 * Calls DescribeResource.
+                 * @function describeResource
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.IDescribeResourceRequest} request DescribeResourceRequest message or plain object
+                 * @param {Ydb.RateLimiter.V1.RateLimiterService.DescribeResourceCallback} callback Node-style callback called with the error, if any, and DescribeResourceResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(RateLimiterService.prototype.describeResource = function describeResource(request, callback) {
+                    return this.rpcCall(describeResource, $root.Ydb.RateLimiter.DescribeResourceRequest, $root.Ydb.RateLimiter.DescribeResourceResponse, request, callback);
+                }, "name", { value: "DescribeResource" });
+
+                /**
+                 * Calls DescribeResource.
+                 * @function describeResource
+                 * @memberof Ydb.RateLimiter.V1.RateLimiterService
+                 * @instance
+                 * @param {Ydb.RateLimiter.IDescribeResourceRequest} request DescribeResourceRequest message or plain object
+                 * @returns {Promise<Ydb.RateLimiter.DescribeResourceResponse>} Promise
+                 * @variation 2
+                 */
+
+                return RateLimiterService;
+            })();
+
+            return V1;
+        })();
+
+        RateLimiter.HierarchicalDrrSettings = (function() {
+
+            /**
+             * Properties of a HierarchicalDrrSettings.
+             * @memberof Ydb.RateLimiter
+             * @interface IHierarchicalDrrSettings
+             * @property {number|null} [maxUnitsPerSecond] HierarchicalDrrSettings maxUnitsPerSecond
+             * @property {number|null} [maxBurstSizeCoefficient] HierarchicalDrrSettings maxBurstSizeCoefficient
+             */
+
+            /**
+             * Constructs a new HierarchicalDrrSettings.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a HierarchicalDrrSettings.
+             * @implements IHierarchicalDrrSettings
+             * @constructor
+             * @param {Ydb.RateLimiter.IHierarchicalDrrSettings=} [properties] Properties to set
+             */
+            function HierarchicalDrrSettings(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * HierarchicalDrrSettings maxUnitsPerSecond.
+             * @member {number} maxUnitsPerSecond
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @instance
+             */
+            HierarchicalDrrSettings.prototype.maxUnitsPerSecond = 0;
+
+            /**
+             * HierarchicalDrrSettings maxBurstSizeCoefficient.
+             * @member {number} maxBurstSizeCoefficient
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @instance
+             */
+            HierarchicalDrrSettings.prototype.maxBurstSizeCoefficient = 0;
+
+            /**
+             * Creates a new HierarchicalDrrSettings instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @static
+             * @param {Ydb.RateLimiter.IHierarchicalDrrSettings=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.HierarchicalDrrSettings} HierarchicalDrrSettings instance
+             */
+            HierarchicalDrrSettings.create = function create(properties) {
+                return new HierarchicalDrrSettings(properties);
+            };
+
+            /**
+             * Encodes the specified HierarchicalDrrSettings message. Does not implicitly {@link Ydb.RateLimiter.HierarchicalDrrSettings.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @static
+             * @param {Ydb.RateLimiter.IHierarchicalDrrSettings} message HierarchicalDrrSettings message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            HierarchicalDrrSettings.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.maxUnitsPerSecond != null && message.hasOwnProperty("maxUnitsPerSecond"))
+                    writer.uint32(/* id 1, wireType 1 =*/9).double(message.maxUnitsPerSecond);
+                if (message.maxBurstSizeCoefficient != null && message.hasOwnProperty("maxBurstSizeCoefficient"))
+                    writer.uint32(/* id 2, wireType 1 =*/17).double(message.maxBurstSizeCoefficient);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified HierarchicalDrrSettings message, length delimited. Does not implicitly {@link Ydb.RateLimiter.HierarchicalDrrSettings.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @static
+             * @param {Ydb.RateLimiter.IHierarchicalDrrSettings} message HierarchicalDrrSettings message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            HierarchicalDrrSettings.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a HierarchicalDrrSettings message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.HierarchicalDrrSettings} HierarchicalDrrSettings
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            HierarchicalDrrSettings.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.HierarchicalDrrSettings();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.maxUnitsPerSecond = reader.double();
+                        break;
+                    case 2:
+                        message.maxBurstSizeCoefficient = reader.double();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a HierarchicalDrrSettings message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.HierarchicalDrrSettings} HierarchicalDrrSettings
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            HierarchicalDrrSettings.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a HierarchicalDrrSettings message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            HierarchicalDrrSettings.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.maxUnitsPerSecond != null && message.hasOwnProperty("maxUnitsPerSecond"))
+                    if (typeof message.maxUnitsPerSecond !== "number")
+                        return "maxUnitsPerSecond: number expected";
+                if (message.maxBurstSizeCoefficient != null && message.hasOwnProperty("maxBurstSizeCoefficient"))
+                    if (typeof message.maxBurstSizeCoefficient !== "number")
+                        return "maxBurstSizeCoefficient: number expected";
+                return null;
+            };
+
+            /**
+             * Creates a HierarchicalDrrSettings message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.HierarchicalDrrSettings} HierarchicalDrrSettings
+             */
+            HierarchicalDrrSettings.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.HierarchicalDrrSettings)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.HierarchicalDrrSettings();
+                if (object.maxUnitsPerSecond != null)
+                    message.maxUnitsPerSecond = Number(object.maxUnitsPerSecond);
+                if (object.maxBurstSizeCoefficient != null)
+                    message.maxBurstSizeCoefficient = Number(object.maxBurstSizeCoefficient);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a HierarchicalDrrSettings message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @static
+             * @param {Ydb.RateLimiter.HierarchicalDrrSettings} message HierarchicalDrrSettings
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            HierarchicalDrrSettings.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.maxUnitsPerSecond = 0;
+                    object.maxBurstSizeCoefficient = 0;
+                }
+                if (message.maxUnitsPerSecond != null && message.hasOwnProperty("maxUnitsPerSecond"))
+                    object.maxUnitsPerSecond = options.json && !isFinite(message.maxUnitsPerSecond) ? String(message.maxUnitsPerSecond) : message.maxUnitsPerSecond;
+                if (message.maxBurstSizeCoefficient != null && message.hasOwnProperty("maxBurstSizeCoefficient"))
+                    object.maxBurstSizeCoefficient = options.json && !isFinite(message.maxBurstSizeCoefficient) ? String(message.maxBurstSizeCoefficient) : message.maxBurstSizeCoefficient;
+                return object;
+            };
+
+            /**
+             * Converts this HierarchicalDrrSettings to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.HierarchicalDrrSettings
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            HierarchicalDrrSettings.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return HierarchicalDrrSettings;
+        })();
+
+        RateLimiter.Resource = (function() {
+
+            /**
+             * Properties of a Resource.
+             * @memberof Ydb.RateLimiter
+             * @interface IResource
+             * @property {string|null} [resourcePath] Resource resourcePath
+             * @property {Ydb.RateLimiter.IHierarchicalDrrSettings|null} [hierarchicalDrr] Resource hierarchicalDrr
+             */
+
+            /**
+             * Constructs a new Resource.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a Resource.
+             * @implements IResource
+             * @constructor
+             * @param {Ydb.RateLimiter.IResource=} [properties] Properties to set
+             */
+            function Resource(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Resource resourcePath.
+             * @member {string} resourcePath
+             * @memberof Ydb.RateLimiter.Resource
+             * @instance
+             */
+            Resource.prototype.resourcePath = "";
+
+            /**
+             * Resource hierarchicalDrr.
+             * @member {Ydb.RateLimiter.IHierarchicalDrrSettings|null|undefined} hierarchicalDrr
+             * @memberof Ydb.RateLimiter.Resource
+             * @instance
+             */
+            Resource.prototype.hierarchicalDrr = null;
+
+            // OneOf field names bound to virtual getters and setters
+            var $oneOfFields;
+
+            /**
+             * Resource type.
+             * @member {"hierarchicalDrr"|undefined} type
+             * @memberof Ydb.RateLimiter.Resource
+             * @instance
+             */
+            Object.defineProperty(Resource.prototype, "type", {
+                get: $util.oneOfGetter($oneOfFields = ["hierarchicalDrr"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            /**
+             * Creates a new Resource instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.Resource
+             * @static
+             * @param {Ydb.RateLimiter.IResource=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.Resource} Resource instance
+             */
+            Resource.create = function create(properties) {
+                return new Resource(properties);
+            };
+
+            /**
+             * Encodes the specified Resource message. Does not implicitly {@link Ydb.RateLimiter.Resource.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.Resource
+             * @static
+             * @param {Ydb.RateLimiter.IResource} message Resource message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Resource.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.resourcePath);
+                if (message.hierarchicalDrr != null && message.hasOwnProperty("hierarchicalDrr"))
+                    $root.Ydb.RateLimiter.HierarchicalDrrSettings.encode(message.hierarchicalDrr, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified Resource message, length delimited. Does not implicitly {@link Ydb.RateLimiter.Resource.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.Resource
+             * @static
+             * @param {Ydb.RateLimiter.IResource} message Resource message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Resource.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a Resource message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.Resource
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.Resource} Resource
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Resource.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.Resource();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.resourcePath = reader.string();
+                        break;
+                    case 2:
+                        message.hierarchicalDrr = $root.Ydb.RateLimiter.HierarchicalDrrSettings.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a Resource message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.Resource
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.Resource} Resource
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Resource.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a Resource message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.Resource
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            Resource.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                var properties = {};
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    if (!$util.isString(message.resourcePath))
+                        return "resourcePath: string expected";
+                if (message.hierarchicalDrr != null && message.hasOwnProperty("hierarchicalDrr")) {
+                    properties.type = 1;
+                    {
+                        var error = $root.Ydb.RateLimiter.HierarchicalDrrSettings.verify(message.hierarchicalDrr);
+                        if (error)
+                            return "hierarchicalDrr." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a Resource message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.Resource
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.Resource} Resource
+             */
+            Resource.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.Resource)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.Resource();
+                if (object.resourcePath != null)
+                    message.resourcePath = String(object.resourcePath);
+                if (object.hierarchicalDrr != null) {
+                    if (typeof object.hierarchicalDrr !== "object")
+                        throw TypeError(".Ydb.RateLimiter.Resource.hierarchicalDrr: object expected");
+                    message.hierarchicalDrr = $root.Ydb.RateLimiter.HierarchicalDrrSettings.fromObject(object.hierarchicalDrr);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a Resource message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.Resource
+             * @static
+             * @param {Ydb.RateLimiter.Resource} message Resource
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            Resource.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.resourcePath = "";
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    object.resourcePath = message.resourcePath;
+                if (message.hierarchicalDrr != null && message.hasOwnProperty("hierarchicalDrr")) {
+                    object.hierarchicalDrr = $root.Ydb.RateLimiter.HierarchicalDrrSettings.toObject(message.hierarchicalDrr, options);
+                    if (options.oneofs)
+                        object.type = "hierarchicalDrr";
+                }
+                return object;
+            };
+
+            /**
+             * Converts this Resource to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.Resource
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            Resource.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return Resource;
+        })();
+
+        RateLimiter.CreateResourceRequest = (function() {
+
+            /**
+             * Properties of a CreateResourceRequest.
+             * @memberof Ydb.RateLimiter
+             * @interface ICreateResourceRequest
+             * @property {Ydb.Operations.IOperationParams|null} [operationParams] CreateResourceRequest operationParams
+             * @property {string|null} [coordinationNodePath] CreateResourceRequest coordinationNodePath
+             * @property {Ydb.RateLimiter.IResource|null} [resource] CreateResourceRequest resource
+             */
+
+            /**
+             * Constructs a new CreateResourceRequest.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a CreateResourceRequest.
+             * @implements ICreateResourceRequest
+             * @constructor
+             * @param {Ydb.RateLimiter.ICreateResourceRequest=} [properties] Properties to set
+             */
+            function CreateResourceRequest(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * CreateResourceRequest operationParams.
+             * @member {Ydb.Operations.IOperationParams|null|undefined} operationParams
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @instance
+             */
+            CreateResourceRequest.prototype.operationParams = null;
+
+            /**
+             * CreateResourceRequest coordinationNodePath.
+             * @member {string} coordinationNodePath
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @instance
+             */
+            CreateResourceRequest.prototype.coordinationNodePath = "";
+
+            /**
+             * CreateResourceRequest resource.
+             * @member {Ydb.RateLimiter.IResource|null|undefined} resource
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @instance
+             */
+            CreateResourceRequest.prototype.resource = null;
+
+            /**
+             * Creates a new CreateResourceRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceRequest=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.CreateResourceRequest} CreateResourceRequest instance
+             */
+            CreateResourceRequest.create = function create(properties) {
+                return new CreateResourceRequest(properties);
+            };
+
+            /**
+             * Encodes the specified CreateResourceRequest message. Does not implicitly {@link Ydb.RateLimiter.CreateResourceRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceRequest} message CreateResourceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            CreateResourceRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.coordinationNodePath);
+                if (message.resource != null && message.hasOwnProperty("resource"))
+                    $root.Ydb.RateLimiter.Resource.encode(message.resource, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified CreateResourceRequest message, length delimited. Does not implicitly {@link Ydb.RateLimiter.CreateResourceRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceRequest} message CreateResourceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            CreateResourceRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a CreateResourceRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.CreateResourceRequest} CreateResourceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            CreateResourceRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.CreateResourceRequest();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operationParams = $root.Ydb.Operations.OperationParams.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.coordinationNodePath = reader.string();
+                        break;
+                    case 3:
+                        message.resource = $root.Ydb.RateLimiter.Resource.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a CreateResourceRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.CreateResourceRequest} CreateResourceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            CreateResourceRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a CreateResourceRequest message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            CreateResourceRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operationParams != null && message.hasOwnProperty("operationParams")) {
+                    var error = $root.Ydb.Operations.OperationParams.verify(message.operationParams);
+                    if (error)
+                        return "operationParams." + error;
+                }
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    if (!$util.isString(message.coordinationNodePath))
+                        return "coordinationNodePath: string expected";
+                if (message.resource != null && message.hasOwnProperty("resource")) {
+                    var error = $root.Ydb.RateLimiter.Resource.verify(message.resource);
+                    if (error)
+                        return "resource." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a CreateResourceRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.CreateResourceRequest} CreateResourceRequest
+             */
+            CreateResourceRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.CreateResourceRequest)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.CreateResourceRequest();
+                if (object.operationParams != null) {
+                    if (typeof object.operationParams !== "object")
+                        throw TypeError(".Ydb.RateLimiter.CreateResourceRequest.operationParams: object expected");
+                    message.operationParams = $root.Ydb.Operations.OperationParams.fromObject(object.operationParams);
+                }
+                if (object.coordinationNodePath != null)
+                    message.coordinationNodePath = String(object.coordinationNodePath);
+                if (object.resource != null) {
+                    if (typeof object.resource !== "object")
+                        throw TypeError(".Ydb.RateLimiter.CreateResourceRequest.resource: object expected");
+                    message.resource = $root.Ydb.RateLimiter.Resource.fromObject(object.resource);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a CreateResourceRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.CreateResourceRequest} message CreateResourceRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            CreateResourceRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.operationParams = null;
+                    object.coordinationNodePath = "";
+                    object.resource = null;
+                }
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    object.coordinationNodePath = message.coordinationNodePath;
+                if (message.resource != null && message.hasOwnProperty("resource"))
+                    object.resource = $root.Ydb.RateLimiter.Resource.toObject(message.resource, options);
+                return object;
+            };
+
+            /**
+             * Converts this CreateResourceRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.CreateResourceRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            CreateResourceRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return CreateResourceRequest;
+        })();
+
+        RateLimiter.CreateResourceResponse = (function() {
+
+            /**
+             * Properties of a CreateResourceResponse.
+             * @memberof Ydb.RateLimiter
+             * @interface ICreateResourceResponse
+             * @property {Ydb.Operations.IOperation|null} [operation] CreateResourceResponse operation
+             */
+
+            /**
+             * Constructs a new CreateResourceResponse.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a CreateResourceResponse.
+             * @implements ICreateResourceResponse
+             * @constructor
+             * @param {Ydb.RateLimiter.ICreateResourceResponse=} [properties] Properties to set
+             */
+            function CreateResourceResponse(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * CreateResourceResponse operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @instance
+             */
+            CreateResourceResponse.prototype.operation = null;
+
+            /**
+             * Creates a new CreateResourceResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceResponse=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.CreateResourceResponse} CreateResourceResponse instance
+             */
+            CreateResourceResponse.create = function create(properties) {
+                return new CreateResourceResponse(properties);
+            };
+
+            /**
+             * Encodes the specified CreateResourceResponse message. Does not implicitly {@link Ydb.RateLimiter.CreateResourceResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceResponse} message CreateResourceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            CreateResourceResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified CreateResourceResponse message, length delimited. Does not implicitly {@link Ydb.RateLimiter.CreateResourceResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceResponse} message CreateResourceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            CreateResourceResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a CreateResourceResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.CreateResourceResponse} CreateResourceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            CreateResourceResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.CreateResourceResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a CreateResourceResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.CreateResourceResponse} CreateResourceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            CreateResourceResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a CreateResourceResponse message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            CreateResourceResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a CreateResourceResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.CreateResourceResponse} CreateResourceResponse
+             */
+            CreateResourceResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.CreateResourceResponse)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.CreateResourceResponse();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.RateLimiter.CreateResourceResponse.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a CreateResourceResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.CreateResourceResponse} message CreateResourceResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            CreateResourceResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this CreateResourceResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.CreateResourceResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            CreateResourceResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return CreateResourceResponse;
+        })();
+
+        RateLimiter.CreateResourceResult = (function() {
+
+            /**
+             * Properties of a CreateResourceResult.
+             * @memberof Ydb.RateLimiter
+             * @interface ICreateResourceResult
+             */
+
+            /**
+             * Constructs a new CreateResourceResult.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a CreateResourceResult.
+             * @implements ICreateResourceResult
+             * @constructor
+             * @param {Ydb.RateLimiter.ICreateResourceResult=} [properties] Properties to set
+             */
+            function CreateResourceResult(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Creates a new CreateResourceResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceResult=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.CreateResourceResult} CreateResourceResult instance
+             */
+            CreateResourceResult.create = function create(properties) {
+                return new CreateResourceResult(properties);
+            };
+
+            /**
+             * Encodes the specified CreateResourceResult message. Does not implicitly {@link Ydb.RateLimiter.CreateResourceResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceResult} message CreateResourceResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            CreateResourceResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified CreateResourceResult message, length delimited. Does not implicitly {@link Ydb.RateLimiter.CreateResourceResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.ICreateResourceResult} message CreateResourceResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            CreateResourceResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a CreateResourceResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.CreateResourceResult} CreateResourceResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            CreateResourceResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.CreateResourceResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a CreateResourceResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.CreateResourceResult} CreateResourceResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            CreateResourceResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a CreateResourceResult message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            CreateResourceResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                return null;
+            };
+
+            /**
+             * Creates a CreateResourceResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.CreateResourceResult} CreateResourceResult
+             */
+            CreateResourceResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.CreateResourceResult)
+                    return object;
+                return new $root.Ydb.RateLimiter.CreateResourceResult();
+            };
+
+            /**
+             * Creates a plain object from a CreateResourceResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.CreateResourceResult} message CreateResourceResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            CreateResourceResult.toObject = function toObject() {
+                return {};
+            };
+
+            /**
+             * Converts this CreateResourceResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.CreateResourceResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            CreateResourceResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return CreateResourceResult;
+        })();
+
+        RateLimiter.AlterResourceRequest = (function() {
+
+            /**
+             * Properties of an AlterResourceRequest.
+             * @memberof Ydb.RateLimiter
+             * @interface IAlterResourceRequest
+             * @property {Ydb.Operations.IOperationParams|null} [operationParams] AlterResourceRequest operationParams
+             * @property {string|null} [coordinationNodePath] AlterResourceRequest coordinationNodePath
+             * @property {Ydb.RateLimiter.IResource|null} [resource] AlterResourceRequest resource
+             */
+
+            /**
+             * Constructs a new AlterResourceRequest.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents an AlterResourceRequest.
+             * @implements IAlterResourceRequest
+             * @constructor
+             * @param {Ydb.RateLimiter.IAlterResourceRequest=} [properties] Properties to set
+             */
+            function AlterResourceRequest(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * AlterResourceRequest operationParams.
+             * @member {Ydb.Operations.IOperationParams|null|undefined} operationParams
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @instance
+             */
+            AlterResourceRequest.prototype.operationParams = null;
+
+            /**
+             * AlterResourceRequest coordinationNodePath.
+             * @member {string} coordinationNodePath
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @instance
+             */
+            AlterResourceRequest.prototype.coordinationNodePath = "";
+
+            /**
+             * AlterResourceRequest resource.
+             * @member {Ydb.RateLimiter.IResource|null|undefined} resource
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @instance
+             */
+            AlterResourceRequest.prototype.resource = null;
+
+            /**
+             * Creates a new AlterResourceRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceRequest=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.AlterResourceRequest} AlterResourceRequest instance
+             */
+            AlterResourceRequest.create = function create(properties) {
+                return new AlterResourceRequest(properties);
+            };
+
+            /**
+             * Encodes the specified AlterResourceRequest message. Does not implicitly {@link Ydb.RateLimiter.AlterResourceRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceRequest} message AlterResourceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            AlterResourceRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.coordinationNodePath);
+                if (message.resource != null && message.hasOwnProperty("resource"))
+                    $root.Ydb.RateLimiter.Resource.encode(message.resource, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified AlterResourceRequest message, length delimited. Does not implicitly {@link Ydb.RateLimiter.AlterResourceRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceRequest} message AlterResourceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            AlterResourceRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an AlterResourceRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.AlterResourceRequest} AlterResourceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            AlterResourceRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.AlterResourceRequest();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operationParams = $root.Ydb.Operations.OperationParams.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.coordinationNodePath = reader.string();
+                        break;
+                    case 3:
+                        message.resource = $root.Ydb.RateLimiter.Resource.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an AlterResourceRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.AlterResourceRequest} AlterResourceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            AlterResourceRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an AlterResourceRequest message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            AlterResourceRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operationParams != null && message.hasOwnProperty("operationParams")) {
+                    var error = $root.Ydb.Operations.OperationParams.verify(message.operationParams);
+                    if (error)
+                        return "operationParams." + error;
+                }
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    if (!$util.isString(message.coordinationNodePath))
+                        return "coordinationNodePath: string expected";
+                if (message.resource != null && message.hasOwnProperty("resource")) {
+                    var error = $root.Ydb.RateLimiter.Resource.verify(message.resource);
+                    if (error)
+                        return "resource." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates an AlterResourceRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.AlterResourceRequest} AlterResourceRequest
+             */
+            AlterResourceRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.AlterResourceRequest)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.AlterResourceRequest();
+                if (object.operationParams != null) {
+                    if (typeof object.operationParams !== "object")
+                        throw TypeError(".Ydb.RateLimiter.AlterResourceRequest.operationParams: object expected");
+                    message.operationParams = $root.Ydb.Operations.OperationParams.fromObject(object.operationParams);
+                }
+                if (object.coordinationNodePath != null)
+                    message.coordinationNodePath = String(object.coordinationNodePath);
+                if (object.resource != null) {
+                    if (typeof object.resource !== "object")
+                        throw TypeError(".Ydb.RateLimiter.AlterResourceRequest.resource: object expected");
+                    message.resource = $root.Ydb.RateLimiter.Resource.fromObject(object.resource);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an AlterResourceRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.AlterResourceRequest} message AlterResourceRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            AlterResourceRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.operationParams = null;
+                    object.coordinationNodePath = "";
+                    object.resource = null;
+                }
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    object.coordinationNodePath = message.coordinationNodePath;
+                if (message.resource != null && message.hasOwnProperty("resource"))
+                    object.resource = $root.Ydb.RateLimiter.Resource.toObject(message.resource, options);
+                return object;
+            };
+
+            /**
+             * Converts this AlterResourceRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.AlterResourceRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            AlterResourceRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return AlterResourceRequest;
+        })();
+
+        RateLimiter.AlterResourceResponse = (function() {
+
+            /**
+             * Properties of an AlterResourceResponse.
+             * @memberof Ydb.RateLimiter
+             * @interface IAlterResourceResponse
+             * @property {Ydb.Operations.IOperation|null} [operation] AlterResourceResponse operation
+             */
+
+            /**
+             * Constructs a new AlterResourceResponse.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents an AlterResourceResponse.
+             * @implements IAlterResourceResponse
+             * @constructor
+             * @param {Ydb.RateLimiter.IAlterResourceResponse=} [properties] Properties to set
+             */
+            function AlterResourceResponse(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * AlterResourceResponse operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @instance
+             */
+            AlterResourceResponse.prototype.operation = null;
+
+            /**
+             * Creates a new AlterResourceResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceResponse=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.AlterResourceResponse} AlterResourceResponse instance
+             */
+            AlterResourceResponse.create = function create(properties) {
+                return new AlterResourceResponse(properties);
+            };
+
+            /**
+             * Encodes the specified AlterResourceResponse message. Does not implicitly {@link Ydb.RateLimiter.AlterResourceResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceResponse} message AlterResourceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            AlterResourceResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified AlterResourceResponse message, length delimited. Does not implicitly {@link Ydb.RateLimiter.AlterResourceResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceResponse} message AlterResourceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            AlterResourceResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an AlterResourceResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.AlterResourceResponse} AlterResourceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            AlterResourceResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.AlterResourceResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an AlterResourceResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.AlterResourceResponse} AlterResourceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            AlterResourceResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an AlterResourceResponse message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            AlterResourceResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates an AlterResourceResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.AlterResourceResponse} AlterResourceResponse
+             */
+            AlterResourceResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.AlterResourceResponse)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.AlterResourceResponse();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.RateLimiter.AlterResourceResponse.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an AlterResourceResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.AlterResourceResponse} message AlterResourceResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            AlterResourceResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this AlterResourceResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.AlterResourceResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            AlterResourceResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return AlterResourceResponse;
+        })();
+
+        RateLimiter.AlterResourceResult = (function() {
+
+            /**
+             * Properties of an AlterResourceResult.
+             * @memberof Ydb.RateLimiter
+             * @interface IAlterResourceResult
+             */
+
+            /**
+             * Constructs a new AlterResourceResult.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents an AlterResourceResult.
+             * @implements IAlterResourceResult
+             * @constructor
+             * @param {Ydb.RateLimiter.IAlterResourceResult=} [properties] Properties to set
+             */
+            function AlterResourceResult(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Creates a new AlterResourceResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceResult=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.AlterResourceResult} AlterResourceResult instance
+             */
+            AlterResourceResult.create = function create(properties) {
+                return new AlterResourceResult(properties);
+            };
+
+            /**
+             * Encodes the specified AlterResourceResult message. Does not implicitly {@link Ydb.RateLimiter.AlterResourceResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceResult} message AlterResourceResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            AlterResourceResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified AlterResourceResult message, length delimited. Does not implicitly {@link Ydb.RateLimiter.AlterResourceResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IAlterResourceResult} message AlterResourceResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            AlterResourceResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an AlterResourceResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.AlterResourceResult} AlterResourceResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            AlterResourceResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.AlterResourceResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an AlterResourceResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.AlterResourceResult} AlterResourceResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            AlterResourceResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an AlterResourceResult message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            AlterResourceResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                return null;
+            };
+
+            /**
+             * Creates an AlterResourceResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.AlterResourceResult} AlterResourceResult
+             */
+            AlterResourceResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.AlterResourceResult)
+                    return object;
+                return new $root.Ydb.RateLimiter.AlterResourceResult();
+            };
+
+            /**
+             * Creates a plain object from an AlterResourceResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.AlterResourceResult} message AlterResourceResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            AlterResourceResult.toObject = function toObject() {
+                return {};
+            };
+
+            /**
+             * Converts this AlterResourceResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.AlterResourceResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            AlterResourceResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return AlterResourceResult;
+        })();
+
+        RateLimiter.DropResourceRequest = (function() {
+
+            /**
+             * Properties of a DropResourceRequest.
+             * @memberof Ydb.RateLimiter
+             * @interface IDropResourceRequest
+             * @property {Ydb.Operations.IOperationParams|null} [operationParams] DropResourceRequest operationParams
+             * @property {string|null} [coordinationNodePath] DropResourceRequest coordinationNodePath
+             * @property {string|null} [resourcePath] DropResourceRequest resourcePath
+             */
+
+            /**
+             * Constructs a new DropResourceRequest.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a DropResourceRequest.
+             * @implements IDropResourceRequest
+             * @constructor
+             * @param {Ydb.RateLimiter.IDropResourceRequest=} [properties] Properties to set
+             */
+            function DropResourceRequest(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * DropResourceRequest operationParams.
+             * @member {Ydb.Operations.IOperationParams|null|undefined} operationParams
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @instance
+             */
+            DropResourceRequest.prototype.operationParams = null;
+
+            /**
+             * DropResourceRequest coordinationNodePath.
+             * @member {string} coordinationNodePath
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @instance
+             */
+            DropResourceRequest.prototype.coordinationNodePath = "";
+
+            /**
+             * DropResourceRequest resourcePath.
+             * @member {string} resourcePath
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @instance
+             */
+            DropResourceRequest.prototype.resourcePath = "";
+
+            /**
+             * Creates a new DropResourceRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceRequest=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.DropResourceRequest} DropResourceRequest instance
+             */
+            DropResourceRequest.create = function create(properties) {
+                return new DropResourceRequest(properties);
+            };
+
+            /**
+             * Encodes the specified DropResourceRequest message. Does not implicitly {@link Ydb.RateLimiter.DropResourceRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceRequest} message DropResourceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DropResourceRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.coordinationNodePath);
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.resourcePath);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DropResourceRequest message, length delimited. Does not implicitly {@link Ydb.RateLimiter.DropResourceRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceRequest} message DropResourceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DropResourceRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a DropResourceRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.DropResourceRequest} DropResourceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DropResourceRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.DropResourceRequest();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operationParams = $root.Ydb.Operations.OperationParams.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.coordinationNodePath = reader.string();
+                        break;
+                    case 3:
+                        message.resourcePath = reader.string();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a DropResourceRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.DropResourceRequest} DropResourceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DropResourceRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DropResourceRequest message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DropResourceRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operationParams != null && message.hasOwnProperty("operationParams")) {
+                    var error = $root.Ydb.Operations.OperationParams.verify(message.operationParams);
+                    if (error)
+                        return "operationParams." + error;
+                }
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    if (!$util.isString(message.coordinationNodePath))
+                        return "coordinationNodePath: string expected";
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    if (!$util.isString(message.resourcePath))
+                        return "resourcePath: string expected";
+                return null;
+            };
+
+            /**
+             * Creates a DropResourceRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.DropResourceRequest} DropResourceRequest
+             */
+            DropResourceRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.DropResourceRequest)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.DropResourceRequest();
+                if (object.operationParams != null) {
+                    if (typeof object.operationParams !== "object")
+                        throw TypeError(".Ydb.RateLimiter.DropResourceRequest.operationParams: object expected");
+                    message.operationParams = $root.Ydb.Operations.OperationParams.fromObject(object.operationParams);
+                }
+                if (object.coordinationNodePath != null)
+                    message.coordinationNodePath = String(object.coordinationNodePath);
+                if (object.resourcePath != null)
+                    message.resourcePath = String(object.resourcePath);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DropResourceRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.DropResourceRequest} message DropResourceRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DropResourceRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.operationParams = null;
+                    object.coordinationNodePath = "";
+                    object.resourcePath = "";
+                }
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    object.coordinationNodePath = message.coordinationNodePath;
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    object.resourcePath = message.resourcePath;
+                return object;
+            };
+
+            /**
+             * Converts this DropResourceRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.DropResourceRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DropResourceRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return DropResourceRequest;
+        })();
+
+        RateLimiter.DropResourceResponse = (function() {
+
+            /**
+             * Properties of a DropResourceResponse.
+             * @memberof Ydb.RateLimiter
+             * @interface IDropResourceResponse
+             * @property {Ydb.Operations.IOperation|null} [operation] DropResourceResponse operation
+             */
+
+            /**
+             * Constructs a new DropResourceResponse.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a DropResourceResponse.
+             * @implements IDropResourceResponse
+             * @constructor
+             * @param {Ydb.RateLimiter.IDropResourceResponse=} [properties] Properties to set
+             */
+            function DropResourceResponse(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * DropResourceResponse operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @instance
+             */
+            DropResourceResponse.prototype.operation = null;
+
+            /**
+             * Creates a new DropResourceResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceResponse=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.DropResourceResponse} DropResourceResponse instance
+             */
+            DropResourceResponse.create = function create(properties) {
+                return new DropResourceResponse(properties);
+            };
+
+            /**
+             * Encodes the specified DropResourceResponse message. Does not implicitly {@link Ydb.RateLimiter.DropResourceResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceResponse} message DropResourceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DropResourceResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DropResourceResponse message, length delimited. Does not implicitly {@link Ydb.RateLimiter.DropResourceResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceResponse} message DropResourceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DropResourceResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a DropResourceResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.DropResourceResponse} DropResourceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DropResourceResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.DropResourceResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a DropResourceResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.DropResourceResponse} DropResourceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DropResourceResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DropResourceResponse message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DropResourceResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a DropResourceResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.DropResourceResponse} DropResourceResponse
+             */
+            DropResourceResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.DropResourceResponse)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.DropResourceResponse();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.RateLimiter.DropResourceResponse.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DropResourceResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.DropResourceResponse} message DropResourceResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DropResourceResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this DropResourceResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.DropResourceResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DropResourceResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return DropResourceResponse;
+        })();
+
+        RateLimiter.DropResourceResult = (function() {
+
+            /**
+             * Properties of a DropResourceResult.
+             * @memberof Ydb.RateLimiter
+             * @interface IDropResourceResult
+             */
+
+            /**
+             * Constructs a new DropResourceResult.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a DropResourceResult.
+             * @implements IDropResourceResult
+             * @constructor
+             * @param {Ydb.RateLimiter.IDropResourceResult=} [properties] Properties to set
+             */
+            function DropResourceResult(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Creates a new DropResourceResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceResult=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.DropResourceResult} DropResourceResult instance
+             */
+            DropResourceResult.create = function create(properties) {
+                return new DropResourceResult(properties);
+            };
+
+            /**
+             * Encodes the specified DropResourceResult message. Does not implicitly {@link Ydb.RateLimiter.DropResourceResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceResult} message DropResourceResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DropResourceResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DropResourceResult message, length delimited. Does not implicitly {@link Ydb.RateLimiter.DropResourceResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IDropResourceResult} message DropResourceResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DropResourceResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a DropResourceResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.DropResourceResult} DropResourceResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DropResourceResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.DropResourceResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a DropResourceResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.DropResourceResult} DropResourceResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DropResourceResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DropResourceResult message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DropResourceResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                return null;
+            };
+
+            /**
+             * Creates a DropResourceResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.DropResourceResult} DropResourceResult
+             */
+            DropResourceResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.DropResourceResult)
+                    return object;
+                return new $root.Ydb.RateLimiter.DropResourceResult();
+            };
+
+            /**
+             * Creates a plain object from a DropResourceResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.DropResourceResult} message DropResourceResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DropResourceResult.toObject = function toObject() {
+                return {};
+            };
+
+            /**
+             * Converts this DropResourceResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.DropResourceResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DropResourceResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return DropResourceResult;
+        })();
+
+        RateLimiter.ListResourcesRequest = (function() {
+
+            /**
+             * Properties of a ListResourcesRequest.
+             * @memberof Ydb.RateLimiter
+             * @interface IListResourcesRequest
+             * @property {Ydb.Operations.IOperationParams|null} [operationParams] ListResourcesRequest operationParams
+             * @property {string|null} [coordinationNodePath] ListResourcesRequest coordinationNodePath
+             * @property {string|null} [resourcePath] ListResourcesRequest resourcePath
+             * @property {boolean|null} [recursive] ListResourcesRequest recursive
+             */
+
+            /**
+             * Constructs a new ListResourcesRequest.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a ListResourcesRequest.
+             * @implements IListResourcesRequest
+             * @constructor
+             * @param {Ydb.RateLimiter.IListResourcesRequest=} [properties] Properties to set
+             */
+            function ListResourcesRequest(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ListResourcesRequest operationParams.
+             * @member {Ydb.Operations.IOperationParams|null|undefined} operationParams
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @instance
+             */
+            ListResourcesRequest.prototype.operationParams = null;
+
+            /**
+             * ListResourcesRequest coordinationNodePath.
+             * @member {string} coordinationNodePath
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @instance
+             */
+            ListResourcesRequest.prototype.coordinationNodePath = "";
+
+            /**
+             * ListResourcesRequest resourcePath.
+             * @member {string} resourcePath
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @instance
+             */
+            ListResourcesRequest.prototype.resourcePath = "";
+
+            /**
+             * ListResourcesRequest recursive.
+             * @member {boolean} recursive
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @instance
+             */
+            ListResourcesRequest.prototype.recursive = false;
+
+            /**
+             * Creates a new ListResourcesRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesRequest=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.ListResourcesRequest} ListResourcesRequest instance
+             */
+            ListResourcesRequest.create = function create(properties) {
+                return new ListResourcesRequest(properties);
+            };
+
+            /**
+             * Encodes the specified ListResourcesRequest message. Does not implicitly {@link Ydb.RateLimiter.ListResourcesRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesRequest} message ListResourcesRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ListResourcesRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.coordinationNodePath);
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.resourcePath);
+                if (message.recursive != null && message.hasOwnProperty("recursive"))
+                    writer.uint32(/* id 4, wireType 0 =*/32).bool(message.recursive);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ListResourcesRequest message, length delimited. Does not implicitly {@link Ydb.RateLimiter.ListResourcesRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesRequest} message ListResourcesRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ListResourcesRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a ListResourcesRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.ListResourcesRequest} ListResourcesRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ListResourcesRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.ListResourcesRequest();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operationParams = $root.Ydb.Operations.OperationParams.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.coordinationNodePath = reader.string();
+                        break;
+                    case 3:
+                        message.resourcePath = reader.string();
+                        break;
+                    case 4:
+                        message.recursive = reader.bool();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a ListResourcesRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.ListResourcesRequest} ListResourcesRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ListResourcesRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ListResourcesRequest message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ListResourcesRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operationParams != null && message.hasOwnProperty("operationParams")) {
+                    var error = $root.Ydb.Operations.OperationParams.verify(message.operationParams);
+                    if (error)
+                        return "operationParams." + error;
+                }
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    if (!$util.isString(message.coordinationNodePath))
+                        return "coordinationNodePath: string expected";
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    if (!$util.isString(message.resourcePath))
+                        return "resourcePath: string expected";
+                if (message.recursive != null && message.hasOwnProperty("recursive"))
+                    if (typeof message.recursive !== "boolean")
+                        return "recursive: boolean expected";
+                return null;
+            };
+
+            /**
+             * Creates a ListResourcesRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.ListResourcesRequest} ListResourcesRequest
+             */
+            ListResourcesRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.ListResourcesRequest)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.ListResourcesRequest();
+                if (object.operationParams != null) {
+                    if (typeof object.operationParams !== "object")
+                        throw TypeError(".Ydb.RateLimiter.ListResourcesRequest.operationParams: object expected");
+                    message.operationParams = $root.Ydb.Operations.OperationParams.fromObject(object.operationParams);
+                }
+                if (object.coordinationNodePath != null)
+                    message.coordinationNodePath = String(object.coordinationNodePath);
+                if (object.resourcePath != null)
+                    message.resourcePath = String(object.resourcePath);
+                if (object.recursive != null)
+                    message.recursive = Boolean(object.recursive);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ListResourcesRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @static
+             * @param {Ydb.RateLimiter.ListResourcesRequest} message ListResourcesRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ListResourcesRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.operationParams = null;
+                    object.coordinationNodePath = "";
+                    object.resourcePath = "";
+                    object.recursive = false;
+                }
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    object.coordinationNodePath = message.coordinationNodePath;
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    object.resourcePath = message.resourcePath;
+                if (message.recursive != null && message.hasOwnProperty("recursive"))
+                    object.recursive = message.recursive;
+                return object;
+            };
+
+            /**
+             * Converts this ListResourcesRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.ListResourcesRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ListResourcesRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ListResourcesRequest;
+        })();
+
+        RateLimiter.ListResourcesResponse = (function() {
+
+            /**
+             * Properties of a ListResourcesResponse.
+             * @memberof Ydb.RateLimiter
+             * @interface IListResourcesResponse
+             * @property {Ydb.Operations.IOperation|null} [operation] ListResourcesResponse operation
+             */
+
+            /**
+             * Constructs a new ListResourcesResponse.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a ListResourcesResponse.
+             * @implements IListResourcesResponse
+             * @constructor
+             * @param {Ydb.RateLimiter.IListResourcesResponse=} [properties] Properties to set
+             */
+            function ListResourcesResponse(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ListResourcesResponse operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @instance
+             */
+            ListResourcesResponse.prototype.operation = null;
+
+            /**
+             * Creates a new ListResourcesResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesResponse=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.ListResourcesResponse} ListResourcesResponse instance
+             */
+            ListResourcesResponse.create = function create(properties) {
+                return new ListResourcesResponse(properties);
+            };
+
+            /**
+             * Encodes the specified ListResourcesResponse message. Does not implicitly {@link Ydb.RateLimiter.ListResourcesResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesResponse} message ListResourcesResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ListResourcesResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ListResourcesResponse message, length delimited. Does not implicitly {@link Ydb.RateLimiter.ListResourcesResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesResponse} message ListResourcesResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ListResourcesResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a ListResourcesResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.ListResourcesResponse} ListResourcesResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ListResourcesResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.ListResourcesResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a ListResourcesResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.ListResourcesResponse} ListResourcesResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ListResourcesResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ListResourcesResponse message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ListResourcesResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a ListResourcesResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.ListResourcesResponse} ListResourcesResponse
+             */
+            ListResourcesResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.ListResourcesResponse)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.ListResourcesResponse();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.RateLimiter.ListResourcesResponse.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ListResourcesResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @static
+             * @param {Ydb.RateLimiter.ListResourcesResponse} message ListResourcesResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ListResourcesResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this ListResourcesResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.ListResourcesResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ListResourcesResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ListResourcesResponse;
+        })();
+
+        RateLimiter.ListResourcesResult = (function() {
+
+            /**
+             * Properties of a ListResourcesResult.
+             * @memberof Ydb.RateLimiter
+             * @interface IListResourcesResult
+             * @property {Array.<string>|null} [resourcePaths] ListResourcesResult resourcePaths
+             */
+
+            /**
+             * Constructs a new ListResourcesResult.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a ListResourcesResult.
+             * @implements IListResourcesResult
+             * @constructor
+             * @param {Ydb.RateLimiter.IListResourcesResult=} [properties] Properties to set
+             */
+            function ListResourcesResult(properties) {
+                this.resourcePaths = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ListResourcesResult resourcePaths.
+             * @member {Array.<string>} resourcePaths
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @instance
+             */
+            ListResourcesResult.prototype.resourcePaths = $util.emptyArray;
+
+            /**
+             * Creates a new ListResourcesResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesResult=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.ListResourcesResult} ListResourcesResult instance
+             */
+            ListResourcesResult.create = function create(properties) {
+                return new ListResourcesResult(properties);
+            };
+
+            /**
+             * Encodes the specified ListResourcesResult message. Does not implicitly {@link Ydb.RateLimiter.ListResourcesResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesResult} message ListResourcesResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ListResourcesResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.resourcePaths != null && message.resourcePaths.length)
+                    for (var i = 0; i < message.resourcePaths.length; ++i)
+                        writer.uint32(/* id 1, wireType 2 =*/10).string(message.resourcePaths[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ListResourcesResult message, length delimited. Does not implicitly {@link Ydb.RateLimiter.ListResourcesResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @static
+             * @param {Ydb.RateLimiter.IListResourcesResult} message ListResourcesResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ListResourcesResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a ListResourcesResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.ListResourcesResult} ListResourcesResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ListResourcesResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.ListResourcesResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        if (!(message.resourcePaths && message.resourcePaths.length))
+                            message.resourcePaths = [];
+                        message.resourcePaths.push(reader.string());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a ListResourcesResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.ListResourcesResult} ListResourcesResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ListResourcesResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ListResourcesResult message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ListResourcesResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.resourcePaths != null && message.hasOwnProperty("resourcePaths")) {
+                    if (!Array.isArray(message.resourcePaths))
+                        return "resourcePaths: array expected";
+                    for (var i = 0; i < message.resourcePaths.length; ++i)
+                        if (!$util.isString(message.resourcePaths[i]))
+                            return "resourcePaths: string[] expected";
+                }
+                return null;
+            };
+
+            /**
+             * Creates a ListResourcesResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.ListResourcesResult} ListResourcesResult
+             */
+            ListResourcesResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.ListResourcesResult)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.ListResourcesResult();
+                if (object.resourcePaths) {
+                    if (!Array.isArray(object.resourcePaths))
+                        throw TypeError(".Ydb.RateLimiter.ListResourcesResult.resourcePaths: array expected");
+                    message.resourcePaths = [];
+                    for (var i = 0; i < object.resourcePaths.length; ++i)
+                        message.resourcePaths[i] = String(object.resourcePaths[i]);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ListResourcesResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @static
+             * @param {Ydb.RateLimiter.ListResourcesResult} message ListResourcesResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ListResourcesResult.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.resourcePaths = [];
+                if (message.resourcePaths && message.resourcePaths.length) {
+                    object.resourcePaths = [];
+                    for (var j = 0; j < message.resourcePaths.length; ++j)
+                        object.resourcePaths[j] = message.resourcePaths[j];
+                }
+                return object;
+            };
+
+            /**
+             * Converts this ListResourcesResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.ListResourcesResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ListResourcesResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ListResourcesResult;
+        })();
+
+        RateLimiter.DescribeResourceRequest = (function() {
+
+            /**
+             * Properties of a DescribeResourceRequest.
+             * @memberof Ydb.RateLimiter
+             * @interface IDescribeResourceRequest
+             * @property {Ydb.Operations.IOperationParams|null} [operationParams] DescribeResourceRequest operationParams
+             * @property {string|null} [coordinationNodePath] DescribeResourceRequest coordinationNodePath
+             * @property {string|null} [resourcePath] DescribeResourceRequest resourcePath
+             */
+
+            /**
+             * Constructs a new DescribeResourceRequest.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a DescribeResourceRequest.
+             * @implements IDescribeResourceRequest
+             * @constructor
+             * @param {Ydb.RateLimiter.IDescribeResourceRequest=} [properties] Properties to set
+             */
+            function DescribeResourceRequest(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * DescribeResourceRequest operationParams.
+             * @member {Ydb.Operations.IOperationParams|null|undefined} operationParams
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @instance
+             */
+            DescribeResourceRequest.prototype.operationParams = null;
+
+            /**
+             * DescribeResourceRequest coordinationNodePath.
+             * @member {string} coordinationNodePath
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @instance
+             */
+            DescribeResourceRequest.prototype.coordinationNodePath = "";
+
+            /**
+             * DescribeResourceRequest resourcePath.
+             * @member {string} resourcePath
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @instance
+             */
+            DescribeResourceRequest.prototype.resourcePath = "";
+
+            /**
+             * Creates a new DescribeResourceRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceRequest=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.DescribeResourceRequest} DescribeResourceRequest instance
+             */
+            DescribeResourceRequest.create = function create(properties) {
+                return new DescribeResourceRequest(properties);
+            };
+
+            /**
+             * Encodes the specified DescribeResourceRequest message. Does not implicitly {@link Ydb.RateLimiter.DescribeResourceRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceRequest} message DescribeResourceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DescribeResourceRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.coordinationNodePath);
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.resourcePath);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DescribeResourceRequest message, length delimited. Does not implicitly {@link Ydb.RateLimiter.DescribeResourceRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceRequest} message DescribeResourceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DescribeResourceRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a DescribeResourceRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.DescribeResourceRequest} DescribeResourceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DescribeResourceRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.DescribeResourceRequest();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operationParams = $root.Ydb.Operations.OperationParams.decode(reader, reader.uint32());
+                        break;
+                    case 2:
+                        message.coordinationNodePath = reader.string();
+                        break;
+                    case 3:
+                        message.resourcePath = reader.string();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a DescribeResourceRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.DescribeResourceRequest} DescribeResourceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DescribeResourceRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DescribeResourceRequest message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DescribeResourceRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operationParams != null && message.hasOwnProperty("operationParams")) {
+                    var error = $root.Ydb.Operations.OperationParams.verify(message.operationParams);
+                    if (error)
+                        return "operationParams." + error;
+                }
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    if (!$util.isString(message.coordinationNodePath))
+                        return "coordinationNodePath: string expected";
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    if (!$util.isString(message.resourcePath))
+                        return "resourcePath: string expected";
+                return null;
+            };
+
+            /**
+             * Creates a DescribeResourceRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.DescribeResourceRequest} DescribeResourceRequest
+             */
+            DescribeResourceRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.DescribeResourceRequest)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.DescribeResourceRequest();
+                if (object.operationParams != null) {
+                    if (typeof object.operationParams !== "object")
+                        throw TypeError(".Ydb.RateLimiter.DescribeResourceRequest.operationParams: object expected");
+                    message.operationParams = $root.Ydb.Operations.OperationParams.fromObject(object.operationParams);
+                }
+                if (object.coordinationNodePath != null)
+                    message.coordinationNodePath = String(object.coordinationNodePath);
+                if (object.resourcePath != null)
+                    message.resourcePath = String(object.resourcePath);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DescribeResourceRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @static
+             * @param {Ydb.RateLimiter.DescribeResourceRequest} message DescribeResourceRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DescribeResourceRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.operationParams = null;
+                    object.coordinationNodePath = "";
+                    object.resourcePath = "";
+                }
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
+                if (message.coordinationNodePath != null && message.hasOwnProperty("coordinationNodePath"))
+                    object.coordinationNodePath = message.coordinationNodePath;
+                if (message.resourcePath != null && message.hasOwnProperty("resourcePath"))
+                    object.resourcePath = message.resourcePath;
+                return object;
+            };
+
+            /**
+             * Converts this DescribeResourceRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.DescribeResourceRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DescribeResourceRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return DescribeResourceRequest;
+        })();
+
+        RateLimiter.DescribeResourceResponse = (function() {
+
+            /**
+             * Properties of a DescribeResourceResponse.
+             * @memberof Ydb.RateLimiter
+             * @interface IDescribeResourceResponse
+             * @property {Ydb.Operations.IOperation|null} [operation] DescribeResourceResponse operation
+             */
+
+            /**
+             * Constructs a new DescribeResourceResponse.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a DescribeResourceResponse.
+             * @implements IDescribeResourceResponse
+             * @constructor
+             * @param {Ydb.RateLimiter.IDescribeResourceResponse=} [properties] Properties to set
+             */
+            function DescribeResourceResponse(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * DescribeResourceResponse operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @instance
+             */
+            DescribeResourceResponse.prototype.operation = null;
+
+            /**
+             * Creates a new DescribeResourceResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceResponse=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.DescribeResourceResponse} DescribeResourceResponse instance
+             */
+            DescribeResourceResponse.create = function create(properties) {
+                return new DescribeResourceResponse(properties);
+            };
+
+            /**
+             * Encodes the specified DescribeResourceResponse message. Does not implicitly {@link Ydb.RateLimiter.DescribeResourceResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceResponse} message DescribeResourceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DescribeResourceResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DescribeResourceResponse message, length delimited. Does not implicitly {@link Ydb.RateLimiter.DescribeResourceResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceResponse} message DescribeResourceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DescribeResourceResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a DescribeResourceResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.DescribeResourceResponse} DescribeResourceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DescribeResourceResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.DescribeResourceResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a DescribeResourceResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.DescribeResourceResponse} DescribeResourceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DescribeResourceResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DescribeResourceResponse message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DescribeResourceResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a DescribeResourceResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.DescribeResourceResponse} DescribeResourceResponse
+             */
+            DescribeResourceResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.DescribeResourceResponse)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.DescribeResourceResponse();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.RateLimiter.DescribeResourceResponse.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DescribeResourceResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @static
+             * @param {Ydb.RateLimiter.DescribeResourceResponse} message DescribeResourceResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DescribeResourceResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this DescribeResourceResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.DescribeResourceResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DescribeResourceResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return DescribeResourceResponse;
+        })();
+
+        RateLimiter.DescribeResourceResult = (function() {
+
+            /**
+             * Properties of a DescribeResourceResult.
+             * @memberof Ydb.RateLimiter
+             * @interface IDescribeResourceResult
+             * @property {Ydb.RateLimiter.IResource|null} [resource] DescribeResourceResult resource
+             */
+
+            /**
+             * Constructs a new DescribeResourceResult.
+             * @memberof Ydb.RateLimiter
+             * @classdesc Represents a DescribeResourceResult.
+             * @implements IDescribeResourceResult
+             * @constructor
+             * @param {Ydb.RateLimiter.IDescribeResourceResult=} [properties] Properties to set
+             */
+            function DescribeResourceResult(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * DescribeResourceResult resource.
+             * @member {Ydb.RateLimiter.IResource|null|undefined} resource
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @instance
+             */
+            DescribeResourceResult.prototype.resource = null;
+
+            /**
+             * Creates a new DescribeResourceResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceResult=} [properties] Properties to set
+             * @returns {Ydb.RateLimiter.DescribeResourceResult} DescribeResourceResult instance
+             */
+            DescribeResourceResult.create = function create(properties) {
+                return new DescribeResourceResult(properties);
+            };
+
+            /**
+             * Encodes the specified DescribeResourceResult message. Does not implicitly {@link Ydb.RateLimiter.DescribeResourceResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceResult} message DescribeResourceResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DescribeResourceResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.resource != null && message.hasOwnProperty("resource"))
+                    $root.Ydb.RateLimiter.Resource.encode(message.resource, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DescribeResourceResult message, length delimited. Does not implicitly {@link Ydb.RateLimiter.DescribeResourceResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.IDescribeResourceResult} message DescribeResourceResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DescribeResourceResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a DescribeResourceResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.RateLimiter.DescribeResourceResult} DescribeResourceResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DescribeResourceResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.RateLimiter.DescribeResourceResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.resource = $root.Ydb.RateLimiter.Resource.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a DescribeResourceResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.RateLimiter.DescribeResourceResult} DescribeResourceResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DescribeResourceResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DescribeResourceResult message.
+             * @function verify
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DescribeResourceResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.resource != null && message.hasOwnProperty("resource")) {
+                    var error = $root.Ydb.RateLimiter.Resource.verify(message.resource);
+                    if (error)
+                        return "resource." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a DescribeResourceResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.RateLimiter.DescribeResourceResult} DescribeResourceResult
+             */
+            DescribeResourceResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.RateLimiter.DescribeResourceResult)
+                    return object;
+                var message = new $root.Ydb.RateLimiter.DescribeResourceResult();
+                if (object.resource != null) {
+                    if (typeof object.resource !== "object")
+                        throw TypeError(".Ydb.RateLimiter.DescribeResourceResult.resource: object expected");
+                    message.resource = $root.Ydb.RateLimiter.Resource.fromObject(object.resource);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DescribeResourceResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @static
+             * @param {Ydb.RateLimiter.DescribeResourceResult} message DescribeResourceResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DescribeResourceResult.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.resource = null;
+                if (message.resource != null && message.hasOwnProperty("resource"))
+                    object.resource = $root.Ydb.RateLimiter.Resource.toObject(message.resource, options);
+                return object;
+            };
+
+            /**
+             * Converts this DescribeResourceResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.RateLimiter.DescribeResourceResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DescribeResourceResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return DescribeResourceResult;
+        })();
+
+        return RateLimiter;
     })();
 
     Ydb.Scripting = (function() {
@@ -32557,6 +46239,72 @@ $root.Ydb = (function() {
                  * @variation 2
                  */
 
+                /**
+                 * Callback as used by {@link Ydb.Table.V1.TableService#bulkUpsert}.
+                 * @memberof Ydb.Table.V1.TableService
+                 * @typedef BulkUpsertCallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.Table.BulkUpsertResponse} [response] BulkUpsertResponse
+                 */
+
+                /**
+                 * Calls BulkUpsert.
+                 * @function bulkUpsert
+                 * @memberof Ydb.Table.V1.TableService
+                 * @instance
+                 * @param {Ydb.Table.IBulkUpsertRequest} request BulkUpsertRequest message or plain object
+                 * @param {Ydb.Table.V1.TableService.BulkUpsertCallback} callback Node-style callback called with the error, if any, and BulkUpsertResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(TableService.prototype.bulkUpsert = function bulkUpsert(request, callback) {
+                    return this.rpcCall(bulkUpsert, $root.Ydb.Table.BulkUpsertRequest, $root.Ydb.Table.BulkUpsertResponse, request, callback);
+                }, "name", { value: "BulkUpsert" });
+
+                /**
+                 * Calls BulkUpsert.
+                 * @function bulkUpsert
+                 * @memberof Ydb.Table.V1.TableService
+                 * @instance
+                 * @param {Ydb.Table.IBulkUpsertRequest} request BulkUpsertRequest message or plain object
+                 * @returns {Promise<Ydb.Table.BulkUpsertResponse>} Promise
+                 * @variation 2
+                 */
+
+                /**
+                 * Callback as used by {@link Ydb.Table.V1.TableService#executeStreamQuery}.
+                 * @memberof Ydb.Table.V1.TableService
+                 * @typedef ExecuteStreamQueryCallback
+                 * @type {function}
+                 * @param {Error|null} error Error, if any
+                 * @param {Ydb.Table.ExecuteStreamQueryResponse} [response] ExecuteStreamQueryResponse
+                 */
+
+                /**
+                 * Calls ExecuteStreamQuery.
+                 * @function executeStreamQuery
+                 * @memberof Ydb.Table.V1.TableService
+                 * @instance
+                 * @param {Ydb.Table.IExecuteStreamQueryRequest} request ExecuteStreamQueryRequest message or plain object
+                 * @param {Ydb.Table.V1.TableService.ExecuteStreamQueryCallback} callback Node-style callback called with the error, if any, and ExecuteStreamQueryResponse
+                 * @returns {undefined}
+                 * @variation 1
+                 */
+                Object.defineProperty(TableService.prototype.executeStreamQuery = function executeStreamQuery(request, callback) {
+                    return this.rpcCall(executeStreamQuery, $root.Ydb.Table.ExecuteStreamQueryRequest, $root.Ydb.Table.ExecuteStreamQueryResponse, request, callback);
+                }, "name", { value: "ExecuteStreamQuery" });
+
+                /**
+                 * Calls ExecuteStreamQuery.
+                 * @function executeStreamQuery
+                 * @memberof Ydb.Table.V1.TableService
+                 * @instance
+                 * @param {Ydb.Table.IExecuteStreamQueryRequest} request ExecuteStreamQueryRequest message or plain object
+                 * @returns {Promise<Ydb.Table.ExecuteStreamQueryResponse>} Promise
+                 * @variation 2
+                 */
+
                 return TableService;
             })();
 
@@ -35274,6 +49022,616 @@ $root.Ydb = (function() {
             return ExplicitPartitions;
         })();
 
+        Table.PartitionStats = (function() {
+
+            /**
+             * Properties of a PartitionStats.
+             * @memberof Ydb.Table
+             * @interface IPartitionStats
+             * @property {number|Long|null} [rowsEstimate] PartitionStats rowsEstimate
+             * @property {number|Long|null} [storeSize] PartitionStats storeSize
+             */
+
+            /**
+             * Constructs a new PartitionStats.
+             * @memberof Ydb.Table
+             * @classdesc Represents a PartitionStats.
+             * @implements IPartitionStats
+             * @constructor
+             * @param {Ydb.Table.IPartitionStats=} [properties] Properties to set
+             */
+            function PartitionStats(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * PartitionStats rowsEstimate.
+             * @member {number|Long} rowsEstimate
+             * @memberof Ydb.Table.PartitionStats
+             * @instance
+             */
+            PartitionStats.prototype.rowsEstimate = $util.Long ? $util.Long.fromBits(0,0,true) : 0;
+
+            /**
+             * PartitionStats storeSize.
+             * @member {number|Long} storeSize
+             * @memberof Ydb.Table.PartitionStats
+             * @instance
+             */
+            PartitionStats.prototype.storeSize = $util.Long ? $util.Long.fromBits(0,0,true) : 0;
+
+            /**
+             * Creates a new PartitionStats instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.PartitionStats
+             * @static
+             * @param {Ydb.Table.IPartitionStats=} [properties] Properties to set
+             * @returns {Ydb.Table.PartitionStats} PartitionStats instance
+             */
+            PartitionStats.create = function create(properties) {
+                return new PartitionStats(properties);
+            };
+
+            /**
+             * Encodes the specified PartitionStats message. Does not implicitly {@link Ydb.Table.PartitionStats.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.PartitionStats
+             * @static
+             * @param {Ydb.Table.IPartitionStats} message PartitionStats message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            PartitionStats.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.rowsEstimate != null && message.hasOwnProperty("rowsEstimate"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).uint64(message.rowsEstimate);
+                if (message.storeSize != null && message.hasOwnProperty("storeSize"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).uint64(message.storeSize);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified PartitionStats message, length delimited. Does not implicitly {@link Ydb.Table.PartitionStats.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.PartitionStats
+             * @static
+             * @param {Ydb.Table.IPartitionStats} message PartitionStats message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            PartitionStats.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a PartitionStats message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.PartitionStats
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.PartitionStats} PartitionStats
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            PartitionStats.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.PartitionStats();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.rowsEstimate = reader.uint64();
+                        break;
+                    case 2:
+                        message.storeSize = reader.uint64();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a PartitionStats message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.PartitionStats
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.PartitionStats} PartitionStats
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            PartitionStats.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a PartitionStats message.
+             * @function verify
+             * @memberof Ydb.Table.PartitionStats
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            PartitionStats.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.rowsEstimate != null && message.hasOwnProperty("rowsEstimate"))
+                    if (!$util.isInteger(message.rowsEstimate) && !(message.rowsEstimate && $util.isInteger(message.rowsEstimate.low) && $util.isInteger(message.rowsEstimate.high)))
+                        return "rowsEstimate: integer|Long expected";
+                if (message.storeSize != null && message.hasOwnProperty("storeSize"))
+                    if (!$util.isInteger(message.storeSize) && !(message.storeSize && $util.isInteger(message.storeSize.low) && $util.isInteger(message.storeSize.high)))
+                        return "storeSize: integer|Long expected";
+                return null;
+            };
+
+            /**
+             * Creates a PartitionStats message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.PartitionStats
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.PartitionStats} PartitionStats
+             */
+            PartitionStats.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.PartitionStats)
+                    return object;
+                var message = new $root.Ydb.Table.PartitionStats();
+                if (object.rowsEstimate != null)
+                    if ($util.Long)
+                        (message.rowsEstimate = $util.Long.fromValue(object.rowsEstimate)).unsigned = true;
+                    else if (typeof object.rowsEstimate === "string")
+                        message.rowsEstimate = parseInt(object.rowsEstimate, 10);
+                    else if (typeof object.rowsEstimate === "number")
+                        message.rowsEstimate = object.rowsEstimate;
+                    else if (typeof object.rowsEstimate === "object")
+                        message.rowsEstimate = new $util.LongBits(object.rowsEstimate.low >>> 0, object.rowsEstimate.high >>> 0).toNumber(true);
+                if (object.storeSize != null)
+                    if ($util.Long)
+                        (message.storeSize = $util.Long.fromValue(object.storeSize)).unsigned = true;
+                    else if (typeof object.storeSize === "string")
+                        message.storeSize = parseInt(object.storeSize, 10);
+                    else if (typeof object.storeSize === "number")
+                        message.storeSize = object.storeSize;
+                    else if (typeof object.storeSize === "object")
+                        message.storeSize = new $util.LongBits(object.storeSize.low >>> 0, object.storeSize.high >>> 0).toNumber(true);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a PartitionStats message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.PartitionStats
+             * @static
+             * @param {Ydb.Table.PartitionStats} message PartitionStats
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            PartitionStats.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    if ($util.Long) {
+                        var long = new $util.Long(0, 0, true);
+                        object.rowsEstimate = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                    } else
+                        object.rowsEstimate = options.longs === String ? "0" : 0;
+                    if ($util.Long) {
+                        var long = new $util.Long(0, 0, true);
+                        object.storeSize = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                    } else
+                        object.storeSize = options.longs === String ? "0" : 0;
+                }
+                if (message.rowsEstimate != null && message.hasOwnProperty("rowsEstimate"))
+                    if (typeof message.rowsEstimate === "number")
+                        object.rowsEstimate = options.longs === String ? String(message.rowsEstimate) : message.rowsEstimate;
+                    else
+                        object.rowsEstimate = options.longs === String ? $util.Long.prototype.toString.call(message.rowsEstimate) : options.longs === Number ? new $util.LongBits(message.rowsEstimate.low >>> 0, message.rowsEstimate.high >>> 0).toNumber(true) : message.rowsEstimate;
+                if (message.storeSize != null && message.hasOwnProperty("storeSize"))
+                    if (typeof message.storeSize === "number")
+                        object.storeSize = options.longs === String ? String(message.storeSize) : message.storeSize;
+                    else
+                        object.storeSize = options.longs === String ? $util.Long.prototype.toString.call(message.storeSize) : options.longs === Number ? new $util.LongBits(message.storeSize.low >>> 0, message.storeSize.high >>> 0).toNumber(true) : message.storeSize;
+                return object;
+            };
+
+            /**
+             * Converts this PartitionStats to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.PartitionStats
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            PartitionStats.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return PartitionStats;
+        })();
+
+        Table.TableStats = (function() {
+
+            /**
+             * Properties of a TableStats.
+             * @memberof Ydb.Table
+             * @interface ITableStats
+             * @property {Array.<Ydb.Table.IPartitionStats>|null} [partitionStats] TableStats partitionStats
+             * @property {number|Long|null} [rowsEstimate] TableStats rowsEstimate
+             * @property {number|Long|null} [storeSize] TableStats storeSize
+             * @property {number|Long|null} [partitions] TableStats partitions
+             * @property {google.protobuf.ITimestamp|null} [creationTime] TableStats creationTime
+             * @property {google.protobuf.ITimestamp|null} [modificationTime] TableStats modificationTime
+             */
+
+            /**
+             * Constructs a new TableStats.
+             * @memberof Ydb.Table
+             * @classdesc Represents a TableStats.
+             * @implements ITableStats
+             * @constructor
+             * @param {Ydb.Table.ITableStats=} [properties] Properties to set
+             */
+            function TableStats(properties) {
+                this.partitionStats = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * TableStats partitionStats.
+             * @member {Array.<Ydb.Table.IPartitionStats>} partitionStats
+             * @memberof Ydb.Table.TableStats
+             * @instance
+             */
+            TableStats.prototype.partitionStats = $util.emptyArray;
+
+            /**
+             * TableStats rowsEstimate.
+             * @member {number|Long} rowsEstimate
+             * @memberof Ydb.Table.TableStats
+             * @instance
+             */
+            TableStats.prototype.rowsEstimate = $util.Long ? $util.Long.fromBits(0,0,true) : 0;
+
+            /**
+             * TableStats storeSize.
+             * @member {number|Long} storeSize
+             * @memberof Ydb.Table.TableStats
+             * @instance
+             */
+            TableStats.prototype.storeSize = $util.Long ? $util.Long.fromBits(0,0,true) : 0;
+
+            /**
+             * TableStats partitions.
+             * @member {number|Long} partitions
+             * @memberof Ydb.Table.TableStats
+             * @instance
+             */
+            TableStats.prototype.partitions = $util.Long ? $util.Long.fromBits(0,0,true) : 0;
+
+            /**
+             * TableStats creationTime.
+             * @member {google.protobuf.ITimestamp|null|undefined} creationTime
+             * @memberof Ydb.Table.TableStats
+             * @instance
+             */
+            TableStats.prototype.creationTime = null;
+
+            /**
+             * TableStats modificationTime.
+             * @member {google.protobuf.ITimestamp|null|undefined} modificationTime
+             * @memberof Ydb.Table.TableStats
+             * @instance
+             */
+            TableStats.prototype.modificationTime = null;
+
+            /**
+             * Creates a new TableStats instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.TableStats
+             * @static
+             * @param {Ydb.Table.ITableStats=} [properties] Properties to set
+             * @returns {Ydb.Table.TableStats} TableStats instance
+             */
+            TableStats.create = function create(properties) {
+                return new TableStats(properties);
+            };
+
+            /**
+             * Encodes the specified TableStats message. Does not implicitly {@link Ydb.Table.TableStats.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.TableStats
+             * @static
+             * @param {Ydb.Table.ITableStats} message TableStats message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            TableStats.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.partitionStats != null && message.partitionStats.length)
+                    for (var i = 0; i < message.partitionStats.length; ++i)
+                        $root.Ydb.Table.PartitionStats.encode(message.partitionStats[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                if (message.rowsEstimate != null && message.hasOwnProperty("rowsEstimate"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).uint64(message.rowsEstimate);
+                if (message.storeSize != null && message.hasOwnProperty("storeSize"))
+                    writer.uint32(/* id 3, wireType 0 =*/24).uint64(message.storeSize);
+                if (message.partitions != null && message.hasOwnProperty("partitions"))
+                    writer.uint32(/* id 4, wireType 0 =*/32).uint64(message.partitions);
+                if (message.creationTime != null && message.hasOwnProperty("creationTime"))
+                    $root.google.protobuf.Timestamp.encode(message.creationTime, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
+                if (message.modificationTime != null && message.hasOwnProperty("modificationTime"))
+                    $root.google.protobuf.Timestamp.encode(message.modificationTime, writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified TableStats message, length delimited. Does not implicitly {@link Ydb.Table.TableStats.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.TableStats
+             * @static
+             * @param {Ydb.Table.ITableStats} message TableStats message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            TableStats.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a TableStats message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.TableStats
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.TableStats} TableStats
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            TableStats.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.TableStats();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        if (!(message.partitionStats && message.partitionStats.length))
+                            message.partitionStats = [];
+                        message.partitionStats.push($root.Ydb.Table.PartitionStats.decode(reader, reader.uint32()));
+                        break;
+                    case 2:
+                        message.rowsEstimate = reader.uint64();
+                        break;
+                    case 3:
+                        message.storeSize = reader.uint64();
+                        break;
+                    case 4:
+                        message.partitions = reader.uint64();
+                        break;
+                    case 5:
+                        message.creationTime = $root.google.protobuf.Timestamp.decode(reader, reader.uint32());
+                        break;
+                    case 6:
+                        message.modificationTime = $root.google.protobuf.Timestamp.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a TableStats message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.TableStats
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.TableStats} TableStats
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            TableStats.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a TableStats message.
+             * @function verify
+             * @memberof Ydb.Table.TableStats
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            TableStats.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.partitionStats != null && message.hasOwnProperty("partitionStats")) {
+                    if (!Array.isArray(message.partitionStats))
+                        return "partitionStats: array expected";
+                    for (var i = 0; i < message.partitionStats.length; ++i) {
+                        var error = $root.Ydb.Table.PartitionStats.verify(message.partitionStats[i]);
+                        if (error)
+                            return "partitionStats." + error;
+                    }
+                }
+                if (message.rowsEstimate != null && message.hasOwnProperty("rowsEstimate"))
+                    if (!$util.isInteger(message.rowsEstimate) && !(message.rowsEstimate && $util.isInteger(message.rowsEstimate.low) && $util.isInteger(message.rowsEstimate.high)))
+                        return "rowsEstimate: integer|Long expected";
+                if (message.storeSize != null && message.hasOwnProperty("storeSize"))
+                    if (!$util.isInteger(message.storeSize) && !(message.storeSize && $util.isInteger(message.storeSize.low) && $util.isInteger(message.storeSize.high)))
+                        return "storeSize: integer|Long expected";
+                if (message.partitions != null && message.hasOwnProperty("partitions"))
+                    if (!$util.isInteger(message.partitions) && !(message.partitions && $util.isInteger(message.partitions.low) && $util.isInteger(message.partitions.high)))
+                        return "partitions: integer|Long expected";
+                if (message.creationTime != null && message.hasOwnProperty("creationTime")) {
+                    var error = $root.google.protobuf.Timestamp.verify(message.creationTime);
+                    if (error)
+                        return "creationTime." + error;
+                }
+                if (message.modificationTime != null && message.hasOwnProperty("modificationTime")) {
+                    var error = $root.google.protobuf.Timestamp.verify(message.modificationTime);
+                    if (error)
+                        return "modificationTime." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a TableStats message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.TableStats
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.TableStats} TableStats
+             */
+            TableStats.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.TableStats)
+                    return object;
+                var message = new $root.Ydb.Table.TableStats();
+                if (object.partitionStats) {
+                    if (!Array.isArray(object.partitionStats))
+                        throw TypeError(".Ydb.Table.TableStats.partitionStats: array expected");
+                    message.partitionStats = [];
+                    for (var i = 0; i < object.partitionStats.length; ++i) {
+                        if (typeof object.partitionStats[i] !== "object")
+                            throw TypeError(".Ydb.Table.TableStats.partitionStats: object expected");
+                        message.partitionStats[i] = $root.Ydb.Table.PartitionStats.fromObject(object.partitionStats[i]);
+                    }
+                }
+                if (object.rowsEstimate != null)
+                    if ($util.Long)
+                        (message.rowsEstimate = $util.Long.fromValue(object.rowsEstimate)).unsigned = true;
+                    else if (typeof object.rowsEstimate === "string")
+                        message.rowsEstimate = parseInt(object.rowsEstimate, 10);
+                    else if (typeof object.rowsEstimate === "number")
+                        message.rowsEstimate = object.rowsEstimate;
+                    else if (typeof object.rowsEstimate === "object")
+                        message.rowsEstimate = new $util.LongBits(object.rowsEstimate.low >>> 0, object.rowsEstimate.high >>> 0).toNumber(true);
+                if (object.storeSize != null)
+                    if ($util.Long)
+                        (message.storeSize = $util.Long.fromValue(object.storeSize)).unsigned = true;
+                    else if (typeof object.storeSize === "string")
+                        message.storeSize = parseInt(object.storeSize, 10);
+                    else if (typeof object.storeSize === "number")
+                        message.storeSize = object.storeSize;
+                    else if (typeof object.storeSize === "object")
+                        message.storeSize = new $util.LongBits(object.storeSize.low >>> 0, object.storeSize.high >>> 0).toNumber(true);
+                if (object.partitions != null)
+                    if ($util.Long)
+                        (message.partitions = $util.Long.fromValue(object.partitions)).unsigned = true;
+                    else if (typeof object.partitions === "string")
+                        message.partitions = parseInt(object.partitions, 10);
+                    else if (typeof object.partitions === "number")
+                        message.partitions = object.partitions;
+                    else if (typeof object.partitions === "object")
+                        message.partitions = new $util.LongBits(object.partitions.low >>> 0, object.partitions.high >>> 0).toNumber(true);
+                if (object.creationTime != null) {
+                    if (typeof object.creationTime !== "object")
+                        throw TypeError(".Ydb.Table.TableStats.creationTime: object expected");
+                    message.creationTime = $root.google.protobuf.Timestamp.fromObject(object.creationTime);
+                }
+                if (object.modificationTime != null) {
+                    if (typeof object.modificationTime !== "object")
+                        throw TypeError(".Ydb.Table.TableStats.modificationTime: object expected");
+                    message.modificationTime = $root.google.protobuf.Timestamp.fromObject(object.modificationTime);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a TableStats message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.TableStats
+             * @static
+             * @param {Ydb.Table.TableStats} message TableStats
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            TableStats.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.partitionStats = [];
+                if (options.defaults) {
+                    if ($util.Long) {
+                        var long = new $util.Long(0, 0, true);
+                        object.rowsEstimate = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                    } else
+                        object.rowsEstimate = options.longs === String ? "0" : 0;
+                    if ($util.Long) {
+                        var long = new $util.Long(0, 0, true);
+                        object.storeSize = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                    } else
+                        object.storeSize = options.longs === String ? "0" : 0;
+                    if ($util.Long) {
+                        var long = new $util.Long(0, 0, true);
+                        object.partitions = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                    } else
+                        object.partitions = options.longs === String ? "0" : 0;
+                    object.creationTime = null;
+                    object.modificationTime = null;
+                }
+                if (message.partitionStats && message.partitionStats.length) {
+                    object.partitionStats = [];
+                    for (var j = 0; j < message.partitionStats.length; ++j)
+                        object.partitionStats[j] = $root.Ydb.Table.PartitionStats.toObject(message.partitionStats[j], options);
+                }
+                if (message.rowsEstimate != null && message.hasOwnProperty("rowsEstimate"))
+                    if (typeof message.rowsEstimate === "number")
+                        object.rowsEstimate = options.longs === String ? String(message.rowsEstimate) : message.rowsEstimate;
+                    else
+                        object.rowsEstimate = options.longs === String ? $util.Long.prototype.toString.call(message.rowsEstimate) : options.longs === Number ? new $util.LongBits(message.rowsEstimate.low >>> 0, message.rowsEstimate.high >>> 0).toNumber(true) : message.rowsEstimate;
+                if (message.storeSize != null && message.hasOwnProperty("storeSize"))
+                    if (typeof message.storeSize === "number")
+                        object.storeSize = options.longs === String ? String(message.storeSize) : message.storeSize;
+                    else
+                        object.storeSize = options.longs === String ? $util.Long.prototype.toString.call(message.storeSize) : options.longs === Number ? new $util.LongBits(message.storeSize.low >>> 0, message.storeSize.high >>> 0).toNumber(true) : message.storeSize;
+                if (message.partitions != null && message.hasOwnProperty("partitions"))
+                    if (typeof message.partitions === "number")
+                        object.partitions = options.longs === String ? String(message.partitions) : message.partitions;
+                    else
+                        object.partitions = options.longs === String ? $util.Long.prototype.toString.call(message.partitions) : options.longs === Number ? new $util.LongBits(message.partitions.low >>> 0, message.partitions.high >>> 0).toNumber(true) : message.partitions;
+                if (message.creationTime != null && message.hasOwnProperty("creationTime"))
+                    object.creationTime = $root.google.protobuf.Timestamp.toObject(message.creationTime, options);
+                if (message.modificationTime != null && message.hasOwnProperty("modificationTime"))
+                    object.modificationTime = $root.google.protobuf.Timestamp.toObject(message.modificationTime, options);
+                return object;
+            };
+
+            /**
+             * Converts this TableStats to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.TableStats
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            TableStats.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return TableStats;
+        })();
+
         Table.PartitioningPolicy = (function() {
 
             /**
@@ -36861,6 +51219,427 @@ $root.Ydb = (function() {
             return ColumnMeta;
         })();
 
+        Table.DateTypeColumnModeSettings = (function() {
+
+            /**
+             * Properties of a DateTypeColumnModeSettings.
+             * @memberof Ydb.Table
+             * @interface IDateTypeColumnModeSettings
+             * @property {string|null} [columnName] DateTypeColumnModeSettings columnName
+             * @property {number|null} [expireAfterSeconds] DateTypeColumnModeSettings expireAfterSeconds
+             */
+
+            /**
+             * Constructs a new DateTypeColumnModeSettings.
+             * @memberof Ydb.Table
+             * @classdesc Represents a DateTypeColumnModeSettings.
+             * @implements IDateTypeColumnModeSettings
+             * @constructor
+             * @param {Ydb.Table.IDateTypeColumnModeSettings=} [properties] Properties to set
+             */
+            function DateTypeColumnModeSettings(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * DateTypeColumnModeSettings columnName.
+             * @member {string} columnName
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @instance
+             */
+            DateTypeColumnModeSettings.prototype.columnName = "";
+
+            /**
+             * DateTypeColumnModeSettings expireAfterSeconds.
+             * @member {number} expireAfterSeconds
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @instance
+             */
+            DateTypeColumnModeSettings.prototype.expireAfterSeconds = 0;
+
+            /**
+             * Creates a new DateTypeColumnModeSettings instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @static
+             * @param {Ydb.Table.IDateTypeColumnModeSettings=} [properties] Properties to set
+             * @returns {Ydb.Table.DateTypeColumnModeSettings} DateTypeColumnModeSettings instance
+             */
+            DateTypeColumnModeSettings.create = function create(properties) {
+                return new DateTypeColumnModeSettings(properties);
+            };
+
+            /**
+             * Encodes the specified DateTypeColumnModeSettings message. Does not implicitly {@link Ydb.Table.DateTypeColumnModeSettings.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @static
+             * @param {Ydb.Table.IDateTypeColumnModeSettings} message DateTypeColumnModeSettings message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DateTypeColumnModeSettings.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.columnName != null && message.hasOwnProperty("columnName"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.columnName);
+                if (message.expireAfterSeconds != null && message.hasOwnProperty("expireAfterSeconds"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.expireAfterSeconds);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DateTypeColumnModeSettings message, length delimited. Does not implicitly {@link Ydb.Table.DateTypeColumnModeSettings.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @static
+             * @param {Ydb.Table.IDateTypeColumnModeSettings} message DateTypeColumnModeSettings message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DateTypeColumnModeSettings.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a DateTypeColumnModeSettings message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.DateTypeColumnModeSettings} DateTypeColumnModeSettings
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DateTypeColumnModeSettings.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.DateTypeColumnModeSettings();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.columnName = reader.string();
+                        break;
+                    case 2:
+                        message.expireAfterSeconds = reader.uint32();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a DateTypeColumnModeSettings message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.DateTypeColumnModeSettings} DateTypeColumnModeSettings
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DateTypeColumnModeSettings.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DateTypeColumnModeSettings message.
+             * @function verify
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DateTypeColumnModeSettings.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.columnName != null && message.hasOwnProperty("columnName"))
+                    if (!$util.isString(message.columnName))
+                        return "columnName: string expected";
+                if (message.expireAfterSeconds != null && message.hasOwnProperty("expireAfterSeconds"))
+                    if (!$util.isInteger(message.expireAfterSeconds))
+                        return "expireAfterSeconds: integer expected";
+                return null;
+            };
+
+            /**
+             * Creates a DateTypeColumnModeSettings message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.DateTypeColumnModeSettings} DateTypeColumnModeSettings
+             */
+            DateTypeColumnModeSettings.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.DateTypeColumnModeSettings)
+                    return object;
+                var message = new $root.Ydb.Table.DateTypeColumnModeSettings();
+                if (object.columnName != null)
+                    message.columnName = String(object.columnName);
+                if (object.expireAfterSeconds != null)
+                    message.expireAfterSeconds = object.expireAfterSeconds >>> 0;
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DateTypeColumnModeSettings message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @static
+             * @param {Ydb.Table.DateTypeColumnModeSettings} message DateTypeColumnModeSettings
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DateTypeColumnModeSettings.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.columnName = "";
+                    object.expireAfterSeconds = 0;
+                }
+                if (message.columnName != null && message.hasOwnProperty("columnName"))
+                    object.columnName = message.columnName;
+                if (message.expireAfterSeconds != null && message.hasOwnProperty("expireAfterSeconds"))
+                    object.expireAfterSeconds = message.expireAfterSeconds;
+                return object;
+            };
+
+            /**
+             * Converts this DateTypeColumnModeSettings to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.DateTypeColumnModeSettings
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DateTypeColumnModeSettings.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return DateTypeColumnModeSettings;
+        })();
+
+        Table.TtlSettings = (function() {
+
+            /**
+             * Properties of a TtlSettings.
+             * @memberof Ydb.Table
+             * @interface ITtlSettings
+             * @property {Ydb.Table.IDateTypeColumnModeSettings|null} [dateTypeColumn] TtlSettings dateTypeColumn
+             */
+
+            /**
+             * Constructs a new TtlSettings.
+             * @memberof Ydb.Table
+             * @classdesc Represents a TtlSettings.
+             * @implements ITtlSettings
+             * @constructor
+             * @param {Ydb.Table.ITtlSettings=} [properties] Properties to set
+             */
+            function TtlSettings(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * TtlSettings dateTypeColumn.
+             * @member {Ydb.Table.IDateTypeColumnModeSettings|null|undefined} dateTypeColumn
+             * @memberof Ydb.Table.TtlSettings
+             * @instance
+             */
+            TtlSettings.prototype.dateTypeColumn = null;
+
+            // OneOf field names bound to virtual getters and setters
+            var $oneOfFields;
+
+            /**
+             * TtlSettings mode.
+             * @member {"dateTypeColumn"|undefined} mode
+             * @memberof Ydb.Table.TtlSettings
+             * @instance
+             */
+            Object.defineProperty(TtlSettings.prototype, "mode", {
+                get: $util.oneOfGetter($oneOfFields = ["dateTypeColumn"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            /**
+             * Creates a new TtlSettings instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.TtlSettings
+             * @static
+             * @param {Ydb.Table.ITtlSettings=} [properties] Properties to set
+             * @returns {Ydb.Table.TtlSettings} TtlSettings instance
+             */
+            TtlSettings.create = function create(properties) {
+                return new TtlSettings(properties);
+            };
+
+            /**
+             * Encodes the specified TtlSettings message. Does not implicitly {@link Ydb.Table.TtlSettings.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.TtlSettings
+             * @static
+             * @param {Ydb.Table.ITtlSettings} message TtlSettings message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            TtlSettings.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.dateTypeColumn != null && message.hasOwnProperty("dateTypeColumn"))
+                    $root.Ydb.Table.DateTypeColumnModeSettings.encode(message.dateTypeColumn, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified TtlSettings message, length delimited. Does not implicitly {@link Ydb.Table.TtlSettings.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.TtlSettings
+             * @static
+             * @param {Ydb.Table.ITtlSettings} message TtlSettings message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            TtlSettings.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a TtlSettings message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.TtlSettings
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.TtlSettings} TtlSettings
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            TtlSettings.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.TtlSettings();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.dateTypeColumn = $root.Ydb.Table.DateTypeColumnModeSettings.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a TtlSettings message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.TtlSettings
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.TtlSettings} TtlSettings
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            TtlSettings.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a TtlSettings message.
+             * @function verify
+             * @memberof Ydb.Table.TtlSettings
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            TtlSettings.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                var properties = {};
+                if (message.dateTypeColumn != null && message.hasOwnProperty("dateTypeColumn")) {
+                    properties.mode = 1;
+                    {
+                        var error = $root.Ydb.Table.DateTypeColumnModeSettings.verify(message.dateTypeColumn);
+                        if (error)
+                            return "dateTypeColumn." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a TtlSettings message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.TtlSettings
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.TtlSettings} TtlSettings
+             */
+            TtlSettings.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.TtlSettings)
+                    return object;
+                var message = new $root.Ydb.Table.TtlSettings();
+                if (object.dateTypeColumn != null) {
+                    if (typeof object.dateTypeColumn !== "object")
+                        throw TypeError(".Ydb.Table.TtlSettings.dateTypeColumn: object expected");
+                    message.dateTypeColumn = $root.Ydb.Table.DateTypeColumnModeSettings.fromObject(object.dateTypeColumn);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a TtlSettings message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.TtlSettings
+             * @static
+             * @param {Ydb.Table.TtlSettings} message TtlSettings
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            TtlSettings.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (message.dateTypeColumn != null && message.hasOwnProperty("dateTypeColumn")) {
+                    object.dateTypeColumn = $root.Ydb.Table.DateTypeColumnModeSettings.toObject(message.dateTypeColumn, options);
+                    if (options.oneofs)
+                        object.mode = "dateTypeColumn";
+                }
+                return object;
+            };
+
+            /**
+             * Converts this TtlSettings to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.TtlSettings
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            TtlSettings.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return TtlSettings;
+        })();
+
         Table.CreateTableRequest = (function() {
 
             /**
@@ -36874,6 +51653,7 @@ $root.Ydb = (function() {
              * @property {Ydb.Table.ITableProfile|null} [profile] CreateTableRequest profile
              * @property {Ydb.Operations.IOperationParams|null} [operationParams] CreateTableRequest operationParams
              * @property {Array.<Ydb.Table.ITableIndex>|null} [indexes] CreateTableRequest indexes
+             * @property {Ydb.Table.ITtlSettings|null} [ttlSettings] CreateTableRequest ttlSettings
              */
 
             /**
@@ -36951,6 +51731,14 @@ $root.Ydb = (function() {
             CreateTableRequest.prototype.indexes = $util.emptyArray;
 
             /**
+             * CreateTableRequest ttlSettings.
+             * @member {Ydb.Table.ITtlSettings|null|undefined} ttlSettings
+             * @memberof Ydb.Table.CreateTableRequest
+             * @instance
+             */
+            CreateTableRequest.prototype.ttlSettings = null;
+
+            /**
              * Creates a new CreateTableRequest instance using the specified properties.
              * @function create
              * @memberof Ydb.Table.CreateTableRequest
@@ -36991,6 +51779,8 @@ $root.Ydb = (function() {
                 if (message.indexes != null && message.indexes.length)
                     for (var i = 0; i < message.indexes.length; ++i)
                         $root.Ydb.Table.TableIndex.encode(message.indexes[i], writer.uint32(/* id 7, wireType 2 =*/58).fork()).ldelim();
+                if (message.ttlSettings != null && message.hasOwnProperty("ttlSettings"))
+                    $root.Ydb.Table.TtlSettings.encode(message.ttlSettings, writer.uint32(/* id 8, wireType 2 =*/66).fork()).ldelim();
                 return writer;
             };
 
@@ -37051,6 +51841,9 @@ $root.Ydb = (function() {
                         if (!(message.indexes && message.indexes.length))
                             message.indexes = [];
                         message.indexes.push($root.Ydb.Table.TableIndex.decode(reader, reader.uint32()));
+                        break;
+                    case 8:
+                        message.ttlSettings = $root.Ydb.Table.TtlSettings.decode(reader, reader.uint32());
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -37128,6 +51921,11 @@ $root.Ydb = (function() {
                             return "indexes." + error;
                     }
                 }
+                if (message.ttlSettings != null && message.hasOwnProperty("ttlSettings")) {
+                    var error = $root.Ydb.Table.TtlSettings.verify(message.ttlSettings);
+                    if (error)
+                        return "ttlSettings." + error;
+                }
                 return null;
             };
 
@@ -37184,6 +51982,11 @@ $root.Ydb = (function() {
                         message.indexes[i] = $root.Ydb.Table.TableIndex.fromObject(object.indexes[i]);
                     }
                 }
+                if (object.ttlSettings != null) {
+                    if (typeof object.ttlSettings !== "object")
+                        throw TypeError(".Ydb.Table.CreateTableRequest.ttlSettings: object expected");
+                    message.ttlSettings = $root.Ydb.Table.TtlSettings.fromObject(object.ttlSettings);
+                }
                 return message;
             };
 
@@ -37210,6 +52013,7 @@ $root.Ydb = (function() {
                     object.path = "";
                     object.profile = null;
                     object.operationParams = null;
+                    object.ttlSettings = null;
                 }
                 if (message.sessionId != null && message.hasOwnProperty("sessionId"))
                     object.sessionId = message.sessionId;
@@ -37234,6 +52038,8 @@ $root.Ydb = (function() {
                     for (var j = 0; j < message.indexes.length; ++j)
                         object.indexes[j] = $root.Ydb.Table.TableIndex.toObject(message.indexes[j], options);
                 }
+                if (message.ttlSettings != null && message.hasOwnProperty("ttlSettings"))
+                    object.ttlSettings = $root.Ydb.Table.TtlSettings.toObject(message.ttlSettings, options);
                 return object;
             };
 
@@ -37884,6 +52690,8 @@ $root.Ydb = (function() {
              * @property {Array.<string>|null} [dropColumns] AlterTableRequest dropColumns
              * @property {Ydb.Operations.IOperationParams|null} [operationParams] AlterTableRequest operationParams
              * @property {Array.<Ydb.Table.IColumnMeta>|null} [alterColumns] AlterTableRequest alterColumns
+             * @property {Ydb.Table.ITtlSettings|null} [setTtlSettings] AlterTableRequest setTtlSettings
+             * @property {google.protobuf.IEmpty|null} [dropTtlSettings] AlterTableRequest dropTtlSettings
              */
 
             /**
@@ -37953,6 +52761,36 @@ $root.Ydb = (function() {
             AlterTableRequest.prototype.alterColumns = $util.emptyArray;
 
             /**
+             * AlterTableRequest setTtlSettings.
+             * @member {Ydb.Table.ITtlSettings|null|undefined} setTtlSettings
+             * @memberof Ydb.Table.AlterTableRequest
+             * @instance
+             */
+            AlterTableRequest.prototype.setTtlSettings = null;
+
+            /**
+             * AlterTableRequest dropTtlSettings.
+             * @member {google.protobuf.IEmpty|null|undefined} dropTtlSettings
+             * @memberof Ydb.Table.AlterTableRequest
+             * @instance
+             */
+            AlterTableRequest.prototype.dropTtlSettings = null;
+
+            // OneOf field names bound to virtual getters and setters
+            var $oneOfFields;
+
+            /**
+             * AlterTableRequest ttlAction.
+             * @member {"setTtlSettings"|"dropTtlSettings"|undefined} ttlAction
+             * @memberof Ydb.Table.AlterTableRequest
+             * @instance
+             */
+            Object.defineProperty(AlterTableRequest.prototype, "ttlAction", {
+                get: $util.oneOfGetter($oneOfFields = ["setTtlSettings", "dropTtlSettings"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            /**
              * Creates a new AlterTableRequest instance using the specified properties.
              * @function create
              * @memberof Ydb.Table.AlterTableRequest
@@ -37991,6 +52829,10 @@ $root.Ydb = (function() {
                 if (message.alterColumns != null && message.alterColumns.length)
                     for (var i = 0; i < message.alterColumns.length; ++i)
                         $root.Ydb.Table.ColumnMeta.encode(message.alterColumns[i], writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
+                if (message.setTtlSettings != null && message.hasOwnProperty("setTtlSettings"))
+                    $root.Ydb.Table.TtlSettings.encode(message.setTtlSettings, writer.uint32(/* id 7, wireType 2 =*/58).fork()).ldelim();
+                if (message.dropTtlSettings != null && message.hasOwnProperty("dropTtlSettings"))
+                    $root.google.protobuf.Empty.encode(message.dropTtlSettings, writer.uint32(/* id 8, wireType 2 =*/66).fork()).ldelim();
                 return writer;
             };
 
@@ -38049,6 +52891,12 @@ $root.Ydb = (function() {
                             message.alterColumns = [];
                         message.alterColumns.push($root.Ydb.Table.ColumnMeta.decode(reader, reader.uint32()));
                         break;
+                    case 7:
+                        message.setTtlSettings = $root.Ydb.Table.TtlSettings.decode(reader, reader.uint32());
+                        break;
+                    case 8:
+                        message.dropTtlSettings = $root.google.protobuf.Empty.decode(reader, reader.uint32());
+                        break;
                     default:
                         reader.skipType(tag & 7);
                         break;
@@ -38084,6 +52932,7 @@ $root.Ydb = (function() {
             AlterTableRequest.verify = function verify(message) {
                 if (typeof message !== "object" || message === null)
                     return "object expected";
+                var properties = {};
                 if (message.sessionId != null && message.hasOwnProperty("sessionId"))
                     if (!$util.isString(message.sessionId))
                         return "sessionId: string expected";
@@ -38118,6 +52967,24 @@ $root.Ydb = (function() {
                         var error = $root.Ydb.Table.ColumnMeta.verify(message.alterColumns[i]);
                         if (error)
                             return "alterColumns." + error;
+                    }
+                }
+                if (message.setTtlSettings != null && message.hasOwnProperty("setTtlSettings")) {
+                    properties.ttlAction = 1;
+                    {
+                        var error = $root.Ydb.Table.TtlSettings.verify(message.setTtlSettings);
+                        if (error)
+                            return "setTtlSettings." + error;
+                    }
+                }
+                if (message.dropTtlSettings != null && message.hasOwnProperty("dropTtlSettings")) {
+                    if (properties.ttlAction === 1)
+                        return "ttlAction: multiple values";
+                    properties.ttlAction = 1;
+                    {
+                        var error = $root.google.protobuf.Empty.verify(message.dropTtlSettings);
+                        if (error)
+                            return "dropTtlSettings." + error;
                     }
                 }
                 return null;
@@ -38171,6 +53038,16 @@ $root.Ydb = (function() {
                         message.alterColumns[i] = $root.Ydb.Table.ColumnMeta.fromObject(object.alterColumns[i]);
                     }
                 }
+                if (object.setTtlSettings != null) {
+                    if (typeof object.setTtlSettings !== "object")
+                        throw TypeError(".Ydb.Table.AlterTableRequest.setTtlSettings: object expected");
+                    message.setTtlSettings = $root.Ydb.Table.TtlSettings.fromObject(object.setTtlSettings);
+                }
+                if (object.dropTtlSettings != null) {
+                    if (typeof object.dropTtlSettings !== "object")
+                        throw TypeError(".Ydb.Table.AlterTableRequest.dropTtlSettings: object expected");
+                    message.dropTtlSettings = $root.google.protobuf.Empty.fromObject(object.dropTtlSettings);
+                }
                 return message;
             };
 
@@ -38217,6 +53094,16 @@ $root.Ydb = (function() {
                     object.alterColumns = [];
                     for (var j = 0; j < message.alterColumns.length; ++j)
                         object.alterColumns[j] = $root.Ydb.Table.ColumnMeta.toObject(message.alterColumns[j], options);
+                }
+                if (message.setTtlSettings != null && message.hasOwnProperty("setTtlSettings")) {
+                    object.setTtlSettings = $root.Ydb.Table.TtlSettings.toObject(message.setTtlSettings, options);
+                    if (options.oneofs)
+                        object.ttlAction = "setTtlSettings";
+                }
+                if (message.dropTtlSettings != null && message.hasOwnProperty("dropTtlSettings")) {
+                    object.dropTtlSettings = $root.google.protobuf.Empty.toObject(message.dropTtlSettings, options);
+                    if (options.oneofs)
+                        object.ttlAction = "dropTtlSettings";
                 }
                 return object;
             };
@@ -39571,6 +54458,8 @@ $root.Ydb = (function() {
              * @property {string|null} [path] DescribeTableRequest path
              * @property {Ydb.Operations.IOperationParams|null} [operationParams] DescribeTableRequest operationParams
              * @property {boolean|null} [includeShardKeyBounds] DescribeTableRequest includeShardKeyBounds
+             * @property {boolean|null} [includeTableStats] DescribeTableRequest includeTableStats
+             * @property {boolean|null} [includePartitionStats] DescribeTableRequest includePartitionStats
              */
 
             /**
@@ -39621,6 +54510,22 @@ $root.Ydb = (function() {
             DescribeTableRequest.prototype.includeShardKeyBounds = false;
 
             /**
+             * DescribeTableRequest includeTableStats.
+             * @member {boolean} includeTableStats
+             * @memberof Ydb.Table.DescribeTableRequest
+             * @instance
+             */
+            DescribeTableRequest.prototype.includeTableStats = false;
+
+            /**
+             * DescribeTableRequest includePartitionStats.
+             * @member {boolean} includePartitionStats
+             * @memberof Ydb.Table.DescribeTableRequest
+             * @instance
+             */
+            DescribeTableRequest.prototype.includePartitionStats = false;
+
+            /**
              * Creates a new DescribeTableRequest instance using the specified properties.
              * @function create
              * @memberof Ydb.Table.DescribeTableRequest
@@ -39652,6 +54557,10 @@ $root.Ydb = (function() {
                     $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
                 if (message.includeShardKeyBounds != null && message.hasOwnProperty("includeShardKeyBounds"))
                     writer.uint32(/* id 5, wireType 0 =*/40).bool(message.includeShardKeyBounds);
+                if (message.includeTableStats != null && message.hasOwnProperty("includeTableStats"))
+                    writer.uint32(/* id 6, wireType 0 =*/48).bool(message.includeTableStats);
+                if (message.includePartitionStats != null && message.hasOwnProperty("includePartitionStats"))
+                    writer.uint32(/* id 7, wireType 0 =*/56).bool(message.includePartitionStats);
                 return writer;
             };
 
@@ -39697,6 +54606,12 @@ $root.Ydb = (function() {
                         break;
                     case 5:
                         message.includeShardKeyBounds = reader.bool();
+                        break;
+                    case 6:
+                        message.includeTableStats = reader.bool();
+                        break;
+                    case 7:
+                        message.includePartitionStats = reader.bool();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -39747,6 +54662,12 @@ $root.Ydb = (function() {
                 if (message.includeShardKeyBounds != null && message.hasOwnProperty("includeShardKeyBounds"))
                     if (typeof message.includeShardKeyBounds !== "boolean")
                         return "includeShardKeyBounds: boolean expected";
+                if (message.includeTableStats != null && message.hasOwnProperty("includeTableStats"))
+                    if (typeof message.includeTableStats !== "boolean")
+                        return "includeTableStats: boolean expected";
+                if (message.includePartitionStats != null && message.hasOwnProperty("includePartitionStats"))
+                    if (typeof message.includePartitionStats !== "boolean")
+                        return "includePartitionStats: boolean expected";
                 return null;
             };
 
@@ -39773,6 +54694,10 @@ $root.Ydb = (function() {
                 }
                 if (object.includeShardKeyBounds != null)
                     message.includeShardKeyBounds = Boolean(object.includeShardKeyBounds);
+                if (object.includeTableStats != null)
+                    message.includeTableStats = Boolean(object.includeTableStats);
+                if (object.includePartitionStats != null)
+                    message.includePartitionStats = Boolean(object.includePartitionStats);
                 return message;
             };
 
@@ -39794,6 +54719,8 @@ $root.Ydb = (function() {
                     object.path = "";
                     object.operationParams = null;
                     object.includeShardKeyBounds = false;
+                    object.includeTableStats = false;
+                    object.includePartitionStats = false;
                 }
                 if (message.sessionId != null && message.hasOwnProperty("sessionId"))
                     object.sessionId = message.sessionId;
@@ -39803,6 +54730,10 @@ $root.Ydb = (function() {
                     object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
                 if (message.includeShardKeyBounds != null && message.hasOwnProperty("includeShardKeyBounds"))
                     object.includeShardKeyBounds = message.includeShardKeyBounds;
+                if (message.includeTableStats != null && message.hasOwnProperty("includeTableStats"))
+                    object.includeTableStats = message.includeTableStats;
+                if (message.includePartitionStats != null && message.hasOwnProperty("includePartitionStats"))
+                    object.includePartitionStats = message.includePartitionStats;
                 return object;
             };
 
@@ -40023,6 +54954,8 @@ $root.Ydb = (function() {
              * @property {Array.<string>|null} [primaryKey] DescribeTableResult primaryKey
              * @property {Array.<Ydb.ITypedValue>|null} [shardKeyBounds] DescribeTableResult shardKeyBounds
              * @property {Array.<Ydb.Table.ITableIndex>|null} [indexes] DescribeTableResult indexes
+             * @property {Ydb.Table.ITableStats|null} [tableStats] DescribeTableResult tableStats
+             * @property {Ydb.Table.ITtlSettings|null} [ttlSettings] DescribeTableResult ttlSettings
              */
 
             /**
@@ -40085,6 +55018,22 @@ $root.Ydb = (function() {
             DescribeTableResult.prototype.indexes = $util.emptyArray;
 
             /**
+             * DescribeTableResult tableStats.
+             * @member {Ydb.Table.ITableStats|null|undefined} tableStats
+             * @memberof Ydb.Table.DescribeTableResult
+             * @instance
+             */
+            DescribeTableResult.prototype.tableStats = null;
+
+            /**
+             * DescribeTableResult ttlSettings.
+             * @member {Ydb.Table.ITtlSettings|null|undefined} ttlSettings
+             * @memberof Ydb.Table.DescribeTableResult
+             * @instance
+             */
+            DescribeTableResult.prototype.ttlSettings = null;
+
+            /**
              * Creates a new DescribeTableResult instance using the specified properties.
              * @function create
              * @memberof Ydb.Table.DescribeTableResult
@@ -40122,6 +55071,10 @@ $root.Ydb = (function() {
                 if (message.indexes != null && message.indexes.length)
                     for (var i = 0; i < message.indexes.length; ++i)
                         $root.Ydb.Table.TableIndex.encode(message.indexes[i], writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
+                if (message.tableStats != null && message.hasOwnProperty("tableStats"))
+                    $root.Ydb.Table.TableStats.encode(message.tableStats, writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
+                if (message.ttlSettings != null && message.hasOwnProperty("ttlSettings"))
+                    $root.Ydb.Table.TtlSettings.encode(message.ttlSettings, writer.uint32(/* id 7, wireType 2 =*/58).fork()).ldelim();
                 return writer;
             };
 
@@ -40178,6 +55131,12 @@ $root.Ydb = (function() {
                         if (!(message.indexes && message.indexes.length))
                             message.indexes = [];
                         message.indexes.push($root.Ydb.Table.TableIndex.decode(reader, reader.uint32()));
+                        break;
+                    case 6:
+                        message.tableStats = $root.Ydb.Table.TableStats.decode(reader, reader.uint32());
+                        break;
+                    case 7:
+                        message.ttlSettings = $root.Ydb.Table.TtlSettings.decode(reader, reader.uint32());
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -40253,6 +55212,16 @@ $root.Ydb = (function() {
                             return "indexes." + error;
                     }
                 }
+                if (message.tableStats != null && message.hasOwnProperty("tableStats")) {
+                    var error = $root.Ydb.Table.TableStats.verify(message.tableStats);
+                    if (error)
+                        return "tableStats." + error;
+                }
+                if (message.ttlSettings != null && message.hasOwnProperty("ttlSettings")) {
+                    var error = $root.Ydb.Table.TtlSettings.verify(message.ttlSettings);
+                    if (error)
+                        return "ttlSettings." + error;
+                }
                 return null;
             };
 
@@ -40310,6 +55279,16 @@ $root.Ydb = (function() {
                         message.indexes[i] = $root.Ydb.Table.TableIndex.fromObject(object.indexes[i]);
                     }
                 }
+                if (object.tableStats != null) {
+                    if (typeof object.tableStats !== "object")
+                        throw TypeError(".Ydb.Table.DescribeTableResult.tableStats: object expected");
+                    message.tableStats = $root.Ydb.Table.TableStats.fromObject(object.tableStats);
+                }
+                if (object.ttlSettings != null) {
+                    if (typeof object.ttlSettings !== "object")
+                        throw TypeError(".Ydb.Table.DescribeTableResult.ttlSettings: object expected");
+                    message.ttlSettings = $root.Ydb.Table.TtlSettings.fromObject(object.ttlSettings);
+                }
                 return message;
             };
 
@@ -40332,8 +55311,11 @@ $root.Ydb = (function() {
                     object.shardKeyBounds = [];
                     object.indexes = [];
                 }
-                if (options.defaults)
+                if (options.defaults) {
                     object.self = null;
+                    object.tableStats = null;
+                    object.ttlSettings = null;
+                }
                 if (message.self != null && message.hasOwnProperty("self"))
                     object.self = $root.Ydb.Scheme.Entry.toObject(message.self, options);
                 if (message.columns && message.columns.length) {
@@ -40356,6 +55338,10 @@ $root.Ydb = (function() {
                     for (var j = 0; j < message.indexes.length; ++j)
                         object.indexes[j] = $root.Ydb.Table.TableIndex.toObject(message.indexes[j], options);
                 }
+                if (message.tableStats != null && message.hasOwnProperty("tableStats"))
+                    object.tableStats = $root.Ydb.Table.TableStats.toObject(message.tableStats, options);
+                if (message.ttlSettings != null && message.hasOwnProperty("ttlSettings"))
+                    object.ttlSettings = $root.Ydb.Table.TtlSettings.toObject(message.ttlSettings, options);
                 return object;
             };
 
@@ -50164,6 +65150,7 @@ $root.Ydb = (function() {
              * @property {Array.<string>|null} [columns] ReadTableRequest columns
              * @property {boolean|null} [ordered] ReadTableRequest ordered
              * @property {number|Long|null} [rowLimit] ReadTableRequest rowLimit
+             * @property {Ydb.FeatureFlag.Status|null} [useSnapshot] ReadTableRequest useSnapshot
              */
 
             /**
@@ -50231,6 +65218,14 @@ $root.Ydb = (function() {
             ReadTableRequest.prototype.rowLimit = $util.Long ? $util.Long.fromBits(0,0,true) : 0;
 
             /**
+             * ReadTableRequest useSnapshot.
+             * @member {Ydb.FeatureFlag.Status} useSnapshot
+             * @memberof Ydb.Table.ReadTableRequest
+             * @instance
+             */
+            ReadTableRequest.prototype.useSnapshot = 0;
+
+            /**
              * Creates a new ReadTableRequest instance using the specified properties.
              * @function create
              * @memberof Ydb.Table.ReadTableRequest
@@ -50267,6 +65262,8 @@ $root.Ydb = (function() {
                     writer.uint32(/* id 5, wireType 0 =*/40).bool(message.ordered);
                 if (message.rowLimit != null && message.hasOwnProperty("rowLimit"))
                     writer.uint32(/* id 6, wireType 0 =*/48).uint64(message.rowLimit);
+                if (message.useSnapshot != null && message.hasOwnProperty("useSnapshot"))
+                    writer.uint32(/* id 7, wireType 0 =*/56).int32(message.useSnapshot);
                 return writer;
             };
 
@@ -50320,6 +65317,9 @@ $root.Ydb = (function() {
                         break;
                     case 6:
                         message.rowLimit = reader.uint64();
+                        break;
+                    case 7:
+                        message.useSnapshot = reader.int32();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -50380,6 +65380,15 @@ $root.Ydb = (function() {
                 if (message.rowLimit != null && message.hasOwnProperty("rowLimit"))
                     if (!$util.isInteger(message.rowLimit) && !(message.rowLimit && $util.isInteger(message.rowLimit.low) && $util.isInteger(message.rowLimit.high)))
                         return "rowLimit: integer|Long expected";
+                if (message.useSnapshot != null && message.hasOwnProperty("useSnapshot"))
+                    switch (message.useSnapshot) {
+                    default:
+                        return "useSnapshot: enum value expected";
+                    case 0:
+                    case 1:
+                    case 2:
+                        break;
+                    }
                 return null;
             };
 
@@ -50422,6 +65431,20 @@ $root.Ydb = (function() {
                         message.rowLimit = object.rowLimit;
                     else if (typeof object.rowLimit === "object")
                         message.rowLimit = new $util.LongBits(object.rowLimit.low >>> 0, object.rowLimit.high >>> 0).toNumber(true);
+                switch (object.useSnapshot) {
+                case "STATUS_UNSPECIFIED":
+                case 0:
+                    message.useSnapshot = 0;
+                    break;
+                case "ENABLED":
+                case 1:
+                    message.useSnapshot = 1;
+                    break;
+                case "DISABLED":
+                case 2:
+                    message.useSnapshot = 2;
+                    break;
+                }
                 return message;
             };
 
@@ -50450,6 +65473,7 @@ $root.Ydb = (function() {
                         object.rowLimit = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                     } else
                         object.rowLimit = options.longs === String ? "0" : 0;
+                    object.useSnapshot = options.enums === String ? "STATUS_UNSPECIFIED" : 0;
                 }
                 if (message.sessionId != null && message.hasOwnProperty("sessionId"))
                     object.sessionId = message.sessionId;
@@ -50469,6 +65493,8 @@ $root.Ydb = (function() {
                         object.rowLimit = options.longs === String ? String(message.rowLimit) : message.rowLimit;
                     else
                         object.rowLimit = options.longs === String ? $util.Long.prototype.toString.call(message.rowLimit) : options.longs === Number ? new $util.LongBits(message.rowLimit.low >>> 0, message.rowLimit.high >>> 0).toNumber(true) : message.rowLimit;
+                if (message.useSnapshot != null && message.hasOwnProperty("useSnapshot"))
+                    object.useSnapshot = options.enums === String ? $root.Ydb.FeatureFlag.Status[message.useSnapshot] : message.useSnapshot;
                 return object;
             };
 
@@ -50671,6 +65697,7 @@ $root.Ydb = (function() {
                     case 400160:
                     case 400170:
                     case 400180:
+                    case 400190:
                         break;
                     }
                 if (message.issues != null && message.hasOwnProperty("issues")) {
@@ -50778,6 +65805,10 @@ $root.Ydb = (function() {
                 case "UNSUPPORTED":
                 case 400180:
                     message.status = 400180;
+                    break;
+                case "SESSION_BUSY":
+                case 400190:
+                    message.status = 400190;
                     break;
                 }
                 if (object.issues) {
@@ -51033,6 +66064,1466 @@ $root.Ydb = (function() {
             };
 
             return ReadTableResult;
+        })();
+
+        Table.BulkUpsertRequest = (function() {
+
+            /**
+             * Properties of a BulkUpsertRequest.
+             * @memberof Ydb.Table
+             * @interface IBulkUpsertRequest
+             * @property {string|null} [table] BulkUpsertRequest table
+             * @property {Ydb.ITypedValue|null} [rows] BulkUpsertRequest rows
+             * @property {Ydb.Operations.IOperationParams|null} [operationParams] BulkUpsertRequest operationParams
+             */
+
+            /**
+             * Constructs a new BulkUpsertRequest.
+             * @memberof Ydb.Table
+             * @classdesc Represents a BulkUpsertRequest.
+             * @implements IBulkUpsertRequest
+             * @constructor
+             * @param {Ydb.Table.IBulkUpsertRequest=} [properties] Properties to set
+             */
+            function BulkUpsertRequest(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * BulkUpsertRequest table.
+             * @member {string} table
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @instance
+             */
+            BulkUpsertRequest.prototype.table = "";
+
+            /**
+             * BulkUpsertRequest rows.
+             * @member {Ydb.ITypedValue|null|undefined} rows
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @instance
+             */
+            BulkUpsertRequest.prototype.rows = null;
+
+            /**
+             * BulkUpsertRequest operationParams.
+             * @member {Ydb.Operations.IOperationParams|null|undefined} operationParams
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @instance
+             */
+            BulkUpsertRequest.prototype.operationParams = null;
+
+            /**
+             * Creates a new BulkUpsertRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @static
+             * @param {Ydb.Table.IBulkUpsertRequest=} [properties] Properties to set
+             * @returns {Ydb.Table.BulkUpsertRequest} BulkUpsertRequest instance
+             */
+            BulkUpsertRequest.create = function create(properties) {
+                return new BulkUpsertRequest(properties);
+            };
+
+            /**
+             * Encodes the specified BulkUpsertRequest message. Does not implicitly {@link Ydb.Table.BulkUpsertRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @static
+             * @param {Ydb.Table.IBulkUpsertRequest} message BulkUpsertRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            BulkUpsertRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.table != null && message.hasOwnProperty("table"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.table);
+                if (message.rows != null && message.hasOwnProperty("rows"))
+                    $root.Ydb.TypedValue.encode(message.rows, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    $root.Ydb.Operations.OperationParams.encode(message.operationParams, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified BulkUpsertRequest message, length delimited. Does not implicitly {@link Ydb.Table.BulkUpsertRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @static
+             * @param {Ydb.Table.IBulkUpsertRequest} message BulkUpsertRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            BulkUpsertRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a BulkUpsertRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.BulkUpsertRequest} BulkUpsertRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            BulkUpsertRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.BulkUpsertRequest();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.table = reader.string();
+                        break;
+                    case 2:
+                        message.rows = $root.Ydb.TypedValue.decode(reader, reader.uint32());
+                        break;
+                    case 3:
+                        message.operationParams = $root.Ydb.Operations.OperationParams.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a BulkUpsertRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.BulkUpsertRequest} BulkUpsertRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            BulkUpsertRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a BulkUpsertRequest message.
+             * @function verify
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            BulkUpsertRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.table != null && message.hasOwnProperty("table"))
+                    if (!$util.isString(message.table))
+                        return "table: string expected";
+                if (message.rows != null && message.hasOwnProperty("rows")) {
+                    var error = $root.Ydb.TypedValue.verify(message.rows);
+                    if (error)
+                        return "rows." + error;
+                }
+                if (message.operationParams != null && message.hasOwnProperty("operationParams")) {
+                    var error = $root.Ydb.Operations.OperationParams.verify(message.operationParams);
+                    if (error)
+                        return "operationParams." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a BulkUpsertRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.BulkUpsertRequest} BulkUpsertRequest
+             */
+            BulkUpsertRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.BulkUpsertRequest)
+                    return object;
+                var message = new $root.Ydb.Table.BulkUpsertRequest();
+                if (object.table != null)
+                    message.table = String(object.table);
+                if (object.rows != null) {
+                    if (typeof object.rows !== "object")
+                        throw TypeError(".Ydb.Table.BulkUpsertRequest.rows: object expected");
+                    message.rows = $root.Ydb.TypedValue.fromObject(object.rows);
+                }
+                if (object.operationParams != null) {
+                    if (typeof object.operationParams !== "object")
+                        throw TypeError(".Ydb.Table.BulkUpsertRequest.operationParams: object expected");
+                    message.operationParams = $root.Ydb.Operations.OperationParams.fromObject(object.operationParams);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a BulkUpsertRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @static
+             * @param {Ydb.Table.BulkUpsertRequest} message BulkUpsertRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            BulkUpsertRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults) {
+                    object.table = "";
+                    object.rows = null;
+                    object.operationParams = null;
+                }
+                if (message.table != null && message.hasOwnProperty("table"))
+                    object.table = message.table;
+                if (message.rows != null && message.hasOwnProperty("rows"))
+                    object.rows = $root.Ydb.TypedValue.toObject(message.rows, options);
+                if (message.operationParams != null && message.hasOwnProperty("operationParams"))
+                    object.operationParams = $root.Ydb.Operations.OperationParams.toObject(message.operationParams, options);
+                return object;
+            };
+
+            /**
+             * Converts this BulkUpsertRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.BulkUpsertRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            BulkUpsertRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return BulkUpsertRequest;
+        })();
+
+        Table.BulkUpsertResponse = (function() {
+
+            /**
+             * Properties of a BulkUpsertResponse.
+             * @memberof Ydb.Table
+             * @interface IBulkUpsertResponse
+             * @property {Ydb.Operations.IOperation|null} [operation] BulkUpsertResponse operation
+             */
+
+            /**
+             * Constructs a new BulkUpsertResponse.
+             * @memberof Ydb.Table
+             * @classdesc Represents a BulkUpsertResponse.
+             * @implements IBulkUpsertResponse
+             * @constructor
+             * @param {Ydb.Table.IBulkUpsertResponse=} [properties] Properties to set
+             */
+            function BulkUpsertResponse(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * BulkUpsertResponse operation.
+             * @member {Ydb.Operations.IOperation|null|undefined} operation
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @instance
+             */
+            BulkUpsertResponse.prototype.operation = null;
+
+            /**
+             * Creates a new BulkUpsertResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @static
+             * @param {Ydb.Table.IBulkUpsertResponse=} [properties] Properties to set
+             * @returns {Ydb.Table.BulkUpsertResponse} BulkUpsertResponse instance
+             */
+            BulkUpsertResponse.create = function create(properties) {
+                return new BulkUpsertResponse(properties);
+            };
+
+            /**
+             * Encodes the specified BulkUpsertResponse message. Does not implicitly {@link Ydb.Table.BulkUpsertResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @static
+             * @param {Ydb.Table.IBulkUpsertResponse} message BulkUpsertResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            BulkUpsertResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    $root.Ydb.Operations.Operation.encode(message.operation, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified BulkUpsertResponse message, length delimited. Does not implicitly {@link Ydb.Table.BulkUpsertResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @static
+             * @param {Ydb.Table.IBulkUpsertResponse} message BulkUpsertResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            BulkUpsertResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a BulkUpsertResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.BulkUpsertResponse} BulkUpsertResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            BulkUpsertResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.BulkUpsertResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.operation = $root.Ydb.Operations.Operation.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a BulkUpsertResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.BulkUpsertResponse} BulkUpsertResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            BulkUpsertResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a BulkUpsertResponse message.
+             * @function verify
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            BulkUpsertResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.operation != null && message.hasOwnProperty("operation")) {
+                    var error = $root.Ydb.Operations.Operation.verify(message.operation);
+                    if (error)
+                        return "operation." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates a BulkUpsertResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.BulkUpsertResponse} BulkUpsertResponse
+             */
+            BulkUpsertResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.BulkUpsertResponse)
+                    return object;
+                var message = new $root.Ydb.Table.BulkUpsertResponse();
+                if (object.operation != null) {
+                    if (typeof object.operation !== "object")
+                        throw TypeError(".Ydb.Table.BulkUpsertResponse.operation: object expected");
+                    message.operation = $root.Ydb.Operations.Operation.fromObject(object.operation);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a BulkUpsertResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @static
+             * @param {Ydb.Table.BulkUpsertResponse} message BulkUpsertResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            BulkUpsertResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.defaults)
+                    object.operation = null;
+                if (message.operation != null && message.hasOwnProperty("operation"))
+                    object.operation = $root.Ydb.Operations.Operation.toObject(message.operation, options);
+                return object;
+            };
+
+            /**
+             * Converts this BulkUpsertResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.BulkUpsertResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            BulkUpsertResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return BulkUpsertResponse;
+        })();
+
+        Table.BulkUpsertResult = (function() {
+
+            /**
+             * Properties of a BulkUpsertResult.
+             * @memberof Ydb.Table
+             * @interface IBulkUpsertResult
+             */
+
+            /**
+             * Constructs a new BulkUpsertResult.
+             * @memberof Ydb.Table
+             * @classdesc Represents a BulkUpsertResult.
+             * @implements IBulkUpsertResult
+             * @constructor
+             * @param {Ydb.Table.IBulkUpsertResult=} [properties] Properties to set
+             */
+            function BulkUpsertResult(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Creates a new BulkUpsertResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @static
+             * @param {Ydb.Table.IBulkUpsertResult=} [properties] Properties to set
+             * @returns {Ydb.Table.BulkUpsertResult} BulkUpsertResult instance
+             */
+            BulkUpsertResult.create = function create(properties) {
+                return new BulkUpsertResult(properties);
+            };
+
+            /**
+             * Encodes the specified BulkUpsertResult message. Does not implicitly {@link Ydb.Table.BulkUpsertResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @static
+             * @param {Ydb.Table.IBulkUpsertResult} message BulkUpsertResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            BulkUpsertResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified BulkUpsertResult message, length delimited. Does not implicitly {@link Ydb.Table.BulkUpsertResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @static
+             * @param {Ydb.Table.IBulkUpsertResult} message BulkUpsertResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            BulkUpsertResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a BulkUpsertResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.BulkUpsertResult} BulkUpsertResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            BulkUpsertResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.BulkUpsertResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a BulkUpsertResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.BulkUpsertResult} BulkUpsertResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            BulkUpsertResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a BulkUpsertResult message.
+             * @function verify
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            BulkUpsertResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                return null;
+            };
+
+            /**
+             * Creates a BulkUpsertResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.BulkUpsertResult} BulkUpsertResult
+             */
+            BulkUpsertResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.BulkUpsertResult)
+                    return object;
+                return new $root.Ydb.Table.BulkUpsertResult();
+            };
+
+            /**
+             * Creates a plain object from a BulkUpsertResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @static
+             * @param {Ydb.Table.BulkUpsertResult} message BulkUpsertResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            BulkUpsertResult.toObject = function toObject() {
+                return {};
+            };
+
+            /**
+             * Converts this BulkUpsertResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.BulkUpsertResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            BulkUpsertResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return BulkUpsertResult;
+        })();
+
+        Table.ExecuteStreamQueryRequest = (function() {
+
+            /**
+             * Properties of an ExecuteStreamQueryRequest.
+             * @memberof Ydb.Table
+             * @interface IExecuteStreamQueryRequest
+             * @property {Ydb.Table.ExecuteStreamQueryRequest.Mode|null} [mode] ExecuteStreamQueryRequest mode
+             * @property {Ydb.Table.IQuery|null} [query] ExecuteStreamQueryRequest query
+             * @property {Object.<string,Ydb.ITypedValue>|null} [parameters] ExecuteStreamQueryRequest parameters
+             */
+
+            /**
+             * Constructs a new ExecuteStreamQueryRequest.
+             * @memberof Ydb.Table
+             * @classdesc Represents an ExecuteStreamQueryRequest.
+             * @implements IExecuteStreamQueryRequest
+             * @constructor
+             * @param {Ydb.Table.IExecuteStreamQueryRequest=} [properties] Properties to set
+             */
+            function ExecuteStreamQueryRequest(properties) {
+                this.parameters = {};
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ExecuteStreamQueryRequest mode.
+             * @member {Ydb.Table.ExecuteStreamQueryRequest.Mode} mode
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @instance
+             */
+            ExecuteStreamQueryRequest.prototype.mode = 0;
+
+            /**
+             * ExecuteStreamQueryRequest query.
+             * @member {Ydb.Table.IQuery|null|undefined} query
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @instance
+             */
+            ExecuteStreamQueryRequest.prototype.query = null;
+
+            /**
+             * ExecuteStreamQueryRequest parameters.
+             * @member {Object.<string,Ydb.ITypedValue>} parameters
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @instance
+             */
+            ExecuteStreamQueryRequest.prototype.parameters = $util.emptyObject;
+
+            /**
+             * Creates a new ExecuteStreamQueryRequest instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryRequest=} [properties] Properties to set
+             * @returns {Ydb.Table.ExecuteStreamQueryRequest} ExecuteStreamQueryRequest instance
+             */
+            ExecuteStreamQueryRequest.create = function create(properties) {
+                return new ExecuteStreamQueryRequest(properties);
+            };
+
+            /**
+             * Encodes the specified ExecuteStreamQueryRequest message. Does not implicitly {@link Ydb.Table.ExecuteStreamQueryRequest.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryRequest} message ExecuteStreamQueryRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExecuteStreamQueryRequest.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.mode != null && message.hasOwnProperty("mode"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.mode);
+                if (message.query != null && message.hasOwnProperty("query"))
+                    $root.Ydb.Table.Query.encode(message.query, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                if (message.parameters != null && message.hasOwnProperty("parameters"))
+                    for (var keys = Object.keys(message.parameters), i = 0; i < keys.length; ++i) {
+                        writer.uint32(/* id 3, wireType 2 =*/26).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
+                        $root.Ydb.TypedValue.encode(message.parameters[keys[i]], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim().ldelim();
+                    }
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ExecuteStreamQueryRequest message, length delimited. Does not implicitly {@link Ydb.Table.ExecuteStreamQueryRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryRequest} message ExecuteStreamQueryRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExecuteStreamQueryRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an ExecuteStreamQueryRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.ExecuteStreamQueryRequest} ExecuteStreamQueryRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExecuteStreamQueryRequest.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.ExecuteStreamQueryRequest(), key;
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.mode = reader.int32();
+                        break;
+                    case 2:
+                        message.query = $root.Ydb.Table.Query.decode(reader, reader.uint32());
+                        break;
+                    case 3:
+                        reader.skip().pos++;
+                        if (message.parameters === $util.emptyObject)
+                            message.parameters = {};
+                        key = reader.string();
+                        reader.pos++;
+                        message.parameters[key] = $root.Ydb.TypedValue.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an ExecuteStreamQueryRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.ExecuteStreamQueryRequest} ExecuteStreamQueryRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExecuteStreamQueryRequest.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an ExecuteStreamQueryRequest message.
+             * @function verify
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ExecuteStreamQueryRequest.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.mode != null && message.hasOwnProperty("mode"))
+                    switch (message.mode) {
+                    default:
+                        return "mode: enum value expected";
+                    case 0:
+                    case 1:
+                        break;
+                    }
+                if (message.query != null && message.hasOwnProperty("query")) {
+                    var error = $root.Ydb.Table.Query.verify(message.query);
+                    if (error)
+                        return "query." + error;
+                }
+                if (message.parameters != null && message.hasOwnProperty("parameters")) {
+                    if (!$util.isObject(message.parameters))
+                        return "parameters: object expected";
+                    var key = Object.keys(message.parameters);
+                    for (var i = 0; i < key.length; ++i) {
+                        var error = $root.Ydb.TypedValue.verify(message.parameters[key[i]]);
+                        if (error)
+                            return "parameters." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates an ExecuteStreamQueryRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.ExecuteStreamQueryRequest} ExecuteStreamQueryRequest
+             */
+            ExecuteStreamQueryRequest.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.ExecuteStreamQueryRequest)
+                    return object;
+                var message = new $root.Ydb.Table.ExecuteStreamQueryRequest();
+                switch (object.mode) {
+                case "MODE_UNSPECIFIED":
+                case 0:
+                    message.mode = 0;
+                    break;
+                case "MODE_EXEC":
+                case 1:
+                    message.mode = 1;
+                    break;
+                }
+                if (object.query != null) {
+                    if (typeof object.query !== "object")
+                        throw TypeError(".Ydb.Table.ExecuteStreamQueryRequest.query: object expected");
+                    message.query = $root.Ydb.Table.Query.fromObject(object.query);
+                }
+                if (object.parameters) {
+                    if (typeof object.parameters !== "object")
+                        throw TypeError(".Ydb.Table.ExecuteStreamQueryRequest.parameters: object expected");
+                    message.parameters = {};
+                    for (var keys = Object.keys(object.parameters), i = 0; i < keys.length; ++i) {
+                        if (typeof object.parameters[keys[i]] !== "object")
+                            throw TypeError(".Ydb.Table.ExecuteStreamQueryRequest.parameters: object expected");
+                        message.parameters[keys[i]] = $root.Ydb.TypedValue.fromObject(object.parameters[keys[i]]);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an ExecuteStreamQueryRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @static
+             * @param {Ydb.Table.ExecuteStreamQueryRequest} message ExecuteStreamQueryRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ExecuteStreamQueryRequest.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.objects || options.defaults)
+                    object.parameters = {};
+                if (options.defaults) {
+                    object.mode = options.enums === String ? "MODE_UNSPECIFIED" : 0;
+                    object.query = null;
+                }
+                if (message.mode != null && message.hasOwnProperty("mode"))
+                    object.mode = options.enums === String ? $root.Ydb.Table.ExecuteStreamQueryRequest.Mode[message.mode] : message.mode;
+                if (message.query != null && message.hasOwnProperty("query"))
+                    object.query = $root.Ydb.Table.Query.toObject(message.query, options);
+                var keys2;
+                if (message.parameters && (keys2 = Object.keys(message.parameters)).length) {
+                    object.parameters = {};
+                    for (var j = 0; j < keys2.length; ++j)
+                        object.parameters[keys2[j]] = $root.Ydb.TypedValue.toObject(message.parameters[keys2[j]], options);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this ExecuteStreamQueryRequest to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.ExecuteStreamQueryRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ExecuteStreamQueryRequest.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Mode enum.
+             * @name Ydb.Table.ExecuteStreamQueryRequest.Mode
+             * @enum {string}
+             * @property {number} MODE_UNSPECIFIED=0 MODE_UNSPECIFIED value
+             * @property {number} MODE_EXEC=1 MODE_EXEC value
+             */
+            ExecuteStreamQueryRequest.Mode = (function() {
+                var valuesById = {}, values = Object.create(valuesById);
+                values[valuesById[0] = "MODE_UNSPECIFIED"] = 0;
+                values[valuesById[1] = "MODE_EXEC"] = 1;
+                return values;
+            })();
+
+            return ExecuteStreamQueryRequest;
+        })();
+
+        Table.ExecuteStreamQueryResponse = (function() {
+
+            /**
+             * Properties of an ExecuteStreamQueryResponse.
+             * @memberof Ydb.Table
+             * @interface IExecuteStreamQueryResponse
+             * @property {Ydb.StatusIds.StatusCode|null} [status] ExecuteStreamQueryResponse status
+             * @property {Array.<Ydb.Issue.IIssueMessage>|null} [issues] ExecuteStreamQueryResponse issues
+             * @property {Ydb.Table.IExecuteStreamQueryResult|null} [result] ExecuteStreamQueryResponse result
+             */
+
+            /**
+             * Constructs a new ExecuteStreamQueryResponse.
+             * @memberof Ydb.Table
+             * @classdesc Represents an ExecuteStreamQueryResponse.
+             * @implements IExecuteStreamQueryResponse
+             * @constructor
+             * @param {Ydb.Table.IExecuteStreamQueryResponse=} [properties] Properties to set
+             */
+            function ExecuteStreamQueryResponse(properties) {
+                this.issues = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ExecuteStreamQueryResponse status.
+             * @member {Ydb.StatusIds.StatusCode} status
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @instance
+             */
+            ExecuteStreamQueryResponse.prototype.status = 0;
+
+            /**
+             * ExecuteStreamQueryResponse issues.
+             * @member {Array.<Ydb.Issue.IIssueMessage>} issues
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @instance
+             */
+            ExecuteStreamQueryResponse.prototype.issues = $util.emptyArray;
+
+            /**
+             * ExecuteStreamQueryResponse result.
+             * @member {Ydb.Table.IExecuteStreamQueryResult|null|undefined} result
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @instance
+             */
+            ExecuteStreamQueryResponse.prototype.result = null;
+
+            /**
+             * Creates a new ExecuteStreamQueryResponse instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryResponse=} [properties] Properties to set
+             * @returns {Ydb.Table.ExecuteStreamQueryResponse} ExecuteStreamQueryResponse instance
+             */
+            ExecuteStreamQueryResponse.create = function create(properties) {
+                return new ExecuteStreamQueryResponse(properties);
+            };
+
+            /**
+             * Encodes the specified ExecuteStreamQueryResponse message. Does not implicitly {@link Ydb.Table.ExecuteStreamQueryResponse.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryResponse} message ExecuteStreamQueryResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExecuteStreamQueryResponse.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.status != null && message.hasOwnProperty("status"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.status);
+                if (message.issues != null && message.issues.length)
+                    for (var i = 0; i < message.issues.length; ++i)
+                        $root.Ydb.Issue.IssueMessage.encode(message.issues[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                if (message.result != null && message.hasOwnProperty("result"))
+                    $root.Ydb.Table.ExecuteStreamQueryResult.encode(message.result, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ExecuteStreamQueryResponse message, length delimited. Does not implicitly {@link Ydb.Table.ExecuteStreamQueryResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryResponse} message ExecuteStreamQueryResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExecuteStreamQueryResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an ExecuteStreamQueryResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.ExecuteStreamQueryResponse} ExecuteStreamQueryResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExecuteStreamQueryResponse.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.ExecuteStreamQueryResponse();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.status = reader.int32();
+                        break;
+                    case 2:
+                        if (!(message.issues && message.issues.length))
+                            message.issues = [];
+                        message.issues.push($root.Ydb.Issue.IssueMessage.decode(reader, reader.uint32()));
+                        break;
+                    case 3:
+                        message.result = $root.Ydb.Table.ExecuteStreamQueryResult.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an ExecuteStreamQueryResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.ExecuteStreamQueryResponse} ExecuteStreamQueryResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExecuteStreamQueryResponse.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an ExecuteStreamQueryResponse message.
+             * @function verify
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ExecuteStreamQueryResponse.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.status != null && message.hasOwnProperty("status"))
+                    switch (message.status) {
+                    default:
+                        return "status: enum value expected";
+                    case 0:
+                    case 400000:
+                    case 400010:
+                    case 400020:
+                    case 400030:
+                    case 400040:
+                    case 400050:
+                    case 400060:
+                    case 400070:
+                    case 400080:
+                    case 400090:
+                    case 400100:
+                    case 400120:
+                    case 400130:
+                    case 400140:
+                    case 400150:
+                    case 400160:
+                    case 400170:
+                    case 400180:
+                    case 400190:
+                        break;
+                    }
+                if (message.issues != null && message.hasOwnProperty("issues")) {
+                    if (!Array.isArray(message.issues))
+                        return "issues: array expected";
+                    for (var i = 0; i < message.issues.length; ++i) {
+                        var error = $root.Ydb.Issue.IssueMessage.verify(message.issues[i]);
+                        if (error)
+                            return "issues." + error;
+                    }
+                }
+                if (message.result != null && message.hasOwnProperty("result")) {
+                    var error = $root.Ydb.Table.ExecuteStreamQueryResult.verify(message.result);
+                    if (error)
+                        return "result." + error;
+                }
+                return null;
+            };
+
+            /**
+             * Creates an ExecuteStreamQueryResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.ExecuteStreamQueryResponse} ExecuteStreamQueryResponse
+             */
+            ExecuteStreamQueryResponse.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.ExecuteStreamQueryResponse)
+                    return object;
+                var message = new $root.Ydb.Table.ExecuteStreamQueryResponse();
+                switch (object.status) {
+                case "STATUS_CODE_UNSPECIFIED":
+                case 0:
+                    message.status = 0;
+                    break;
+                case "SUCCESS":
+                case 400000:
+                    message.status = 400000;
+                    break;
+                case "BAD_REQUEST":
+                case 400010:
+                    message.status = 400010;
+                    break;
+                case "UNAUTHORIZED":
+                case 400020:
+                    message.status = 400020;
+                    break;
+                case "INTERNAL_ERROR":
+                case 400030:
+                    message.status = 400030;
+                    break;
+                case "ABORTED":
+                case 400040:
+                    message.status = 400040;
+                    break;
+                case "UNAVAILABLE":
+                case 400050:
+                    message.status = 400050;
+                    break;
+                case "OVERLOADED":
+                case 400060:
+                    message.status = 400060;
+                    break;
+                case "SCHEME_ERROR":
+                case 400070:
+                    message.status = 400070;
+                    break;
+                case "GENERIC_ERROR":
+                case 400080:
+                    message.status = 400080;
+                    break;
+                case "TIMEOUT":
+                case 400090:
+                    message.status = 400090;
+                    break;
+                case "BAD_SESSION":
+                case 400100:
+                    message.status = 400100;
+                    break;
+                case "PRECONDITION_FAILED":
+                case 400120:
+                    message.status = 400120;
+                    break;
+                case "ALREADY_EXISTS":
+                case 400130:
+                    message.status = 400130;
+                    break;
+                case "NOT_FOUND":
+                case 400140:
+                    message.status = 400140;
+                    break;
+                case "SESSION_EXPIRED":
+                case 400150:
+                    message.status = 400150;
+                    break;
+                case "CANCELLED":
+                case 400160:
+                    message.status = 400160;
+                    break;
+                case "UNDETERMINED":
+                case 400170:
+                    message.status = 400170;
+                    break;
+                case "UNSUPPORTED":
+                case 400180:
+                    message.status = 400180;
+                    break;
+                case "SESSION_BUSY":
+                case 400190:
+                    message.status = 400190;
+                    break;
+                }
+                if (object.issues) {
+                    if (!Array.isArray(object.issues))
+                        throw TypeError(".Ydb.Table.ExecuteStreamQueryResponse.issues: array expected");
+                    message.issues = [];
+                    for (var i = 0; i < object.issues.length; ++i) {
+                        if (typeof object.issues[i] !== "object")
+                            throw TypeError(".Ydb.Table.ExecuteStreamQueryResponse.issues: object expected");
+                        message.issues[i] = $root.Ydb.Issue.IssueMessage.fromObject(object.issues[i]);
+                    }
+                }
+                if (object.result != null) {
+                    if (typeof object.result !== "object")
+                        throw TypeError(".Ydb.Table.ExecuteStreamQueryResponse.result: object expected");
+                    message.result = $root.Ydb.Table.ExecuteStreamQueryResult.fromObject(object.result);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an ExecuteStreamQueryResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @static
+             * @param {Ydb.Table.ExecuteStreamQueryResponse} message ExecuteStreamQueryResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ExecuteStreamQueryResponse.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.issues = [];
+                if (options.defaults) {
+                    object.status = options.enums === String ? "STATUS_CODE_UNSPECIFIED" : 0;
+                    object.result = null;
+                }
+                if (message.status != null && message.hasOwnProperty("status"))
+                    object.status = options.enums === String ? $root.Ydb.StatusIds.StatusCode[message.status] : message.status;
+                if (message.issues && message.issues.length) {
+                    object.issues = [];
+                    for (var j = 0; j < message.issues.length; ++j)
+                        object.issues[j] = $root.Ydb.Issue.IssueMessage.toObject(message.issues[j], options);
+                }
+                if (message.result != null && message.hasOwnProperty("result"))
+                    object.result = $root.Ydb.Table.ExecuteStreamQueryResult.toObject(message.result, options);
+                return object;
+            };
+
+            /**
+             * Converts this ExecuteStreamQueryResponse to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.ExecuteStreamQueryResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ExecuteStreamQueryResponse.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ExecuteStreamQueryResponse;
+        })();
+
+        Table.ExecuteStreamQueryResult = (function() {
+
+            /**
+             * Properties of an ExecuteStreamQueryResult.
+             * @memberof Ydb.Table
+             * @interface IExecuteStreamQueryResult
+             * @property {Ydb.IResultSet|null} [resultSet] ExecuteStreamQueryResult resultSet
+             */
+
+            /**
+             * Constructs a new ExecuteStreamQueryResult.
+             * @memberof Ydb.Table
+             * @classdesc Represents an ExecuteStreamQueryResult.
+             * @implements IExecuteStreamQueryResult
+             * @constructor
+             * @param {Ydb.Table.IExecuteStreamQueryResult=} [properties] Properties to set
+             */
+            function ExecuteStreamQueryResult(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ExecuteStreamQueryResult resultSet.
+             * @member {Ydb.IResultSet|null|undefined} resultSet
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @instance
+             */
+            ExecuteStreamQueryResult.prototype.resultSet = null;
+
+            // OneOf field names bound to virtual getters and setters
+            var $oneOfFields;
+
+            /**
+             * ExecuteStreamQueryResult type.
+             * @member {"resultSet"|undefined} type
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @instance
+             */
+            Object.defineProperty(ExecuteStreamQueryResult.prototype, "type", {
+                get: $util.oneOfGetter($oneOfFields = ["resultSet"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            /**
+             * Creates a new ExecuteStreamQueryResult instance using the specified properties.
+             * @function create
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryResult=} [properties] Properties to set
+             * @returns {Ydb.Table.ExecuteStreamQueryResult} ExecuteStreamQueryResult instance
+             */
+            ExecuteStreamQueryResult.create = function create(properties) {
+                return new ExecuteStreamQueryResult(properties);
+            };
+
+            /**
+             * Encodes the specified ExecuteStreamQueryResult message. Does not implicitly {@link Ydb.Table.ExecuteStreamQueryResult.verify|verify} messages.
+             * @function encode
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryResult} message ExecuteStreamQueryResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExecuteStreamQueryResult.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.resultSet != null && message.hasOwnProperty("resultSet"))
+                    $root.Ydb.ResultSet.encode(message.resultSet, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ExecuteStreamQueryResult message, length delimited. Does not implicitly {@link Ydb.Table.ExecuteStreamQueryResult.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @static
+             * @param {Ydb.Table.IExecuteStreamQueryResult} message ExecuteStreamQueryResult message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ExecuteStreamQueryResult.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an ExecuteStreamQueryResult message from the specified reader or buffer.
+             * @function decode
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {Ydb.Table.ExecuteStreamQueryResult} ExecuteStreamQueryResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExecuteStreamQueryResult.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.Ydb.Table.ExecuteStreamQueryResult();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.resultSet = $root.Ydb.ResultSet.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an ExecuteStreamQueryResult message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {Ydb.Table.ExecuteStreamQueryResult} ExecuteStreamQueryResult
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ExecuteStreamQueryResult.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an ExecuteStreamQueryResult message.
+             * @function verify
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ExecuteStreamQueryResult.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                var properties = {};
+                if (message.resultSet != null && message.hasOwnProperty("resultSet")) {
+                    properties.type = 1;
+                    {
+                        var error = $root.Ydb.ResultSet.verify(message.resultSet);
+                        if (error)
+                            return "resultSet." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates an ExecuteStreamQueryResult message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {Ydb.Table.ExecuteStreamQueryResult} ExecuteStreamQueryResult
+             */
+            ExecuteStreamQueryResult.fromObject = function fromObject(object) {
+                if (object instanceof $root.Ydb.Table.ExecuteStreamQueryResult)
+                    return object;
+                var message = new $root.Ydb.Table.ExecuteStreamQueryResult();
+                if (object.resultSet != null) {
+                    if (typeof object.resultSet !== "object")
+                        throw TypeError(".Ydb.Table.ExecuteStreamQueryResult.resultSet: object expected");
+                    message.resultSet = $root.Ydb.ResultSet.fromObject(object.resultSet);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an ExecuteStreamQueryResult message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @static
+             * @param {Ydb.Table.ExecuteStreamQueryResult} message ExecuteStreamQueryResult
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ExecuteStreamQueryResult.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (message.resultSet != null && message.hasOwnProperty("resultSet")) {
+                    object.resultSet = $root.Ydb.ResultSet.toObject(message.resultSet, options);
+                    if (options.oneofs)
+                        object.type = "resultSet";
+                }
+                return object;
+            };
+
+            /**
+             * Converts this ExecuteStreamQueryResult to JSON.
+             * @function toJSON
+             * @memberof Ydb.Table.ExecuteStreamQueryResult
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ExecuteStreamQueryResult.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ExecuteStreamQueryResult;
         })();
 
         return Table;
@@ -52189,570 +68680,6 @@ $root.Ydb = (function() {
     return Ydb;
 })();
 
-$root.yandex = (function() {
-
-    /**
-     * Namespace yandex.
-     * @exports yandex
-     * @namespace
-     */
-    var yandex = {};
-
-    yandex.cloud = (function() {
-
-        /**
-         * Namespace cloud.
-         * @memberof yandex
-         * @namespace
-         */
-        var cloud = {};
-
-        cloud.iam = (function() {
-
-            /**
-             * Namespace iam.
-             * @memberof yandex.cloud
-             * @namespace
-             */
-            var iam = {};
-
-            iam.v1 = (function() {
-
-                /**
-                 * Namespace v1.
-                 * @memberof yandex.cloud.iam
-                 * @namespace
-                 */
-                var v1 = {};
-
-                v1.IamTokenService = (function() {
-
-                    /**
-                     * Constructs a new IamTokenService service.
-                     * @memberof yandex.cloud.iam.v1
-                     * @classdesc Represents an IamTokenService
-                     * @extends $protobuf.rpc.Service
-                     * @constructor
-                     * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
-                     * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
-                     * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
-                     */
-                    function IamTokenService(rpcImpl, requestDelimited, responseDelimited) {
-                        $protobuf.rpc.Service.call(this, rpcImpl, requestDelimited, responseDelimited);
-                    }
-
-                    (IamTokenService.prototype = Object.create($protobuf.rpc.Service.prototype)).constructor = IamTokenService;
-
-                    /**
-                     * Creates new IamTokenService service using the specified rpc implementation.
-                     * @function create
-                     * @memberof yandex.cloud.iam.v1.IamTokenService
-                     * @static
-                     * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
-                     * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
-                     * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
-                     * @returns {IamTokenService} RPC service. Useful where requests and/or responses are streamed.
-                     */
-                    IamTokenService.create = function create(rpcImpl, requestDelimited, responseDelimited) {
-                        return new this(rpcImpl, requestDelimited, responseDelimited);
-                    };
-
-                    /**
-                     * Callback as used by {@link yandex.cloud.iam.v1.IamTokenService#create}.
-                     * @memberof yandex.cloud.iam.v1.IamTokenService
-                     * @typedef CreateCallback
-                     * @type {function}
-                     * @param {Error|null} error Error, if any
-                     * @param {yandex.cloud.iam.v1.CreateIamTokenResponse} [response] CreateIamTokenResponse
-                     */
-
-                    /**
-                     * Calls Create.
-                     * @function create
-                     * @memberof yandex.cloud.iam.v1.IamTokenService
-                     * @instance
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest} request CreateIamTokenRequest message or plain object
-                     * @param {yandex.cloud.iam.v1.IamTokenService.CreateCallback} callback Node-style callback called with the error, if any, and CreateIamTokenResponse
-                     * @returns {undefined}
-                     * @variation 1
-                     */
-                    Object.defineProperty(IamTokenService.prototype.create = function create(request, callback) {
-                        return this.rpcCall(create, $root.yandex.cloud.iam.v1.CreateIamTokenRequest, $root.yandex.cloud.iam.v1.CreateIamTokenResponse, request, callback);
-                    }, "name", { value: "Create" });
-
-                    /**
-                     * Calls Create.
-                     * @function create
-                     * @memberof yandex.cloud.iam.v1.IamTokenService
-                     * @instance
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest} request CreateIamTokenRequest message or plain object
-                     * @returns {Promise<yandex.cloud.iam.v1.CreateIamTokenResponse>} Promise
-                     * @variation 2
-                     */
-
-                    return IamTokenService;
-                })();
-
-                v1.CreateIamTokenRequest = (function() {
-
-                    /**
-                     * Properties of a CreateIamTokenRequest.
-                     * @memberof yandex.cloud.iam.v1
-                     * @interface ICreateIamTokenRequest
-                     * @property {string|null} [yandexPassportOauthToken] CreateIamTokenRequest yandexPassportOauthToken
-                     * @property {string|null} [jwt] CreateIamTokenRequest jwt
-                     */
-
-                    /**
-                     * Constructs a new CreateIamTokenRequest.
-                     * @memberof yandex.cloud.iam.v1
-                     * @classdesc Represents a CreateIamTokenRequest.
-                     * @implements ICreateIamTokenRequest
-                     * @constructor
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest=} [properties] Properties to set
-                     */
-                    function CreateIamTokenRequest(properties) {
-                        if (properties)
-                            for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                                if (properties[keys[i]] != null)
-                                    this[keys[i]] = properties[keys[i]];
-                    }
-
-                    /**
-                     * CreateIamTokenRequest yandexPassportOauthToken.
-                     * @member {string} yandexPassportOauthToken
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @instance
-                     */
-                    CreateIamTokenRequest.prototype.yandexPassportOauthToken = "";
-
-                    /**
-                     * CreateIamTokenRequest jwt.
-                     * @member {string} jwt
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @instance
-                     */
-                    CreateIamTokenRequest.prototype.jwt = "";
-
-                    // OneOf field names bound to virtual getters and setters
-                    var $oneOfFields;
-
-                    /**
-                     * CreateIamTokenRequest identity.
-                     * @member {"yandexPassportOauthToken"|"jwt"|undefined} identity
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @instance
-                     */
-                    Object.defineProperty(CreateIamTokenRequest.prototype, "identity", {
-                        get: $util.oneOfGetter($oneOfFields = ["yandexPassportOauthToken", "jwt"]),
-                        set: $util.oneOfSetter($oneOfFields)
-                    });
-
-                    /**
-                     * Creates a new CreateIamTokenRequest instance using the specified properties.
-                     * @function create
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @static
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest=} [properties] Properties to set
-                     * @returns {yandex.cloud.iam.v1.CreateIamTokenRequest} CreateIamTokenRequest instance
-                     */
-                    CreateIamTokenRequest.create = function create(properties) {
-                        return new CreateIamTokenRequest(properties);
-                    };
-
-                    /**
-                     * Encodes the specified CreateIamTokenRequest message. Does not implicitly {@link yandex.cloud.iam.v1.CreateIamTokenRequest.verify|verify} messages.
-                     * @function encode
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @static
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest} message CreateIamTokenRequest message or plain object to encode
-                     * @param {$protobuf.Writer} [writer] Writer to encode to
-                     * @returns {$protobuf.Writer} Writer
-                     */
-                    CreateIamTokenRequest.encode = function encode(message, writer) {
-                        if (!writer)
-                            writer = $Writer.create();
-                        if (message.yandexPassportOauthToken != null && message.hasOwnProperty("yandexPassportOauthToken"))
-                            writer.uint32(/* id 1, wireType 2 =*/10).string(message.yandexPassportOauthToken);
-                        if (message.jwt != null && message.hasOwnProperty("jwt"))
-                            writer.uint32(/* id 2, wireType 2 =*/18).string(message.jwt);
-                        return writer;
-                    };
-
-                    /**
-                     * Encodes the specified CreateIamTokenRequest message, length delimited. Does not implicitly {@link yandex.cloud.iam.v1.CreateIamTokenRequest.verify|verify} messages.
-                     * @function encodeDelimited
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @static
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest} message CreateIamTokenRequest message or plain object to encode
-                     * @param {$protobuf.Writer} [writer] Writer to encode to
-                     * @returns {$protobuf.Writer} Writer
-                     */
-                    CreateIamTokenRequest.encodeDelimited = function encodeDelimited(message, writer) {
-                        return this.encode(message, writer).ldelim();
-                    };
-
-                    /**
-                     * Decodes a CreateIamTokenRequest message from the specified reader or buffer.
-                     * @function decode
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @static
-                     * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-                     * @param {number} [length] Message length if known beforehand
-                     * @returns {yandex.cloud.iam.v1.CreateIamTokenRequest} CreateIamTokenRequest
-                     * @throws {Error} If the payload is not a reader or valid buffer
-                     * @throws {$protobuf.util.ProtocolError} If required fields are missing
-                     */
-                    CreateIamTokenRequest.decode = function decode(reader, length) {
-                        if (!(reader instanceof $Reader))
-                            reader = $Reader.create(reader);
-                        var end = length === undefined ? reader.len : reader.pos + length, message = new $root.yandex.cloud.iam.v1.CreateIamTokenRequest();
-                        while (reader.pos < end) {
-                            var tag = reader.uint32();
-                            switch (tag >>> 3) {
-                            case 1:
-                                message.yandexPassportOauthToken = reader.string();
-                                break;
-                            case 2:
-                                message.jwt = reader.string();
-                                break;
-                            default:
-                                reader.skipType(tag & 7);
-                                break;
-                            }
-                        }
-                        return message;
-                    };
-
-                    /**
-                     * Decodes a CreateIamTokenRequest message from the specified reader or buffer, length delimited.
-                     * @function decodeDelimited
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @static
-                     * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-                     * @returns {yandex.cloud.iam.v1.CreateIamTokenRequest} CreateIamTokenRequest
-                     * @throws {Error} If the payload is not a reader or valid buffer
-                     * @throws {$protobuf.util.ProtocolError} If required fields are missing
-                     */
-                    CreateIamTokenRequest.decodeDelimited = function decodeDelimited(reader) {
-                        if (!(reader instanceof $Reader))
-                            reader = new $Reader(reader);
-                        return this.decode(reader, reader.uint32());
-                    };
-
-                    /**
-                     * Verifies a CreateIamTokenRequest message.
-                     * @function verify
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @static
-                     * @param {Object.<string,*>} message Plain object to verify
-                     * @returns {string|null} `null` if valid, otherwise the reason why it is not
-                     */
-                    CreateIamTokenRequest.verify = function verify(message) {
-                        if (typeof message !== "object" || message === null)
-                            return "object expected";
-                        var properties = {};
-                        if (message.yandexPassportOauthToken != null && message.hasOwnProperty("yandexPassportOauthToken")) {
-                            properties.identity = 1;
-                            if (!$util.isString(message.yandexPassportOauthToken))
-                                return "yandexPassportOauthToken: string expected";
-                        }
-                        if (message.jwt != null && message.hasOwnProperty("jwt")) {
-                            if (properties.identity === 1)
-                                return "identity: multiple values";
-                            properties.identity = 1;
-                            if (!$util.isString(message.jwt))
-                                return "jwt: string expected";
-                        }
-                        return null;
-                    };
-
-                    /**
-                     * Creates a CreateIamTokenRequest message from a plain object. Also converts values to their respective internal types.
-                     * @function fromObject
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @static
-                     * @param {Object.<string,*>} object Plain object
-                     * @returns {yandex.cloud.iam.v1.CreateIamTokenRequest} CreateIamTokenRequest
-                     */
-                    CreateIamTokenRequest.fromObject = function fromObject(object) {
-                        if (object instanceof $root.yandex.cloud.iam.v1.CreateIamTokenRequest)
-                            return object;
-                        var message = new $root.yandex.cloud.iam.v1.CreateIamTokenRequest();
-                        if (object.yandexPassportOauthToken != null)
-                            message.yandexPassportOauthToken = String(object.yandexPassportOauthToken);
-                        if (object.jwt != null)
-                            message.jwt = String(object.jwt);
-                        return message;
-                    };
-
-                    /**
-                     * Creates a plain object from a CreateIamTokenRequest message. Also converts values to other types if specified.
-                     * @function toObject
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @static
-                     * @param {yandex.cloud.iam.v1.CreateIamTokenRequest} message CreateIamTokenRequest
-                     * @param {$protobuf.IConversionOptions} [options] Conversion options
-                     * @returns {Object.<string,*>} Plain object
-                     */
-                    CreateIamTokenRequest.toObject = function toObject(message, options) {
-                        if (!options)
-                            options = {};
-                        var object = {};
-                        if (message.yandexPassportOauthToken != null && message.hasOwnProperty("yandexPassportOauthToken")) {
-                            object.yandexPassportOauthToken = message.yandexPassportOauthToken;
-                            if (options.oneofs)
-                                object.identity = "yandexPassportOauthToken";
-                        }
-                        if (message.jwt != null && message.hasOwnProperty("jwt")) {
-                            object.jwt = message.jwt;
-                            if (options.oneofs)
-                                object.identity = "jwt";
-                        }
-                        return object;
-                    };
-
-                    /**
-                     * Converts this CreateIamTokenRequest to JSON.
-                     * @function toJSON
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
-                     * @instance
-                     * @returns {Object.<string,*>} JSON object
-                     */
-                    CreateIamTokenRequest.prototype.toJSON = function toJSON() {
-                        return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-                    };
-
-                    return CreateIamTokenRequest;
-                })();
-
-                v1.CreateIamTokenResponse = (function() {
-
-                    /**
-                     * Properties of a CreateIamTokenResponse.
-                     * @memberof yandex.cloud.iam.v1
-                     * @interface ICreateIamTokenResponse
-                     * @property {string|null} [iamToken] CreateIamTokenResponse iamToken
-                     * @property {google.protobuf.ITimestamp|null} [expiresAt] CreateIamTokenResponse expiresAt
-                     */
-
-                    /**
-                     * Constructs a new CreateIamTokenResponse.
-                     * @memberof yandex.cloud.iam.v1
-                     * @classdesc Represents a CreateIamTokenResponse.
-                     * @implements ICreateIamTokenResponse
-                     * @constructor
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenResponse=} [properties] Properties to set
-                     */
-                    function CreateIamTokenResponse(properties) {
-                        if (properties)
-                            for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                                if (properties[keys[i]] != null)
-                                    this[keys[i]] = properties[keys[i]];
-                    }
-
-                    /**
-                     * CreateIamTokenResponse iamToken.
-                     * @member {string} iamToken
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @instance
-                     */
-                    CreateIamTokenResponse.prototype.iamToken = "";
-
-                    /**
-                     * CreateIamTokenResponse expiresAt.
-                     * @member {google.protobuf.ITimestamp|null|undefined} expiresAt
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @instance
-                     */
-                    CreateIamTokenResponse.prototype.expiresAt = null;
-
-                    /**
-                     * Creates a new CreateIamTokenResponse instance using the specified properties.
-                     * @function create
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @static
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenResponse=} [properties] Properties to set
-                     * @returns {yandex.cloud.iam.v1.CreateIamTokenResponse} CreateIamTokenResponse instance
-                     */
-                    CreateIamTokenResponse.create = function create(properties) {
-                        return new CreateIamTokenResponse(properties);
-                    };
-
-                    /**
-                     * Encodes the specified CreateIamTokenResponse message. Does not implicitly {@link yandex.cloud.iam.v1.CreateIamTokenResponse.verify|verify} messages.
-                     * @function encode
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @static
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenResponse} message CreateIamTokenResponse message or plain object to encode
-                     * @param {$protobuf.Writer} [writer] Writer to encode to
-                     * @returns {$protobuf.Writer} Writer
-                     */
-                    CreateIamTokenResponse.encode = function encode(message, writer) {
-                        if (!writer)
-                            writer = $Writer.create();
-                        if (message.iamToken != null && message.hasOwnProperty("iamToken"))
-                            writer.uint32(/* id 1, wireType 2 =*/10).string(message.iamToken);
-                        if (message.expiresAt != null && message.hasOwnProperty("expiresAt"))
-                            $root.google.protobuf.Timestamp.encode(message.expiresAt, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
-                        return writer;
-                    };
-
-                    /**
-                     * Encodes the specified CreateIamTokenResponse message, length delimited. Does not implicitly {@link yandex.cloud.iam.v1.CreateIamTokenResponse.verify|verify} messages.
-                     * @function encodeDelimited
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @static
-                     * @param {yandex.cloud.iam.v1.ICreateIamTokenResponse} message CreateIamTokenResponse message or plain object to encode
-                     * @param {$protobuf.Writer} [writer] Writer to encode to
-                     * @returns {$protobuf.Writer} Writer
-                     */
-                    CreateIamTokenResponse.encodeDelimited = function encodeDelimited(message, writer) {
-                        return this.encode(message, writer).ldelim();
-                    };
-
-                    /**
-                     * Decodes a CreateIamTokenResponse message from the specified reader or buffer.
-                     * @function decode
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @static
-                     * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-                     * @param {number} [length] Message length if known beforehand
-                     * @returns {yandex.cloud.iam.v1.CreateIamTokenResponse} CreateIamTokenResponse
-                     * @throws {Error} If the payload is not a reader or valid buffer
-                     * @throws {$protobuf.util.ProtocolError} If required fields are missing
-                     */
-                    CreateIamTokenResponse.decode = function decode(reader, length) {
-                        if (!(reader instanceof $Reader))
-                            reader = $Reader.create(reader);
-                        var end = length === undefined ? reader.len : reader.pos + length, message = new $root.yandex.cloud.iam.v1.CreateIamTokenResponse();
-                        while (reader.pos < end) {
-                            var tag = reader.uint32();
-                            switch (tag >>> 3) {
-                            case 1:
-                                message.iamToken = reader.string();
-                                break;
-                            case 2:
-                                message.expiresAt = $root.google.protobuf.Timestamp.decode(reader, reader.uint32());
-                                break;
-                            default:
-                                reader.skipType(tag & 7);
-                                break;
-                            }
-                        }
-                        return message;
-                    };
-
-                    /**
-                     * Decodes a CreateIamTokenResponse message from the specified reader or buffer, length delimited.
-                     * @function decodeDelimited
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @static
-                     * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-                     * @returns {yandex.cloud.iam.v1.CreateIamTokenResponse} CreateIamTokenResponse
-                     * @throws {Error} If the payload is not a reader or valid buffer
-                     * @throws {$protobuf.util.ProtocolError} If required fields are missing
-                     */
-                    CreateIamTokenResponse.decodeDelimited = function decodeDelimited(reader) {
-                        if (!(reader instanceof $Reader))
-                            reader = new $Reader(reader);
-                        return this.decode(reader, reader.uint32());
-                    };
-
-                    /**
-                     * Verifies a CreateIamTokenResponse message.
-                     * @function verify
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @static
-                     * @param {Object.<string,*>} message Plain object to verify
-                     * @returns {string|null} `null` if valid, otherwise the reason why it is not
-                     */
-                    CreateIamTokenResponse.verify = function verify(message) {
-                        if (typeof message !== "object" || message === null)
-                            return "object expected";
-                        if (message.iamToken != null && message.hasOwnProperty("iamToken"))
-                            if (!$util.isString(message.iamToken))
-                                return "iamToken: string expected";
-                        if (message.expiresAt != null && message.hasOwnProperty("expiresAt")) {
-                            var error = $root.google.protobuf.Timestamp.verify(message.expiresAt);
-                            if (error)
-                                return "expiresAt." + error;
-                        }
-                        return null;
-                    };
-
-                    /**
-                     * Creates a CreateIamTokenResponse message from a plain object. Also converts values to their respective internal types.
-                     * @function fromObject
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @static
-                     * @param {Object.<string,*>} object Plain object
-                     * @returns {yandex.cloud.iam.v1.CreateIamTokenResponse} CreateIamTokenResponse
-                     */
-                    CreateIamTokenResponse.fromObject = function fromObject(object) {
-                        if (object instanceof $root.yandex.cloud.iam.v1.CreateIamTokenResponse)
-                            return object;
-                        var message = new $root.yandex.cloud.iam.v1.CreateIamTokenResponse();
-                        if (object.iamToken != null)
-                            message.iamToken = String(object.iamToken);
-                        if (object.expiresAt != null) {
-                            if (typeof object.expiresAt !== "object")
-                                throw TypeError(".yandex.cloud.iam.v1.CreateIamTokenResponse.expiresAt: object expected");
-                            message.expiresAt = $root.google.protobuf.Timestamp.fromObject(object.expiresAt);
-                        }
-                        return message;
-                    };
-
-                    /**
-                     * Creates a plain object from a CreateIamTokenResponse message. Also converts values to other types if specified.
-                     * @function toObject
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @static
-                     * @param {yandex.cloud.iam.v1.CreateIamTokenResponse} message CreateIamTokenResponse
-                     * @param {$protobuf.IConversionOptions} [options] Conversion options
-                     * @returns {Object.<string,*>} Plain object
-                     */
-                    CreateIamTokenResponse.toObject = function toObject(message, options) {
-                        if (!options)
-                            options = {};
-                        var object = {};
-                        if (options.defaults) {
-                            object.iamToken = "";
-                            object.expiresAt = null;
-                        }
-                        if (message.iamToken != null && message.hasOwnProperty("iamToken"))
-                            object.iamToken = message.iamToken;
-                        if (message.expiresAt != null && message.hasOwnProperty("expiresAt"))
-                            object.expiresAt = $root.google.protobuf.Timestamp.toObject(message.expiresAt, options);
-                        return object;
-                    };
-
-                    /**
-                     * Converts this CreateIamTokenResponse to JSON.
-                     * @function toJSON
-                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
-                     * @instance
-                     * @returns {Object.<string,*>} JSON object
-                     */
-                    CreateIamTokenResponse.prototype.toJSON = function toJSON() {
-                        return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-                    };
-
-                    return CreateIamTokenResponse;
-                })();
-
-                return v1;
-            })();
-
-            return iam;
-        })();
-
-        return cloud;
-    })();
-
-    return yandex;
-})();
-
 $root.google = (function() {
 
     /**
@@ -53212,806 +69139,6 @@ $root.google = (function() {
             };
 
             return Duration;
-        })();
-
-        protobuf.Struct = (function() {
-
-            /**
-             * Properties of a Struct.
-             * @memberof google.protobuf
-             * @interface IStruct
-             * @property {Object.<string,google.protobuf.IValue>|null} [fields] Struct fields
-             */
-
-            /**
-             * Constructs a new Struct.
-             * @memberof google.protobuf
-             * @classdesc Represents a Struct.
-             * @implements IStruct
-             * @constructor
-             * @param {google.protobuf.IStruct=} [properties] Properties to set
-             */
-            function Struct(properties) {
-                this.fields = {};
-                if (properties)
-                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
-                            this[keys[i]] = properties[keys[i]];
-            }
-
-            /**
-             * Struct fields.
-             * @member {Object.<string,google.protobuf.IValue>} fields
-             * @memberof google.protobuf.Struct
-             * @instance
-             */
-            Struct.prototype.fields = $util.emptyObject;
-
-            /**
-             * Creates a new Struct instance using the specified properties.
-             * @function create
-             * @memberof google.protobuf.Struct
-             * @static
-             * @param {google.protobuf.IStruct=} [properties] Properties to set
-             * @returns {google.protobuf.Struct} Struct instance
-             */
-            Struct.create = function create(properties) {
-                return new Struct(properties);
-            };
-
-            /**
-             * Encodes the specified Struct message. Does not implicitly {@link google.protobuf.Struct.verify|verify} messages.
-             * @function encode
-             * @memberof google.protobuf.Struct
-             * @static
-             * @param {google.protobuf.IStruct} message Struct message or plain object to encode
-             * @param {$protobuf.Writer} [writer] Writer to encode to
-             * @returns {$protobuf.Writer} Writer
-             */
-            Struct.encode = function encode(message, writer) {
-                if (!writer)
-                    writer = $Writer.create();
-                if (message.fields != null && message.hasOwnProperty("fields"))
-                    for (var keys = Object.keys(message.fields), i = 0; i < keys.length; ++i) {
-                        writer.uint32(/* id 1, wireType 2 =*/10).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
-                        $root.google.protobuf.Value.encode(message.fields[keys[i]], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim().ldelim();
-                    }
-                return writer;
-            };
-
-            /**
-             * Encodes the specified Struct message, length delimited. Does not implicitly {@link google.protobuf.Struct.verify|verify} messages.
-             * @function encodeDelimited
-             * @memberof google.protobuf.Struct
-             * @static
-             * @param {google.protobuf.IStruct} message Struct message or plain object to encode
-             * @param {$protobuf.Writer} [writer] Writer to encode to
-             * @returns {$protobuf.Writer} Writer
-             */
-            Struct.encodeDelimited = function encodeDelimited(message, writer) {
-                return this.encode(message, writer).ldelim();
-            };
-
-            /**
-             * Decodes a Struct message from the specified reader or buffer.
-             * @function decode
-             * @memberof google.protobuf.Struct
-             * @static
-             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-             * @param {number} [length] Message length if known beforehand
-             * @returns {google.protobuf.Struct} Struct
-             * @throws {Error} If the payload is not a reader or valid buffer
-             * @throws {$protobuf.util.ProtocolError} If required fields are missing
-             */
-            Struct.decode = function decode(reader, length) {
-                if (!(reader instanceof $Reader))
-                    reader = $Reader.create(reader);
-                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.Struct(), key;
-                while (reader.pos < end) {
-                    var tag = reader.uint32();
-                    switch (tag >>> 3) {
-                    case 1:
-                        reader.skip().pos++;
-                        if (message.fields === $util.emptyObject)
-                            message.fields = {};
-                        key = reader.string();
-                        reader.pos++;
-                        message.fields[key] = $root.google.protobuf.Value.decode(reader, reader.uint32());
-                        break;
-                    default:
-                        reader.skipType(tag & 7);
-                        break;
-                    }
-                }
-                return message;
-            };
-
-            /**
-             * Decodes a Struct message from the specified reader or buffer, length delimited.
-             * @function decodeDelimited
-             * @memberof google.protobuf.Struct
-             * @static
-             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-             * @returns {google.protobuf.Struct} Struct
-             * @throws {Error} If the payload is not a reader or valid buffer
-             * @throws {$protobuf.util.ProtocolError} If required fields are missing
-             */
-            Struct.decodeDelimited = function decodeDelimited(reader) {
-                if (!(reader instanceof $Reader))
-                    reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
-            };
-
-            /**
-             * Verifies a Struct message.
-             * @function verify
-             * @memberof google.protobuf.Struct
-             * @static
-             * @param {Object.<string,*>} message Plain object to verify
-             * @returns {string|null} `null` if valid, otherwise the reason why it is not
-             */
-            Struct.verify = function verify(message) {
-                if (typeof message !== "object" || message === null)
-                    return "object expected";
-                if (message.fields != null && message.hasOwnProperty("fields")) {
-                    if (!$util.isObject(message.fields))
-                        return "fields: object expected";
-                    var key = Object.keys(message.fields);
-                    for (var i = 0; i < key.length; ++i) {
-                        var error = $root.google.protobuf.Value.verify(message.fields[key[i]]);
-                        if (error)
-                            return "fields." + error;
-                    }
-                }
-                return null;
-            };
-
-            /**
-             * Creates a Struct message from a plain object. Also converts values to their respective internal types.
-             * @function fromObject
-             * @memberof google.protobuf.Struct
-             * @static
-             * @param {Object.<string,*>} object Plain object
-             * @returns {google.protobuf.Struct} Struct
-             */
-            Struct.fromObject = function fromObject(object) {
-                if (object instanceof $root.google.protobuf.Struct)
-                    return object;
-                var message = new $root.google.protobuf.Struct();
-                if (object.fields) {
-                    if (typeof object.fields !== "object")
-                        throw TypeError(".google.protobuf.Struct.fields: object expected");
-                    message.fields = {};
-                    for (var keys = Object.keys(object.fields), i = 0; i < keys.length; ++i) {
-                        if (typeof object.fields[keys[i]] !== "object")
-                            throw TypeError(".google.protobuf.Struct.fields: object expected");
-                        message.fields[keys[i]] = $root.google.protobuf.Value.fromObject(object.fields[keys[i]]);
-                    }
-                }
-                return message;
-            };
-
-            /**
-             * Creates a plain object from a Struct message. Also converts values to other types if specified.
-             * @function toObject
-             * @memberof google.protobuf.Struct
-             * @static
-             * @param {google.protobuf.Struct} message Struct
-             * @param {$protobuf.IConversionOptions} [options] Conversion options
-             * @returns {Object.<string,*>} Plain object
-             */
-            Struct.toObject = function toObject(message, options) {
-                if (!options)
-                    options = {};
-                var object = {};
-                if (options.objects || options.defaults)
-                    object.fields = {};
-                var keys2;
-                if (message.fields && (keys2 = Object.keys(message.fields)).length) {
-                    object.fields = {};
-                    for (var j = 0; j < keys2.length; ++j)
-                        object.fields[keys2[j]] = $root.google.protobuf.Value.toObject(message.fields[keys2[j]], options);
-                }
-                return object;
-            };
-
-            /**
-             * Converts this Struct to JSON.
-             * @function toJSON
-             * @memberof google.protobuf.Struct
-             * @instance
-             * @returns {Object.<string,*>} JSON object
-             */
-            Struct.prototype.toJSON = function toJSON() {
-                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-            };
-
-            return Struct;
-        })();
-
-        protobuf.Value = (function() {
-
-            /**
-             * Properties of a Value.
-             * @memberof google.protobuf
-             * @interface IValue
-             * @property {google.protobuf.NullValue|null} [nullValue] Value nullValue
-             * @property {number|null} [numberValue] Value numberValue
-             * @property {string|null} [stringValue] Value stringValue
-             * @property {boolean|null} [boolValue] Value boolValue
-             * @property {google.protobuf.IStruct|null} [structValue] Value structValue
-             * @property {google.protobuf.IListValue|null} [listValue] Value listValue
-             */
-
-            /**
-             * Constructs a new Value.
-             * @memberof google.protobuf
-             * @classdesc Represents a Value.
-             * @implements IValue
-             * @constructor
-             * @param {google.protobuf.IValue=} [properties] Properties to set
-             */
-            function Value(properties) {
-                if (properties)
-                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
-                            this[keys[i]] = properties[keys[i]];
-            }
-
-            /**
-             * Value nullValue.
-             * @member {google.protobuf.NullValue} nullValue
-             * @memberof google.protobuf.Value
-             * @instance
-             */
-            Value.prototype.nullValue = 0;
-
-            /**
-             * Value numberValue.
-             * @member {number} numberValue
-             * @memberof google.protobuf.Value
-             * @instance
-             */
-            Value.prototype.numberValue = 0;
-
-            /**
-             * Value stringValue.
-             * @member {string} stringValue
-             * @memberof google.protobuf.Value
-             * @instance
-             */
-            Value.prototype.stringValue = "";
-
-            /**
-             * Value boolValue.
-             * @member {boolean} boolValue
-             * @memberof google.protobuf.Value
-             * @instance
-             */
-            Value.prototype.boolValue = false;
-
-            /**
-             * Value structValue.
-             * @member {google.protobuf.IStruct|null|undefined} structValue
-             * @memberof google.protobuf.Value
-             * @instance
-             */
-            Value.prototype.structValue = null;
-
-            /**
-             * Value listValue.
-             * @member {google.protobuf.IListValue|null|undefined} listValue
-             * @memberof google.protobuf.Value
-             * @instance
-             */
-            Value.prototype.listValue = null;
-
-            // OneOf field names bound to virtual getters and setters
-            var $oneOfFields;
-
-            /**
-             * Value kind.
-             * @member {"nullValue"|"numberValue"|"stringValue"|"boolValue"|"structValue"|"listValue"|undefined} kind
-             * @memberof google.protobuf.Value
-             * @instance
-             */
-            Object.defineProperty(Value.prototype, "kind", {
-                get: $util.oneOfGetter($oneOfFields = ["nullValue", "numberValue", "stringValue", "boolValue", "structValue", "listValue"]),
-                set: $util.oneOfSetter($oneOfFields)
-            });
-
-            /**
-             * Creates a new Value instance using the specified properties.
-             * @function create
-             * @memberof google.protobuf.Value
-             * @static
-             * @param {google.protobuf.IValue=} [properties] Properties to set
-             * @returns {google.protobuf.Value} Value instance
-             */
-            Value.create = function create(properties) {
-                return new Value(properties);
-            };
-
-            /**
-             * Encodes the specified Value message. Does not implicitly {@link google.protobuf.Value.verify|verify} messages.
-             * @function encode
-             * @memberof google.protobuf.Value
-             * @static
-             * @param {google.protobuf.IValue} message Value message or plain object to encode
-             * @param {$protobuf.Writer} [writer] Writer to encode to
-             * @returns {$protobuf.Writer} Writer
-             */
-            Value.encode = function encode(message, writer) {
-                if (!writer)
-                    writer = $Writer.create();
-                if (message.nullValue != null && message.hasOwnProperty("nullValue"))
-                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.nullValue);
-                if (message.numberValue != null && message.hasOwnProperty("numberValue"))
-                    writer.uint32(/* id 2, wireType 1 =*/17).double(message.numberValue);
-                if (message.stringValue != null && message.hasOwnProperty("stringValue"))
-                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.stringValue);
-                if (message.boolValue != null && message.hasOwnProperty("boolValue"))
-                    writer.uint32(/* id 4, wireType 0 =*/32).bool(message.boolValue);
-                if (message.structValue != null && message.hasOwnProperty("structValue"))
-                    $root.google.protobuf.Struct.encode(message.structValue, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
-                if (message.listValue != null && message.hasOwnProperty("listValue"))
-                    $root.google.protobuf.ListValue.encode(message.listValue, writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
-                return writer;
-            };
-
-            /**
-             * Encodes the specified Value message, length delimited. Does not implicitly {@link google.protobuf.Value.verify|verify} messages.
-             * @function encodeDelimited
-             * @memberof google.protobuf.Value
-             * @static
-             * @param {google.protobuf.IValue} message Value message or plain object to encode
-             * @param {$protobuf.Writer} [writer] Writer to encode to
-             * @returns {$protobuf.Writer} Writer
-             */
-            Value.encodeDelimited = function encodeDelimited(message, writer) {
-                return this.encode(message, writer).ldelim();
-            };
-
-            /**
-             * Decodes a Value message from the specified reader or buffer.
-             * @function decode
-             * @memberof google.protobuf.Value
-             * @static
-             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-             * @param {number} [length] Message length if known beforehand
-             * @returns {google.protobuf.Value} Value
-             * @throws {Error} If the payload is not a reader or valid buffer
-             * @throws {$protobuf.util.ProtocolError} If required fields are missing
-             */
-            Value.decode = function decode(reader, length) {
-                if (!(reader instanceof $Reader))
-                    reader = $Reader.create(reader);
-                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.Value();
-                while (reader.pos < end) {
-                    var tag = reader.uint32();
-                    switch (tag >>> 3) {
-                    case 1:
-                        message.nullValue = reader.int32();
-                        break;
-                    case 2:
-                        message.numberValue = reader.double();
-                        break;
-                    case 3:
-                        message.stringValue = reader.string();
-                        break;
-                    case 4:
-                        message.boolValue = reader.bool();
-                        break;
-                    case 5:
-                        message.structValue = $root.google.protobuf.Struct.decode(reader, reader.uint32());
-                        break;
-                    case 6:
-                        message.listValue = $root.google.protobuf.ListValue.decode(reader, reader.uint32());
-                        break;
-                    default:
-                        reader.skipType(tag & 7);
-                        break;
-                    }
-                }
-                return message;
-            };
-
-            /**
-             * Decodes a Value message from the specified reader or buffer, length delimited.
-             * @function decodeDelimited
-             * @memberof google.protobuf.Value
-             * @static
-             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-             * @returns {google.protobuf.Value} Value
-             * @throws {Error} If the payload is not a reader or valid buffer
-             * @throws {$protobuf.util.ProtocolError} If required fields are missing
-             */
-            Value.decodeDelimited = function decodeDelimited(reader) {
-                if (!(reader instanceof $Reader))
-                    reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
-            };
-
-            /**
-             * Verifies a Value message.
-             * @function verify
-             * @memberof google.protobuf.Value
-             * @static
-             * @param {Object.<string,*>} message Plain object to verify
-             * @returns {string|null} `null` if valid, otherwise the reason why it is not
-             */
-            Value.verify = function verify(message) {
-                if (typeof message !== "object" || message === null)
-                    return "object expected";
-                var properties = {};
-                if (message.nullValue != null && message.hasOwnProperty("nullValue")) {
-                    properties.kind = 1;
-                    switch (message.nullValue) {
-                    default:
-                        return "nullValue: enum value expected";
-                    case 0:
-                        break;
-                    }
-                }
-                if (message.numberValue != null && message.hasOwnProperty("numberValue")) {
-                    if (properties.kind === 1)
-                        return "kind: multiple values";
-                    properties.kind = 1;
-                    if (typeof message.numberValue !== "number")
-                        return "numberValue: number expected";
-                }
-                if (message.stringValue != null && message.hasOwnProperty("stringValue")) {
-                    if (properties.kind === 1)
-                        return "kind: multiple values";
-                    properties.kind = 1;
-                    if (!$util.isString(message.stringValue))
-                        return "stringValue: string expected";
-                }
-                if (message.boolValue != null && message.hasOwnProperty("boolValue")) {
-                    if (properties.kind === 1)
-                        return "kind: multiple values";
-                    properties.kind = 1;
-                    if (typeof message.boolValue !== "boolean")
-                        return "boolValue: boolean expected";
-                }
-                if (message.structValue != null && message.hasOwnProperty("structValue")) {
-                    if (properties.kind === 1)
-                        return "kind: multiple values";
-                    properties.kind = 1;
-                    {
-                        var error = $root.google.protobuf.Struct.verify(message.structValue);
-                        if (error)
-                            return "structValue." + error;
-                    }
-                }
-                if (message.listValue != null && message.hasOwnProperty("listValue")) {
-                    if (properties.kind === 1)
-                        return "kind: multiple values";
-                    properties.kind = 1;
-                    {
-                        var error = $root.google.protobuf.ListValue.verify(message.listValue);
-                        if (error)
-                            return "listValue." + error;
-                    }
-                }
-                return null;
-            };
-
-            /**
-             * Creates a Value message from a plain object. Also converts values to their respective internal types.
-             * @function fromObject
-             * @memberof google.protobuf.Value
-             * @static
-             * @param {Object.<string,*>} object Plain object
-             * @returns {google.protobuf.Value} Value
-             */
-            Value.fromObject = function fromObject(object) {
-                if (object instanceof $root.google.protobuf.Value)
-                    return object;
-                var message = new $root.google.protobuf.Value();
-                switch (object.nullValue) {
-                case "NULL_VALUE":
-                case 0:
-                    message.nullValue = 0;
-                    break;
-                }
-                if (object.numberValue != null)
-                    message.numberValue = Number(object.numberValue);
-                if (object.stringValue != null)
-                    message.stringValue = String(object.stringValue);
-                if (object.boolValue != null)
-                    message.boolValue = Boolean(object.boolValue);
-                if (object.structValue != null) {
-                    if (typeof object.structValue !== "object")
-                        throw TypeError(".google.protobuf.Value.structValue: object expected");
-                    message.structValue = $root.google.protobuf.Struct.fromObject(object.structValue);
-                }
-                if (object.listValue != null) {
-                    if (typeof object.listValue !== "object")
-                        throw TypeError(".google.protobuf.Value.listValue: object expected");
-                    message.listValue = $root.google.protobuf.ListValue.fromObject(object.listValue);
-                }
-                return message;
-            };
-
-            /**
-             * Creates a plain object from a Value message. Also converts values to other types if specified.
-             * @function toObject
-             * @memberof google.protobuf.Value
-             * @static
-             * @param {google.protobuf.Value} message Value
-             * @param {$protobuf.IConversionOptions} [options] Conversion options
-             * @returns {Object.<string,*>} Plain object
-             */
-            Value.toObject = function toObject(message, options) {
-                if (!options)
-                    options = {};
-                var object = {};
-                if (message.nullValue != null && message.hasOwnProperty("nullValue")) {
-                    object.nullValue = options.enums === String ? $root.google.protobuf.NullValue[message.nullValue] : message.nullValue;
-                    if (options.oneofs)
-                        object.kind = "nullValue";
-                }
-                if (message.numberValue != null && message.hasOwnProperty("numberValue")) {
-                    object.numberValue = options.json && !isFinite(message.numberValue) ? String(message.numberValue) : message.numberValue;
-                    if (options.oneofs)
-                        object.kind = "numberValue";
-                }
-                if (message.stringValue != null && message.hasOwnProperty("stringValue")) {
-                    object.stringValue = message.stringValue;
-                    if (options.oneofs)
-                        object.kind = "stringValue";
-                }
-                if (message.boolValue != null && message.hasOwnProperty("boolValue")) {
-                    object.boolValue = message.boolValue;
-                    if (options.oneofs)
-                        object.kind = "boolValue";
-                }
-                if (message.structValue != null && message.hasOwnProperty("structValue")) {
-                    object.structValue = $root.google.protobuf.Struct.toObject(message.structValue, options);
-                    if (options.oneofs)
-                        object.kind = "structValue";
-                }
-                if (message.listValue != null && message.hasOwnProperty("listValue")) {
-                    object.listValue = $root.google.protobuf.ListValue.toObject(message.listValue, options);
-                    if (options.oneofs)
-                        object.kind = "listValue";
-                }
-                return object;
-            };
-
-            /**
-             * Converts this Value to JSON.
-             * @function toJSON
-             * @memberof google.protobuf.Value
-             * @instance
-             * @returns {Object.<string,*>} JSON object
-             */
-            Value.prototype.toJSON = function toJSON() {
-                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-            };
-
-            return Value;
-        })();
-
-        /**
-         * NullValue enum.
-         * @name google.protobuf.NullValue
-         * @enum {string}
-         * @property {number} NULL_VALUE=0 NULL_VALUE value
-         */
-        protobuf.NullValue = (function() {
-            var valuesById = {}, values = Object.create(valuesById);
-            values[valuesById[0] = "NULL_VALUE"] = 0;
-            return values;
-        })();
-
-        protobuf.ListValue = (function() {
-
-            /**
-             * Properties of a ListValue.
-             * @memberof google.protobuf
-             * @interface IListValue
-             * @property {Array.<google.protobuf.IValue>|null} [values] ListValue values
-             */
-
-            /**
-             * Constructs a new ListValue.
-             * @memberof google.protobuf
-             * @classdesc Represents a ListValue.
-             * @implements IListValue
-             * @constructor
-             * @param {google.protobuf.IListValue=} [properties] Properties to set
-             */
-            function ListValue(properties) {
-                this.values = [];
-                if (properties)
-                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                        if (properties[keys[i]] != null)
-                            this[keys[i]] = properties[keys[i]];
-            }
-
-            /**
-             * ListValue values.
-             * @member {Array.<google.protobuf.IValue>} values
-             * @memberof google.protobuf.ListValue
-             * @instance
-             */
-            ListValue.prototype.values = $util.emptyArray;
-
-            /**
-             * Creates a new ListValue instance using the specified properties.
-             * @function create
-             * @memberof google.protobuf.ListValue
-             * @static
-             * @param {google.protobuf.IListValue=} [properties] Properties to set
-             * @returns {google.protobuf.ListValue} ListValue instance
-             */
-            ListValue.create = function create(properties) {
-                return new ListValue(properties);
-            };
-
-            /**
-             * Encodes the specified ListValue message. Does not implicitly {@link google.protobuf.ListValue.verify|verify} messages.
-             * @function encode
-             * @memberof google.protobuf.ListValue
-             * @static
-             * @param {google.protobuf.IListValue} message ListValue message or plain object to encode
-             * @param {$protobuf.Writer} [writer] Writer to encode to
-             * @returns {$protobuf.Writer} Writer
-             */
-            ListValue.encode = function encode(message, writer) {
-                if (!writer)
-                    writer = $Writer.create();
-                if (message.values != null && message.values.length)
-                    for (var i = 0; i < message.values.length; ++i)
-                        $root.google.protobuf.Value.encode(message.values[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
-                return writer;
-            };
-
-            /**
-             * Encodes the specified ListValue message, length delimited. Does not implicitly {@link google.protobuf.ListValue.verify|verify} messages.
-             * @function encodeDelimited
-             * @memberof google.protobuf.ListValue
-             * @static
-             * @param {google.protobuf.IListValue} message ListValue message or plain object to encode
-             * @param {$protobuf.Writer} [writer] Writer to encode to
-             * @returns {$protobuf.Writer} Writer
-             */
-            ListValue.encodeDelimited = function encodeDelimited(message, writer) {
-                return this.encode(message, writer).ldelim();
-            };
-
-            /**
-             * Decodes a ListValue message from the specified reader or buffer.
-             * @function decode
-             * @memberof google.protobuf.ListValue
-             * @static
-             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-             * @param {number} [length] Message length if known beforehand
-             * @returns {google.protobuf.ListValue} ListValue
-             * @throws {Error} If the payload is not a reader or valid buffer
-             * @throws {$protobuf.util.ProtocolError} If required fields are missing
-             */
-            ListValue.decode = function decode(reader, length) {
-                if (!(reader instanceof $Reader))
-                    reader = $Reader.create(reader);
-                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.ListValue();
-                while (reader.pos < end) {
-                    var tag = reader.uint32();
-                    switch (tag >>> 3) {
-                    case 1:
-                        if (!(message.values && message.values.length))
-                            message.values = [];
-                        message.values.push($root.google.protobuf.Value.decode(reader, reader.uint32()));
-                        break;
-                    default:
-                        reader.skipType(tag & 7);
-                        break;
-                    }
-                }
-                return message;
-            };
-
-            /**
-             * Decodes a ListValue message from the specified reader or buffer, length delimited.
-             * @function decodeDelimited
-             * @memberof google.protobuf.ListValue
-             * @static
-             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-             * @returns {google.protobuf.ListValue} ListValue
-             * @throws {Error} If the payload is not a reader or valid buffer
-             * @throws {$protobuf.util.ProtocolError} If required fields are missing
-             */
-            ListValue.decodeDelimited = function decodeDelimited(reader) {
-                if (!(reader instanceof $Reader))
-                    reader = new $Reader(reader);
-                return this.decode(reader, reader.uint32());
-            };
-
-            /**
-             * Verifies a ListValue message.
-             * @function verify
-             * @memberof google.protobuf.ListValue
-             * @static
-             * @param {Object.<string,*>} message Plain object to verify
-             * @returns {string|null} `null` if valid, otherwise the reason why it is not
-             */
-            ListValue.verify = function verify(message) {
-                if (typeof message !== "object" || message === null)
-                    return "object expected";
-                if (message.values != null && message.hasOwnProperty("values")) {
-                    if (!Array.isArray(message.values))
-                        return "values: array expected";
-                    for (var i = 0; i < message.values.length; ++i) {
-                        var error = $root.google.protobuf.Value.verify(message.values[i]);
-                        if (error)
-                            return "values." + error;
-                    }
-                }
-                return null;
-            };
-
-            /**
-             * Creates a ListValue message from a plain object. Also converts values to their respective internal types.
-             * @function fromObject
-             * @memberof google.protobuf.ListValue
-             * @static
-             * @param {Object.<string,*>} object Plain object
-             * @returns {google.protobuf.ListValue} ListValue
-             */
-            ListValue.fromObject = function fromObject(object) {
-                if (object instanceof $root.google.protobuf.ListValue)
-                    return object;
-                var message = new $root.google.protobuf.ListValue();
-                if (object.values) {
-                    if (!Array.isArray(object.values))
-                        throw TypeError(".google.protobuf.ListValue.values: array expected");
-                    message.values = [];
-                    for (var i = 0; i < object.values.length; ++i) {
-                        if (typeof object.values[i] !== "object")
-                            throw TypeError(".google.protobuf.ListValue.values: object expected");
-                        message.values[i] = $root.google.protobuf.Value.fromObject(object.values[i]);
-                    }
-                }
-                return message;
-            };
-
-            /**
-             * Creates a plain object from a ListValue message. Also converts values to other types if specified.
-             * @function toObject
-             * @memberof google.protobuf.ListValue
-             * @static
-             * @param {google.protobuf.ListValue} message ListValue
-             * @param {$protobuf.IConversionOptions} [options] Conversion options
-             * @returns {Object.<string,*>} Plain object
-             */
-            ListValue.toObject = function toObject(message, options) {
-                if (!options)
-                    options = {};
-                var object = {};
-                if (options.arrays || options.defaults)
-                    object.values = [];
-                if (message.values && message.values.length) {
-                    object.values = [];
-                    for (var j = 0; j < message.values.length; ++j)
-                        object.values[j] = $root.google.protobuf.Value.toObject(message.values[j], options);
-                }
-                return object;
-            };
-
-            /**
-             * Converts this ListValue to JSON.
-             * @function toJSON
-             * @memberof google.protobuf.ListValue
-             * @instance
-             * @returns {Object.<string,*>} JSON object
-             */
-            ListValue.prototype.toJSON = function toJSON() {
-                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-            };
-
-            return ListValue;
         })();
 
         protobuf.FileDescriptorSet = (function() {
@@ -58482,6 +73609,10 @@ $root.google = (function() {
              * @property {boolean|null} [deprecated] FieldOptions deprecated
              * @property {boolean|null} [weak] FieldOptions weak
              * @property {Array.<google.protobuf.IUninterpretedOption>|null} [uninterpretedOption] FieldOptions uninterpretedOption
+             * @property {boolean|null} [".Ydb.required"] FieldOptions .Ydb.required
+             * @property {Ydb.ILimit|null} [".Ydb.size"] FieldOptions .Ydb.size
+             * @property {Ydb.ILimit|null} [".Ydb.length"] FieldOptions .Ydb.length
+             * @property {Ydb.IMapKey|null} [".Ydb.mapKey"] FieldOptions .Ydb.mapKey
              */
 
             /**
@@ -58557,6 +73688,38 @@ $root.google = (function() {
             FieldOptions.prototype.uninterpretedOption = $util.emptyArray;
 
             /**
+             * FieldOptions .Ydb.required.
+             * @member {boolean} .Ydb.required
+             * @memberof google.protobuf.FieldOptions
+             * @instance
+             */
+            FieldOptions.prototype[".Ydb.required"] = false;
+
+            /**
+             * FieldOptions .Ydb.size.
+             * @member {Ydb.ILimit|null|undefined} .Ydb.size
+             * @memberof google.protobuf.FieldOptions
+             * @instance
+             */
+            FieldOptions.prototype[".Ydb.size"] = null;
+
+            /**
+             * FieldOptions .Ydb.length.
+             * @member {Ydb.ILimit|null|undefined} .Ydb.length
+             * @memberof google.protobuf.FieldOptions
+             * @instance
+             */
+            FieldOptions.prototype[".Ydb.length"] = null;
+
+            /**
+             * FieldOptions .Ydb.mapKey.
+             * @member {Ydb.IMapKey|null|undefined} .Ydb.mapKey
+             * @memberof google.protobuf.FieldOptions
+             * @instance
+             */
+            FieldOptions.prototype[".Ydb.mapKey"] = null;
+
+            /**
              * Creates a new FieldOptions instance using the specified properties.
              * @function create
              * @memberof google.protobuf.FieldOptions
@@ -58595,6 +73758,14 @@ $root.google = (function() {
                 if (message.uninterpretedOption != null && message.uninterpretedOption.length)
                     for (var i = 0; i < message.uninterpretedOption.length; ++i)
                         $root.google.protobuf.UninterpretedOption.encode(message.uninterpretedOption[i], writer.uint32(/* id 999, wireType 2 =*/7994).fork()).ldelim();
+                if (message[".Ydb.required"] != null && message.hasOwnProperty(".Ydb.required"))
+                    writer.uint32(/* id 87650, wireType 0 =*/701200).bool(message[".Ydb.required"]);
+                if (message[".Ydb.size"] != null && message.hasOwnProperty(".Ydb.size"))
+                    $root.Ydb.Limit.encode(message[".Ydb.size"], writer.uint32(/* id 87651, wireType 2 =*/701210).fork()).ldelim();
+                if (message[".Ydb.length"] != null && message.hasOwnProperty(".Ydb.length"))
+                    $root.Ydb.Limit.encode(message[".Ydb.length"], writer.uint32(/* id 87652, wireType 2 =*/701218).fork()).ldelim();
+                if (message[".Ydb.mapKey"] != null && message.hasOwnProperty(".Ydb.mapKey"))
+                    $root.Ydb.MapKey.encode(message[".Ydb.mapKey"], writer.uint32(/* id 87653, wireType 2 =*/701226).fork()).ldelim();
                 return writer;
             };
 
@@ -58651,6 +73822,18 @@ $root.google = (function() {
                         if (!(message.uninterpretedOption && message.uninterpretedOption.length))
                             message.uninterpretedOption = [];
                         message.uninterpretedOption.push($root.google.protobuf.UninterpretedOption.decode(reader, reader.uint32()));
+                        break;
+                    case 87650:
+                        message[".Ydb.required"] = reader.bool();
+                        break;
+                    case 87651:
+                        message[".Ydb.size"] = $root.Ydb.Limit.decode(reader, reader.uint32());
+                        break;
+                    case 87652:
+                        message[".Ydb.length"] = $root.Ydb.Limit.decode(reader, reader.uint32());
+                        break;
+                    case 87653:
+                        message[".Ydb.mapKey"] = $root.Ydb.MapKey.decode(reader, reader.uint32());
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -58726,6 +73909,24 @@ $root.google = (function() {
                             return "uninterpretedOption." + error;
                     }
                 }
+                if (message[".Ydb.required"] != null && message.hasOwnProperty(".Ydb.required"))
+                    if (typeof message[".Ydb.required"] !== "boolean")
+                        return ".Ydb.required: boolean expected";
+                if (message[".Ydb.size"] != null && message.hasOwnProperty(".Ydb.size")) {
+                    var error = $root.Ydb.Limit.verify(message[".Ydb.size"]);
+                    if (error)
+                        return ".Ydb.size." + error;
+                }
+                if (message[".Ydb.length"] != null && message.hasOwnProperty(".Ydb.length")) {
+                    var error = $root.Ydb.Limit.verify(message[".Ydb.length"]);
+                    if (error)
+                        return ".Ydb.length." + error;
+                }
+                if (message[".Ydb.mapKey"] != null && message.hasOwnProperty(".Ydb.mapKey")) {
+                    var error = $root.Ydb.MapKey.verify(message[".Ydb.mapKey"]);
+                    if (error)
+                        return ".Ydb.mapKey." + error;
+                }
                 return null;
             };
 
@@ -58787,6 +73988,23 @@ $root.google = (function() {
                         message.uninterpretedOption[i] = $root.google.protobuf.UninterpretedOption.fromObject(object.uninterpretedOption[i]);
                     }
                 }
+                if (object[".Ydb.required"] != null)
+                    message[".Ydb.required"] = Boolean(object[".Ydb.required"]);
+                if (object[".Ydb.size"] != null) {
+                    if (typeof object[".Ydb.size"] !== "object")
+                        throw TypeError(".google.protobuf.FieldOptions..Ydb.size: object expected");
+                    message[".Ydb.size"] = $root.Ydb.Limit.fromObject(object[".Ydb.size"]);
+                }
+                if (object[".Ydb.length"] != null) {
+                    if (typeof object[".Ydb.length"] !== "object")
+                        throw TypeError(".google.protobuf.FieldOptions..Ydb.length: object expected");
+                    message[".Ydb.length"] = $root.Ydb.Limit.fromObject(object[".Ydb.length"]);
+                }
+                if (object[".Ydb.mapKey"] != null) {
+                    if (typeof object[".Ydb.mapKey"] !== "object")
+                        throw TypeError(".google.protobuf.FieldOptions..Ydb.mapKey: object expected");
+                    message[".Ydb.mapKey"] = $root.Ydb.MapKey.fromObject(object[".Ydb.mapKey"]);
+                }
                 return message;
             };
 
@@ -58812,6 +74030,10 @@ $root.google = (function() {
                     object.lazy = false;
                     object.jstype = options.enums === String ? "JS_NORMAL" : 0;
                     object.weak = false;
+                    object[".Ydb.required"] = false;
+                    object[".Ydb.size"] = null;
+                    object[".Ydb.length"] = null;
+                    object[".Ydb.mapKey"] = null;
                 }
                 if (message.ctype != null && message.hasOwnProperty("ctype"))
                     object.ctype = options.enums === String ? $root.google.protobuf.FieldOptions.CType[message.ctype] : message.ctype;
@@ -58830,6 +74052,14 @@ $root.google = (function() {
                     for (var j = 0; j < message.uninterpretedOption.length; ++j)
                         object.uninterpretedOption[j] = $root.google.protobuf.UninterpretedOption.toObject(message.uninterpretedOption[j], options);
                 }
+                if (message[".Ydb.required"] != null && message.hasOwnProperty(".Ydb.required"))
+                    object[".Ydb.required"] = message[".Ydb.required"];
+                if (message[".Ydb.size"] != null && message.hasOwnProperty(".Ydb.size"))
+                    object[".Ydb.size"] = $root.Ydb.Limit.toObject(message[".Ydb.size"], options);
+                if (message[".Ydb.length"] != null && message.hasOwnProperty(".Ydb.length"))
+                    object[".Ydb.length"] = $root.Ydb.Limit.toObject(message[".Ydb.length"], options);
+                if (message[".Ydb.mapKey"] != null && message.hasOwnProperty(".Ydb.mapKey"))
+                    object[".Ydb.mapKey"] = $root.Ydb.MapKey.toObject(message[".Ydb.mapKey"], options);
                 return object;
             };
 
@@ -61688,6 +76918,966 @@ $root.google = (function() {
             return GeneratedCodeInfo;
         })();
 
+        protobuf.Struct = (function() {
+
+            /**
+             * Properties of a Struct.
+             * @memberof google.protobuf
+             * @interface IStruct
+             * @property {Object.<string,google.protobuf.IValue>|null} [fields] Struct fields
+             */
+
+            /**
+             * Constructs a new Struct.
+             * @memberof google.protobuf
+             * @classdesc Represents a Struct.
+             * @implements IStruct
+             * @constructor
+             * @param {google.protobuf.IStruct=} [properties] Properties to set
+             */
+            function Struct(properties) {
+                this.fields = {};
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Struct fields.
+             * @member {Object.<string,google.protobuf.IValue>} fields
+             * @memberof google.protobuf.Struct
+             * @instance
+             */
+            Struct.prototype.fields = $util.emptyObject;
+
+            /**
+             * Creates a new Struct instance using the specified properties.
+             * @function create
+             * @memberof google.protobuf.Struct
+             * @static
+             * @param {google.protobuf.IStruct=} [properties] Properties to set
+             * @returns {google.protobuf.Struct} Struct instance
+             */
+            Struct.create = function create(properties) {
+                return new Struct(properties);
+            };
+
+            /**
+             * Encodes the specified Struct message. Does not implicitly {@link google.protobuf.Struct.verify|verify} messages.
+             * @function encode
+             * @memberof google.protobuf.Struct
+             * @static
+             * @param {google.protobuf.IStruct} message Struct message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Struct.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.fields != null && message.hasOwnProperty("fields"))
+                    for (var keys = Object.keys(message.fields), i = 0; i < keys.length; ++i) {
+                        writer.uint32(/* id 1, wireType 2 =*/10).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
+                        $root.google.protobuf.Value.encode(message.fields[keys[i]], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim().ldelim();
+                    }
+                return writer;
+            };
+
+            /**
+             * Encodes the specified Struct message, length delimited. Does not implicitly {@link google.protobuf.Struct.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof google.protobuf.Struct
+             * @static
+             * @param {google.protobuf.IStruct} message Struct message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Struct.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a Struct message from the specified reader or buffer.
+             * @function decode
+             * @memberof google.protobuf.Struct
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {google.protobuf.Struct} Struct
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Struct.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.Struct(), key;
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        reader.skip().pos++;
+                        if (message.fields === $util.emptyObject)
+                            message.fields = {};
+                        key = reader.string();
+                        reader.pos++;
+                        message.fields[key] = $root.google.protobuf.Value.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a Struct message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof google.protobuf.Struct
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {google.protobuf.Struct} Struct
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Struct.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a Struct message.
+             * @function verify
+             * @memberof google.protobuf.Struct
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            Struct.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.fields != null && message.hasOwnProperty("fields")) {
+                    if (!$util.isObject(message.fields))
+                        return "fields: object expected";
+                    var key = Object.keys(message.fields);
+                    for (var i = 0; i < key.length; ++i) {
+                        var error = $root.google.protobuf.Value.verify(message.fields[key[i]]);
+                        if (error)
+                            return "fields." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a Struct message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof google.protobuf.Struct
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {google.protobuf.Struct} Struct
+             */
+            Struct.fromObject = function fromObject(object) {
+                if (object instanceof $root.google.protobuf.Struct)
+                    return object;
+                var message = new $root.google.protobuf.Struct();
+                if (object.fields) {
+                    if (typeof object.fields !== "object")
+                        throw TypeError(".google.protobuf.Struct.fields: object expected");
+                    message.fields = {};
+                    for (var keys = Object.keys(object.fields), i = 0; i < keys.length; ++i) {
+                        if (typeof object.fields[keys[i]] !== "object")
+                            throw TypeError(".google.protobuf.Struct.fields: object expected");
+                        message.fields[keys[i]] = $root.google.protobuf.Value.fromObject(object.fields[keys[i]]);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a Struct message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof google.protobuf.Struct
+             * @static
+             * @param {google.protobuf.Struct} message Struct
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            Struct.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.objects || options.defaults)
+                    object.fields = {};
+                var keys2;
+                if (message.fields && (keys2 = Object.keys(message.fields)).length) {
+                    object.fields = {};
+                    for (var j = 0; j < keys2.length; ++j)
+                        object.fields[keys2[j]] = $root.google.protobuf.Value.toObject(message.fields[keys2[j]], options);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this Struct to JSON.
+             * @function toJSON
+             * @memberof google.protobuf.Struct
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            Struct.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return Struct;
+        })();
+
+        protobuf.Value = (function() {
+
+            /**
+             * Properties of a Value.
+             * @memberof google.protobuf
+             * @interface IValue
+             * @property {google.protobuf.NullValue|null} [nullValue] Value nullValue
+             * @property {number|null} [numberValue] Value numberValue
+             * @property {string|null} [stringValue] Value stringValue
+             * @property {boolean|null} [boolValue] Value boolValue
+             * @property {google.protobuf.IStruct|null} [structValue] Value structValue
+             * @property {google.protobuf.IListValue|null} [listValue] Value listValue
+             */
+
+            /**
+             * Constructs a new Value.
+             * @memberof google.protobuf
+             * @classdesc Represents a Value.
+             * @implements IValue
+             * @constructor
+             * @param {google.protobuf.IValue=} [properties] Properties to set
+             */
+            function Value(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Value nullValue.
+             * @member {google.protobuf.NullValue} nullValue
+             * @memberof google.protobuf.Value
+             * @instance
+             */
+            Value.prototype.nullValue = 0;
+
+            /**
+             * Value numberValue.
+             * @member {number} numberValue
+             * @memberof google.protobuf.Value
+             * @instance
+             */
+            Value.prototype.numberValue = 0;
+
+            /**
+             * Value stringValue.
+             * @member {string} stringValue
+             * @memberof google.protobuf.Value
+             * @instance
+             */
+            Value.prototype.stringValue = "";
+
+            /**
+             * Value boolValue.
+             * @member {boolean} boolValue
+             * @memberof google.protobuf.Value
+             * @instance
+             */
+            Value.prototype.boolValue = false;
+
+            /**
+             * Value structValue.
+             * @member {google.protobuf.IStruct|null|undefined} structValue
+             * @memberof google.protobuf.Value
+             * @instance
+             */
+            Value.prototype.structValue = null;
+
+            /**
+             * Value listValue.
+             * @member {google.protobuf.IListValue|null|undefined} listValue
+             * @memberof google.protobuf.Value
+             * @instance
+             */
+            Value.prototype.listValue = null;
+
+            // OneOf field names bound to virtual getters and setters
+            var $oneOfFields;
+
+            /**
+             * Value kind.
+             * @member {"nullValue"|"numberValue"|"stringValue"|"boolValue"|"structValue"|"listValue"|undefined} kind
+             * @memberof google.protobuf.Value
+             * @instance
+             */
+            Object.defineProperty(Value.prototype, "kind", {
+                get: $util.oneOfGetter($oneOfFields = ["nullValue", "numberValue", "stringValue", "boolValue", "structValue", "listValue"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            /**
+             * Creates a new Value instance using the specified properties.
+             * @function create
+             * @memberof google.protobuf.Value
+             * @static
+             * @param {google.protobuf.IValue=} [properties] Properties to set
+             * @returns {google.protobuf.Value} Value instance
+             */
+            Value.create = function create(properties) {
+                return new Value(properties);
+            };
+
+            /**
+             * Encodes the specified Value message. Does not implicitly {@link google.protobuf.Value.verify|verify} messages.
+             * @function encode
+             * @memberof google.protobuf.Value
+             * @static
+             * @param {google.protobuf.IValue} message Value message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Value.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.nullValue != null && message.hasOwnProperty("nullValue"))
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.nullValue);
+                if (message.numberValue != null && message.hasOwnProperty("numberValue"))
+                    writer.uint32(/* id 2, wireType 1 =*/17).double(message.numberValue);
+                if (message.stringValue != null && message.hasOwnProperty("stringValue"))
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.stringValue);
+                if (message.boolValue != null && message.hasOwnProperty("boolValue"))
+                    writer.uint32(/* id 4, wireType 0 =*/32).bool(message.boolValue);
+                if (message.structValue != null && message.hasOwnProperty("structValue"))
+                    $root.google.protobuf.Struct.encode(message.structValue, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
+                if (message.listValue != null && message.hasOwnProperty("listValue"))
+                    $root.google.protobuf.ListValue.encode(message.listValue, writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified Value message, length delimited. Does not implicitly {@link google.protobuf.Value.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof google.protobuf.Value
+             * @static
+             * @param {google.protobuf.IValue} message Value message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Value.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a Value message from the specified reader or buffer.
+             * @function decode
+             * @memberof google.protobuf.Value
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {google.protobuf.Value} Value
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Value.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.Value();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        message.nullValue = reader.int32();
+                        break;
+                    case 2:
+                        message.numberValue = reader.double();
+                        break;
+                    case 3:
+                        message.stringValue = reader.string();
+                        break;
+                    case 4:
+                        message.boolValue = reader.bool();
+                        break;
+                    case 5:
+                        message.structValue = $root.google.protobuf.Struct.decode(reader, reader.uint32());
+                        break;
+                    case 6:
+                        message.listValue = $root.google.protobuf.ListValue.decode(reader, reader.uint32());
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a Value message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof google.protobuf.Value
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {google.protobuf.Value} Value
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Value.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a Value message.
+             * @function verify
+             * @memberof google.protobuf.Value
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            Value.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                var properties = {};
+                if (message.nullValue != null && message.hasOwnProperty("nullValue")) {
+                    properties.kind = 1;
+                    switch (message.nullValue) {
+                    default:
+                        return "nullValue: enum value expected";
+                    case 0:
+                        break;
+                    }
+                }
+                if (message.numberValue != null && message.hasOwnProperty("numberValue")) {
+                    if (properties.kind === 1)
+                        return "kind: multiple values";
+                    properties.kind = 1;
+                    if (typeof message.numberValue !== "number")
+                        return "numberValue: number expected";
+                }
+                if (message.stringValue != null && message.hasOwnProperty("stringValue")) {
+                    if (properties.kind === 1)
+                        return "kind: multiple values";
+                    properties.kind = 1;
+                    if (!$util.isString(message.stringValue))
+                        return "stringValue: string expected";
+                }
+                if (message.boolValue != null && message.hasOwnProperty("boolValue")) {
+                    if (properties.kind === 1)
+                        return "kind: multiple values";
+                    properties.kind = 1;
+                    if (typeof message.boolValue !== "boolean")
+                        return "boolValue: boolean expected";
+                }
+                if (message.structValue != null && message.hasOwnProperty("structValue")) {
+                    if (properties.kind === 1)
+                        return "kind: multiple values";
+                    properties.kind = 1;
+                    {
+                        var error = $root.google.protobuf.Struct.verify(message.structValue);
+                        if (error)
+                            return "structValue." + error;
+                    }
+                }
+                if (message.listValue != null && message.hasOwnProperty("listValue")) {
+                    if (properties.kind === 1)
+                        return "kind: multiple values";
+                    properties.kind = 1;
+                    {
+                        var error = $root.google.protobuf.ListValue.verify(message.listValue);
+                        if (error)
+                            return "listValue." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a Value message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof google.protobuf.Value
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {google.protobuf.Value} Value
+             */
+            Value.fromObject = function fromObject(object) {
+                if (object instanceof $root.google.protobuf.Value)
+                    return object;
+                var message = new $root.google.protobuf.Value();
+                switch (object.nullValue) {
+                case "NULL_VALUE":
+                case 0:
+                    message.nullValue = 0;
+                    break;
+                }
+                if (object.numberValue != null)
+                    message.numberValue = Number(object.numberValue);
+                if (object.stringValue != null)
+                    message.stringValue = String(object.stringValue);
+                if (object.boolValue != null)
+                    message.boolValue = Boolean(object.boolValue);
+                if (object.structValue != null) {
+                    if (typeof object.structValue !== "object")
+                        throw TypeError(".google.protobuf.Value.structValue: object expected");
+                    message.structValue = $root.google.protobuf.Struct.fromObject(object.structValue);
+                }
+                if (object.listValue != null) {
+                    if (typeof object.listValue !== "object")
+                        throw TypeError(".google.protobuf.Value.listValue: object expected");
+                    message.listValue = $root.google.protobuf.ListValue.fromObject(object.listValue);
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a Value message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof google.protobuf.Value
+             * @static
+             * @param {google.protobuf.Value} message Value
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            Value.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (message.nullValue != null && message.hasOwnProperty("nullValue")) {
+                    object.nullValue = options.enums === String ? $root.google.protobuf.NullValue[message.nullValue] : message.nullValue;
+                    if (options.oneofs)
+                        object.kind = "nullValue";
+                }
+                if (message.numberValue != null && message.hasOwnProperty("numberValue")) {
+                    object.numberValue = options.json && !isFinite(message.numberValue) ? String(message.numberValue) : message.numberValue;
+                    if (options.oneofs)
+                        object.kind = "numberValue";
+                }
+                if (message.stringValue != null && message.hasOwnProperty("stringValue")) {
+                    object.stringValue = message.stringValue;
+                    if (options.oneofs)
+                        object.kind = "stringValue";
+                }
+                if (message.boolValue != null && message.hasOwnProperty("boolValue")) {
+                    object.boolValue = message.boolValue;
+                    if (options.oneofs)
+                        object.kind = "boolValue";
+                }
+                if (message.structValue != null && message.hasOwnProperty("structValue")) {
+                    object.structValue = $root.google.protobuf.Struct.toObject(message.structValue, options);
+                    if (options.oneofs)
+                        object.kind = "structValue";
+                }
+                if (message.listValue != null && message.hasOwnProperty("listValue")) {
+                    object.listValue = $root.google.protobuf.ListValue.toObject(message.listValue, options);
+                    if (options.oneofs)
+                        object.kind = "listValue";
+                }
+                return object;
+            };
+
+            /**
+             * Converts this Value to JSON.
+             * @function toJSON
+             * @memberof google.protobuf.Value
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            Value.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return Value;
+        })();
+
+        /**
+         * NullValue enum.
+         * @name google.protobuf.NullValue
+         * @enum {string}
+         * @property {number} NULL_VALUE=0 NULL_VALUE value
+         */
+        protobuf.NullValue = (function() {
+            var valuesById = {}, values = Object.create(valuesById);
+            values[valuesById[0] = "NULL_VALUE"] = 0;
+            return values;
+        })();
+
+        protobuf.ListValue = (function() {
+
+            /**
+             * Properties of a ListValue.
+             * @memberof google.protobuf
+             * @interface IListValue
+             * @property {Array.<google.protobuf.IValue>|null} [values] ListValue values
+             */
+
+            /**
+             * Constructs a new ListValue.
+             * @memberof google.protobuf
+             * @classdesc Represents a ListValue.
+             * @implements IListValue
+             * @constructor
+             * @param {google.protobuf.IListValue=} [properties] Properties to set
+             */
+            function ListValue(properties) {
+                this.values = [];
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * ListValue values.
+             * @member {Array.<google.protobuf.IValue>} values
+             * @memberof google.protobuf.ListValue
+             * @instance
+             */
+            ListValue.prototype.values = $util.emptyArray;
+
+            /**
+             * Creates a new ListValue instance using the specified properties.
+             * @function create
+             * @memberof google.protobuf.ListValue
+             * @static
+             * @param {google.protobuf.IListValue=} [properties] Properties to set
+             * @returns {google.protobuf.ListValue} ListValue instance
+             */
+            ListValue.create = function create(properties) {
+                return new ListValue(properties);
+            };
+
+            /**
+             * Encodes the specified ListValue message. Does not implicitly {@link google.protobuf.ListValue.verify|verify} messages.
+             * @function encode
+             * @memberof google.protobuf.ListValue
+             * @static
+             * @param {google.protobuf.IListValue} message ListValue message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ListValue.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.values != null && message.values.length)
+                    for (var i = 0; i < message.values.length; ++i)
+                        $root.google.protobuf.Value.encode(message.values[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ListValue message, length delimited. Does not implicitly {@link google.protobuf.ListValue.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof google.protobuf.ListValue
+             * @static
+             * @param {google.protobuf.IListValue} message ListValue message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ListValue.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes a ListValue message from the specified reader or buffer.
+             * @function decode
+             * @memberof google.protobuf.ListValue
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {google.protobuf.ListValue} ListValue
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ListValue.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.ListValue();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    case 1:
+                        if (!(message.values && message.values.length))
+                            message.values = [];
+                        message.values.push($root.google.protobuf.Value.decode(reader, reader.uint32()));
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes a ListValue message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof google.protobuf.ListValue
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {google.protobuf.ListValue} ListValue
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ListValue.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ListValue message.
+             * @function verify
+             * @memberof google.protobuf.ListValue
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ListValue.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.values != null && message.hasOwnProperty("values")) {
+                    if (!Array.isArray(message.values))
+                        return "values: array expected";
+                    for (var i = 0; i < message.values.length; ++i) {
+                        var error = $root.google.protobuf.Value.verify(message.values[i]);
+                        if (error)
+                            return "values." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a ListValue message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof google.protobuf.ListValue
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {google.protobuf.ListValue} ListValue
+             */
+            ListValue.fromObject = function fromObject(object) {
+                if (object instanceof $root.google.protobuf.ListValue)
+                    return object;
+                var message = new $root.google.protobuf.ListValue();
+                if (object.values) {
+                    if (!Array.isArray(object.values))
+                        throw TypeError(".google.protobuf.ListValue.values: array expected");
+                    message.values = [];
+                    for (var i = 0; i < object.values.length; ++i) {
+                        if (typeof object.values[i] !== "object")
+                            throw TypeError(".google.protobuf.ListValue.values: object expected");
+                        message.values[i] = $root.google.protobuf.Value.fromObject(object.values[i]);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ListValue message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof google.protobuf.ListValue
+             * @static
+             * @param {google.protobuf.ListValue} message ListValue
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ListValue.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                var object = {};
+                if (options.arrays || options.defaults)
+                    object.values = [];
+                if (message.values && message.values.length) {
+                    object.values = [];
+                    for (var j = 0; j < message.values.length; ++j)
+                        object.values[j] = $root.google.protobuf.Value.toObject(message.values[j], options);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this ListValue to JSON.
+             * @function toJSON
+             * @memberof google.protobuf.ListValue
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ListValue.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return ListValue;
+        })();
+
+        protobuf.Empty = (function() {
+
+            /**
+             * Properties of an Empty.
+             * @memberof google.protobuf
+             * @interface IEmpty
+             */
+
+            /**
+             * Constructs a new Empty.
+             * @memberof google.protobuf
+             * @classdesc Represents an Empty.
+             * @implements IEmpty
+             * @constructor
+             * @param {google.protobuf.IEmpty=} [properties] Properties to set
+             */
+            function Empty(properties) {
+                if (properties)
+                    for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Creates a new Empty instance using the specified properties.
+             * @function create
+             * @memberof google.protobuf.Empty
+             * @static
+             * @param {google.protobuf.IEmpty=} [properties] Properties to set
+             * @returns {google.protobuf.Empty} Empty instance
+             */
+            Empty.create = function create(properties) {
+                return new Empty(properties);
+            };
+
+            /**
+             * Encodes the specified Empty message. Does not implicitly {@link google.protobuf.Empty.verify|verify} messages.
+             * @function encode
+             * @memberof google.protobuf.Empty
+             * @static
+             * @param {google.protobuf.IEmpty} message Empty message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Empty.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                return writer;
+            };
+
+            /**
+             * Encodes the specified Empty message, length delimited. Does not implicitly {@link google.protobuf.Empty.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof google.protobuf.Empty
+             * @static
+             * @param {google.protobuf.IEmpty} message Empty message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Empty.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an Empty message from the specified reader or buffer.
+             * @function decode
+             * @memberof google.protobuf.Empty
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {google.protobuf.Empty} Empty
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Empty.decode = function decode(reader, length) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                var end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.Empty();
+                while (reader.pos < end) {
+                    var tag = reader.uint32();
+                    switch (tag >>> 3) {
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an Empty message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof google.protobuf.Empty
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {google.protobuf.Empty} Empty
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Empty.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an Empty message.
+             * @function verify
+             * @memberof google.protobuf.Empty
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            Empty.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                return null;
+            };
+
+            /**
+             * Creates an Empty message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof google.protobuf.Empty
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {google.protobuf.Empty} Empty
+             */
+            Empty.fromObject = function fromObject(object) {
+                if (object instanceof $root.google.protobuf.Empty)
+                    return object;
+                return new $root.google.protobuf.Empty();
+            };
+
+            /**
+             * Creates a plain object from an Empty message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof google.protobuf.Empty
+             * @static
+             * @param {google.protobuf.Empty} message Empty
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            Empty.toObject = function toObject() {
+                return {};
+            };
+
+            /**
+             * Converts this Empty to JSON.
+             * @function toJSON
+             * @memberof google.protobuf.Empty
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            Empty.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            return Empty;
+        })();
+
         protobuf.Timestamp = (function() {
 
             /**
@@ -62787,6 +78977,570 @@ $root.google = (function() {
     })();
 
     return google;
+})();
+
+$root.yandex = (function() {
+
+    /**
+     * Namespace yandex.
+     * @exports yandex
+     * @namespace
+     */
+    var yandex = {};
+
+    yandex.cloud = (function() {
+
+        /**
+         * Namespace cloud.
+         * @memberof yandex
+         * @namespace
+         */
+        var cloud = {};
+
+        cloud.iam = (function() {
+
+            /**
+             * Namespace iam.
+             * @memberof yandex.cloud
+             * @namespace
+             */
+            var iam = {};
+
+            iam.v1 = (function() {
+
+                /**
+                 * Namespace v1.
+                 * @memberof yandex.cloud.iam
+                 * @namespace
+                 */
+                var v1 = {};
+
+                v1.IamTokenService = (function() {
+
+                    /**
+                     * Constructs a new IamTokenService service.
+                     * @memberof yandex.cloud.iam.v1
+                     * @classdesc Represents an IamTokenService
+                     * @extends $protobuf.rpc.Service
+                     * @constructor
+                     * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+                     * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+                     * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+                     */
+                    function IamTokenService(rpcImpl, requestDelimited, responseDelimited) {
+                        $protobuf.rpc.Service.call(this, rpcImpl, requestDelimited, responseDelimited);
+                    }
+
+                    (IamTokenService.prototype = Object.create($protobuf.rpc.Service.prototype)).constructor = IamTokenService;
+
+                    /**
+                     * Creates new IamTokenService service using the specified rpc implementation.
+                     * @function create
+                     * @memberof yandex.cloud.iam.v1.IamTokenService
+                     * @static
+                     * @param {$protobuf.RPCImpl} rpcImpl RPC implementation
+                     * @param {boolean} [requestDelimited=false] Whether requests are length-delimited
+                     * @param {boolean} [responseDelimited=false] Whether responses are length-delimited
+                     * @returns {IamTokenService} RPC service. Useful where requests and/or responses are streamed.
+                     */
+                    IamTokenService.create = function create(rpcImpl, requestDelimited, responseDelimited) {
+                        return new this(rpcImpl, requestDelimited, responseDelimited);
+                    };
+
+                    /**
+                     * Callback as used by {@link yandex.cloud.iam.v1.IamTokenService#create}.
+                     * @memberof yandex.cloud.iam.v1.IamTokenService
+                     * @typedef CreateCallback
+                     * @type {function}
+                     * @param {Error|null} error Error, if any
+                     * @param {yandex.cloud.iam.v1.CreateIamTokenResponse} [response] CreateIamTokenResponse
+                     */
+
+                    /**
+                     * Calls Create.
+                     * @function create
+                     * @memberof yandex.cloud.iam.v1.IamTokenService
+                     * @instance
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest} request CreateIamTokenRequest message or plain object
+                     * @param {yandex.cloud.iam.v1.IamTokenService.CreateCallback} callback Node-style callback called with the error, if any, and CreateIamTokenResponse
+                     * @returns {undefined}
+                     * @variation 1
+                     */
+                    Object.defineProperty(IamTokenService.prototype.create = function create(request, callback) {
+                        return this.rpcCall(create, $root.yandex.cloud.iam.v1.CreateIamTokenRequest, $root.yandex.cloud.iam.v1.CreateIamTokenResponse, request, callback);
+                    }, "name", { value: "Create" });
+
+                    /**
+                     * Calls Create.
+                     * @function create
+                     * @memberof yandex.cloud.iam.v1.IamTokenService
+                     * @instance
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest} request CreateIamTokenRequest message or plain object
+                     * @returns {Promise<yandex.cloud.iam.v1.CreateIamTokenResponse>} Promise
+                     * @variation 2
+                     */
+
+                    return IamTokenService;
+                })();
+
+                v1.CreateIamTokenRequest = (function() {
+
+                    /**
+                     * Properties of a CreateIamTokenRequest.
+                     * @memberof yandex.cloud.iam.v1
+                     * @interface ICreateIamTokenRequest
+                     * @property {string|null} [yandexPassportOauthToken] CreateIamTokenRequest yandexPassportOauthToken
+                     * @property {string|null} [jwt] CreateIamTokenRequest jwt
+                     */
+
+                    /**
+                     * Constructs a new CreateIamTokenRequest.
+                     * @memberof yandex.cloud.iam.v1
+                     * @classdesc Represents a CreateIamTokenRequest.
+                     * @implements ICreateIamTokenRequest
+                     * @constructor
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest=} [properties] Properties to set
+                     */
+                    function CreateIamTokenRequest(properties) {
+                        if (properties)
+                            for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                                if (properties[keys[i]] != null)
+                                    this[keys[i]] = properties[keys[i]];
+                    }
+
+                    /**
+                     * CreateIamTokenRequest yandexPassportOauthToken.
+                     * @member {string} yandexPassportOauthToken
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @instance
+                     */
+                    CreateIamTokenRequest.prototype.yandexPassportOauthToken = "";
+
+                    /**
+                     * CreateIamTokenRequest jwt.
+                     * @member {string} jwt
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @instance
+                     */
+                    CreateIamTokenRequest.prototype.jwt = "";
+
+                    // OneOf field names bound to virtual getters and setters
+                    var $oneOfFields;
+
+                    /**
+                     * CreateIamTokenRequest identity.
+                     * @member {"yandexPassportOauthToken"|"jwt"|undefined} identity
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @instance
+                     */
+                    Object.defineProperty(CreateIamTokenRequest.prototype, "identity", {
+                        get: $util.oneOfGetter($oneOfFields = ["yandexPassportOauthToken", "jwt"]),
+                        set: $util.oneOfSetter($oneOfFields)
+                    });
+
+                    /**
+                     * Creates a new CreateIamTokenRequest instance using the specified properties.
+                     * @function create
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @static
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest=} [properties] Properties to set
+                     * @returns {yandex.cloud.iam.v1.CreateIamTokenRequest} CreateIamTokenRequest instance
+                     */
+                    CreateIamTokenRequest.create = function create(properties) {
+                        return new CreateIamTokenRequest(properties);
+                    };
+
+                    /**
+                     * Encodes the specified CreateIamTokenRequest message. Does not implicitly {@link yandex.cloud.iam.v1.CreateIamTokenRequest.verify|verify} messages.
+                     * @function encode
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @static
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest} message CreateIamTokenRequest message or plain object to encode
+                     * @param {$protobuf.Writer} [writer] Writer to encode to
+                     * @returns {$protobuf.Writer} Writer
+                     */
+                    CreateIamTokenRequest.encode = function encode(message, writer) {
+                        if (!writer)
+                            writer = $Writer.create();
+                        if (message.yandexPassportOauthToken != null && message.hasOwnProperty("yandexPassportOauthToken"))
+                            writer.uint32(/* id 1, wireType 2 =*/10).string(message.yandexPassportOauthToken);
+                        if (message.jwt != null && message.hasOwnProperty("jwt"))
+                            writer.uint32(/* id 2, wireType 2 =*/18).string(message.jwt);
+                        return writer;
+                    };
+
+                    /**
+                     * Encodes the specified CreateIamTokenRequest message, length delimited. Does not implicitly {@link yandex.cloud.iam.v1.CreateIamTokenRequest.verify|verify} messages.
+                     * @function encodeDelimited
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @static
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenRequest} message CreateIamTokenRequest message or plain object to encode
+                     * @param {$protobuf.Writer} [writer] Writer to encode to
+                     * @returns {$protobuf.Writer} Writer
+                     */
+                    CreateIamTokenRequest.encodeDelimited = function encodeDelimited(message, writer) {
+                        return this.encode(message, writer).ldelim();
+                    };
+
+                    /**
+                     * Decodes a CreateIamTokenRequest message from the specified reader or buffer.
+                     * @function decode
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @static
+                     * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+                     * @param {number} [length] Message length if known beforehand
+                     * @returns {yandex.cloud.iam.v1.CreateIamTokenRequest} CreateIamTokenRequest
+                     * @throws {Error} If the payload is not a reader or valid buffer
+                     * @throws {$protobuf.util.ProtocolError} If required fields are missing
+                     */
+                    CreateIamTokenRequest.decode = function decode(reader, length) {
+                        if (!(reader instanceof $Reader))
+                            reader = $Reader.create(reader);
+                        var end = length === undefined ? reader.len : reader.pos + length, message = new $root.yandex.cloud.iam.v1.CreateIamTokenRequest();
+                        while (reader.pos < end) {
+                            var tag = reader.uint32();
+                            switch (tag >>> 3) {
+                            case 1:
+                                message.yandexPassportOauthToken = reader.string();
+                                break;
+                            case 2:
+                                message.jwt = reader.string();
+                                break;
+                            default:
+                                reader.skipType(tag & 7);
+                                break;
+                            }
+                        }
+                        return message;
+                    };
+
+                    /**
+                     * Decodes a CreateIamTokenRequest message from the specified reader or buffer, length delimited.
+                     * @function decodeDelimited
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @static
+                     * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+                     * @returns {yandex.cloud.iam.v1.CreateIamTokenRequest} CreateIamTokenRequest
+                     * @throws {Error} If the payload is not a reader or valid buffer
+                     * @throws {$protobuf.util.ProtocolError} If required fields are missing
+                     */
+                    CreateIamTokenRequest.decodeDelimited = function decodeDelimited(reader) {
+                        if (!(reader instanceof $Reader))
+                            reader = new $Reader(reader);
+                        return this.decode(reader, reader.uint32());
+                    };
+
+                    /**
+                     * Verifies a CreateIamTokenRequest message.
+                     * @function verify
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @static
+                     * @param {Object.<string,*>} message Plain object to verify
+                     * @returns {string|null} `null` if valid, otherwise the reason why it is not
+                     */
+                    CreateIamTokenRequest.verify = function verify(message) {
+                        if (typeof message !== "object" || message === null)
+                            return "object expected";
+                        var properties = {};
+                        if (message.yandexPassportOauthToken != null && message.hasOwnProperty("yandexPassportOauthToken")) {
+                            properties.identity = 1;
+                            if (!$util.isString(message.yandexPassportOauthToken))
+                                return "yandexPassportOauthToken: string expected";
+                        }
+                        if (message.jwt != null && message.hasOwnProperty("jwt")) {
+                            if (properties.identity === 1)
+                                return "identity: multiple values";
+                            properties.identity = 1;
+                            if (!$util.isString(message.jwt))
+                                return "jwt: string expected";
+                        }
+                        return null;
+                    };
+
+                    /**
+                     * Creates a CreateIamTokenRequest message from a plain object. Also converts values to their respective internal types.
+                     * @function fromObject
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @static
+                     * @param {Object.<string,*>} object Plain object
+                     * @returns {yandex.cloud.iam.v1.CreateIamTokenRequest} CreateIamTokenRequest
+                     */
+                    CreateIamTokenRequest.fromObject = function fromObject(object) {
+                        if (object instanceof $root.yandex.cloud.iam.v1.CreateIamTokenRequest)
+                            return object;
+                        var message = new $root.yandex.cloud.iam.v1.CreateIamTokenRequest();
+                        if (object.yandexPassportOauthToken != null)
+                            message.yandexPassportOauthToken = String(object.yandexPassportOauthToken);
+                        if (object.jwt != null)
+                            message.jwt = String(object.jwt);
+                        return message;
+                    };
+
+                    /**
+                     * Creates a plain object from a CreateIamTokenRequest message. Also converts values to other types if specified.
+                     * @function toObject
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @static
+                     * @param {yandex.cloud.iam.v1.CreateIamTokenRequest} message CreateIamTokenRequest
+                     * @param {$protobuf.IConversionOptions} [options] Conversion options
+                     * @returns {Object.<string,*>} Plain object
+                     */
+                    CreateIamTokenRequest.toObject = function toObject(message, options) {
+                        if (!options)
+                            options = {};
+                        var object = {};
+                        if (message.yandexPassportOauthToken != null && message.hasOwnProperty("yandexPassportOauthToken")) {
+                            object.yandexPassportOauthToken = message.yandexPassportOauthToken;
+                            if (options.oneofs)
+                                object.identity = "yandexPassportOauthToken";
+                        }
+                        if (message.jwt != null && message.hasOwnProperty("jwt")) {
+                            object.jwt = message.jwt;
+                            if (options.oneofs)
+                                object.identity = "jwt";
+                        }
+                        return object;
+                    };
+
+                    /**
+                     * Converts this CreateIamTokenRequest to JSON.
+                     * @function toJSON
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenRequest
+                     * @instance
+                     * @returns {Object.<string,*>} JSON object
+                     */
+                    CreateIamTokenRequest.prototype.toJSON = function toJSON() {
+                        return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+                    };
+
+                    return CreateIamTokenRequest;
+                })();
+
+                v1.CreateIamTokenResponse = (function() {
+
+                    /**
+                     * Properties of a CreateIamTokenResponse.
+                     * @memberof yandex.cloud.iam.v1
+                     * @interface ICreateIamTokenResponse
+                     * @property {string|null} [iamToken] CreateIamTokenResponse iamToken
+                     * @property {google.protobuf.ITimestamp|null} [expiresAt] CreateIamTokenResponse expiresAt
+                     */
+
+                    /**
+                     * Constructs a new CreateIamTokenResponse.
+                     * @memberof yandex.cloud.iam.v1
+                     * @classdesc Represents a CreateIamTokenResponse.
+                     * @implements ICreateIamTokenResponse
+                     * @constructor
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenResponse=} [properties] Properties to set
+                     */
+                    function CreateIamTokenResponse(properties) {
+                        if (properties)
+                            for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                                if (properties[keys[i]] != null)
+                                    this[keys[i]] = properties[keys[i]];
+                    }
+
+                    /**
+                     * CreateIamTokenResponse iamToken.
+                     * @member {string} iamToken
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @instance
+                     */
+                    CreateIamTokenResponse.prototype.iamToken = "";
+
+                    /**
+                     * CreateIamTokenResponse expiresAt.
+                     * @member {google.protobuf.ITimestamp|null|undefined} expiresAt
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @instance
+                     */
+                    CreateIamTokenResponse.prototype.expiresAt = null;
+
+                    /**
+                     * Creates a new CreateIamTokenResponse instance using the specified properties.
+                     * @function create
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @static
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenResponse=} [properties] Properties to set
+                     * @returns {yandex.cloud.iam.v1.CreateIamTokenResponse} CreateIamTokenResponse instance
+                     */
+                    CreateIamTokenResponse.create = function create(properties) {
+                        return new CreateIamTokenResponse(properties);
+                    };
+
+                    /**
+                     * Encodes the specified CreateIamTokenResponse message. Does not implicitly {@link yandex.cloud.iam.v1.CreateIamTokenResponse.verify|verify} messages.
+                     * @function encode
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @static
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenResponse} message CreateIamTokenResponse message or plain object to encode
+                     * @param {$protobuf.Writer} [writer] Writer to encode to
+                     * @returns {$protobuf.Writer} Writer
+                     */
+                    CreateIamTokenResponse.encode = function encode(message, writer) {
+                        if (!writer)
+                            writer = $Writer.create();
+                        if (message.iamToken != null && message.hasOwnProperty("iamToken"))
+                            writer.uint32(/* id 1, wireType 2 =*/10).string(message.iamToken);
+                        if (message.expiresAt != null && message.hasOwnProperty("expiresAt"))
+                            $root.google.protobuf.Timestamp.encode(message.expiresAt, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+                        return writer;
+                    };
+
+                    /**
+                     * Encodes the specified CreateIamTokenResponse message, length delimited. Does not implicitly {@link yandex.cloud.iam.v1.CreateIamTokenResponse.verify|verify} messages.
+                     * @function encodeDelimited
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @static
+                     * @param {yandex.cloud.iam.v1.ICreateIamTokenResponse} message CreateIamTokenResponse message or plain object to encode
+                     * @param {$protobuf.Writer} [writer] Writer to encode to
+                     * @returns {$protobuf.Writer} Writer
+                     */
+                    CreateIamTokenResponse.encodeDelimited = function encodeDelimited(message, writer) {
+                        return this.encode(message, writer).ldelim();
+                    };
+
+                    /**
+                     * Decodes a CreateIamTokenResponse message from the specified reader or buffer.
+                     * @function decode
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @static
+                     * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+                     * @param {number} [length] Message length if known beforehand
+                     * @returns {yandex.cloud.iam.v1.CreateIamTokenResponse} CreateIamTokenResponse
+                     * @throws {Error} If the payload is not a reader or valid buffer
+                     * @throws {$protobuf.util.ProtocolError} If required fields are missing
+                     */
+                    CreateIamTokenResponse.decode = function decode(reader, length) {
+                        if (!(reader instanceof $Reader))
+                            reader = $Reader.create(reader);
+                        var end = length === undefined ? reader.len : reader.pos + length, message = new $root.yandex.cloud.iam.v1.CreateIamTokenResponse();
+                        while (reader.pos < end) {
+                            var tag = reader.uint32();
+                            switch (tag >>> 3) {
+                            case 1:
+                                message.iamToken = reader.string();
+                                break;
+                            case 2:
+                                message.expiresAt = $root.google.protobuf.Timestamp.decode(reader, reader.uint32());
+                                break;
+                            default:
+                                reader.skipType(tag & 7);
+                                break;
+                            }
+                        }
+                        return message;
+                    };
+
+                    /**
+                     * Decodes a CreateIamTokenResponse message from the specified reader or buffer, length delimited.
+                     * @function decodeDelimited
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @static
+                     * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+                     * @returns {yandex.cloud.iam.v1.CreateIamTokenResponse} CreateIamTokenResponse
+                     * @throws {Error} If the payload is not a reader or valid buffer
+                     * @throws {$protobuf.util.ProtocolError} If required fields are missing
+                     */
+                    CreateIamTokenResponse.decodeDelimited = function decodeDelimited(reader) {
+                        if (!(reader instanceof $Reader))
+                            reader = new $Reader(reader);
+                        return this.decode(reader, reader.uint32());
+                    };
+
+                    /**
+                     * Verifies a CreateIamTokenResponse message.
+                     * @function verify
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @static
+                     * @param {Object.<string,*>} message Plain object to verify
+                     * @returns {string|null} `null` if valid, otherwise the reason why it is not
+                     */
+                    CreateIamTokenResponse.verify = function verify(message) {
+                        if (typeof message !== "object" || message === null)
+                            return "object expected";
+                        if (message.iamToken != null && message.hasOwnProperty("iamToken"))
+                            if (!$util.isString(message.iamToken))
+                                return "iamToken: string expected";
+                        if (message.expiresAt != null && message.hasOwnProperty("expiresAt")) {
+                            var error = $root.google.protobuf.Timestamp.verify(message.expiresAt);
+                            if (error)
+                                return "expiresAt." + error;
+                        }
+                        return null;
+                    };
+
+                    /**
+                     * Creates a CreateIamTokenResponse message from a plain object. Also converts values to their respective internal types.
+                     * @function fromObject
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @static
+                     * @param {Object.<string,*>} object Plain object
+                     * @returns {yandex.cloud.iam.v1.CreateIamTokenResponse} CreateIamTokenResponse
+                     */
+                    CreateIamTokenResponse.fromObject = function fromObject(object) {
+                        if (object instanceof $root.yandex.cloud.iam.v1.CreateIamTokenResponse)
+                            return object;
+                        var message = new $root.yandex.cloud.iam.v1.CreateIamTokenResponse();
+                        if (object.iamToken != null)
+                            message.iamToken = String(object.iamToken);
+                        if (object.expiresAt != null) {
+                            if (typeof object.expiresAt !== "object")
+                                throw TypeError(".yandex.cloud.iam.v1.CreateIamTokenResponse.expiresAt: object expected");
+                            message.expiresAt = $root.google.protobuf.Timestamp.fromObject(object.expiresAt);
+                        }
+                        return message;
+                    };
+
+                    /**
+                     * Creates a plain object from a CreateIamTokenResponse message. Also converts values to other types if specified.
+                     * @function toObject
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @static
+                     * @param {yandex.cloud.iam.v1.CreateIamTokenResponse} message CreateIamTokenResponse
+                     * @param {$protobuf.IConversionOptions} [options] Conversion options
+                     * @returns {Object.<string,*>} Plain object
+                     */
+                    CreateIamTokenResponse.toObject = function toObject(message, options) {
+                        if (!options)
+                            options = {};
+                        var object = {};
+                        if (options.defaults) {
+                            object.iamToken = "";
+                            object.expiresAt = null;
+                        }
+                        if (message.iamToken != null && message.hasOwnProperty("iamToken"))
+                            object.iamToken = message.iamToken;
+                        if (message.expiresAt != null && message.hasOwnProperty("expiresAt"))
+                            object.expiresAt = $root.google.protobuf.Timestamp.toObject(message.expiresAt, options);
+                        return object;
+                    };
+
+                    /**
+                     * Converts this CreateIamTokenResponse to JSON.
+                     * @function toJSON
+                     * @memberof yandex.cloud.iam.v1.CreateIamTokenResponse
+                     * @instance
+                     * @returns {Object.<string,*>} JSON object
+                     */
+                    CreateIamTokenResponse.prototype.toJSON = function toJSON() {
+                        return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+                    };
+
+                    return CreateIamTokenResponse;
+                })();
+
+                return v1;
+            })();
+
+            return iam;
+        })();
+
+        return cloud;
+    })();
+
+    return yandex;
 })();
 
 module.exports = $root;

@@ -70,4 +70,12 @@ service TableService {
 
     // Streaming read table
     rpc StreamReadTable(Table.ReadTableRequest) returns (stream Table.ReadTableResponse);
+
+    // Upserts a batch of rows non-transactionally.
+    // Returns success only when all rows were successfully upserted. In case of an error some rows might
+    // be upserted and some might not.
+    rpc BulkUpsert(Table.BulkUpsertRequest) returns (Table.BulkUpsertResponse);
+
+    // Executes stream query.
+    rpc ExecuteStreamQuery(Table.ExecuteStreamQueryRequest) returns (stream Table.ExecuteStreamQueryResponse);
 }
