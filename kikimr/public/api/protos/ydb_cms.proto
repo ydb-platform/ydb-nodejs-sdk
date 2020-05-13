@@ -51,6 +51,8 @@ message Resources {
 message DatabaseOptions {
     // Do not initialize services required for transactions processing.
     bool disable_tx_service = 1;
+    // Old-style database, do not create external schemeshard for database
+    bool disable_external_subdomain = 2;
 }
 
 message Attribute {

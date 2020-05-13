@@ -33,9 +33,9 @@ message ClusterInfo {
 message ReadSessionParams {
     // Path to the topic to read from.
     string topic = 1;
-    // Read mode according to the read rule.
-    oneof read_mode {
-        string mirroring_cluster_name = 2;
+    // Read mode is set according to the read rule.
+    oneof read_rule {
+        string mirror_to_cluster = 2;
         google.protobuf.Empty all_original = 3;
     }
 }
@@ -43,6 +43,16 @@ message ReadSessionParams {
 message WriteSessionClusters {
     // Ordered clusters with statuses.
     repeated ClusterInfo clusters = 1;
+
+    enum SelectionReason {
+        SELECTION_REASON_UNSPECIFIED = 0;
+        CLIENT_PREFERENCE = 1;
+        CLIENT_LOCATION = 2;
+        CONSISTENT_DISTRIBUTION = 3;
+    }
+
+    // The reason why a particular cluster was prioritized.
+    SelectionReason primary_cluster_selection_reason = 2;
 }
 
 message ReadSessionClusters {

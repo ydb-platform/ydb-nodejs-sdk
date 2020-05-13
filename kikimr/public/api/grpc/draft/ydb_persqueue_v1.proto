@@ -32,7 +32,7 @@ service PersQueueService {
      *        <----------------
      */
 
-    rpc CreateWriteSession(stream WriteSessionRequest) returns (stream WriteSessionResponse);
+    rpc StreamingWrite(stream StreamingWriteClientMessage) returns (stream StreamingWriteServerMessage);
 
     /**
      * Creates Read Session
@@ -67,9 +67,7 @@ service PersQueueService {
      *         issue(description, ...)
      *        <----------------
      */
-
-    rpc CreateReadSession(stream ReadSessionRequest) returns (stream ReadSessionResponse);
-
+    rpc StreamingRead(stream StreamingReadClientMessage) returns (stream StreamingReadServerMessage);
 
     // Get information about reading
     rpc GetReadSessionsInfo(ReadInfoRequest) returns (ReadInfoResponse);

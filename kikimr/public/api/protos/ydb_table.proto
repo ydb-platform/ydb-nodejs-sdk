@@ -9,6 +9,9 @@ import "kikimr/public/api/protos/ydb_value.proto";
 import "kikimr/public/api/protos/ydb_scheme.proto";
 import "kikimr/public/api/protos/ydb_status_codes.proto";
 
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
 package Ydb.Table;
 option java_package = "com.yandex.ydb.table";
 
@@ -101,6 +104,28 @@ message ExplicitPartitions {
     repeated TypedValue split_points = 1;
 }
 
+message PartitionStats {
+    // Approximate number of rows in shard
+    uint64 rows_estimate = 1;
+    // Approximate size of shard (bytes)
+    uint64 store_size = 2;
+}
+
+message TableStats {
+    // Stats for each partition
+    repeated PartitionStats partition_stats = 1;
+    // Approximate number of rows in table
+    uint64 rows_estimate = 2;
+    // Approximate size of table (bytes)
+    uint64 store_size = 3;
+    // Number of partitions in table
+    uint64 partitions = 4;
+    // Timestamp of table creation
+    google.protobuf.Timestamp creation_time = 5;
+    // Timestamp of last modification
+    google.protobuf.Timestamp modification_time = 6;
+}
+
 message PartitioningPolicy {
     enum AutoPartitioningPolicy {
         AUTO_PARTITIONING_POLICY_UNSPECIFIED = 0;
@@ -162,6 +187,28 @@ message ColumnMeta {
     string family = 3;
 }
 
+message DateTypeColumnModeSettings {
+    // The row will be considered as expired at the moment of time, when the value
+    // stored in <column_name> is less than or equal to the current time (in epoch
+    // time format), and <expire_after_seconds> has passed since that moment;
+    // i.e. the expiration threshold is the value of <column_name> plus <expire_after_seconds>.
+
+    // The column type must be a date type
+    string column_name = 1;
+
+    uint32 expire_after_seconds = 2;
+}
+
+message TtlSettings {
+    oneof mode {
+        DateTypeColumnModeSettings date_type_column = 1;
+    }
+
+    // There is no guarantee that expired row will be deleted immediately upon
+    // expiration. There may be a delay between the time a row expires and the
+    // time that server deletes the row from the table.
+}
+
 message CreateTableRequest {
     // Session identifier
     string session_id = 1;
@@ -176,6 +223,8 @@ message CreateTableRequest {
     Ydb.Operations.OperationParams operation_params = 6;
     // List of secondary indexes
     repeated TableIndex indexes = 7;
+    // Table rows time to live settings
+    TtlSettings ttl_settings = 8;
 }
 
 message CreateTableResponse {
@@ -209,6 +258,11 @@ message AlterTableRequest {
     Ydb.Operations.OperationParams operation_params = 5;
     // Columns to alter
     repeated ColumnMeta alter_columns = 6;
+    // Setup or remove time to live settings
+    oneof ttl_action {
+        TtlSettings set_ttl_settings = 7;
+        google.protobuf.Empty drop_ttl_settings = 8;
+    }
 }
 
 message AlterTableResponse {
@@ -261,6 +315,10 @@ message DescribeTableRequest {
     Ydb.Operations.OperationParams operation_params = 4;
     // Includes shard key distribution info
     bool include_shard_key_bounds = 5;
+    // Includes table statistics
+    bool include_table_stats = 6;
+    // Includes partition statistics (required include_table_statistics)
+    bool include_partition_stats = 7;
 }
 
 message DescribeTableResponse {
@@ -279,6 +337,10 @@ message DescribeTableResult {
     repeated TypedValue shard_key_bounds = 4;
     // List of indexes
     repeated TableIndex indexes = 5;
+    // Statistics of table
+    TableStats table_stats = 6;
+    // TTL params
+    TtlSettings ttl_settings = 7;
 }
 
 message Query {
@@ -587,6 +649,8 @@ message ReadTableRequest {
     bool ordered = 5;
     // Limits row count to read
     uint64 row_limit = 6;
+    // Use a server-side snapshot
+    Ydb.FeatureFlag.Status use_snapshot = 7;
 }
 
 // ReadTable doesn't use Operation, returns result directly
@@ -604,3 +668,47 @@ message ReadTableResult {
     // Result set (same as result of sql request)
     Ydb.ResultSet result_set = 1;
 }
+
+message BulkUpsertRequest {
+    string table = 1;
+    // "rows" parameter must be a list of structs where each stuct represents one row.
+    // It must contain all key columns but not necessarily all non-key columns.
+    // Similar to UPSERT statement only values of specified columns will be updated.
+    TypedValue rows = 2;
+
+    Ydb.Operations.OperationParams operation_params = 3;
+}
+
+message BulkUpsertResponse {
+    Ydb.Operations.Operation operation = 1;
+}
+
+message BulkUpsertResult {
+}
+
+message ExecuteStreamQueryRequest {
+    enum Mode {
+        MODE_UNSPECIFIED = 0;
+
+        // Returns query results only
+        MODE_EXEC = 1;
+    }
+
+    Mode mode = 1;
+    Query query = 2;
+    map<string, TypedValue> parameters = 3;
+    reserved 4; // query_cache_policy
+}
+
+message ExecuteStreamQueryResponse {
+    StatusIds.StatusCode status = 1;
+    repeated Ydb.Issue.IssueMessage issues = 2;
+    ExecuteStreamQueryResult result = 3;
+}
+
+message ExecuteStreamQueryResult {
+    oneof type {
+        Ydb.ResultSet result_set = 1;
+    }
+}
+

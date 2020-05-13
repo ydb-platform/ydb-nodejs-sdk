@@ -4,6 +4,7 @@ option cc_enable_arenas = true;
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 
+import "kikimr/public/api/protos/validation/validation.proto";
 import "kikimr/public/api/protos/ydb_issue_message.proto";
 import "kikimr/public/api/protos/ydb_status_codes.proto";
 
@@ -41,11 +42,11 @@ message OperationParams {
     google.protobuf.Duration cancel_after = 3;
 
     // User-defined labels of operation.
-    map<string, string> labels = 4;
+    map<string, string> labels = 4 [(map_key).length.le = 128, (length).le = 128];
 }
 
 message GetOperationRequest {
-    string id = 1;
+    string id = 1 [(required) = true];
 }
 
 message GetOperationResponse {
@@ -53,7 +54,7 @@ message GetOperationResponse {
 }
 
 message CancelOperationRequest {
-    string id = 1;
+    string id = 1 [(required) = true];
 }
 
 message CancelOperationResponse {
@@ -62,7 +63,7 @@ message CancelOperationResponse {
 }
 
 message ForgetOperationRequest {
-    string id = 1;
+    string id = 1 [(required) = true];
 }
 
 message ForgetOperationResponse {
@@ -71,14 +72,16 @@ message ForgetOperationResponse {
 }
 
 message ListOperationsRequest {
-    string kind = 1;
+    string kind = 1 [(required) = true];
     uint64 page_size = 2;
     string page_token = 3;
 }
 
 message ListOperationsResponse {
-    repeated Operation operations = 1;
-    string next_page_token = 2;
+    StatusIds.StatusCode status = 1;
+    repeated Ydb.Issue.IssueMessage issues = 2;
+    repeated Operation operations = 3;
+    string next_page_token = 4;
 }
 
 message Operation {

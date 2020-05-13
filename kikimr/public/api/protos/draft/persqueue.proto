@@ -37,6 +37,7 @@ enum ECodec {
     RAW = 0;
     GZIP = 1;
     LZOP = 2;
+    ZSTD = 3;
     DEFAULT = 100; // TODO: move to pqlib
 }
 
@@ -115,6 +116,7 @@ message WriteResponse {
         uint32 write_time_ms = 1;
         uint32 total_time_in_partition_queue_ms = 2;
         uint32 partition_quoted_time_ms = 3;
+        uint32 topic_quoted_time_ms = 4;
     }
 
     message Ack {
@@ -213,12 +215,19 @@ message ReadRequest {
         repeated uint64 cookie = 1;
     }
 
+    message Status {
+        uint64 generation = 1;
+        string topic = 2;
+        uint32 partition = 3;
+    }
+
     oneof request {
         //init must be sent as first message
         Init init = 1;
         Read read = 2;
         StartRead start_read = 3;
         Commit commit = 4;
+        Status status = 5;
     }
 
     Credentials credentials = 20;
@@ -326,6 +335,17 @@ message ReadResponse {
         repeated uint64 cookie = 1; //for debug purposes only
     }
 
+    // Response for status requst.
+    message PartitionStatus {
+        uint64 generation = 1;
+        string topic = 2;
+        uint32 partition = 3;
+
+        uint64 committed_offset = 4;
+        uint64 end_offset = 5;
+        uint64 write_watermark_ms = 6;
+    }
+
     oneof response {
         Init init = 1;
         Data data = 2;
@@ -334,6 +354,6 @@ message ReadResponse {
         Lock lock = 4;
         Release release = 5;
         Commit commit = 6;
+        PartitionStatus partition_status = 8;
     }
 }
-

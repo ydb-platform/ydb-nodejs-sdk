@@ -24,61 +24,20 @@ message UploadRowsResult {
     // TODO: ?
 }
 
-
-
 ////////////////////////////////////////////////////////////
-
-
-message ReadColumnsRequest {
-    string table = 1;
-    repeated string columns = 2;
-
-    bytes from_key = 3;
-    bool from_key_inclusive = 4;
-    bytes to_key = 5;
-    bool to_key_inclusive = 6;
-
-    uint64 max_rows = 7;
-    uint64 max_bytes = 8;
-
-    Ydb.Operations.OperationParams operation_params = 9;
-}
-
-message ReadColumnsResponse {
-    Ydb.Operations.Operation operation = 1;
-}
-
-message ReadColumnsResult {
-    repeated bytes blocks = 1;
-
-    bool eof = 2; // no more rows
-    bytes last_key = 3;
-    bool last_key_inclusive = 4;
-}
-
-
-message GetShardLocationsRequest {
-    repeated uint64 tablet_ids = 1;
-
-    Ydb.Operations.OperationParams operation_params = 9;
-}
-
-message GetShardLocationsResponse {
-    Ydb.Operations.Operation operation = 1;
-}
-
-message TabletInfo {
-    uint64 tablet_id = 1;
-    string host = 2;
-}
-
-message GetShardLocationsResult {
-    repeated TabletInfo tablets = 1;
-}
 
 message ExecuteStreamQueryRequest {
     string yql_text = 1;
     map<string, TypedValue> parameters = 2;
+
+    enum ProfileMode {
+        PROFILE_MODE_UNSPECIFIED = 0;
+        NONE = 1;
+        BASIC = 2;
+        FULL = 3;
+    }
+
+    ProfileMode profile_mode = 3;
 }
 
 message ExecuteStreamQueryResponse {
@@ -87,6 +46,13 @@ message ExecuteStreamQueryResponse {
     ExecuteStreamQueryResult result = 3;
 }
 
+message StreamQueryProgress {
+}
+
 message ExecuteStreamQueryResult {
-    Ydb.ResultSet result_set = 1;
+    oneof result {
+        Ydb.ResultSet result_set = 1;
+        string profile = 2;
+        StreamQueryProgress progress = 3;
+    }
 }
