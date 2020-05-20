@@ -45,8 +45,6 @@
     "@types/luxon": "^1.21.0",
     "@types/node": "10.17.20",
     "@types/pino": "^5.14.0",
-    "crc": "^3.8.0",
-    "express": "^4.17.1",
     "typescript": "^3.9.3"
   }
 }
