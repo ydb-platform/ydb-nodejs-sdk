@@ -1,10 +1,10 @@
-import Driver from '../../driver';
-import {Session, TableDescription, Column} from "../../table";
-import {Ydb} from "../../../proto/bundle";
+import Driver from '../../src/driver';
+import {Session, TableDescription, Column} from "../../src/table";
+import {Ydb} from "../../proto/bundle";
 import {Series, Episode, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
-import {getCredentialsFromEnv} from "../../parse-env-vars";
-import {Logger} from "../../logging";
-import {withRetries} from "../../retries";
+import {getCredentialsFromEnv} from "../../src/parse-env-vars";
+import {Logger} from "../../src/logging";
+import {withRetries} from "../../src/retries";
 import {main} from '../utils';
 
 
@@ -36,7 +36,7 @@ async function createTables(session: Session, logger: Logger) {
             ))
             .withColumn(new Column(
                 'release_date',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
             ))
             .withPrimaryKey('series_id')
     );
@@ -58,11 +58,11 @@ async function createTables(session: Session, logger: Logger) {
             ))
             .withColumn(new Column(
                 'first_aired',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
             ))
             .withColumn(new Column(
                 'last_aired',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
             ))
             .withPrimaryKeys('series_id', 'season_id')
     );
@@ -88,7 +88,7 @@ async function createTables(session: Session, logger: Logger) {
             ))
             .withColumn(new Column(
                 'air_date',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
             ))
             .withPrimaryKeys('series_id', 'season_id', 'episode_id')
     );
@@ -106,30 +106,30 @@ async function fillTablesWithData(tablePathPrefix: string, session: Session, log
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 
-DECLARE $seriesData AS "List<Struct<
+DECLARE $seriesData AS List<Struct<
     series_id: Uint64,
     title: Utf8,
     series_info: Utf8,
-    release_date: Utf8>>";
-DECLARE $seasonsData AS "List<Struct<
+    release_date: Date>>;
+DECLARE $seasonsData AS List<Struct<
     series_id: Uint64,
     season_id: Uint64,
     title: Utf8,
-    first_aired: Utf8,
-    last_aired: Utf8>>";
-DECLARE $episodesData AS "List<Struct<
+    first_aired: Date,
+    last_aired: Date>>;
+DECLARE $episodesData AS List<Struct<
     series_id: Uint64,
     season_id: Uint64,
     episode_id: Uint64,
     title: Utf8,
-    air_date: Utf8>>";
+    air_date: Date>>;
 
 REPLACE INTO ${SERIES_TABLE}
 SELECT
     series_id,
     title,
     series_info,
-    CAST(release_date as Date) as release_date 
+    CAST(release_date as Uint64) as release_date
 FROM AS_TABLE($seriesData);
 
 REPLACE INTO ${SEASONS_TABLE}
@@ -137,8 +137,8 @@ SELECT
     series_id,
     season_id,
     title,
-    CAST(first_aired as Date) as first_aired,
-    CAST(last_aired as Date) as last_aired
+    CAST(first_aired as Uint64) as first_aired,
+    CAST(last_aired as Uint64) as last_aired
 FROM AS_TABLE($seasonsData);
 
 REPLACE INTO ${EPISODES_TABLE}
@@ -147,7 +147,7 @@ SELECT
     season_id,
     episode_id,
     title,
-    CAST(air_date as Date) as air_date
+    CAST(air_date as Uint64) as air_date
 FROM AS_TABLE($episodesData);`;
     async function fillTable() {
         logger.info('Inserting data to tables, preparing query...');
@@ -165,7 +165,10 @@ FROM AS_TABLE($episodesData);`;
 async function selectSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
     const query = `
 PRAGMA TablePathPrefix("${tablePathPrefix}");
-SELECT series_id, title, series_info, CAST(release_date AS Date) AS release_date
+$format = DateTime::Format("%Y-%m-%d");
+SELECT series_id,
+       title,
+       $format(DateTime::FromSeconds(CAST(DateTime::ToSeconds(DateTime::IntervalFromDays(CAST(release_date AS Int16))) AS Uint32))) AS release_date
 FROM ${SERIES_TABLE}
 WHERE series_id = 1;`;
     logger.info('Making a simple select...');
@@ -193,8 +196,10 @@ async function selectPrepared(tablePathPrefix: string, session: Session, data: T
     DECLARE $seriesId AS Uint64;
     DECLARE $seasonId AS Uint64;
     DECLARE $episodeId AS Uint64;
+    $format = DateTime::Format("%Y-%m-%d");
 
-    SELECT title, CAST(air_date AS Date) as air_date
+    SELECT title,
+           $format(DateTime::FromSeconds(CAST(DateTime::ToSeconds(DateTime::IntervalFromDays(CAST(air_date AS Int16))) AS Uint32))) AS air_date
     FROM episodes
     WHERE series_id = $seriesId AND season_id = $seasonId AND episode_id = $episodeId;`;
     async function select() {
@@ -224,7 +229,7 @@ async function explicitTcl(tablePathPrefix: string, session: Session, ids: Three
     DECLARE $episodeId AS Uint64;
 
     UPDATE episodes
-    SET air_date = CAST(CAST("2018-09-11T15:15:59.373006Z" AS Timestamp) AS Date)
+    SET air_date = CAST(CurrentUtcDate() AS Uint64)
     WHERE series_id = $seriesId AND season_id = $seasonId AND episode_id = $episodeId;`;
     async function update() {
         logger.info('Running prepared query with explicit transaction control...');
