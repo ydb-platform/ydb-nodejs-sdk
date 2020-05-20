@@ -1,8 +1,5 @@
-import {Column, Session, TableDescription} from "../../src/table";
-import {Logger} from "../../src/logging";
-import {Ydb} from "../../proto/bundle";
+import {Ydb, Column, Session, TableDescription, Logger, withRetries} from 'ydb-sdk';
 import {RequestSourceUrl, UrlsMatch} from "./data-helpers";
-import {withRetries} from "../../src/retries";
 
 const URLS_TABLE = 'urls';
 

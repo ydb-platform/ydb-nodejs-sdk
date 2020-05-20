@@ -1,6 +1,5 @@
 // const moment = require('moment');
-const {declareType, TypedData} = require('../../src/types');
-import {Ydb} from "../../proto/bundle";
+import {Ydb, declareType, TypedData} from 'ydb-sdk';
 
 import Type = Ydb.Type;
 
@@ -34,7 +33,7 @@ export class Series extends TypedData {
     }
 
     constructor(data: ISeries) {
-        super();
+        super(data);
         this.seriesId = data.seriesId;
         this.title = data.title;
         this.releaseDate = data.releaseDate;
@@ -107,7 +106,7 @@ export class Season extends TypedData {
     }
 
     constructor(data: ISeason) {
-        super();
+        super(data);
         this.seriesId = data.seriesId;
         this.seasonId = data.seasonId;
         this.title = data.title;

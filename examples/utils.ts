@@ -1,4 +1,4 @@
-import getLogger, {Logger} from "../src/logging";
+import {getLogger, Logger} from 'ydb-sdk';
 
 
 export interface Runner {
