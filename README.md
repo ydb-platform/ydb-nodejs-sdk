@@ -1,8 +1,8 @@
 # How to use
-## Install dependencies and compile sources
+## Install dependencies and compile library
 ```bash
 npm ci
-npm run build
+npm run build:lib
 ```
 
 ## Set environment variables for proper authentication
@@ -22,7 +22,7 @@ export YDB_SDK_LOGLEVEL=debug
 ```bash
 export YDB_TOKEN=
 export SA_PRIVATE_KEY_FILE= # here should be the path to the file with your service account's private key
-export YDB_SSL_ROOT_CERTIFICATES_FILE= # here should be the path to ssl root certificate for YDB installation 
+export YDB_SSL_ROOT_CERTIFICATES_FILE= # here should be the path to ssl root certificate for YDB installation
 export IAM_ENDPOINT= # by default it is iam.api.cloud.yandex.net:443
 export SA_ID= # here come you service account's id
 export SA_ACCESS_KEY_ID= # here comes your service account's key id
@@ -33,5 +33,7 @@ export YDB_SDK_LOGLEVEL=debug
 
 ## Run basic-example script
 ```bash
-npm start  
+(cd examples && npm ci)
+npm run build:examples
+npm start
 ```
