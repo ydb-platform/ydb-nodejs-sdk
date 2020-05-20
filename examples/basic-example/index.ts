@@ -1,10 +1,5 @@
-import Driver from '../../src/driver';
-import {Session, TableDescription, Column} from "../../src/table";
-import {Ydb} from "../../proto/bundle";
+import {Ydb, Driver, Session, TableDescription, Column, getCredentialsFromEnv, withRetries, Logger} from 'ydb-sdk';
 import {Series, Episode, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
-import {getCredentialsFromEnv} from "../../src/parse-env-vars";
-import {Logger} from "../../src/logging";
-import {withRetries} from "../../src/retries";
 import {main} from '../utils';
 
 

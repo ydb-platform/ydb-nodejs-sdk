@@ -1,6 +1,4 @@
-import Driver from '../../src/driver';
-import {getCredentialsFromEnv} from "../../src/parse-env-vars";
-import {Logger} from "../../src/logging";
+import {Driver, getCredentialsFromEnv, Logger} from 'ydb-sdk';
 import {main} from '../utils';
 
 

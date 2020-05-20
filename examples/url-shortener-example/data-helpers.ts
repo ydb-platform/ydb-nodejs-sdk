@@ -1,5 +1,4 @@
-import {declareType, TypedData} from "../../src/types";
-import {Ydb} from "../../proto/bundle";
+import {Ydb, declareType, TypedData} from 'ydb-sdk';
 
 const SOURCE_URL_REGEX = new RegExp("https?://(?:[-\\w.]|(?:%[\\da-fA-F]{2}))+");
 const SHORTEN_REGEX = new RegExp("[a-zA-Z0-9]");
