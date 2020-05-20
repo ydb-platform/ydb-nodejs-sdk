@@ -1,6 +1,6 @@
-import Driver from '../../driver';
-import {getCredentialsFromEnv} from "../../parse-env-vars";
-import {Logger} from "../../logging";
+import Driver from '../../src/driver';
+import {getCredentialsFromEnv} from "../../src/parse-env-vars";
+import {Logger} from "../../src/logging";
 import {main} from '../utils';
 
 

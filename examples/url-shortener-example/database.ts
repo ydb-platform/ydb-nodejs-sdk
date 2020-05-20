@@ -1,8 +1,8 @@
-import {Column, Session, TableDescription} from "../../table";
-import {Logger} from "../../logging";
-import {Ydb} from "../../../proto/bundle";
+import {Column, Session, TableDescription} from "../../src/table";
+import {Logger} from "../../src/logging";
+import {Ydb} from "../../proto/bundle";
 import {RequestSourceUrl, UrlsMatch} from "./data-helpers";
-import {withRetries} from "../../retries";
+import {withRetries} from "../../src/retries";
 
 const URLS_TABLE = 'urls';
 
@@ -38,7 +38,7 @@ PRAGMA TablePathPrefix("${tablePathPrefix}");
 DECLARE $shortenUrl as Utf8;
 DECLARE $sourceUrl as Utf8;
 
-REPLACE INTO ${URLS_TABLE} (shorten, source) 
+REPLACE INTO ${URLS_TABLE} (shorten, source)
 VALUES ($shortenUrl, $sourceUrl);`;
 
     async function execute() {
@@ -62,7 +62,7 @@ export async function selectSource(shortenUrl: string, tablePathPrefix: string,
 
     DECLARE $shortenUrl as Utf8;
 
-    SELECT * 
+    SELECT *
     FROM ${URLS_TABLE}
     WHERE shorten = $shortenUrl;`;
 

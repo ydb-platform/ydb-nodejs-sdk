@@ -1,4 +1,4 @@
-import getLogger, {Logger} from "../logging";
+import getLogger, {Logger} from "../src/logging";
 
 
 export interface Runner {

@@ -1,15 +1,14 @@
 // const moment = require('moment');
-import {DateTime} from "luxon";
-import {declareType, TypedData} from "../../types";
-import {Ydb} from "../../../proto/bundle";
+const {declareType, TypedData} = require('../../src/types');
+import {Ydb} from "../../proto/bundle";
 
 import Type = Ydb.Type;
 
 
-const UNIX_ZERO = DateTime.fromISO('1970-01-01');
-function toDays(date: string): number {
-    return Math.ceil(DateTime.fromISO(date).diff(UNIX_ZERO).as('days'));
-}
+// function toDays(date: string) {
+//     const timeDelta = moment.duration(moment(date) - moment('1970-01-01'));
+//     return timeDelta.asDays();
+// }
 
 interface ISeries {
     seriesId: number,
@@ -24,8 +23,8 @@ export class Series extends TypedData {
     @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
-    public releaseDate: number;
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    public releaseDate: string;
 
     @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public seriesInfo: string;
@@ -35,10 +34,10 @@ export class Series extends TypedData {
     }
 
     constructor(data: ISeries) {
-        super(data);
+        super();
         this.seriesId = data.seriesId;
         this.title = data.title;
-        this.releaseDate = toDays(data.releaseDate);
+        this.releaseDate = data.releaseDate;
         this.seriesInfo = data.seriesInfo;
     }
 }
@@ -63,8 +62,8 @@ export class Episode extends TypedData {
     @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
-    public airDate: number;
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    public airDate: string;
 
     static create(seriesId: number, seasonId: number, episodeId: number, title: string, airDate: string): Episode {
         return new this({seriesId, seasonId, episodeId, title, airDate});
@@ -76,7 +75,7 @@ export class Episode extends TypedData {
         this.seasonId = data.seasonId;
         this.episodeId = data.episodeId;
         this.title = data.title;
-        this.airDate = toDays(data.airDate);
+        this.airDate = data.airDate;
     }
 }
 
@@ -97,23 +96,23 @@ export class Season extends TypedData {
     @declareType({typeId: Type.PrimitiveTypeId.UTF8})
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
-    public firstAired: number;
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    public firstAired: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
-    public lastAired: number;
+    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    public lastAired: string;
 
     static create(seriesId: number, seasonId: number, title: string, firstAired: string, lastAired: string): Season {
         return new this({seriesId, seasonId, title, firstAired, lastAired});
     }
 
     constructor(data: ISeason) {
-        super(data);
+        super();
         this.seriesId = data.seriesId;
         this.seasonId = data.seasonId;
         this.title = data.title;
-        this.firstAired = toDays(data.firstAired);
-        this.lastAired = toDays(data.lastAired);
+        this.firstAired = data.firstAired;
+        this.lastAired = data.lastAired;
     }
 }
 
