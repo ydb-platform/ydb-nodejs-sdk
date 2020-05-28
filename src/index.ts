@@ -20,5 +20,6 @@ export {
     CachingPolicy
 } from './table';
 export {getCredentialsFromEnv} from "./parse-env-vars";
+export {TokenAuthService} from './credentials';
 export {withRetries, RetryParameters} from "./retries";
 export {YdbError, StatusCode} from './errors';
