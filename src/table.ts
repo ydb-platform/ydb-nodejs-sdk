@@ -205,7 +205,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     public async executeQuery(
         query: PrepareQueryResult | string,
         params: IQueryParams = {},
-        txControl: IExistingTransaction | INewTransaction = AUTO_TX
+        txControl: IExistingTransaction | INewTransaction = AUTO_TX,
+        operationParams?: Ydb.Operations.IOperationParams,
     ): Promise<ExecuteQueryResult> {
         this.logger.trace('preparedQuery', JSON.stringify(query, null, 2));
         this.logger.trace('parameters', JSON.stringify(params, null, 2));
@@ -223,7 +224,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             txControl,
             parameters: params,
-            query: queryToExecute
+            query: queryToExecute,
+            operationParams: operationParams,
         };
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(response);
