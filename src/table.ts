@@ -8,7 +8,7 @@ import {SESSION_KEEPALIVE_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
 import getLogger, {Logger} from './logging';
 import {retryable} from "./retries";
-import {SchemeError} from "./errors";
+import {SchemeError, SessionPoolEmpty} from "./errors";
 
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
@@ -323,7 +323,9 @@ export class SessionPool extends EventEmitter {
                 if (timeout) {
                     timeoutId = setTimeout(() => {
                         this.waiters.splice(this.waiters.indexOf(waiter), 1);
-                        reject(`No session became available within timeout of ${timeout} ms`);
+                        reject(
+                            new SessionPoolEmpty(`No session became available within timeout of ${timeout} ms`)
+                        );
                     }, timeout);
                 }
                 this.waiters.push(waiter);

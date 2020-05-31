@@ -157,9 +157,9 @@ export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
         this.events.on(eventName, callback);
     }
 
-    public ready(timeout: number): Promise<any> {
-        const timedRejection = new Promise((_resolve, reject) => {
-            setTimeout(() => reject(`Failed to resolve in ${timeout}ms!`), timeout);
+    public ready(timeout: number): Promise<void> {
+        const timedRejection: Promise<void> = new Promise((_resolve, reject) => {
+            setTimeout(() => reject(new Error(`Failed to resolve in ${timeout}ms!`)), timeout);
         });
         return Promise.race([this.endpointsPromise, timedRejection]);
     }
