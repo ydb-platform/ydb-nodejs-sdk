@@ -35,6 +35,7 @@ export enum StatusCode {
     UNIMPLEMENTED = TRANSPORT_STATUSES_FIRST + 50,
 
     UNAUTHENTICATED = CLIENT_STATUSES_FIRST + 30,
+    SESSION_POOL_EMPTY = CLIENT_STATUSES_FIRST + 40,
 }
 
 export class YdbError extends Error {
@@ -83,6 +84,10 @@ export class Unimplemented extends ConnectionError {
 
 export class Unauthenticated extends YdbError {
     static status = StatusCode.UNAUTHENTICATED
+}
+
+export class SessionPoolEmpty extends YdbError {
+    static status = StatusCode.SESSION_POOL_EMPTY
 }
 
 export class BadRequest extends YdbError {
