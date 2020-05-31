@@ -333,7 +333,7 @@ export class SessionPool extends EventEmitter {
         }
     }
 
-    public async withSession(callback: (session: Session) => Promise<any>, timeout: number = 0): Promise<any> {
+    public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
         const session = await this.acquire(timeout);
         try {
             const result = await callback(session);
@@ -355,7 +355,7 @@ export class TableClient extends EventEmitter {
         this.pool = new SessionPool(driver);
     }
 
-    public async withSession(callback: (session: Session) => Promise<any>, timeout: number = 0): Promise<any> {
+    public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
         return this.pool.withSession(callback, timeout);
     }
 
