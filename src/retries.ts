@@ -6,7 +6,7 @@ import * as errors from './errors';
 export class RetryParameters {
     public retryNotFound: boolean;
     public retryInternalError: boolean;
-    public unknownErrorHandler: (_error: Error) => void;
+    public unknownErrorHandler: (_error: unknown) => void;
     public maxRetries: number;
     public onYdbErrorCb: (_error: YdbError) => void;
     public backoffCeiling: number;
@@ -56,34 +56,36 @@ class RetryStrategy {
 
     async retry<T>(asyncMethod: () => Promise<T>) {
         let retries = 0;
-        let error: YdbError|null = null;
+        let error: unknown;
         const retryParameters = this.retryParameters;
         while (retries < retryParameters.maxRetries) {
             try {
                 return await asyncMethod();
             } catch (e) {
-                const errName = e.constructor.name;
                 error = e;
-                const retriesLeft = retryParameters.maxRetries - retries;
-                if (RETRYABLE_ERRORS.some((cls) => e instanceof cls)) {
-                    retryParameters.onYdbErrorCb(e);
+                if (e instanceof YdbError) {
+                    const errName = e.constructor.name;
+                    const retriesLeft = retryParameters.maxRetries - retries;
+                    if (RETRYABLE_ERRORS.some((cls) => e instanceof cls)) {
+                        retryParameters.onYdbErrorCb(e);
 
-                    if (e instanceof errors.NotFound && !retryParameters.retryNotFound) {
+                        if (e instanceof errors.NotFound && !retryParameters.retryNotFound) {
+                            throw e;
+                        }
+
+                        if (e instanceof errors.InternalError && !retryParameters.retryInternalError) {
+                            throw e;
+                        }
+                        this.logger.warn(`Caught an error ${errName}, retrying immediately, ${retriesLeft} retries left`);
+                    } else if (RETRYABLE_W_DELAY_ERRORS.some((cls) => e instanceof cls)) {
+                        this.logger.warn(`Caught an error ${errName}, retrying with a backoff, ${retriesLeft} retries left`);
+                        retryParameters.onYdbErrorCb(e);
+
+                        await RetryStrategy.waitBackoffTimeout(retryParameters, retries);
+                    } else {
+                        retryParameters.onYdbErrorCb(e);
                         throw e;
                     }
-
-                    if (e instanceof errors.InternalError && !retryParameters.retryInternalError) {
-                        throw e;
-                    }
-                    this.logger.warn(`Caught an error ${errName}, retrying immediately, ${retriesLeft} retries left`);
-                } else if (RETRYABLE_W_DELAY_ERRORS.some((cls) => e instanceof cls)) {
-                    this.logger.warn(`Caught an error ${errName}, retrying with a backoff, ${retriesLeft} retries left`);
-                    retryParameters.onYdbErrorCb(e);
-
-                    await RetryStrategy.waitBackoffTimeout(retryParameters, retries);
-                } else if (e instanceof YdbError) {
-                    retryParameters.onYdbErrorCb(e);
-                    throw e;
                 } else {
                     retryParameters.unknownErrorHandler(e);
                     throw e;
@@ -91,10 +93,8 @@ class RetryStrategy {
             }
             retries++;
         }
-        if (error) {
-            this.logger.debug('All retries have been used, re-throwing error');
-            throw error;
-        }
+        this.logger.debug('All retries have been used, re-throwing error');
+        throw error;
     }
 }
 
