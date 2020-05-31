@@ -31,6 +31,10 @@ export interface IAuthCredentials {
     iamCredentials: IIAmCredentials
 }
 
+export interface ITokenService {
+    getToken(): string|undefined;
+}
+
 export interface IAuthService {
     getAuthMetadata: () => Promise<grpc.Metadata>,
     sslCredentials?: ISslCredentials
@@ -118,27 +122,26 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
 }
 
 export class MetadataAuthService implements IAuthService {
-    private tokenService: any;
+    private tokenService: ITokenService;
 
     static MAX_TRIES = 5;
     static TRIES_INTERVAL = 2000;
 
-    constructor(private dbName: string, public sslCredentials?: ISslCredentials) {
-        this.tokenService = new TokenService();
+    constructor(private dbName: string, public sslCredentials?: ISslCredentials, tokenService?: ITokenService) {
+        this.tokenService = tokenService || new TokenService();
     }
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
-        let token: string|null = null;
+        let token = this.tokenService.getToken();
         let tries = 0;
-        const MAX_TRIES = 5;
         while (!token && tries < MetadataAuthService.MAX_TRIES) {
-            token = this.tokenService.getToken();
             await sleep(MetadataAuthService.TRIES_INTERVAL);
             tries++;
+            token = this.tokenService.getToken();
         }
         if (token) {
             return makeCredentialsMetadata(token, this.dbName);
         }
-        throw new Error(`Failed to fetch access token via metadata service in ${MAX_TRIES} tries!`);
+        throw new Error(`Failed to fetch access token via metadata service in ${MetadataAuthService.MAX_TRIES} tries!`);
     }
 }
