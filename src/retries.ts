@@ -54,7 +54,7 @@ class RetryStrategy {
         });
     }
 
-    async retry(asyncMethod: () => Promise<any>) {
+    async retry<T>(asyncMethod: () => Promise<T>) {
         let retries = 0;
         let error: YdbError|null = null;
         const retryParameters = this.retryParameters;
@@ -114,7 +114,7 @@ export function retryable(strategyParams?: RetryParameters) {
     };
 }
 
-export async function withRetries(originalFunction: (...args: any) => Promise<any>, strategyParams?: RetryParameters) {
+export async function withRetries<T>(originalFunction: () => Promise<T>, strategyParams?: RetryParameters) {
     const wrappedMethodName = originalFunction.name;
     if (!strategyParams) {
         strategyParams = new RetryParameters();
