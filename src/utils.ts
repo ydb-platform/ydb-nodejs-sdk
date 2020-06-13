@@ -74,7 +74,7 @@ export abstract class BaseService<Api extends $protobuf.rpc.Service> {
                     return BaseService.isServiceAsyncMethod(target, prop, receiver) ?
                         async (...args: any[]) => {
                             this.metadata = await this.authService.getAuthMetadata();
-                            return property.call(target, ...args);
+                            return property.call(receiver, ...args);
                         } :
                         property;
                 }
