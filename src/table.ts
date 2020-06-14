@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {Ydb} from "../proto/bundle";
-import {BaseService, ensureOperationSucceeded, getOperationPayload, pessimizable} from "./utils";
+import {AuthenticatedService, ensureOperationSucceeded, getOperationPayload, pessimizable} from "./utils";
 import {Endpoint} from './discovery';
 import Driver from "./driver";
 import {SESSION_KEEPALIVE_PERIOD} from "./constants";
@@ -28,7 +28,7 @@ import FeatureFlag = Ydb.FeatureFlag.Status;
 import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
 
 
-export class SessionService extends BaseService<TableService> {
+export class SessionService extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 
@@ -342,7 +342,6 @@ export class SessionPool extends EventEmitter {
         } catch (error) {
             await this.deleteSession(session);
             throw error;
-            // TODO: add retry machinery here
         }
     }
 }

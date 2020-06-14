@@ -48,7 +48,7 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
     }
 }
 
-export abstract class BaseService<Api extends $protobuf.rpc.Service> {
+export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
     private metadata: Metadata | null = null;
 
@@ -71,7 +71,7 @@ export abstract class BaseService<Api extends $protobuf.rpc.Service> {
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);
-                    return BaseService.isServiceAsyncMethod(target, prop, receiver) ?
+                    return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
                         async (...args: any[]) => {
                             this.metadata = await this.authService.getAuthMetadata();
                             return property.call(receiver, ...args);

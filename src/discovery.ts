@@ -2,7 +2,7 @@ import _ from 'lodash';
 import EventEmitter from 'events';
 import {DateTime} from 'luxon';
 import {Ydb} from "../proto/bundle";
-import {BaseService, getOperationPayload} from "./utils";
+import {AuthenticatedService, getOperationPayload} from "./utils";
 import {IAuthService} from "./credentials";
 import {retryable} from "./retries";
 import getLogger, {Logger} from './logging';
@@ -68,7 +68,7 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     }
 }
 
-export default class DiscoveryService extends BaseService<DiscoveryServiceAPI> {
+export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
     private readonly endpointsPromise: Promise<void>;
     private resolveEndpoints: SuccessDiscoveryHandler = noOp;
     private rejectEndpoints: FailureDiscoveryHandler = noOp;
