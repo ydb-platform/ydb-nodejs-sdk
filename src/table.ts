@@ -31,13 +31,11 @@ import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
 export class SessionService extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
-    public traceId: string;
 
     constructor(endpoint: Endpoint, authService: IAuthService) {
         const host = endpoint.toString();
         super(host, 'Ydb.Table.V1.TableService', TableService, authService);
         this.endpoint = endpoint;
-        this.traceId = 'from child';
         this.logger = getLogger();
     }
 
