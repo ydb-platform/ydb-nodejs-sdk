@@ -1,5 +1,5 @@
 import {Ydb} from "../proto/bundle";
-import {BaseService, getOperationPayload, ensureOperationSucceeded, pessimizable} from "./utils";
+import {AuthenticatedService, getOperationPayload, ensureOperationSucceeded, pessimizable} from "./utils";
 import {IAuthService} from "./credentials";
 import getLogger, {Logger} from './logging';
 import {Endpoint} from './discovery';
@@ -86,7 +86,7 @@ export default class SchemeClient extends EventEmitter {
     }
 }
 
-class SchemeService extends BaseService<SchemeServiceAPI> {
+class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
     private logger: Logger;
     private readonly database: string;
     public endpoint: Endpoint;
