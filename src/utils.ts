@@ -50,6 +50,7 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
 
 export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
+    public traceId: string = 'from parent';
     private metadata: Metadata | null = null;
 
     static isServiceAsyncMethod(target: object, prop: string|number|symbol, receiver: any) {
@@ -73,6 +74,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
                     const property = Reflect.get(target, prop, receiver);
                     return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
                         async (...args: any[]) => {
+                            console.log('TRACE', this.traceId);
                             this.metadata = await this.authService.getAuthMetadata();
                             return property.call(receiver, ...args);
                         } :
