@@ -1,14 +1,14 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
-import {Ydb} from "../proto/bundle";
-import {AuthenticatedService, ensureOperationSucceeded, getOperationPayload, pessimizable} from "./utils";
+import {Ydb} from '../proto/bundle';
+import {AuthenticatedService, ensureOperationSucceeded, getOperationPayload, pessimizable} from './utils';
 import {Endpoint} from './discovery';
-import Driver from "./driver";
-import {SESSION_KEEPALIVE_PERIOD} from "./constants";
-import {IAuthService} from "./credentials";
+import Driver from './driver';
+import {SESSION_KEEPALIVE_PERIOD} from './constants';
+import {IAuthService} from './credentials';
 import getLogger, {Logger} from './logging';
-import {retryable} from "./retries";
-import {SchemeError, SessionPoolEmpty} from "./errors";
+import {retryable} from './retries';
+import {SchemeError, SessionPoolEmpty} from './errors';
 
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
@@ -26,6 +26,7 @@ import AutoPartitioningPolicy = Ydb.Table.PartitioningPolicy.AutoPartitioningPol
 import ITypedValue = Ydb.ITypedValue;
 import FeatureFlag = Ydb.FeatureFlag.Status;
 import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
+import IOperationParams = Ydb.Operations.IOperationParams;
 
 
 export class SessionService extends AuthenticatedService<TableService> {
@@ -118,25 +119,27 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async createTable(tablePath: string, description: TableDescription): Promise<void> {
+    public async createTable(tablePath: string, description: TableDescription, operationParams?: IOperationParams): Promise<void> {
         const {columns, primaryKey, indexes, profile} = description;
-        const request = {
+        const request: Ydb.Table.ICreateTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
             columns,
             primaryKey,
             indexes,
-            profile
+            profile,
+            operationParams,
         };
         ensureOperationSucceeded(await this.api.createTable(request));
     }
 
     @retryable()
     @pessimizable
-    public async dropTable(tablePath: string): Promise<void> {
-        const request = {
+    public async dropTable(tablePath: string, operationParams?: IOperationParams): Promise<void> {
+        const request: Ydb.Table.IDropTableRequest = {
             sessionId: this.sessionId,
-            path: `${this.endpoint.database}/${tablePath}`
+            path: `${this.endpoint.database}/${tablePath}`,
+            operationParams,
         };
         // suppress error when dropping non-existent table
         ensureOperationSucceeded(await this.api.dropTable(request), [SchemeError.status]);
@@ -144,10 +147,11 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async describeTable(tablePath: string): Promise<DescribeTableResult> {
-        const request = {
+    public async describeTable(tablePath: string, operationParams?: IOperationParams): Promise<DescribeTableResult> {
+        const request: Ydb.Table.IDescribeTableRequest = {
             sessionId: this.sessionId,
-            path: `${this.endpoint.database}/${tablePath}`
+            path: `${this.endpoint.database}/${tablePath}`,
+            operationParams,
         };
         const response = await this.api.describeTable(request);
         const payload = getOperationPayload(response);
@@ -156,10 +160,11 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async beginTransaction(txSettings: ITransactionSettings): Promise<ITransactionMeta> {
+    public async beginTransaction(txSettings: ITransactionSettings, operationParams?: IOperationParams): Promise<ITransactionMeta> {
         const response = await this.api.beginTransaction({
             sessionId: this.sessionId,
-            txSettings
+            txSettings,
+            operationParams,
         });
         const payload = getOperationPayload(response);
         const {txMeta} = BeginTransactionResult.decode(payload);
@@ -171,30 +176,33 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async commitTransaction(txControl: IExistingTransaction): Promise<void> {
-        const request = {
+    public async commitTransaction(txControl: IExistingTransaction, operationParams?: IOperationParams): Promise<void> {
+        const request: Ydb.Table.ICommitTransactionRequest = {
             sessionId: this.sessionId,
-            txId: txControl.txId
+            txId: txControl.txId,
+            operationParams,
         };
         ensureOperationSucceeded(await this.api.commitTransaction(request));
     }
 
     @retryable()
     @pessimizable
-    public async rollbackTransaction(txControl: IExistingTransaction): Promise<void> {
-        const request = {
+    public async rollbackTransaction(txControl: IExistingTransaction, operationParams?: IOperationParams): Promise<void> {
+        const request: Ydb.Table.IRollbackTransactionRequest = {
             sessionId: this.sessionId,
-            txId: txControl.txId
+            txId: txControl.txId,
+            operationParams,
         };
         ensureOperationSucceeded(await this.api.rollbackTransaction(request));
     }
 
     @retryable()
     @pessimizable
-    public async prepareQuery(queryText: string): Promise<PrepareQueryResult> {
-        const request = {
+    public async prepareQuery(queryText: string, operationParams?: IOperationParams): Promise<PrepareQueryResult> {
+        const request: Ydb.Table.IPrepareDataQueryRequest = {
             sessionId: this.sessionId,
-            yqlText: queryText
+            yqlText: queryText,
+            operationParams,
         };
         const response = await this.api.prepareDataQuery(request);
         const payload = getOperationPayload(response);
@@ -205,7 +213,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     public async executeQuery(
         query: PrepareQueryResult | string,
         params: IQueryParams = {},
-        txControl: IExistingTransaction | INewTransaction = AUTO_TX
+        txControl: IExistingTransaction | INewTransaction = AUTO_TX,
+        operationParams?: IOperationParams,
     ): Promise<ExecuteQueryResult> {
         this.logger.trace('preparedQuery', JSON.stringify(query, null, 2));
         this.logger.trace('parameters', JSON.stringify(params, null, 2));
@@ -219,11 +228,12 @@ export class Session extends EventEmitter implements ICreateSessionResult {
                 id: query.queryId
             };
         }
-        const request = {
+        const request: Ydb.Table.IExecuteDataQueryRequest = {
             sessionId: this.sessionId,
             txControl,
             parameters: params,
-            query: queryToExecute
+            query: queryToExecute,
+            operationParams,
         };
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(response);
