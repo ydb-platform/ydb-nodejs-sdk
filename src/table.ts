@@ -75,6 +75,15 @@ interface IQueryParams {
     [k: string]: Ydb.ITypedValue
 }
 
+export class ExecDataQuerySettings {
+    keepInCache: boolean = false;
+
+    withKeepInCache(keepInCache: boolean) {
+        this.keepInCache = keepInCache;
+        return this;
+    }
+}
+
 export class Session extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
     private free = true;
@@ -215,14 +224,19 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         params: IQueryParams = {},
         txControl: IExistingTransaction | INewTransaction = AUTO_TX,
         operationParams?: IOperationParams,
+        settings?: ExecDataQuerySettings,
     ): Promise<ExecuteQueryResult> {
         this.logger.trace('preparedQuery', JSON.stringify(query, null, 2));
         this.logger.trace('parameters', JSON.stringify(params, null, 2));
         let queryToExecute: IQuery;
+        let keepInCache = false;
         if (typeof query === 'string') {
             queryToExecute = {
                 yqlText: query
             };
+            if (settings?.keepInCache !== undefined) {
+                keepInCache = settings.keepInCache;
+            }
         } else {
             queryToExecute = {
                 id: query.queryId
@@ -235,6 +249,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             query: queryToExecute,
             operationParams,
         };
+        if (keepInCache) {
+            request.queryCachePolicy = {keepInCache};
+        }
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(response);
         return ExecuteQueryResult.decode(payload);
