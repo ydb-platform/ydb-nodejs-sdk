@@ -60,6 +60,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
     'doubleValue': (input) => Number(input),
     'bytesValue': (input) => Buffer.from(input as string, 'base64').toString(),
     'textValue': (input) => input,
+    'nullFlagValue': () => null,
 };
 function convertPrimitiveValueToNative(value: IValue) {
     let label, input;
