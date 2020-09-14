@@ -289,7 +289,13 @@ export class SessionPool extends EventEmitter {
 
     private initListeners(keepAlivePeriod: number) {
         return setInterval(async () => Promise.all(
-            _.map([...this.sessions], (session: Session) => session.keepAlive())
+            _.map([...this.sessions], (session: Session) => {
+                return session.keepAlive()
+                    // delete session if error
+                    .catch(() => this.deleteSession(session))
+                    // ignore errors to avoid UnhandledPromiseRejectionWarning
+                    .catch(() => Promise.resolve())
+            })
         ), keepAlivePeriod);
     }
 
@@ -315,15 +321,18 @@ export class SessionPool extends EventEmitter {
         return session;
     }
 
-    private async deleteSession(session: Session) {
-        if (!session.isDeleted()) {
-            this.sessionsBeingDeleted++;
-            session.delete()
-                .then(() => {
-                    this.sessions.delete(session);
-                    this.sessionsBeingDeleted--;
-                });
+    private deleteSession(session: Session): Promise<void> {
+        if (session.isDeleted()) {
+            return Promise.resolve();
         }
+
+        this.sessionsBeingDeleted++;
+        return session.delete()
+            // delete session in any case
+            .finally(() => {
+                this.sessions.delete(session);
+                this.sessionsBeingDeleted--;
+            });
     }
 
     private acquire(timeout: number = 0): Promise<Session> {
