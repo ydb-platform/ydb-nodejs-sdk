@@ -32,7 +32,7 @@ export class RetryParameters {
 }
 
 const RETRYABLE_ERRORS = [
-    errors.Unavailable, errors.Aborted, errors.NotFound, errors.InternalError
+    errors.BadSession, errors.Unavailable, errors.Aborted, errors.NotFound, errors.InternalError
 ];
 const RETRYABLE_W_DELAY_ERRORS = [errors.Overloaded, errors.ConnectionError, errors.SessionBusy];
 
