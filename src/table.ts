@@ -8,7 +8,7 @@ import {SESSION_KEEPALIVE_PERIOD} from './constants';
 import {IAuthService} from './credentials';
 import getLogger, {Logger} from './logging';
 import {retryable} from './retries';
-import {SchemeError, SessionPoolEmpty} from './errors';
+import {SchemeError, SessionPoolEmpty, BadSession} from './errors';
 
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
@@ -369,8 +369,7 @@ export class SessionPool extends EventEmitter {
         }
     }
 
-    public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
-        const session = await this.acquire(timeout);
+    private async _withSession<T>(session: Session, callback: (session: Session) => Promise<T>): Promise<T> {
         try {
             const result = await callback(session);
             session.release();
@@ -378,6 +377,30 @@ export class SessionPool extends EventEmitter {
         } catch (error) {
             await this.deleteSession(session);
             throw error;
+        }
+    }
+
+    public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
+        const session = await this.acquire(timeout);
+        return this._withSession(session, callback);
+    }
+
+    public async withSessionRetry<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
+        const session = await this.acquire(timeout);
+        try {
+            const result = await callback(session);
+            session.release();
+            return result;
+        } catch (error) {
+            await this.deleteSession(session);
+            if (error instanceof BadSession) {
+                this.logger.debug('Encountered bad session, re-creating session and re-running operation');
+                const session = await this.createSession();
+                session.acquire();
+                return this._withSession(session, callback);
+            } else {
+                throw error;
+            }
         }
     }
 }
@@ -392,6 +415,10 @@ export class TableClient extends EventEmitter {
 
     public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
         return this.pool.withSession(callback, timeout);
+    }
+
+    public async withSessionRetry<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
+        return this.pool.withSessionRetry(callback, timeout);
     }
 
     public async destroy() {
