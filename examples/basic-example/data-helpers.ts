@@ -1,13 +1,6 @@
-// const moment = require('moment');
 import {Ydb, declareType, TypedData} from 'ydb-sdk';
 
 import Type = Ydb.Type;
-
-
-// function toDays(date: string) {
-//     const timeDelta = moment.duration(moment(date) - moment('1970-01-01'));
-//     return timeDelta.asDays();
-// }
 
 interface ISeries {
     seriesId: number,
