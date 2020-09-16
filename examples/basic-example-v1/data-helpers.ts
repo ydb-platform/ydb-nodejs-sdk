@@ -1,4 +1,3 @@
-// const moment = require('moment');
 import {DateTime} from "luxon";
 import {Ydb, declareType, TypedData} from 'ydb-sdk';
 
