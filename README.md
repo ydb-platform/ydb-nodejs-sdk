@@ -14,7 +14,7 @@ export SA_ID=
 export YDB_TOKEN= # here comes your oauth token
 export ENTRYPOINT=grpc:// # here comes your internal entrypoint hostname
 export DB= # here comes your internal db name
-export YDB_SSL_ROOT_CERTIFICATES_FILE=
+export YDB_SSL_ROOT_CERTIFICATES_FILE= # optional
 export YDB_SDK_LOGLEVEL=debug
 ```
 
@@ -22,7 +22,7 @@ export YDB_SDK_LOGLEVEL=debug
 ```bash
 export YDB_TOKEN=
 export SA_PRIVATE_KEY_FILE= # here should be the path to the file with your service account's private key
-export YDB_SSL_ROOT_CERTIFICATES_FILE= # here should be the path to ssl root certificate for YDB installation
+export YDB_SSL_ROOT_CERTIFICATES_FILE= # here should be the path to ssl root certificate for YDB installation, optional
 export IAM_ENDPOINT= # by default it is iam.api.cloud.yandex.net:443
 export SA_ID= # here come you service account's id
 export SA_ACCESS_KEY_ID= # here comes your service account's key id
