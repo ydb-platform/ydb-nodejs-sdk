@@ -19,7 +19,7 @@
     "protobufjs": "^6.8.8",
     "reflect-metadata": "^0.1.13",
     "yandex-cloud": "^1.3.3",
-    "ydb-sdk": "^1.1.3"
+    "ydb-sdk": "^1.4.1"
   },
   "devDependencies": {
     "@types/crc": "^3.4.0",
