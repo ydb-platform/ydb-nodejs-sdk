@@ -346,9 +346,11 @@ export class SessionPool extends EventEmitter {
             this.newSessionsRequested++;
             return this.createSession()
                 .then((session) => {
-                    this.newSessionsRequested--;
                     return session.acquire();
                 })
+                .finally(() => {
+                    this.newSessionsRequested--;
+                });
         } else {
             return new Promise((resolve, reject) => {
                 let timeoutId: NodeJS.Timeout;
