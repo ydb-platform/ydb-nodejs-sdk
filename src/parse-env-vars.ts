@@ -1,4 +1,3 @@
-import path from 'path';
 import fs from 'fs';
 import {
     IAuthService,
@@ -10,13 +9,14 @@ import {
 import {ISslCredentials} from "./utils";
 import {Logger} from './logging';
 
-const FALLBACK_ROOT_CERTS = path.join(__dirname, '../proto/certs/CA.pem');
 
 function getSslCert(): ISslCredentials {
-    const rootCertsFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || FALLBACK_ROOT_CERTS;
-    return {
-        rootCertificates: fs.readFileSync(rootCertsFile)
-    };
+    const rootCertsFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || '';
+    const sslCredentials: ISslCredentials = {};
+    if (rootCertsFile) {
+        sslCredentials.rootCertificates = fs.readFileSync(rootCertsFile);
+    }
+    return sslCredentials;
 }
 
 function getSACredentialsFromEnv(serviceAccountId: string): IIAmCredentials {
