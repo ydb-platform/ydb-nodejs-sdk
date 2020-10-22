@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@grpc/proto-loader": "^0.5.1",
-    "grpc": "^1.23.3",
+    "grpc": "^1.24.3",
     "jsonwebtoken": "^8.5.1",
     "lodash": "^4.17.15",
     "long": "^4.0.0",
