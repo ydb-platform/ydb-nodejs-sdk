@@ -48,6 +48,7 @@
     "@types/luxon": "^1.21.0",
     "@types/node": "10.17.20",
     "@types/pino": "^6.0.0",
+    "pino-pretty": "^3.6.1",
     "typescript": "^3.9.3"
   }
 }
