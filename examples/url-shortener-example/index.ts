@@ -1,3 +1,5 @@
+process.env.YDB_SDK_PRETTY_LOGS = '1';
+
 import {Driver, getCredentialsFromEnv, Logger} from 'ydb-sdk';
 import {main} from '../utils';
 import {indexPageContent} from "./index.html";

@@ -1,3 +1,5 @@
+process.env.YDB_SDK_PRETTY_LOGS = '1';
+
 import {Ydb, Driver, Session, TableDescription, Column, getCredentialsFromEnv, withRetries, Logger} from 'ydb-sdk';
 import {Series, Episode, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
 import {main} from '../utils';
