@@ -20,7 +20,7 @@
     "reflect-metadata": "^0.1.13",
     "yandex-cloud": "^1.3.3",
     "yargs": "^16.1.0",
-    "ydb-sdk": "^1.4.1"
+    "ydb-sdk": "^1.5.0"
   },
   "devDependencies": {
     "@types/crc": "^3.4.0",
