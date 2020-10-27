@@ -32,7 +32,8 @@ export interface IAuthCredentials {
 }
 
 export interface ITokenService {
-    getToken(): string|undefined;
+    getToken: () => string|undefined;
+    initialize?: () => Promise<void>;
 }
 
 export interface IAuthService {
@@ -133,6 +134,9 @@ export class MetadataAuthService implements IAuthService {
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         let token = this.tokenService.getToken();
+        if (!token && typeof this.tokenService.initialize === 'function') {
+            await this.tokenService.initialize();
+        }
         let tries = 0;
         while (!token && tries < MetadataAuthService.MAX_TRIES) {
             await sleep(MetadataAuthService.TRIES_INTERVAL);

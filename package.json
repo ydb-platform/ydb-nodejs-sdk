@@ -40,7 +40,7 @@
     "pino": "^6.3.0",
     "protobufjs": "^6.8.8",
     "reflect-metadata": "^0.1.13",
-    "yandex-cloud": "^1.3.3"
+    "yandex-cloud": "^1.4.2"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^8.3.5",
