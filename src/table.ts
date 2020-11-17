@@ -129,7 +129,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async createTable(tablePath: string, description: TableDescription, operationParams?: IOperationParams): Promise<void> {
-        const {columns, primaryKey, indexes, profile} = description;
+        const {columns, primaryKey, indexes, profile, ttlSettings} = description;
         const request: Ydb.Table.ICreateTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
@@ -137,6 +137,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             primaryKey,
             indexes,
             profile,
+            ttlSettings,
             operationParams,
         };
         ensureOperationSucceeded(await this.api.createTable(request));
@@ -644,9 +645,17 @@ export class TableIndex implements Ydb.Table.ITableIndex {
     }
 }
 
+export class TtlSettings implements Ydb.Table.ITtlSettings {
+    public dateTypeColumn?: Ydb.Table.IDateTypeColumnModeSettings | null;
+    constructor(columnName: string, expireAfterSeconds: number = 0) {
+        this.dateTypeColumn = { columnName, expireAfterSeconds };
+    }
+}
+
 export class TableDescription {
     public profile?: TableProfile;
     public indexes: TableIndex[] = [];
+    public ttlSettings?: TtlSettings;
 
     constructor(public columns: Column[] = [], public primaryKey: string[] = []) {}
 
@@ -688,6 +697,12 @@ export class TableDescription {
         for (const index of indexes) {
             this.indexes.push(index);
         }
+        return this;
+    }
+
+    withTtl(columnName: string, expireAfterSeconds: number = 0) {
+        this.ttlSettings = new TtlSettings(columnName, expireAfterSeconds);
+
         return this;
     }
 }
