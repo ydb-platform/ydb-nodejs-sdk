@@ -7,16 +7,6 @@ option java_outer_classname = "MonitoringProtos";
 
 import "kikimr/public/api/protos/ydb_operation.proto";
 
-message SelfCheckRequest {
-    Ydb.Operations.OperationParams operation_params = 1;
-    bool return_verbose_status = 2;
-}
-
-message SelfCheckResponse {
-    // After successfull completion must contain SelfCheckResult.
-    Ydb.Operations.Operation operation = 1;
-}
-
 message StatusFlag {
     // Describes the general state of a component.
     // From GREEN to RED, where GREEN is good, and RED is bad.
@@ -30,6 +20,18 @@ message StatusFlag {
         ORANGE = 5;
         RED = 6;
     }
+}
+
+message SelfCheckRequest {
+    Ydb.Operations.OperationParams operation_params = 1;
+    bool return_verbose_status = 2;
+    StatusFlag.Status minimum_status = 3;
+    uint32 maximum_level = 4;
+}
+
+message SelfCheckResponse {
+    // After successfull completion must contain SelfCheckResult.
+    Ydb.Operations.Operation operation = 1;
 }
 
 message SelfCheck {
@@ -122,7 +124,7 @@ message LocationStorageVDisk {
 }
 
 message LocationStorageGroup {
-    uint32 id = 1;
+    string id = 1;
     LocationStorageVDisk vdisk = 2;
 }
 
@@ -142,6 +144,7 @@ message LocationComputePool {
 
 message LocationComputeTablet {
     string type = 1;
+    string id = 2;
 }
 
 message LocationCompute {
@@ -150,25 +153,35 @@ message LocationCompute {
     LocationComputeTablet tablet = 3;
 }
 
+message LocationDatabase {
+    string name = 1;
+}
+
 message Location {
     LocationStorage storage = 1;
     LocationCompute compute = 2;
+    LocationDatabase database = 3;
 }
 
 message IssueLog {
-    StatusFlag.Status status = 1;
-    string message = 2;
-    Location location = 3;
+    string id = 1;
+    StatusFlag.Status status = 2;
+    string message = 3;
+    Location location = 4;
+    repeated string reason = 5;
+    string type = 6;
+    uint32 level = 7;
 }
 
 message DatabaseStatus {
-    StatusFlag.Status overall = 1;
-    StorageStatus storage = 2;
-    ComputeStatus compute = 3;
+    string name = 1;
+    StatusFlag.Status overall = 2;
+    StorageStatus storage = 3;
+    ComputeStatus compute = 4;
 }
 
 message SelfCheckResult {
     SelfCheck.Result self_check_result = 1;
     repeated IssueLog issue_log = 2;
-    DatabaseStatus database_status = 3;
+    repeated DatabaseStatus database_status = 3;
 }
