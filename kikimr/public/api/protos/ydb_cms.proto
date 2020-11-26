@@ -48,16 +48,37 @@ message Resources {
     repeated ComputationalUnits computational_units = 2;
 }
 
+message ServerlessResources {
+    // Full path to shared database's home dir whose resources will be used.
+    string shared_database_path = 1;
+}
+
 message DatabaseOptions {
     // Do not initialize services required for transactions processing.
     bool disable_tx_service = 1;
     // Old-style database, do not create external schemeshard for database
     bool disable_external_subdomain = 2;
+    // Transaction plan resolution in milliseconds
+    uint32 plan_resolution = 3;
 }
 
 message Attribute {
     string name = 1;
     string value = 2;
+}
+
+// A set of quotas for schema operations
+message SchemaOperationQuotas {
+    // A single quota based on leaky bucket
+    message LeakyBucket {
+        // Bucket size, e.g. <1000> per day
+        double bucket_size = 1;
+        // Bucket duration in seconds, e.g. 1000 per <day>
+        uint64 bucket_seconds = 2;
+    }
+
+    // Leaky bucket based quotas
+    repeated LeakyBucket leaky_bucket_quotas = 1;
 }
 
 // Request to create a new database. For successfull creation
@@ -67,12 +88,22 @@ message CreateDatabaseRequest {
     Ydb.Operations.OperationParams operation_params = 1;
     // Required. Full path to database's home dir. Used as database ID.
     string path = 2;
-    // Resources to allocate for database by CMS.
-    Resources resources = 3;
+    oneof resources_kind {
+        // Resources to allocate for database by CMS.
+        Resources resources = 3;
+        // Shared resources can be used by serverless databases.
+        Resources shared_resources = 6;
+        // If specified, the created database will be "serverless".
+        ServerlessResources serverless_resources = 7;
+    }
     // Additional database options.
     DatabaseOptions options = 4;
     // Attach attributes to database.
     repeated Attribute attributes = 5;
+    // Optional quotas for schema operations
+    SchemaOperationQuotas schema_operation_quotas = 8;
+    // Optional idempotency key
+    string idempotency_key = 9;
 }
 
 message CreateDatabaseResponse {
@@ -105,8 +136,12 @@ message GetDatabaseStatusResult {
     string path = 1;
     // Current database state.
     State state = 2;
-    // Database resources requested for allocation.
-    Resources required_resources = 3;
+    oneof resources_kind {
+        // Database resources requested for allocation.
+        Resources required_resources = 3;
+        Resources required_shared_resources = 7;
+        ServerlessResources serverless_resources = 8;
+    }
     // Database resources allocated by CMS.
     Resources allocated_resources = 4;
     // Externally allocated database resources registered in CMS.
@@ -114,6 +149,8 @@ message GetDatabaseStatusResult {
     // Current database generation. Incremented at each successful
     // alter request.
     uint64 generation = 6;
+    // Current quotas for schema operations
+    SchemaOperationQuotas schema_operation_quotas = 9;
 }
 
 // Change resources allocated for database.
@@ -134,6 +171,10 @@ message AlterDatabaseRequest {
     Ydb.Operations.OperationParams operation_params = 7;
     // Current generation of altered database.
     uint64 generation = 8;
+    // Change quotas for schema operations
+    SchemaOperationQuotas schema_operation_quotas = 9;
+    // Optional idempotency key
+    string idempotency_key = 10;
 }
 
 message AlterDatabaseResponse {

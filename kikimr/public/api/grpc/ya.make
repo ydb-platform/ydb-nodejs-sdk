@@ -6,9 +6,10 @@ GRPC()
 OWNER(vvvv fomichev dcherednik g:kikimr)
 
 SRCS(
-    ydb_export_v1.proto
     ydb_coordination_v1.proto
     ydb_discovery_v1.proto
+    ydb_export_v1.proto
+    ydb_import_v1.proto
     ydb_monitoring_v1.proto
     ydb_operation_v1.proto
     ydb_cms_v1.proto
@@ -21,5 +22,7 @@ SRCS(
 PEERDIR(
     kikimr/public/api/protos
 )
+
+EXCLUDE_TAGS(GO_PROTO)
 
 END()

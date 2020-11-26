@@ -442,8 +442,8 @@ export class Column implements Ydb.Table.IColumnMeta {
     constructor(public name: string, public type: IType) {}
 }
 
-export class StorageSettings implements Ydb.Table.IStorageSettings {
-    constructor(public storageKind: string) {}
+export class StorageSettings implements Ydb.Table.IStoragePool {
+    constructor(public media: string) {}
 }
 
 export class ColumnFamilyPolicy implements Ydb.Table.IColumnFamilyPolicy {

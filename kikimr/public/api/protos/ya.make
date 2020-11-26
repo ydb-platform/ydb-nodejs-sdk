@@ -8,18 +8,20 @@ PEERDIR(
 )
 
 SRCS(
+    draft/datastreams.proto
     draft/persqueue.proto
     draft/persqueue_error_codes.proto
     persqueue_error_codes_v1.proto
     ydb_persqueue_v1.proto
     ydb_persqueue_cluster_discovery.proto
-    ydb_export.proto
     ydb_clickhouse_internal.proto
     ydb_cms.proto
     ydb_common.proto
     ydb_coordination.proto
     ydb_discovery.proto
     ydb_experimental.proto
+    ydb_export.proto
+    ydb_import.proto
     ydb_issue_message.proto
     ydb_monitoring.proto
     ydb_operation.proto
@@ -41,5 +43,7 @@ IF (MODULE_TAG STREQUAL "CPP_PROTO")
     GENERATE_ENUM_SERIALIZATION(draft/persqueue.pb.h)
     GENERATE_ENUM_SERIALIZATION(ydb_persqueue_cluster_discovery.pb.h)
 ENDIF()
+
+EXCLUDE_TAGS(GO_PROTO)
 
 END()
