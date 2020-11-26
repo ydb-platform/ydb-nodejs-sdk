@@ -37,6 +37,7 @@ const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.YSON]: 'bytesValue',
     [Type.PrimitiveTypeId.JSON]: 'textValue',
     [Type.PrimitiveTypeId.UUID]: 'textValue',
+    [Type.PrimitiveTypeId.JSON_DOCUMENT]: 'textValue',
 
     [Type.PrimitiveTypeId.DATE]: 'uint32Value',
     [Type.PrimitiveTypeId.DATETIME]: 'uint32Value',
