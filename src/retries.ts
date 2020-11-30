@@ -1,3 +1,4 @@
+import delay from 'delay';
 import {YdbError} from "./errors";
 import getLogger, {Logger} from './logging';
 import * as errors from './errors';
@@ -49,9 +50,7 @@ class RetryStrategy {
         const slotsCount = 1 << Math.min(retries, retryParameters.backoffCeiling);
         const maxDuration = slotsCount * retryParameters.backoffSlotDuration;
         const duration = Math.random() * maxDuration;
-        return new Promise((resolve) => {
-            setTimeout(resolve, duration);
-        });
+        await delay(duration);
     }
 
     async retry<T>(asyncMethod: () => Promise<T>) {

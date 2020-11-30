@@ -1,3 +1,4 @@
+import delay from 'delay';
 import grpc from 'grpc';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
@@ -13,10 +14,6 @@ function makeCredentialsMetadata(token: string, dbName: string): grpc.Metadata {
     metadata.add('x-ydb-auth-ticket', token);
     metadata.add('x-ydb-database', dbName);
     return metadata;
-}
-
-async function sleep(milliseconds: number) {
-    await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 export interface IIAmCredentials {
@@ -139,7 +136,7 @@ export class MetadataAuthService implements IAuthService {
         }
         let tries = 0;
         while (!token && tries < MetadataAuthService.MAX_TRIES) {
-            await sleep(MetadataAuthService.TRIES_INTERVAL);
+            await delay(MetadataAuthService.TRIES_INTERVAL);
             tries++;
             token = this.tokenService.getToken();
         }
