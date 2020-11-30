@@ -38,6 +38,7 @@
     "lodash": "^4.17.15",
     "long": "^4.0.0",
     "luxon": "^1.21.2",
+    "p-defer": "^3.0.0",
     "pino": "^6.3.0",
     "protobufjs": "^6.8.8",
     "reflect-metadata": "^0.1.13",
