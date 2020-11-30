@@ -1,6 +1,7 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import pDefer from 'p-defer';
+import pTimeout from 'p-timeout';
 import {Ydb} from '../proto/bundle';
 import {AuthenticatedService, ensureOperationSucceeded, getOperationPayload, pessimizable} from './utils';
 import {Endpoint} from './discovery';
@@ -354,18 +355,16 @@ export class SessionPool extends EventEmitter {
                     this.newSessionsRequested--;
                 });
         } else {
-            let timeoutId: NodeJS.Timeout;
             const deferred = pDefer<Session>();
+            let promise = deferred.promise;
             function waiter(session: Session) {
                 deferred.resolve(session.acquire());
             }
             if (timeout) {
-                timeoutId = setTimeout(() => {
+                promise = pTimeout(promise, timeout, () => {
                     this.waiters.splice(this.waiters.indexOf(waiter), 1);
-                    deferred.reject(
-                        new SessionPoolEmpty(`No session became available within timeout of ${timeout} ms`)
-                    );
-                }, timeout);
+                    throw new SessionPoolEmpty(`No session became available within timeout of ${timeout} ms`);
+                });
             }
             this.waiters.push(waiter);
             return deferred.promise;

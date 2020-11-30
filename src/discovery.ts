@@ -1,6 +1,7 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {DateTime} from 'luxon';
+import pTimeout from 'p-timeout';
 import {Ydb} from "../proto/bundle";
 import {AuthenticatedService, getOperationPayload} from "./utils";
 import {IAuthService} from "./credentials";
@@ -158,10 +159,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
     }
 
     public ready(timeout: number): Promise<void> {
-        const timedRejection: Promise<void> = new Promise((_resolve, reject) => {
-            setTimeout(() => reject(new Error(`Failed to resolve in ${timeout}ms!`)), timeout);
-        });
-        return Promise.race([this.endpointsPromise, timedRejection]);
+        return pTimeout(this.endpointsPromise, timeout, new Error(`Failed to resolve in ${timeout}ms!`));
     }
 
     private async getEndpointRR(): Promise<Endpoint> {

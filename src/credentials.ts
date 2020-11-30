@@ -2,6 +2,7 @@ import delay from 'delay';
 import grpc from 'grpc';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
+import pTimeout from 'p-timeout';
 import {GrpcService, ISslCredentials} from "./utils";
 import {TokenService} from 'yandex-cloud';
 import {yandex} from "../proto/bundle";
@@ -94,11 +95,8 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
     }
 
     private sendTokenRequest(): Promise<ICreateIamTokenResponse> {
-        const timedReject = new Promise((_, reject) => {
-            setTimeout(reject, this.tokenRequestTimeout);
-        });
         const tokenPromise = this.api.create({jwt: this.getJwtRequest()});
-        return Promise.race([timedReject, tokenPromise]) as Promise<ICreateIamTokenResponse>;
+        return pTimeout(tokenPromise, this.tokenRequestTimeout);
     }
 
     private async updateToken() {
