@@ -1,15 +1,15 @@
 import _ from 'lodash';
 import Long from 'long';
-import {Ydb} from "../proto/bundle";
+import {google, Ydb} from "../proto/bundle";
 import 'reflect-metadata';
 
-import Type = Ydb.Type;
-import IType = Ydb.IType;
-import IStructMember = Ydb.IStructMember;
-import IValue = Ydb.IValue;
-import IColumn = Ydb.IColumn;
-import ITypedValue = Ydb.ITypedValue;
-import IResultSet = Ydb.IResultSet;
+const Type = Ydb.Type;
+type IType = Ydb.IType;
+type IStructMember = Ydb.IStructMember;
+type IValue = Ydb.IValue;
+type IColumn = Ydb.IColumn;
+type ITypedValue = Ydb.ITypedValue;
+type IResultSet = Ydb.IResultSet;
 
 
 export const typeMetadataKey = Symbol('type');
@@ -99,11 +99,11 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
         }
     } else if (type.optionalType) {
         const innerType = type.optionalType.item;
-        if (value) {
+        if (value !== undefined && value !== null) {
             return typeToValue(innerType, value);
         } else {
             return {
-                nestedValue: value
+                nullFlagValue: google.protobuf.NullValue.NULL_VALUE
             };
         }
     } else if (type.listType) {

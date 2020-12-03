@@ -8,7 +8,7 @@
     "proto/**"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "build:bundle": "pbjs -t static-module -w commonjs -p . `ls kikimr/public/api/grpc/*.proto` yandex/cloud/iam/v1/iam_token_service.proto > proto/bundle.js && pbts -o proto/bundle.d.ts proto/bundle.js",
     "build:lib": "tsc",
     "build:examples": "cd examples && npm run build",
@@ -43,11 +43,18 @@
     "yandex-cloud": "^1.4.2"
   },
   "devDependencies": {
+    "@babel/core": "^7.12.9",
+    "@babel/plugin-proposal-class-properties": "^7.12.1",
+    "@babel/plugin-proposal-decorators": "^7.12.1",
+    "@babel/preset-env": "^7.12.7",
+    "@babel/preset-typescript": "^7.12.7",
+    "@types/jest": "^26.0.16",
     "@types/jsonwebtoken": "^8.3.5",
     "@types/lodash": "^4.14.144",
     "@types/luxon": "^1.21.0",
     "@types/node": "10.17.20",
     "@types/pino": "^6.0.0",
+    "jest": "^26.6.3",
     "pino-pretty": "^3.6.1",
     "typescript": "^3.9.3"
   }
