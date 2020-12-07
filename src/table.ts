@@ -259,6 +259,12 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 }
 
+export interface PoolSettings {
+    minLimit?: number;
+    maxLimit?: number;
+    keepAlivePeriod?: number;
+}
+
 export class SessionPool extends EventEmitter {
     private readonly minLimit: number;
     private readonly maxLimit: number;
@@ -269,15 +275,19 @@ export class SessionPool extends EventEmitter {
     private readonly logger: Logger;
     private readonly waiters: ((session: Session) => void)[] = [];
 
-    constructor(private driver: Driver, minLimit = 5, maxLimit = 20, keepAlivePeriod = SESSION_KEEPALIVE_PERIOD) {
+    private static SESSION_MIN_LIMIT = 5;
+    private static SESSION_MAX_LIMIT = 20;
+
+    constructor(private driver: Driver) {
         super();
-        this.minLimit = minLimit;
-        this.maxLimit = maxLimit;
+        const poolSettings = driver.settings?.poolSettings;
+        this.minLimit = poolSettings?.minLimit || SessionPool.SESSION_MIN_LIMIT;
+        this.maxLimit = poolSettings?.maxLimit || SessionPool.SESSION_MAX_LIMIT;
         this.sessions = new Set();
         this.newSessionsRequested = 0;
         this.sessionsBeingDeleted = 0;
         this.prepopulateSessions();
-        this.sessionKeepAliveId = this.initListeners(keepAlivePeriod);
+        this.sessionKeepAliveId = this.initListeners(poolSettings?.keepAlivePeriod || SESSION_KEEPALIVE_PERIOD);
         this.logger = getLogger();
     }
 

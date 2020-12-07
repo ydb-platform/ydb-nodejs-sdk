@@ -1,5 +1,5 @@
 import DiscoveryService, {Endpoint} from "./discovery";
-import {SessionService, TableClient} from "./table";
+import {SessionService, TableClient, PoolSettings} from "./table";
 import SchemeService from "./scheme";
 import {ENDPOINT_DISCOVERY_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
@@ -7,6 +7,10 @@ import {TimeoutExpired} from "./errors";
 import getLogger, {Logger} from "./logging";
 import SchemeClient from "./scheme";
 
+
+export interface DriverSettings {
+    poolSettings?: PoolSettings;
+}
 
 export default class Driver {
     private discoveryService: DiscoveryService;
@@ -16,7 +20,12 @@ export default class Driver {
     public tableClient: TableClient;
     public schemeClient: SchemeService;
 
-    constructor(private entryPoint: string, public database: string, public authService: IAuthService) {
+    constructor(
+        private entryPoint: string,
+        public database: string,
+        public authService: IAuthService,
+        public settings: DriverSettings = {}
+    ) {
         this.discoveryService = new DiscoveryService(
             this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService
         );
