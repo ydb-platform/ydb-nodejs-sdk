@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import Long from 'long';
-import {Ydb} from "../proto/bundle";
+import {google, Ydb} from '../proto/bundle';
 import 'reflect-metadata';
 
 import Type = Ydb.Type;
@@ -10,6 +10,7 @@ import IValue = Ydb.IValue;
 import IColumn = Ydb.IColumn;
 import ITypedValue = Ydb.ITypedValue;
 import IResultSet = Ydb.IResultSet;
+import NullValue = google.protobuf.NullValue;
 
 
 export const typeMetadataKey = Symbol('type');
@@ -103,7 +104,7 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
             return typeToValue(innerType, value);
         } else {
             return {
-                nestedValue: value
+                nullFlagValue: NullValue.NULL_VALUE
             };
         }
     } else if (type.listType) {
