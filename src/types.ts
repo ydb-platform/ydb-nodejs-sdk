@@ -100,7 +100,7 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
         }
     } else if (type.optionalType) {
         const innerType = type.optionalType.item;
-        if (value) {
+        if (value !== undefined && value !== null) {
             return typeToValue(innerType, value);
         } else {
             return {
