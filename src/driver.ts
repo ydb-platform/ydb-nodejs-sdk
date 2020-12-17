@@ -6,6 +6,7 @@ import {IAuthService} from "./credentials";
 import {TimeoutExpired} from "./errors";
 import getLogger, {Logger} from "./logging";
 import SchemeClient from "./scheme";
+import {Events} from './constants'
 
 
 export interface DriverSettings {
@@ -29,7 +30,7 @@ export default class Driver {
         this.discoveryService = new DiscoveryService(
             this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService
         );
-        this.discoveryService.on('removed', (endpoint: Endpoint) => {
+        this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
             this.sessionCreators.delete(endpoint);
         });
         this.sessionCreators = new Map();

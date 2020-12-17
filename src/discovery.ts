@@ -8,6 +8,7 @@ import {retryable} from "./retries";
 import getLogger, {Logger} from './logging';
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
+import {Events} from "./constants";
 
 
 type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
@@ -125,7 +126,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         const endpointsToRemove = _.differenceBy(this.endpoints, endpoints);
         const endpointsToUpdate = _.intersectionBy(this.endpoints, endpoints, getHost);
 
-        _.forEach(endpointsToRemove, (endpoint) => this.emit('remove', endpoint));
+        _.forEach(endpointsToRemove, (endpoint) => this.emit(Events.ENDPOINT_REMOVED, endpoint));
 
         for (const current of endpointsToUpdate) {
             const newEndpoint =
