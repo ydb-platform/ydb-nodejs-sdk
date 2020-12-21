@@ -2,11 +2,10 @@ import grpc, {Metadata} from 'grpc';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
 import {Ydb} from '../proto/bundle';
-import {YdbError, StatusCode, NotFound} from "./errors";
+import {MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, YdbError} from "./errors";
 
 import {Endpoint} from './discovery';
 import {IAuthService} from './credentials';
-import {MissingValue, MissingOperation} from './errors';
 
 
 export interface Pessimizable {
@@ -27,6 +26,19 @@ function removeProtocol(entryPoint: string) {
     const re = /^(grpc:\/\/|grpcs:\/\/)?(.+)/;
     const match = re.exec(entryPoint) as string[];
     return match[2];
+}
+
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    let timeoutId: NodeJS.Timeout;
+    const timedRejection: Promise<never> = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            reject(new TimeoutExpired(`Timeout of ${timeoutMs}ms has expired`));
+        }, timeoutMs);
+    });
+    return Promise.race([promise.then((result: T) => {
+        clearTimeout(timeoutId);
+        return result;
+    }), timedRejection]);
 }
 
 export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
@@ -150,4 +162,8 @@ export function pessimizable(_target: Pessimizable, _propertyKey: string, descri
         }
     };
     return descriptor;
+}
+
+export async function sleep(milliseconds: number) {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

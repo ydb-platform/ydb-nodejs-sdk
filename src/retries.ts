@@ -1,7 +1,7 @@
 import {YdbError} from "./errors";
 import getLogger, {Logger} from './logging';
 import * as errors from './errors';
-
+import {sleep} from './utils';
 
 export class RetryParameters {
     public retryNotFound: boolean;
@@ -48,10 +48,7 @@ class RetryStrategy {
     static async waitBackoffTimeout(retryParameters: RetryParameters, retries: number) {
         const slotsCount = 1 << Math.min(retries, retryParameters.backoffCeiling);
         const maxDuration = slotsCount * retryParameters.backoffSlotDuration;
-        const duration = Math.random() * maxDuration;
-        return new Promise((resolve) => {
-            setTimeout(resolve, duration);
-        });
+        return sleep(Math.random() * maxDuration);
     }
 
     async retry<T>(asyncMethod: () => Promise<T>) {
