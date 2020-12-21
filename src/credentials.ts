@@ -1,7 +1,7 @@
 import grpc from 'grpc';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
-import {GrpcService, ISslCredentials} from "./utils";
+import {GrpcService, ISslCredentials, sleep, withTimeout} from "./utils";
 import {TokenService} from 'yandex-cloud';
 import {yandex} from "../proto/bundle";
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
@@ -13,10 +13,6 @@ function makeCredentialsMetadata(token: string, dbName: string): grpc.Metadata {
     metadata.add('x-ydb-auth-ticket', token);
     metadata.add('x-ydb-database', dbName);
     return metadata;
-}
-
-async function sleep(milliseconds: number) {
-    await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 export interface IIAmCredentials {
@@ -97,11 +93,8 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
     }
 
     private sendTokenRequest(): Promise<ICreateIamTokenResponse> {
-        const timedReject = new Promise((_, reject) => {
-            setTimeout(reject, this.tokenRequestTimeout);
-        });
         const tokenPromise = this.api.create({jwt: this.getJwtRequest()});
-        return Promise.race([timedReject, tokenPromise]) as Promise<ICreateIamTokenResponse>;
+        return withTimeout<ICreateIamTokenResponse>(tokenPromise, this.tokenRequestTimeout);
     }
 
     private async updateToken() {
