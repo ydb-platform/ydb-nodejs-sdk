@@ -177,7 +177,9 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
             endpoint = await this.getEndpointRR();
             counter++;
         }
-        // if all endpoints are pessimized, take the original one
+        if (counter === this.endpoints.length) {
+            this.logger.debug('All endpoints are pessimized, returning original endpoint');
+        }
         return endpoint;
     }
 }
