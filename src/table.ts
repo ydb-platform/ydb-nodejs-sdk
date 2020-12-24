@@ -405,13 +405,14 @@ export class SessionPool extends EventEmitter {
             session.release();
             return result;
         } catch (error) {
-            await this.deleteSession(session);
             if (error instanceof BadSession) {
+                await this.deleteSession(session);
                 this.logger.debug('Encountered bad session, re-creating session and re-running operation');
-                const session = await this.createSession();
-                session.acquire();
-                return this._withSession(session, callback);
+                const newSession = await this.createSession();
+                newSession.acquire();
+                return this._withSession(newSession, callback);
             } else {
+                session.release();
                 throw error;
             }
         }
