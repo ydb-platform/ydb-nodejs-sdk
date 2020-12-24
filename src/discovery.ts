@@ -123,8 +123,13 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
     private updateEndpoints(endpoints: Endpoint[]): void {
         const getHost = (endpoint: Endpoint) => endpoint.toString();
         const endpointsToAdd = _.differenceBy(endpoints, this.endpoints, getHost);
-        const endpointsToRemove = _.differenceBy(this.endpoints, endpoints);
+        const endpointsToRemove = _.differenceBy(this.endpoints, endpoints, getHost);
         const endpointsToUpdate = _.intersectionBy(this.endpoints, endpoints, getHost);
+        this.logger.trace('Current endpoints', JSON.stringify(this.endpoints));
+        this.logger.trace('Incoming endpoints', JSON.stringify(endpoints));
+        this.logger.trace('Endpoints to add', JSON.stringify(endpointsToAdd));
+        this.logger.trace('Endpoints to remove', JSON.stringify(endpointsToRemove));
+        this.logger.trace('Endpoints to update', JSON.stringify(endpointsToUpdate));
 
         _.forEach(endpointsToRemove, (endpoint) => this.emit(Events.ENDPOINT_REMOVED, endpoint));
 
