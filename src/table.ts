@@ -265,6 +265,8 @@ export interface PoolSettings {
     keepAlivePeriod?: number;
 }
 
+type SessionCallback<T> = (session: Session) => Promise<T>;
+
 export class SessionPool extends EventEmitter {
     private readonly minLimit: number;
     private readonly maxLimit: number;
@@ -382,39 +384,37 @@ export class SessionPool extends EventEmitter {
         }
     }
 
-    private async _withSession<T>(session: Session, callback: (session: Session) => Promise<T>): Promise<T> {
+    private async _withSession<T>(session: Session, callback: SessionCallback<T>, retry: boolean): Promise<T> {
         try {
             const result = await callback(session);
             session.release();
             return result;
         } catch (error) {
-            await this.deleteSession(session);
-            throw error;
-        }
-    }
-
-    public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
-        const session = await this.acquire(timeout);
-        return this._withSession(session, callback);
-    }
-
-    public async withSessionRetry<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
-        const session = await this.acquire(timeout);
-        try {
-            const result = await callback(session);
-            session.release();
-            return result;
-        } catch (error) {
-            await this.deleteSession(session);
             if (error instanceof BadSession) {
-                this.logger.debug('Encountered bad session, re-creating session and re-running operation');
-                const session = await this.createSession();
+                this.logger.debug('Encountered bad session, re-creating the session');
+                session.emit(SessionEvent.SESSION_BROKEN);
+                session = await this.createSession();
+            } else {
+                session.release();
+            }
+            if (retry) {
+                this.logger.debug('Session retry was requested, re-running the operation');
                 session.acquire();
-                return this._withSession(session, callback);
+                return this._withSession(session, callback, false);
             } else {
                 throw error;
             }
         }
+    }
+
+    public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
+        const session = await this.acquire(timeout);
+        return this._withSession(session, callback, false);
+    }
+
+    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
+        const session = await this.acquire(timeout);
+        return this._withSession(session, callback, true);
     }
 }
 
