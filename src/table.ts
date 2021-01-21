@@ -227,8 +227,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         operationParams?: IOperationParams,
         settings?: ExecDataQuerySettings,
     ): Promise<ExecuteQueryResult> {
-        this.logger.trace('preparedQuery', JSON.stringify(query, null, 2));
-        this.logger.trace('parameters', JSON.stringify(params, null, 2));
+        this.logger.trace('preparedQuery %o', query);
+        this.logger.trace('parameters %o', params);
         let queryToExecute: IQuery;
         let keepInCache = false;
         if (typeof query === 'string') {
