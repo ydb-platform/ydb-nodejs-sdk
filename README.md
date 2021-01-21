@@ -31,6 +31,16 @@ export DB= # here comes your cloud db name
 export YDB_SDK_LOGLEVEL=debug
 ```
 
+### Run Docapi example
+```bash
+export DOCAPI_ENTRYPOINT= # for docapi-example, like https://docapi.serverless.yandexcloud.net/ru-central1/b1g11111111111111111/etn22222222222222222
+export YDB_TOKEN=
+cd examples
+npm ci
+npm run build
+npm run docapi
+```
+
 ## Run basic-example script
 ```bash
 (cd examples && npm ci)
