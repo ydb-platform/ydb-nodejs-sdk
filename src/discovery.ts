@@ -92,7 +92,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         this.logger = getLogger();
         this.endpointsPromise = new Promise((resolve, reject) => {
             this.resolveEndpoints = (endpoints: Endpoint[]) => {
-                this.endpoints = endpoints;
+                this.updateEndpoints(endpoints);
                 resolve();
             };
             this.rejectEndpoints = reject;
@@ -138,7 +138,8 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
                 _.find(endpoints, (incoming) => incoming.toString() === current.toString()) as Endpoint;
             current.update(newEndpoint);
         }
-        this.endpoints = _.sortBy(endpointsToUpdate.concat(endpointsToAdd), getHost);
+        // endpointsToUpdate ordering is the same as this.endpoints, according to _.intersectionBy docs
+        this.endpoints = endpointsToUpdate.concat(endpointsToAdd);
         // reset round-robin index in case new endpoints have been discovered or existing ones have become stale
         if (endpointsToRemove.length + endpointsToAdd.length > 0) {
             this.endpoints = _.shuffle(this.endpoints);
@@ -152,8 +153,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         const payload = getOperationPayload(response);
         const endpointsResult = Ydb.Discovery.ListEndpointsResult.decode(payload);
         // this.selfLocation = endpointsResult.selfLocation;
-        const endpoints = _.map(endpointsResult.endpoints, (endpointInfo) => new Endpoint(endpointInfo, database));
-        return _.sortBy(endpoints, (endpoint) => endpoint.toString());
+        return _.map(endpointsResult.endpoints, (endpointInfo) => new Endpoint(endpointInfo, database));
     }
 
     public emit(eventName: string, ...args: any[]): void {
@@ -169,7 +169,9 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
 
     private async getEndpointRR(): Promise<Endpoint> {
         await this.endpointsPromise;
-        return this.endpoints[this.currentEndpointIndex++ % this.endpoints.length];
+        const endpoint = this.endpoints[this.currentEndpointIndex++ % this.endpoints.length];
+        this.logger.trace('getEndpointRR result: %o', endpoint);
+        return endpoint;
     }
 
     public async getEndpoint(): Promise<Endpoint> {
