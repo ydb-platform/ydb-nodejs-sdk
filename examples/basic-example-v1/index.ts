@@ -1,8 +1,8 @@
 process.env.YDB_SDK_PRETTY_LOGS = '1';
 
-import {Ydb, Driver, Session, TableDescription, Column, getCredentialsFromEnv, withRetries, Logger} from 'ydb-sdk';
-import {Series, Episode, getSeriesData, getSeasonsData, getEpisodesData} from './data-helpers';
-import {main} from '../utils';
+import {Column, Driver, getCredentialsFromEnv, Logger, Session, TableDescription, withRetries, Ydb} from 'ydb-sdk';
+import {Episode, getEpisodesData, getSeasonsData, getSeriesData, Series} from './data-helpers';
+import {main, SYNTAX_V1} from '../utils';
 
 
 const SERIES_TABLE = 'series';
@@ -101,6 +101,7 @@ async function describeTable(session: Session, tableName: string, logger: Logger
 
 async function fillTablesWithData(tablePathPrefix: string, session: Session, logger: Logger) {
     const query = `
+${SYNTAX_V1}
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 
 DECLARE $seriesData AS List<Struct<
@@ -161,6 +162,7 @@ FROM AS_TABLE($episodesData);`;
 
 async function selectSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
     const query = `
+${SYNTAX_V1}
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 $format = DateTime::Format("%Y-%m-%d");
 SELECT series_id,
@@ -176,6 +178,7 @@ WHERE series_id = 1;`;
 
 async function upsertSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
     const query = `
+${SYNTAX_V1}
 PRAGMA TablePathPrefix("${tablePathPrefix}");
 UPSERT INTO ${EPISODES_TABLE} (series_id, season_id, episode_id, title) VALUES
 (2, 6, 1, "TBD");`;
@@ -188,6 +191,7 @@ type ThreeIds = [number, number, number];
 
 async function selectPrepared(tablePathPrefix: string, session: Session, data: ThreeIds[], logger: Logger): Promise<void> {
     const query = `
+    ${SYNTAX_V1}
     PRAGMA TablePathPrefix("${tablePathPrefix}");
 
     DECLARE $seriesId AS Uint64;
@@ -219,6 +223,7 @@ async function selectPrepared(tablePathPrefix: string, session: Session, data: T
 
 async function explicitTcl(tablePathPrefix: string, session: Session, ids: ThreeIds, logger: Logger) {
     const query = `
+    ${SYNTAX_V1}
     PRAGMA TablePathPrefix("${tablePathPrefix}");
 
     DECLARE $seriesId AS Uint64;
