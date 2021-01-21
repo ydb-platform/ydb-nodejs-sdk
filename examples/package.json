@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "basic": "node build/basic-example/index.js",
     "basic-v1": "node build/basic-example-v1/index.js",
     "url-shortener": "node build/url-shortener-example/index.js"
   },

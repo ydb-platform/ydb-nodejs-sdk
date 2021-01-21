@@ -23,3 +23,5 @@ export async function main(runner: Runner) {
         logger.error(error);
     }
 }
+
+export const SYNTAX_V1 = '--!syntax_v1';

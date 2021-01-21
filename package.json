@@ -12,7 +12,6 @@
     "build:bundle": "pbjs -t static-module -w commonjs -p . `ls kikimr/public/api/grpc/*.proto` yandex/cloud/iam/v1/iam_token_service.proto > proto/bundle.js && pbts -o proto/bundle.d.ts proto/bundle.js",
     "build:lib": "tsc",
     "build:examples": "cd examples && npm run build",
-    "basic-example": "cd examples && npm run basic",
     "basic-example-v1": "cd examples && npm run basic-v1",
     "url-shortener-example": "cd examples && npm run url-shortener",
     "start": "npm run basic-example",
