@@ -3,13 +3,25 @@ import getLogger, {Logger} from './logging';
 import * as errors from './errors';
 import {sleep} from './utils';
 
+
+class BackoffSettings {
+    constructor(public backoffCeiling: number, public backoffSlotDuration: number, private uncertainRatio = 0.5) {}
+
+    async waitBackoffTimeout(retries: number) {
+        const slotsCount = 1 << Math.min(retries, this.backoffCeiling);
+        const maxDuration = slotsCount * this.backoffSlotDuration;
+        const duration = maxDuration * (Math.random() * this.uncertainRatio + 1 - this.uncertainRatio);
+        return sleep(duration);
+    }
+}
+
 export class RetryParameters {
     public retryNotFound: boolean;
     public unknownErrorHandler: (_error: unknown) => void;
     public maxRetries: number;
     public onYdbErrorCb: (_error: YdbError) => void;
-    public backoffCeiling: number;
-    public backoffSlotDuration: number;
+    public fastBackoff: BackoffSettings;
+    public slowBackoff: BackoffSettings;
 
     constructor(
         {
@@ -21,18 +33,18 @@ export class RetryParameters {
     ) {
         this.maxRetries = maxRetries;
         this.onYdbErrorCb = onYdbErrorCb;
-        this.backoffCeiling = backoffCeiling;
-        this.backoffSlotDuration = backoffSlotDuration;
+        this.fastBackoff = new BackoffSettings(10, 5);
+        this.slowBackoff = new BackoffSettings(backoffCeiling, backoffSlotDuration);
 
         this.retryNotFound = true;
         this.unknownErrorHandler = () => {};
     }
 }
 
-const RETRYABLE_ERRORS = [
+const RETRYABLE_ERRORS_FAST = [
     errors.Unavailable, errors.Aborted, errors.NotFound
 ];
-const RETRYABLE_W_DELAY_ERRORS = [errors.Overloaded, errors.SessionBusy];
+const RETRYABLE_ERRORS_SLOW = [errors.Overloaded, errors.SessionBusy];
 
 class RetryStrategy {
     private logger: Logger;
@@ -41,12 +53,6 @@ class RetryStrategy {
         public retryParameters: RetryParameters
     ) {
         this.logger = getLogger();
-    }
-
-    static async waitBackoffTimeout(retryParameters: RetryParameters, retries: number) {
-        const slotsCount = 1 << Math.min(retries, retryParameters.backoffCeiling);
-        const maxDuration = slotsCount * retryParameters.backoffSlotDuration;
-        return sleep(Math.random() * maxDuration);
     }
 
     async retry<T>(asyncMethod: () => Promise<T>) {
@@ -61,19 +67,19 @@ class RetryStrategy {
                 if (e instanceof YdbError) {
                     const errName = e.constructor.name;
                     const retriesLeft = retryParameters.maxRetries - retries;
-                    if (RETRYABLE_ERRORS.some((cls) => e instanceof cls)) {
+                    if (RETRYABLE_ERRORS_FAST.some((cls) => e instanceof cls)) {
                         retryParameters.onYdbErrorCb(e);
-
                         if (e instanceof errors.NotFound && !retryParameters.retryNotFound) {
                             throw e;
                         }
 
-                        this.logger.warn(`Caught an error ${errName}, retrying immediately, ${retriesLeft} retries left`);
-                    } else if (RETRYABLE_W_DELAY_ERRORS.some((cls) => e instanceof cls)) {
-                        this.logger.warn(`Caught an error ${errName}, retrying with a backoff, ${retriesLeft} retries left`);
+                        this.logger.warn(`Caught an error ${errName}, retrying with small backoff,, ${retriesLeft} retries left`);
+                        await this.retryParameters.fastBackoff.waitBackoffTimeout(retries);
+                    } else if (RETRYABLE_ERRORS_SLOW.some((cls) => e instanceof cls)) {
                         retryParameters.onYdbErrorCb(e);
 
-                        await RetryStrategy.waitBackoffTimeout(retryParameters, retries);
+                        this.logger.warn(`Caught an error ${errName}, retrying with a backoff, ${retriesLeft} retries left`);
+                        await this.retryParameters.slowBackoff.waitBackoffTimeout(retries);
                     } else {
                         retryParameters.onYdbErrorCb(e);
                         throw e;
