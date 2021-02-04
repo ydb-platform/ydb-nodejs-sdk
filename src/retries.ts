@@ -5,7 +5,6 @@ import {sleep} from './utils';
 
 export class RetryParameters {
     public retryNotFound: boolean;
-    public retryInternalError: boolean;
     public unknownErrorHandler: (_error: unknown) => void;
     public maxRetries: number;
     public onYdbErrorCb: (_error: YdbError) => void;
@@ -17,7 +16,7 @@ export class RetryParameters {
             maxRetries = 10,
             onYdbErrorCb = (_error: YdbError) => {},
             backoffCeiling = 6,
-            backoffSlotDuration = 1,
+            backoffSlotDuration = 1000,
         } = {}
     ) {
         this.maxRetries = maxRetries;
@@ -26,15 +25,14 @@ export class RetryParameters {
         this.backoffSlotDuration = backoffSlotDuration;
 
         this.retryNotFound = true;
-        this.retryInternalError = true;
         this.unknownErrorHandler = () => {};
     }
 }
 
 const RETRYABLE_ERRORS = [
-    errors.Unavailable, errors.Aborted, errors.NotFound, errors.InternalError
+    errors.Unavailable, errors.Aborted, errors.NotFound
 ];
-const RETRYABLE_W_DELAY_ERRORS = [errors.Overloaded, errors.ConnectionError, errors.SessionBusy];
+const RETRYABLE_W_DELAY_ERRORS = [errors.Overloaded, errors.SessionBusy];
 
 class RetryStrategy {
     private logger: Logger;
@@ -70,9 +68,6 @@ class RetryStrategy {
                             throw e;
                         }
 
-                        if (e instanceof errors.InternalError && !retryParameters.retryInternalError) {
-                            throw e;
-                        }
                         this.logger.warn(`Caught an error ${errName}, retrying immediately, ${retriesLeft} retries left`);
                     } else if (RETRYABLE_W_DELAY_ERRORS.some((cls) => e instanceof cls)) {
                         this.logger.warn(`Caught an error ${errName}, retrying with a backoff, ${retriesLeft} retries left`);
