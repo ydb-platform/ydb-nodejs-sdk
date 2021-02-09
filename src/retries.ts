@@ -44,7 +44,7 @@ export class RetryParameters {
 const RETRYABLE_ERRORS_FAST = [
     errors.Unavailable, errors.Aborted, errors.NotFound
 ];
-const RETRYABLE_ERRORS_SLOW = [errors.Overloaded, errors.SessionBusy];
+const RETRYABLE_ERRORS_SLOW = [errors.Overloaded];
 
 class RetryStrategy {
     private logger: Logger;
