@@ -8,7 +8,7 @@ import {SESSION_KEEPALIVE_PERIOD} from './constants';
 import {IAuthService} from './credentials';
 import getLogger, {Logger} from './logging';
 import {retryable} from './retries';
-import {SchemeError, SessionPoolEmpty, BadSession} from './errors';
+import {SchemeError, SessionPoolEmpty, BadSession, SessionBusy} from './errors';
 
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
@@ -390,8 +390,8 @@ export class SessionPool extends EventEmitter {
             session.release();
             return result;
         } catch (error) {
-            if (error instanceof BadSession) {
-                this.logger.debug('Encountered bad session, re-creating the session');
+            if (error instanceof BadSession || error instanceof SessionBusy) {
+                this.logger.debug('Encountered bad or busy session, re-creating the session');
                 session.emit(SessionEvent.SESSION_BROKEN);
                 session = await this.createSession();
             } else {
