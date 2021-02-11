@@ -384,7 +384,7 @@ export class SessionPool extends EventEmitter {
         }
     }
 
-    private async _withSession<T>(session: Session, callback: SessionCallback<T>, retry: boolean): Promise<T> {
+    private async _withSession<T>(session: Session, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
         try {
             const result = await callback(session);
             session.release();
@@ -394,27 +394,26 @@ export class SessionPool extends EventEmitter {
                 this.logger.debug('Encountered bad or busy session, re-creating the session');
                 session.emit(SessionEvent.SESSION_BROKEN);
                 session = await this.createSession();
+                if (maxRetries > 0) {
+                    this.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
+                    session.acquire();
+                    return this._withSession(session, callback, maxRetries - 1);
+                }
             } else {
                 session.release();
             }
-            if (retry) {
-                this.logger.debug('Session retry was requested, re-running the operation');
-                session.acquire();
-                return this._withSession(session, callback, false);
-            } else {
-                throw error;
-            }
+            throw error;
         }
     }
 
     public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
         const session = await this.acquire(timeout);
-        return this._withSession(session, callback, false);
+        return this._withSession(session, callback);
     }
 
-    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
+    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
         const session = await this.acquire(timeout);
-        return this._withSession(session, callback, true);
+        return this._withSession(session, callback, maxRetries);
     }
 }
 
