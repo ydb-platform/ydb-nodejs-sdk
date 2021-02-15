@@ -429,8 +429,8 @@ export class TableClient extends EventEmitter {
         return this.pool.withSession(callback, timeout);
     }
 
-    public async withSessionRetry<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
-        return this.pool.withSessionRetry(callback, timeout);
+    public async withSessionRetry<T>(callback: (session: Session) => Promise<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
+        return this.pool.withSessionRetry(callback, timeout, maxRetries);
     }
 
     public async destroy() {
