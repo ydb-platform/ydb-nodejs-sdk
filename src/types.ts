@@ -11,6 +11,7 @@ import IColumn = Ydb.IColumn;
 import ITypedValue = Ydb.ITypedValue;
 import IResultSet = Ydb.IResultSet;
 import NullValue = google.protobuf.NullValue;
+import PrimitiveTypeId = Ydb.Type.PrimitiveTypeId;
 
 
 export const typeMetadataKey = Symbol('type');
@@ -41,9 +42,9 @@ const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.DATETIME]: 'uint32Value',
     [Type.PrimitiveTypeId.TIMESTAMP]: 'uint64Value',
     [Type.PrimitiveTypeId.INTERVAL]: 'uint64Value',
-    [Type.PrimitiveTypeId.TZ_DATE]: 'uint32Value',
-    [Type.PrimitiveTypeId.TZ_DATETIME]: 'uint32Value',
-    [Type.PrimitiveTypeId.TZ_TIMESTAMP]: 'uint64Value',
+    [Type.PrimitiveTypeId.TZ_DATE]: 'textValue',
+    [Type.PrimitiveTypeId.TZ_DATETIME]: 'textValue',
+    [Type.PrimitiveTypeId.TZ_TIMESTAMP]: 'textValue',
 };
 
 const parseLong = (input: string|number): Long|number => {
@@ -63,7 +64,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
     'textValue': (input) => input,
     'nullFlagValue': () => null,
 };
-function convertPrimitiveValueToNative(value: IValue) {
+function convertPrimitiveValueToNative(type: IType, value: IValue) {
     let label, input;
     for ([label, input] of Object.entries(value)) {
         if (label !== 'items' && label !== 'pairs') {
@@ -73,7 +74,56 @@ function convertPrimitiveValueToNative(value: IValue) {
     if (!label) {
         throw new Error(`Expected a primitive value, got ${value} instead!`);
     }
-    return valueToNativeConverters[label](input);
+
+    let typeId: PrimitiveTypeId;
+    if (type.optionalType) {
+        const innerType = type.optionalType.item;
+        if (label === 'nullFlagValue') {
+            return null;
+        } else {
+            typeId = innerType as PrimitiveTypeId;
+        }
+    } else if (type.typeId) {
+        typeId = type.typeId;
+    } else {
+        throw new Error(`Got empty typeId, type is ${type}, value is ${value}.`)
+    }
+    return objectFromValue(typeId, valueToNativeConverters[label](input));
+}
+
+function objectFromValue(typeId: PrimitiveTypeId, value: unknown) {
+    switch (typeId) {
+        case PrimitiveTypeId.DATE:
+            return new Date((value as number) * 3600 * 1000 * 24);
+        case PrimitiveTypeId.DATETIME:
+            return new Date((value as number) * 1000);
+        case PrimitiveTypeId.TIMESTAMP:
+            return new Date((value as number) / 1000);
+        case PrimitiveTypeId.TZ_DATE:
+        case PrimitiveTypeId.TZ_DATETIME:
+        case PrimitiveTypeId.TZ_TIMESTAMP:
+            return new Date(value as string);
+        default:
+            return value;
+    }
+}
+
+function preparePrimitiveValue(typeId: PrimitiveTypeId, value: any) {
+    switch (typeId) {
+        case PrimitiveTypeId.DATE:
+            return Number(value) / 3600 / 1000 / 24;
+        case PrimitiveTypeId.DATETIME:
+            return Number(value) / 1000;
+        case PrimitiveTypeId.TIMESTAMP:
+            return Number(value) * 1000;
+        case PrimitiveTypeId.TZ_DATE:
+            return (value as Date).toDateString();
+        case PrimitiveTypeId.TZ_DATETIME:
+        case PrimitiveTypeId.TZ_TIMESTAMP:
+            return (value as Date).toISOString();
+        default:
+            return value;
+    }
 }
 
 function typeToValue(type: IType | null | undefined, value: any): IValue {
@@ -86,7 +136,7 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
     } else if (type.typeId) {
         const valueLabel = primitiveTypeToValue[type.typeId];
         if (valueLabel) {
-            return {[valueLabel]: value};
+            return {[valueLabel]: preparePrimitiveValue(type.typeId, value)};
         } else {
             throw new Error(`Unknown PrimitiveTypeId: ${type.typeId}`);
         }
@@ -229,8 +279,8 @@ export class TypedData {
         return _.map(rows, (row) => {
             const obj = _.reduce(row.items, (acc: Record<string, any>, value, index) => {
                 const column = columns[index] as IColumn;
-                if (column.name) {
-                    acc[_.camelCase(column.name)] = convertPrimitiveValueToNative(value);
+                if (column.name && column.type) {
+                    acc[_.camelCase(column.name)] = convertPrimitiveValueToNative(column.type, value);
                 }
                 return acc;
             }, {});

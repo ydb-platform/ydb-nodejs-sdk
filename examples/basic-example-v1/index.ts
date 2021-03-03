@@ -1,6 +1,15 @@
 process.env.YDB_SDK_PRETTY_LOGS = '1';
 
-import {Column, Driver, getCredentialsFromEnv, Logger, Session, TableDescription, withRetries, Ydb} from 'ydb-sdk';
+import {
+    Column,
+    Driver,
+    getCredentialsFromEnv,
+    Logger,
+    Session,
+    TableDescription,
+    withRetries,
+    Ydb
+} from 'ydb-sdk';
 import {Episode, getEpisodesData, getSeasonsData, getSeriesData, Series} from './data-helpers';
 import {main, SYNTAX_V1} from '../utils';
 
@@ -33,7 +42,7 @@ async function createTables(session: Session, logger: Logger) {
             ))
             .withColumn(new Column(
                 'release_date',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
             ))
             .withPrimaryKey('series_id')
     );
@@ -55,11 +64,11 @@ async function createTables(session: Session, logger: Logger) {
             ))
             .withColumn(new Column(
                 'first_aired',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
             ))
             .withColumn(new Column(
                 'last_aired',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
             ))
             .withPrimaryKeys('series_id', 'season_id')
     );
@@ -85,7 +94,7 @@ async function createTables(session: Session, logger: Logger) {
             ))
             .withColumn(new Column(
                 'air_date',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
             ))
             .withPrimaryKeys('series_id', 'season_id', 'episode_id')
     );
@@ -127,7 +136,7 @@ SELECT
     series_id,
     title,
     series_info,
-    CAST(release_date as Uint64) as release_date
+    release_date
 FROM AS_TABLE($seriesData);
 
 REPLACE INTO ${SEASONS_TABLE}
@@ -135,8 +144,8 @@ SELECT
     series_id,
     season_id,
     title,
-    CAST(first_aired as Uint64) as first_aired,
-    CAST(last_aired as Uint64) as last_aired
+    first_aired,
+    last_aired
 FROM AS_TABLE($seasonsData);
 
 REPLACE INTO ${EPISODES_TABLE}
@@ -145,7 +154,7 @@ SELECT
     season_id,
     episode_id,
     title,
-    CAST(air_date as Uint64) as air_date
+    air_date
 FROM AS_TABLE($episodesData);`;
     async function fillTable() {
         logger.info('Inserting data to tables, preparing query...');
@@ -164,16 +173,15 @@ async function selectSimple(tablePathPrefix: string, session: Session, logger: L
     const query = `
 ${SYNTAX_V1}
 PRAGMA TablePathPrefix("${tablePathPrefix}");
-$format = DateTime::Format("%Y-%m-%d");
 SELECT series_id,
        title,
-       $format(DateTime::FromSeconds(CAST(DateTime::ToSeconds(DateTime::IntervalFromDays(CAST(release_date AS Int16))) AS Uint32))) AS release_date
+       release_date
 FROM ${SERIES_TABLE}
 WHERE series_id = 1;`;
     logger.info('Making a simple select...');
     const {resultSets} = await session.executeQuery(query);
     const result = Series.createNativeObjects(resultSets[0]);
-    logger.info('selectSimple result:', result);
+    logger.info(`selectSimple result: ${JSON.stringify(result, null, 2)}`);
 }
 
 async function upsertSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
@@ -197,10 +205,9 @@ async function selectPrepared(tablePathPrefix: string, session: Session, data: T
     DECLARE $seriesId AS Uint64;
     DECLARE $seasonId AS Uint64;
     DECLARE $episodeId AS Uint64;
-    $format = DateTime::Format("%Y-%m-%d");
 
     SELECT title,
-           $format(DateTime::FromSeconds(CAST(DateTime::ToSeconds(DateTime::IntervalFromDays(CAST(air_date AS Int16))) AS Uint32))) AS air_date
+           air_date
     FROM episodes
     WHERE series_id = $seriesId AND season_id = $seasonId AND episode_id = $episodeId;`;
     async function select() {
@@ -208,14 +215,14 @@ async function selectPrepared(tablePathPrefix: string, session: Session, data: T
         const preparedQuery = await session.prepareQuery(query);
         logger.info('Selecting prepared query...');
         for (const [seriesId, seasonId, episodeId] of data) {
-            const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: ''});
+            const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: new Date()});
             const {resultSets} = await session.executeQuery(preparedQuery, {
                 '$seriesId': episode.getTypedValue('seriesId'),
                 '$seasonId': episode.getTypedValue('seasonId'),
                 '$episodeId': episode.getTypedValue('episodeId')
             });
             const result = Series.createNativeObjects(resultSets[0]);
-            logger.info('Select prepared query', result);
+            logger.info(`Select prepared query ${JSON.stringify(result, null, 2)}`);
         }
     }
     await withRetries(select);
@@ -231,14 +238,14 @@ async function explicitTcl(tablePathPrefix: string, session: Session, ids: Three
     DECLARE $episodeId AS Uint64;
 
     UPDATE episodes
-    SET air_date = CAST(CurrentUtcDate() AS Uint64)
+    SET air_date = CurrentUtcDate()
     WHERE series_id = $seriesId AND season_id = $seasonId AND episode_id = $episodeId;`;
     async function update() {
         logger.info('Running prepared query with explicit transaction control...');
         const preparedQuery = await session.prepareQuery(query);
         const txMeta = await session.beginTransaction({serializableReadWrite: {}});
         const [seriesId, seasonId, episodeId] = ids;
-        const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: ''});
+        const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: new Date()});
         const params = {
             '$seriesId': episode.getTypedValue('seriesId'),
             '$seasonId': episode.getTypedValue('seasonId'),
