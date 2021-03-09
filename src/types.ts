@@ -75,18 +75,19 @@ function convertPrimitiveValueToNative(type: IType, value: IValue) {
         throw new Error(`Expected a primitive value, got ${value} instead!`);
     }
 
-    let typeId: PrimitiveTypeId;
+    let typeId: PrimitiveTypeId | null = null;
     if (type.optionalType) {
         const innerType = type.optionalType.item;
         if (label === 'nullFlagValue') {
             return null;
-        } else {
-            typeId = innerType as PrimitiveTypeId;
+        } else if (innerType && innerType.typeId) {
+            typeId = innerType.typeId;
         }
     } else if (type.typeId) {
         typeId = type.typeId;
-    } else {
-        throw new Error(`Got empty typeId, type is ${type}, value is ${value}.`)
+    }
+    if (typeId === null) {
+        throw new Error(`Got empty typeId, type is ${JSON.stringify(type)}, value is ${JSON.stringify(value)}.`);
     }
     return objectFromValue(typeId, valueToNativeConverters[label](input));
 }
