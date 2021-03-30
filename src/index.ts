@@ -7,6 +7,7 @@ export {
     Session,
     ExecDataQuerySettings,
     TableDescription,
+    AlterTableDescription,
     Column,
     TableProfile,
     TableIndex,
