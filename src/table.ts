@@ -145,6 +145,24 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
+    public async alterTable(tablePath: string, description: AlterTableDescription, operationParams?: IOperationParams): Promise<void> {
+        const {addColumns, dropColumns, alterColumns, setTtlSettings, dropTtlSettings} = description;
+        const request: Ydb.Table.IAlterTableRequest = {
+            sessionId: this.sessionId,
+            path: `${this.endpoint.database}/${tablePath}`,
+            addColumns,
+            dropColumns,
+            alterColumns,
+            setTtlSettings,
+            dropTtlSettings,
+
+            operationParams,
+        };
+        ensureOperationSucceeded(await this.api.alterTable(request));
+    }
+
+    @retryable()
+    @pessimizable
     public async dropTable(tablePath: string, operationParams?: IOperationParams): Promise<void> {
         const request: Ydb.Table.IDropTableRequest = {
             sessionId: this.sessionId,
@@ -712,6 +730,43 @@ export class TableDescription {
     withTtl(columnName: string, expireAfterSeconds: number = 0) {
         this.ttlSettings = new TtlSettings(columnName, expireAfterSeconds);
 
+        return this;
+    }
+}
+
+export class AlterTableDescription {
+    public addColumns: Column[] = [];
+    public dropColumns: string[] = [];
+    public alterColumns: Column[] = [];
+    public setTtlSettings?: TtlSettings;
+    public dropTtlSettings?: {};
+    public addIndexes: TableIndex[] = [];
+    public dropIndexes: string[] = [];
+
+    constructor() {}
+
+    withAddColumn(column: Column) {
+        this.addColumns.push(column);
+        return this;
+    }
+
+    withDropColumn(columnName: string) {
+        this.dropColumns.push(columnName);
+        return this;
+    }
+
+    withAlterColumn(column: Column) {
+        this.alterColumns.push(column);
+        return this;
+    }
+
+    withSetTtl(columnName: string, expireAfterSeconds: number = 0) {
+        this.setTtlSettings = new TtlSettings(columnName, expireAfterSeconds);
+        return this;
+    }
+
+    withDropTtl() {
+        this.dropTtlSettings = {};
         return this;
     }
 }
