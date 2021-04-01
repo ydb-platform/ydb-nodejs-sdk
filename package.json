@@ -14,7 +14,7 @@
     "build:examples": "cd examples && npm run build",
     "basic-example-v1": "cd examples && npm run basic-v1",
     "url-shortener-example": "cd examples && npm run url-shortener",
-    "start": "npm run basic-example",
+    "start": "npm run basic-example-v1",
     "clean": "rm -rf build",
     "prepublish": "npm run clean && npm run build:lib"
   },
