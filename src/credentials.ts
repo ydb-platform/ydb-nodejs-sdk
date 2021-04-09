@@ -129,6 +129,7 @@ export class MetadataAuthService implements IAuthService {
         let token = this.tokenService.getToken();
         if (!token && typeof this.tokenService.initialize === 'function') {
             await this.tokenService.initialize();
+            token = this.tokenService.getToken();
         }
         let tries = 0;
         while (!token && tries < MetadataAuthService.MAX_TRIES) {
