@@ -6,6 +6,7 @@ import {MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, Yd
 
 import {Endpoint} from './discovery';
 import {IAuthService} from './credentials';
+import {getVersionHeader} from './version';
 
 
 export interface Pessimizable {
@@ -66,7 +67,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
     private metadata: Metadata | null = null;
 
-    public headers: MetadataHeaders = new Map();
+    public headers: MetadataHeaders = new Map([getVersionHeader()]);
 
     static isServiceAsyncMethod(target: object, prop: string|number|symbol, receiver: any) {
         return (
