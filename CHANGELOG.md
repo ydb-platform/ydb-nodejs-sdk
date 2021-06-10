@@ -1,5 +1,10 @@
 # Changelog
 
+### 2.1.0
+* Allow passing gRPC [client options](https://grpc.github.io/grpc/core/group__grpc__arg__keys.html)
+  under `clientOptions` key to `Driver` constructor. This enables changing different
+  gRPC settings in `tableClient` and `schemaClient` calls.
+
 ### 2.0.0
 * BREAKING CHANGE: StorageSettings class exported at toplevel has changed its structure:
   the only public `storageKind` field has been renamed to `media`, type is the same. This
