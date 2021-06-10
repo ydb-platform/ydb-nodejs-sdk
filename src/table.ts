@@ -1,7 +1,13 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {Ydb} from '../proto/bundle';
-import {AuthenticatedService, ensureOperationSucceeded, getOperationPayload, pessimizable} from './utils';
+import {
+    AuthenticatedService,
+    ClientOptions,
+    ensureOperationSucceeded,
+    getOperationPayload,
+    pessimizable
+} from './utils';
 import {Endpoint} from './discovery';
 import Driver from './driver';
 import {SESSION_KEEPALIVE_PERIOD} from './constants';
@@ -33,9 +39,9 @@ export class SessionService extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 
-    constructor(endpoint: Endpoint, authService: IAuthService) {
+    constructor(endpoint: Endpoint, authService: IAuthService, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
-        super(host, 'Ydb.Table.V1.TableService', TableService, authService);
+        super(host, 'Ydb.Table.V1.TableService', TableService, authService, clientOptions);
         this.endpoint = endpoint;
         this.logger = getLogger();
     }
