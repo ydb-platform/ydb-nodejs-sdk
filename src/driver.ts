@@ -7,10 +7,12 @@ import {TimeoutExpired} from "./errors";
 import getLogger, {Logger} from "./logging";
 import SchemeClient from "./scheme";
 import {Events} from './constants'
+import {ClientOptions} from "./utils";
 
 
 export interface DriverSettings {
     poolSettings?: PoolSettings;
+    clientOptions?: ClientOptions;
 }
 
 export default class Driver {
@@ -68,7 +70,8 @@ export default class Driver {
     public async getSessionCreator(): Promise<SessionService> {
         const endpoint = await this.getEndpoint();
         if (!this.sessionCreators.has(endpoint)) {
-            this.sessionCreators.set(endpoint, new SessionService(endpoint, this.authService));
+            const sessionService = new SessionService(endpoint, this.authService, this.settings.clientOptions);
+            this.sessionCreators.set(endpoint, sessionService);
         }
         return this.sessionCreators.get(endpoint) as SessionService;
     }

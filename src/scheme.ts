@@ -1,5 +1,11 @@
 import {Ydb} from "../proto/bundle";
-import {AuthenticatedService, getOperationPayload, ensureOperationSucceeded, pessimizable} from "./utils";
+import {
+    AuthenticatedService,
+    getOperationPayload,
+    ensureOperationSucceeded,
+    pessimizable,
+    ClientOptions
+} from "./utils";
 import {IAuthService} from "./credentials";
 import getLogger, {Logger} from './logging';
 import {Endpoint} from './discovery';
@@ -50,7 +56,8 @@ export default class SchemeClient extends EventEmitter {
     private async getSchemeService(): Promise<SchemeService> {
         const endpoint = await this.driver.getEndpoint();
         if (!this.schemeServices.has(endpoint)) {
-            const service = new SchemeService(endpoint, this.driver.database, this.driver.authService);
+            const {database, authService, settings} = this.driver;
+            const service = new SchemeService(endpoint, database, authService, settings.clientOptions);
             this.schemeServices.set(endpoint, service);
         }
         return this.schemeServices.get(endpoint) as SchemeService;
@@ -91,13 +98,14 @@ class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
     private readonly database: string;
     public endpoint: Endpoint;
 
-    constructor(endpoint: Endpoint, database: string, authService: IAuthService) {
+    constructor(endpoint: Endpoint, database: string, authService: IAuthService, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
         super(
             host,
             'Ydb.Scheme.V1.SchemeService',
             SchemeServiceAPI,
-            authService
+            authService,
+            clientOptions,
         );
         this.endpoint = endpoint;
         this.database = database;

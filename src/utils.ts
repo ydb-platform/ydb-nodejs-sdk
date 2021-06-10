@@ -62,6 +62,7 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
 }
 
 export type MetadataHeaders = Map<string, string>;
+export type ClientOptions = Record<string, any>;
 
 export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
@@ -81,10 +82,11 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         host: string,
         private name: string,
         private apiCtor: ServiceFactory<Api>,
-        private authService: IAuthService
+        private authService: IAuthService,
+        clientOptions?: ClientOptions,
     ) {
         this.api = new Proxy(
-            this.getClient(removeProtocol(host), this.authService.sslCredentials),
+            this.getClient(removeProtocol(host), this.authService.sslCredentials, clientOptions),
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);
@@ -105,10 +107,10 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         );
     }
 
-    protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
+    protected getClient(host: string, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
         const client = sslCredentials ?
-            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates)) :
-            new grpc.Client(host, grpc.credentials.createInsecure());
+            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates), clientOptions) :
+            new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
             client.makeUnaryRequest(path, _.identity, _.identity, requestData, this.metadata, null, callback);
