@@ -1,7 +1,7 @@
 export {Ydb} from '../proto/bundle';
 export {default as getLogger, Logger} from './logging';
 export {default as Driver} from './driver';
-export {declareType, TypedData} from './types';
+export {declareType, TypedData, TypedDataOptions, withTypeOptions, ConversionType} from './types';
 export {
     SessionPool,
     Session,
