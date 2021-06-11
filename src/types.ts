@@ -220,13 +220,46 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
     }
 }
 
+export enum ConversionType {
+    Identity,
+    SnakeCase,
+    CamelCase
+}
+
+export interface TypedDataOptions {
+    convertYdbNamesToJs: ConversionType;
+    convertJsNamesToYdb: ConversionType;
+}
+
+function assertUnreachable(_c: never): never {
+    throw new Error('Should not get here!');
+}
+function getNameConverter(c: ConversionType): Function {
+    switch (c) {
+        case ConversionType.Identity: return _.identity;
+        case ConversionType.SnakeCase: return _.snakeCase;
+        case ConversionType.CamelCase: return _.camelCase;
+        default: return assertUnreachable(c);
+    }
+}
+
+export function withTypeOptions(options: TypedDataOptions) {
+    return function<T extends Function>(constructor: T): T & {__options: TypedDataOptions} {
+        return Object.assign(constructor, {__options: options});
+    }
+}
+
+@withTypeOptions({
+    convertJsNamesToYdb: ConversionType.SnakeCase,
+    convertYdbNamesToJs: ConversionType.CamelCase,
+})
 export class TypedData {
     [property: string]: any;
+    static __options: TypedDataOptions;
 
     constructor(data: Record<string, any>) {
         _.assign(this, data);
     }
-
 
     getType(propertyKey: string): IType {
         const typeMeta = Reflect.getMetadata(typeMetadataKey, this, propertyKey);
@@ -255,10 +288,12 @@ export class TypedData {
     }
 
     getRowType() {
+        const cls = this.constructor as typeof TypedData;
+        const converter = getNameConverter(cls.__options.convertJsNamesToYdb);
         return {
             structType: {
                 members: _.map(this.typedProperties, (propertyKey) => ({
-                    name: _.snakeCase(propertyKey),
+                    name: converter(propertyKey),
                     type: this.getType(propertyKey)
                 }))
             }
@@ -278,11 +313,12 @@ export class TypedData {
         if (!columns) {
             return [];
         }
+        const converter = getNameConverter(this.__options.convertYdbNamesToJs);
         return _.map(rows, (row) => {
             const obj = _.reduce(row.items, (acc: Record<string, any>, value, index) => {
                 const column = columns[index] as IColumn;
                 if (column.name && column.type) {
-                    acc[_.camelCase(column.name)] = convertPrimitiveValueToNative(column.type, value);
+                    acc[converter(column.name)] = convertPrimitiveValueToNative(column.type, value);
                 }
                 return acc;
             }, {});
