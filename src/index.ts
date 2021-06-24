@@ -6,6 +6,7 @@ export {
     SessionPool,
     Session,
     ExecDataQuerySettings,
+    ExecuteScanQuerySettings,
     TableDescription,
     AlterTableDescription,
     Column,
