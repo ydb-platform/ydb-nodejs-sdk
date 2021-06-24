@@ -42,6 +42,8 @@ export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<
     }), timedRejection]);
 }
 
+export class StreamEnd extends Error {}
+
 export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
 
@@ -113,7 +115,14 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
             new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
-            client.makeUnaryRequest(path, _.identity, _.identity, requestData, this.metadata, null, callback);
+            if (method.name.startsWith('Stream')) {
+                client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata, null)
+                    .on('data', (data) => callback(null, data))
+                    .on('end', () => callback(new StreamEnd(), null))
+                    .on('error', (error) => callback(error, null));
+            } else {
+                client.makeUnaryRequest(path, _.identity, _.identity, requestData, this.metadata, null, callback);
+            }
         };
         return this.apiCtor.create(rpcImpl);
     }

@@ -4,6 +4,7 @@ import {Ydb} from '../proto/bundle';
 import {
     AuthenticatedService,
     ClientOptions,
+    StreamEnd,
     ensureOperationSucceeded,
     getOperationPayload,
     pessimizable
@@ -14,7 +15,14 @@ import {SESSION_KEEPALIVE_PERIOD} from './constants';
 import {IAuthService} from './credentials';
 import getLogger, {Logger} from './logging';
 import {retryable} from './retries';
-import {SchemeError, SessionPoolEmpty, BadSession, SessionBusy} from './errors';
+import {
+    SchemeError,
+    SessionPoolEmpty,
+    BadSession,
+    SessionBusy,
+    MissingValue,
+    YdbError
+} from './errors';
 
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
@@ -33,6 +41,7 @@ import ITypedValue = Ydb.ITypedValue;
 import FeatureFlag = Ydb.FeatureFlag.Status;
 import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
 import IOperationParams = Ydb.Operations.IOperationParams;
+import ExecuteScanQueryPartialResult = Ydb.Table.ExecuteScanQueryPartialResult;
 
 
 export class SessionService extends AuthenticatedService<TableService> {
@@ -86,6 +95,15 @@ export class ExecDataQuerySettings {
 
     withKeepInCache(keepInCache: boolean) {
         this.keepInCache = keepInCache;
+        return this;
+    }
+}
+
+export class ExecuteScanQuerySettings {
+    mode: Ydb.Table.ExecuteScanQueryRequest.Mode = Ydb.Table.ExecuteScanQueryRequest.Mode.MODE_EXEC;
+
+    withMode(mode: Ydb.Table.ExecuteScanQueryRequest.Mode) {
+        this.mode = mode;
         return this;
     }
 }
@@ -280,6 +298,61 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(response);
         return ExecuteQueryResult.decode(payload);
+    }
+
+    @pessimizable
+    public async streamExecuteScanQuery(
+        query: PrepareQueryResult | string,
+        consumer: (result: ExecuteScanQueryPartialResult) => void,
+        params: IQueryParams = {},
+        settings?: ExecuteScanQuerySettings): Promise<void> {
+        let queryToExecute: IQuery;
+        if (typeof query === 'string') {
+            queryToExecute = {
+                yqlText: query
+            };
+        } else {
+            queryToExecute = {
+                id: query.queryId
+            };
+        }
+
+        const mode = settings?.mode || Ydb.Table.ExecuteScanQueryRequest.Mode.MODE_EXEC;
+
+        const request: Ydb.Table.IExecuteScanQueryRequest = {
+            query: queryToExecute,
+            parameters: params,
+            mode,
+        };
+
+        return new Promise((resolve, reject) => {
+            this.api.streamExecuteScanQuery(request, (error, response) => {
+                try {
+                    if (error) {
+                        if (error instanceof StreamEnd) {
+                            resolve();
+                        } else {
+                            reject(error);
+                        }
+                    } else if (response) {
+                        YdbError.checkStatus({
+                            status: response.status,
+                            issues: response.issues,
+                        });
+
+                        if (!response.result) {
+                            reject(new MissingValue('Missing execute scan query result value!'));
+                            return;
+                        }
+
+                        const result = ExecuteScanQueryPartialResult.create(response.result);
+                        consumer(result);
+                    }
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
     }
 }
 
