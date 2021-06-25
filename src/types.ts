@@ -220,42 +220,50 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
     }
 }
 
-export enum ConversionType {
-    Identity,
-    SnakeCase,
-    CamelCase
+type StringFunction = (name?: string) => string;
+export interface NamesConversion {
+    ydbToJs: StringFunction;
+    jsToYdb: StringFunction;
 }
 
 export interface TypedDataOptions {
-    convertYdbNamesToJs: ConversionType;
-    convertJsNamesToYdb: ConversionType;
+    namesConversion?: NamesConversion;
 }
 
 function assertUnreachable(_c: never): never {
     throw new Error('Should not get here!');
 }
-function getNameConverter(c: ConversionType): Function {
-    switch (c) {
-        case ConversionType.Identity: return _.identity;
-        case ConversionType.SnakeCase: return _.snakeCase;
-        case ConversionType.CamelCase: return _.camelCase;
-        default: return assertUnreachable(c);
+function getNameConverter(options: TypedDataOptions, direction: keyof NamesConversion): StringFunction {
+    const converter = options.namesConversion?.[direction];
+    if (converter) {
+        return converter;
+    } else { // defaults
+        switch (direction) {
+            case 'jsToYdb': return _.snakeCase;
+            case 'ydbToJs': return _.camelCase;
+            default: return assertUnreachable(direction);
+        }
     }
 }
 
 export function withTypeOptions(options: TypedDataOptions) {
     return function<T extends Function>(constructor: T): T & {__options: TypedDataOptions} {
-        return Object.assign(constructor, {__options: options});
+        return _.merge(constructor, {__options: options});
     }
 }
 
-@withTypeOptions({
-    convertJsNamesToYdb: ConversionType.SnakeCase,
-    convertYdbNamesToJs: ConversionType.CamelCase,
-})
+export const snakeToCamelCaseConversion: NamesConversion = {
+    jsToYdb: _.snakeCase,
+    ydbToJs: _.camelCase,
+};
+export const identityConversion: NamesConversion = {
+    jsToYdb: _.identity,
+    ydbToJs: _.identity,
+}
+
 export class TypedData {
     [property: string]: any;
-    static __options: TypedDataOptions;
+    static __options: TypedDataOptions = {};
 
     constructor(data: Record<string, any>) {
         _.assign(this, data);
@@ -289,7 +297,7 @@ export class TypedData {
 
     getRowType() {
         const cls = this.constructor as typeof TypedData;
-        const converter = getNameConverter(cls.__options.convertJsNamesToYdb);
+        const converter = getNameConverter(cls.__options, 'jsToYdb');
         return {
             structType: {
                 members: _.map(this.typedProperties, (propertyKey) => ({
@@ -313,7 +321,7 @@ export class TypedData {
         if (!columns) {
             return [];
         }
-        const converter = getNameConverter(this.__options.convertYdbNamesToJs);
+        const converter = getNameConverter(this.__options, 'ydbToJs');
         return _.map(rows, (row) => {
             const obj = _.reduce(row.items, (acc: Record<string, any>, value, index) => {
                 const column = columns[index] as IColumn;
