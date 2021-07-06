@@ -1,5 +1,10 @@
 # Changelog
 
+### 2.2.0
+* Support `streamExecuteScanQuery()` method in `tableClient`
+* Provide means to alter default snake_case - camelCase field names conversion when moving data
+  between YDB and JS side, via `@withTypeOptions` decorator (with an example)
+
 ### 2.1.0
 * Allow passing gRPC [client options](https://grpc.github.io/grpc/core/group__grpc__arg__keys.html)
   under `clientOptions` key to `Driver` constructor. This enables changing different

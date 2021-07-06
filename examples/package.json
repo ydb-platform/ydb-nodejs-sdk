@@ -6,6 +6,7 @@
     "build": "tsc",
     "basic-v1": "node build/basic-example-v1/index.js",
     "scan-query": "node build/scan-query/index.js",
+    "type-utils": "node build/type-utils/index.js",
     "url-shortener": "node build/url-shortener-example/index.js"
   },
   "dependencies": {
