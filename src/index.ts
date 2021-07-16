@@ -3,6 +3,7 @@ export {default as getLogger, Logger} from './logging';
 export {default as Driver} from './driver';
 export {
     declareType,
+    Primitive,
     TypedData,
     TypedDataOptions,
     withTypeOptions,

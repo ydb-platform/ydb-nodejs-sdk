@@ -48,6 +48,109 @@ const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.TZ_TIMESTAMP]: 'textValue',
 };
 
+type primitive = boolean | string | number | Date;
+
+export class Primitive {
+    static create(type: Ydb.Type.PrimitiveTypeId, value: primitive): ITypedValue {
+        return {
+            type: {
+                typeId: type
+            },
+            value: {
+                [primitiveTypeToValue[type]]: preparePrimitiveValue(type, value)
+            }
+        };
+    }
+
+    static int8(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.INT8, value);
+    }
+
+    static uint8(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.UINT8, value);
+    }
+
+    static int16(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.INT16, value);
+    }
+
+    static uint16(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.UINT16, value);
+    }
+
+    static int32(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.INT32, value);
+    }
+
+    static uint32(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.UINT32, value);
+    }
+
+    static int64(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.INT64, value);
+    }
+
+    static uint64(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.UINT64, value);
+    }
+
+    static float(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.FLOAT, value);
+    }
+
+    static double(value: number): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.DOUBLE, value);
+    }
+
+    static string(value: string): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.STRING, value);
+    }
+
+    static utf8(value: string): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.UTF8, value);
+    }
+
+    static yson(value: string): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.YSON, value);
+    }
+
+    static json(value: string): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.JSON, value);
+    }
+
+    static uuid(value: string): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.UUID, value);
+    }
+
+    static jsonDocument(value: string): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.JSON_DOCUMENT, value);
+    }
+
+    static date(value: Date): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.DATE, value);
+    }
+
+    static datetime(value: Date): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.DATETIME, value);
+    }
+
+    static timestamp(value: Date): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.TIMESTAMP, value);
+    }
+
+    static tzDate(value: Date): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.TZ_DATE, value);
+    }
+
+    static tzDatetime(value: Date): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.TZ_DATETIME, value);
+    }
+
+    static tzTimestamp(value: Date): ITypedValue {
+        return Primitive.create(Type.PrimitiveTypeId.TZ_TIMESTAMP, value);
+    }
+}
+
 const parseLong = (input: string|number): Long|number => {
    const long = typeof input === 'string' ? Long.fromString(input) : Long.fromNumber(input);
    return long.high ? long : long.low;
