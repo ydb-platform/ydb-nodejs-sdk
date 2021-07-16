@@ -5,6 +5,7 @@ import {
     Driver,
     getCredentialsFromEnv,
     Logger,
+    Primitive,
     Session,
     TableDescription,
     withRetries,
@@ -104,10 +105,8 @@ async function executeScanQueryWithParams(tablePathPrefix: string, session: Sess
 
     logger.info('Making a stream execute scan query...');
 
-    const row = new Row({key: 'key', hash: 10, value: 'odd'});
-
     const params = {
-        '$value': row.getTypedValue('value'),
+        '$value': Primitive.utf8('odd'),
     };
 
     let count = 0;
