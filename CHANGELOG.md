@@ -1,5 +1,9 @@
 # Changelog
 
+### 2.3.0
+* Provide `Primitive` helper class for easy creation of primitive values, see how it's used in
+  in /scan-query example.
+
 ### 2.2.0
 * Support `streamExecuteScanQuery()` method in `tableClient`
 * Provide means to alter default snake_case - camelCase field names conversion when moving data
