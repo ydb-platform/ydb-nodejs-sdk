@@ -3,7 +3,6 @@ process.env.YDB_SDK_PRETTY_LOGS = '1';
 import {
     Column,
     Driver,
-    getCredentialsFromEnv,
     Logger,
     Session,
     TableDescription,
@@ -91,10 +90,10 @@ WHERE series_id = 1;`;
     logger.info(`selectSimple result: ${JSON.stringify(result, null, 2)}`);
 }
 
-async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
+async function run(logger: Logger, endpoint: string) {
     logger.debug('Driver initializing...');
-    const driver = new Driver(entryPoint, dbName, authService);
+    const driver = new Driver(endpoint);
+    const dbName = driver.database;
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);

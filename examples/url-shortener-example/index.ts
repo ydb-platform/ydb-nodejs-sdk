@@ -1,6 +1,6 @@
 process.env.YDB_SDK_PRETTY_LOGS = '1';
 
-import {Driver, getCredentialsFromEnv, Logger} from 'ydb-sdk';
+import {Driver, Logger} from 'ydb-sdk';
 import {main} from '../utils';
 import {indexPageContent} from "./index.html";
 
@@ -21,10 +21,10 @@ const BASE_URL = (process.env.USE_SSL ? 'https:\/\/' : 'http:\/\/') +
     API_PREFIX;
 
 
-async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
+async function run(logger: Logger, endpoint: string) {
     logger.debug('Driver initializing...');
-    const driver = new Driver(entryPoint, dbName, authService);
+    const driver = new Driver(endpoint);
+    const dbName = driver.database;
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);

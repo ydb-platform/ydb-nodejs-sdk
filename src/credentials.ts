@@ -37,6 +37,12 @@ export interface IAuthService {
     sslCredentials?: ISslCredentials
 }
 
+export class AnonymousAuthService implements IAuthService {
+    getAuthMetadata(): Promise<grpc.Metadata> {
+        return Promise.resolve(new grpc.Metadata());
+    }
+}
+
 export class TokenAuthService implements IAuthService {
     constructor(private token: string, private dbName: string, public sslCredentials?: ISslCredentials) {}
 
