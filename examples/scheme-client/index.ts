@@ -4,9 +4,9 @@ import {Driver, Logger} from 'ydb-sdk';
 import {main} from '../utils';
 
 
-async function run(logger: Logger, endpoint: string): Promise<void> {
+async function run(logger: Logger, connectionString: string): Promise<void> {
     logger.info('Driver initializing...');
-    const driver = new Driver(endpoint);
+    const driver = new Driver({connectionString});
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);

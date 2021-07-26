@@ -21,9 +21,9 @@ const BASE_URL = (process.env.USE_SSL ? 'https:\/\/' : 'http:\/\/') +
     API_PREFIX;
 
 
-async function run(logger: Logger, endpoint: string) {
+async function run(logger: Logger, connectionString: string) {
     logger.debug('Driver initializing...');
-    const driver = new Driver(endpoint);
+    const driver = new Driver({connectionString});
     const dbName = driver.database;
     const timeout = 10000;
     if (!await driver.ready(timeout)) {

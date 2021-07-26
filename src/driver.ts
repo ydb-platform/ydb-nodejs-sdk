@@ -1,5 +1,5 @@
+import * as url from "url";
 import DiscoveryService, {Endpoint} from "./discovery";
-import url from "url";
 import {SessionService, TableClient, PoolSettings} from "./table";
 import SchemeService from "./scheme";
 import {ENDPOINT_DISCOVERY_PERIOD} from "./constants";
@@ -17,7 +17,16 @@ export interface DriverSettings {
     clientOptions?: ClientOptions;
 }
 
-function parseConnectionString(connectionString: string) {
+export interface DriverConfig {
+    connectionString?: string,
+    entryPoint?: string,
+    database?: string,
+    rootCertificates?: Buffer,
+    authService?: IAuthService,
+    settings?: DriverSettings,
+}
+
+function parseConnectionString(connectionString: string): [string, string] {
     let cs = connectionString;
     if (!cs.startsWith('grpc://') && !cs.startsWith('grpcs://') ){
         cs = 'grpcs://' + cs;
@@ -44,26 +53,36 @@ function parseConnectionString(connectionString: string) {
 }
 
 export default class Driver {
+    private entryPoint: string;
     private discoveryService: DiscoveryService;
     private sessionCreators: Map<Endpoint, SessionService>;
     private logger: Logger;
-    private entryPoint: string;
 
     public database: string;
-    public tableClient: TableClient;
     public authService: IAuthService;
+    public settings: DriverSettings = {};
+    public tableClient: TableClient;
     public schemeClient: SchemeService;
 
-    constructor(
-        endpoint: string,
-        public settings: DriverSettings = {}
-    ) {
+    constructor(config: DriverConfig) {
+        if (config.connectionString) {
+            const parsedConnectionString = parseConnectionString(config.connectionString);
+            this.entryPoint = parsedConnectionString[0];
+            this.database = parsedConnectionString[1];
+        } else if (config.entryPoint && config.database) {
+            this.entryPoint = config.entryPoint;
+            this.database = config.database;
+        } else {
+            throw new Error('One of connectionString or entryPoint and database are required');
+        }
+
         this.logger = getLogger();
 
-        const [entryPoint, database] = parseConnectionString(endpoint);
-        this.entryPoint = entryPoint;
-        this.database = database;
-        this.authService = getCredentialsFromEnv(entryPoint, database, this.logger);
+        if (config.authService) {
+            this.authService = config.authService;
+        } else {
+            this.authService = getCredentialsFromEnv(this.entryPoint, this.database, this.logger, config.rootCertificates);
+        }
 
         this.discoveryService = new DiscoveryService(
             this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, this.authService

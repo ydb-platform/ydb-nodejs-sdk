@@ -90,9 +90,9 @@ WHERE series_id = 1;`;
     logger.info(`selectSimple result: ${JSON.stringify(result, null, 2)}`);
 }
 
-async function run(logger: Logger, endpoint: string) {
+async function run(logger: Logger, connectionString: string) {
     logger.debug('Driver initializing...');
-    const driver = new Driver(endpoint);
+    const driver = new Driver({connectionString});
     const dbName = driver.database;
     const timeout = 10000;
     if (!await driver.ready(timeout)) {

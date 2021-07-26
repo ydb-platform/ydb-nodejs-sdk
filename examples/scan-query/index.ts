@@ -117,9 +117,9 @@ async function executeScanQueryWithParams(tablePathPrefix: string, session: Sess
     logger.info(`Stream scan query completed, partial result count: ${count}`);
 }
 
-async function run(logger: Logger, endpoint: string) {
+async function run(logger: Logger, connectionString: string) {
     logger.debug('Driver initializing...');
-    const driver = new Driver(endpoint);
+    const driver = new Driver({connectionString});
     const database = driver.database;
     const timeout = 10000;
     if (!await driver.ready(timeout)) {

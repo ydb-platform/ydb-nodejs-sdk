@@ -30,7 +30,6 @@ export {
     ExecutionPolicy,
     CachingPolicy
 } from './table';
-export {getCredentialsFromEnv} from './parse-env-vars';
 export {
     IAuthService,
     ITokenService,
