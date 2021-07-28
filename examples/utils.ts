@@ -8,16 +8,16 @@ export interface Runner {
 
 export async function main(runner: Runner) {
     const args = yargs
-        .usage('Usage: $0 --endpoint endpoint')
-        .demandOption(['endpoint'])
+        .usage('Usage: $0 --connectionString connectionString')
+        .demandOption(['connectionString'])
         .argv;
 
-    const endpoint = args.endpoint as string;
+    const connectionString = args.connectionString as string;
     const logger = getLogger();
-    logger.info(`Running basic-example script against endpoint '${endpoint}'.`);
+    logger.info(`Running basic-example script against connectionString '${connectionString}'.`);
 
     try {
-        await runner(logger, endpoint);
+        await runner(logger, connectionString);
     } catch (error) {
         logger.error(error);
     }
