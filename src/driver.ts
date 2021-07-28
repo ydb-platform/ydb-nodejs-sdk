@@ -9,7 +9,7 @@ import getLogger, {Logger} from "./logging";
 import SchemeClient from "./scheme";
 import {Events} from './constants'
 import {ClientOptions} from "./utils";
-import {getCredentialsFromEnv} from "./parse-env-vars";
+import {getCredentialsFromEnvNew} from "./parse-env-vars";
 
 
 export interface DriverSettings {
@@ -64,24 +64,50 @@ export default class Driver {
     public tableClient: TableClient;
     public schemeClient: SchemeService;
 
-    constructor(config: DriverConfig) {
-        if (config.connectionString) {
-            const parsedConnectionString = parseConnectionString(config.connectionString);
-            this.entryPoint = parsedConnectionString[0];
-            this.database = parsedConnectionString[1];
-        } else if (config.entryPoint && config.database) {
-            this.entryPoint = config.entryPoint;
-            this.database = config.database;
-        } else {
-            throw new Error('One of connectionString or entryPoint and database are required');
-        }
+    constructor(
+        entryPoint: string,
+        database: string,
+        authService: IAuthService,
+        settings: DriverSettings);
 
+    constructor(config: DriverConfig);
+
+    constructor(
+        entryPointOrConfig: string | DriverConfig,
+        database?: string,
+        authService?: IAuthService,
+        settings?: DriverSettings
+    ) {
         this.logger = getLogger();
-
-        if (config.authService) {
-            this.authService = config.authService;
+        if (typeof entryPointOrConfig === 'string') {
+            if (!database) {
+                throw new Error('database is required in new Driver(entryPoint, database, authService, settings = {})');
+            }
+            if (!authService) {
+                throw new Error('authService is required new Driver(entryPoint, database, authService, settings = {})');
+            }
+            this.entryPoint = entryPointOrConfig;
+            this.database = database;
+            this.authService = authService;
+            this.settings = settings || {};
         } else {
-            this.authService = getCredentialsFromEnv(this.entryPoint, this.database, this.logger, config.rootCertificates);
+            const config = entryPointOrConfig;
+            if (config.connectionString) {
+                const parsedConnectionString = parseConnectionString(config.connectionString);
+                this.entryPoint = parsedConnectionString[0];
+                this.database = parsedConnectionString[1];
+            } else if (config.entryPoint && config.database) {
+                this.entryPoint = config.entryPoint;
+                this.database = config.database;
+            } else {
+                throw new Error('One of connectionString or entryPoint and database are required in driver config');
+            }
+            if (config.authService) {
+                this.authService = config.authService;
+            } else {
+                this.authService = getCredentialsFromEnvNew(this.entryPoint, this.database, this.logger, config.rootCertificates);
+            }
+            this.settings = config.settings || {};
         }
 
         this.discoveryService = new DiscoveryService(
