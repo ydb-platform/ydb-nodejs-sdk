@@ -5,22 +5,24 @@ import {
     TokenAuthService,
     IamAuthService,
     IIAmCredentials,
-    MetadataAuthService,
-    AnonymousAuthService,
+    MetadataAuthService, AnonymousAuthService
 } from "./credentials";
 import {ISslCredentials} from "./utils";
 import {Logger} from './logging';
 
 const FALLBACK_ROOT_CERTS = path.join(__dirname, '../proto/certs/CA.pem');
 
-function getSslCert(rootCertificates?: Buffer): ISslCredentials {
+function getSslCert(useInternalCertificate: boolean, rootCertificates?: Buffer): ISslCredentials {
     if (rootCertificates) {
         return {rootCertificates};
     }
-    const rootCertsFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || FALLBACK_ROOT_CERTS;
-    return {
-        rootCertificates: fs.readFileSync(rootCertsFile)
-    };
+
+    const rootCertsFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || (useInternalCertificate ? FALLBACK_ROOT_CERTS : '');
+    const sslCredentials: ISslCredentials = {};
+    if (rootCertsFile) {
+        sslCredentials.rootCertificates = fs.readFileSync(rootCertsFile);
+    }
+    return sslCredentials;
 }
 
 function getSACredentialsFromEnv(serviceAccountId: string): IIAmCredentials {
@@ -43,34 +45,21 @@ function getSACredentialsFromJson(filename: string): IIAmCredentials {
     };
 }
 
-function getSslCredentials(entryPoint: string, logger: Logger, rootCertificates?: Buffer) {
-    let sslCredentials = undefined;
-
+function getSslCredentials(entryPoint: string, logger: Logger, useInternalCertificate: boolean, rootCertificates?: Buffer) {
     if (entryPoint.startsWith('grpcs://')) {
         logger.debug('Protocol grpcs specified in entry-point, using SSL connection.');
-        return getSslCert(rootCertificates);
-    } else if (entryPoint.startsWith('grpc://')) {
-        logger.debug('Protocol grpc specified in entry-point, using insecure connection.');
-    } else {
-        logger.debug('No protocol specified in entry-point, using SSL connection.')
-        return getSslCert(rootCertificates);
+        return getSslCert(useInternalCertificate, rootCertificates);
     }
-
-    return sslCredentials;
+    if (entryPoint.startsWith('grpc://')) {
+        logger.debug('Protocol grpc specified in entry-point, using insecure connection.');
+        return undefined;
+    }
+    logger.debug('No protocol specified in entry-point, using SSL connection.')
+    return getSslCert(useInternalCertificate, rootCertificates);
 }
 
 export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger: Logger): IAuthService {
-    let sslCredentials = undefined;
-
-    if (entryPoint.startsWith('grpcs://')) {
-        logger.debug('Protocol grpcs specified in entry-point, using SSL connection.');
-        sslCredentials = getSslCert();
-    } else if (entryPoint.startsWith('grpc://')) {
-        logger.debug('Protocol grpc specified in entry-point, using insecure connection.');
-    } else {
-        logger.debug('No protocol specified in entry-point, using SSL connection.')
-        sslCredentials = getSslCert();
-    }
+    let sslCredentials = getSslCredentials(entryPoint, logger, false);
 
     if (process.env.YDB_TOKEN) {
         logger.debug('YDB_TOKEN env var found, using TokenAuthService.');
@@ -90,7 +79,7 @@ export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger
 }
 
 export function getCredentialsFromEnvNew(entryPoint: string, dbName: string, logger: Logger, rootCertificates?: Buffer): IAuthService {
-    const sslCredentials = getSslCredentials(entryPoint, logger, rootCertificates);
+    const sslCredentials = getSslCredentials(entryPoint, logger, true, rootCertificates);
 
     if (process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS) {
         logger.debug('YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS env var found, using IamAuthService with params from that json file.');

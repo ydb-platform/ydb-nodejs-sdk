@@ -1,23 +1,38 @@
-import {getLogger, Logger} from 'ydb-sdk';
+import {getLogger, Logger, parseConnectionString} from 'ydb-sdk';
 import yargs from 'yargs';
 
 
 export interface Runner {
-    (logger: Logger, endpoint: string): Promise<void>;
+    (logger: Logger, entryPoint: string, dbName: string): Promise<void>;
 }
 
 export async function main(runner: Runner) {
     const args = yargs
-        .usage('Usage: $0 --connectionString connectionString')
-        .demandOption(['connectionString'])
+        .usage('Usage: $0 --db <database> --endpoint <endpoint> or --connection-string <connection_string>')
         .argv;
 
-    const connectionString = args.connectionString as string;
+    const endpointParam = args.endpoint as string;
+    const dbParam = args.db as string;
+    const connectionStringParam = args.connectionString as string;
+
+    let endpoint;
+    let db;
+    if (connectionStringParam) {
+        const parsedConnectionString = parseConnectionString(connectionStringParam);
+        endpoint = parsedConnectionString.endpoint;
+        db = parsedConnectionString.database;
+    } else if (endpointParam && dbParam) {
+        endpoint = args.endpoint as string;
+        db = args.db as string;
+    } else {
+        throw new Error('One of --connection-string <connection_string> or --db <database> --endpoint <endpoint> arguments are required');
+    }
+
     const logger = getLogger();
-    logger.info(`Running basic-example script against connectionString '${connectionString}'.`);
+    logger.info(`Running basic-example script against endpoint '${endpoint}' and database '${db}'.`);
 
     try {
-        await runner(logger, connectionString);
+        await runner(logger, endpoint, db);
     } catch (error) {
         logger.error(error);
     }

@@ -1,4 +1,3 @@
-import * as url from "url";
 import DiscoveryService, {Endpoint} from "./discovery";
 import {SessionService, TableClient, PoolSettings} from "./table";
 import SchemeService from "./scheme";
@@ -9,7 +8,6 @@ import getLogger, {Logger} from "./logging";
 import SchemeClient from "./scheme";
 import {Events} from './constants'
 import {ClientOptions} from "./utils";
-import {getCredentialsFromEnvNew} from "./parse-env-vars";
 
 
 export interface DriverSettings {
@@ -17,101 +15,22 @@ export interface DriverSettings {
     clientOptions?: ClientOptions;
 }
 
-export interface DriverConfig {
-    connectionString?: string,
-    entryPoint?: string,
-    database?: string,
-    rootCertificates?: Buffer,
-    authService?: IAuthService,
-    settings?: DriverSettings,
-}
-
-function parseConnectionString(connectionString: string): [string, string] {
-    let cs = connectionString;
-    if (!cs.startsWith('grpc://') && !cs.startsWith('grpcs://') ){
-        cs = 'grpcs://' + cs;
-    }
-
-    let parsedUrl = url.parse(cs, true);
-    let databaseParam = parsedUrl.query['database'];
-
-    let database;
-    if (databaseParam === undefined) {
-        throw new Error('unknown database');
-    } else if (Array.isArray(databaseParam)) {
-        if (databaseParam.length === 0) {
-            throw new Error('unknown database');
-        }
-        database = databaseParam[0];
-    } else {
-        database = databaseParam;
-    }
-
-    let urlWithoutQuery = parsedUrl.host || 'localhost';
-
-    return [urlWithoutQuery, database];
-}
-
 export default class Driver {
-    private entryPoint: string;
     private discoveryService: DiscoveryService;
     private sessionCreators: Map<Endpoint, SessionService>;
     private logger: Logger;
 
-    public database: string;
-    public authService: IAuthService;
-    public settings: DriverSettings = {};
     public tableClient: TableClient;
     public schemeClient: SchemeService;
 
     constructor(
-        entryPoint: string,
-        database: string,
-        authService: IAuthService,
-        settings: DriverSettings);
-
-    constructor(config: DriverConfig);
-
-    constructor(
-        entryPointOrConfig: string | DriverConfig,
-        database?: string,
-        authService?: IAuthService,
-        settings?: DriverSettings
+        private entryPoint: string,
+        public database: string,
+        public authService: IAuthService,
+        public settings: DriverSettings = {}
     ) {
-        this.logger = getLogger();
-        if (typeof entryPointOrConfig === 'string') {
-            if (!database) {
-                throw new Error('database is required in new Driver(entryPoint, database, authService, settings = {})');
-            }
-            if (!authService) {
-                throw new Error('authService is required new Driver(entryPoint, database, authService, settings = {})');
-            }
-            this.entryPoint = entryPointOrConfig;
-            this.database = database;
-            this.authService = authService;
-            this.settings = settings || {};
-        } else {
-            const config = entryPointOrConfig;
-            if (config.connectionString) {
-                const parsedConnectionString = parseConnectionString(config.connectionString);
-                this.entryPoint = parsedConnectionString[0];
-                this.database = parsedConnectionString[1];
-            } else if (config.entryPoint && config.database) {
-                this.entryPoint = config.entryPoint;
-                this.database = config.database;
-            } else {
-                throw new Error('One of connectionString or entryPoint and database are required in driver config');
-            }
-            if (config.authService) {
-                this.authService = config.authService;
-            } else {
-                this.authService = getCredentialsFromEnvNew(this.entryPoint, this.database, this.logger, config.rootCertificates);
-            }
-            this.settings = config.settings || {};
-        }
-
         this.discoveryService = new DiscoveryService(
-            this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, this.authService
+            this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService
         );
         this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
             this.sessionCreators.delete(endpoint);
@@ -119,6 +38,7 @@ export default class Driver {
         this.sessionCreators = new Map();
         this.tableClient = new TableClient(this);
         this.schemeClient = new SchemeClient(this);
+        this.logger = getLogger();
     }
 
     public async ready(timeout: number): Promise<boolean> {

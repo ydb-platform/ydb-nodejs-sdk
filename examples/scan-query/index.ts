@@ -3,6 +3,7 @@ process.env.YDB_SDK_PRETTY_LOGS = '1';
 import {
     Column,
     Driver,
+    getCredentialsFromEnvNew,
     Logger,
     Session,
     TableDescription,
@@ -117,10 +118,10 @@ async function executeScanQueryWithParams(tablePathPrefix: string, session: Sess
     logger.info(`Stream scan query completed, partial result count: ${count}`);
 }
 
-async function run(logger: Logger, connectionString: string) {
+async function run(logger: Logger, entryPoint: string, dbName: string) {
+    const authService = getCredentialsFromEnvNew(entryPoint, dbName, logger);
     logger.debug('Driver initializing...');
-    const driver = new Driver({connectionString});
-    const dbName = driver.database;
+    const driver = new Driver(entryPoint, dbName, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
