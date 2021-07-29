@@ -18,10 +18,17 @@ function getSslCert(useInternalCertificate: boolean, rootCertificates?: Buffer):
         return {rootCertificates};
     }
 
-    const rootCertsFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || (useInternalCertificate ? FALLBACK_ROOT_CERTS : '');
     const sslCredentials: ISslCredentials = {};
-    if (rootCertsFile) {
-        sslCredentials.rootCertificates = fs.readFileSync(rootCertsFile);
+    if (process.env.YDB_SSL_ROOT_CERTIFICATES_FILE) {
+        sslCredentials.rootCertificates = fs.readFileSync(process.env.YDB_SSL_ROOT_CERTIFICATES_FILE);
+    } else if (useInternalCertificate) {
+        const tls = require('tls');
+        const rootCertificates = tls.rootCertificates as string[] | undefined;
+        if (rootCertificates && rootCertificates.length > 0) {
+            sslCredentials.rootCertificates = Buffer.from(rootCertificates.join('\n'));
+        } else {
+            sslCredentials.rootCertificates = fs.readFileSync(FALLBACK_ROOT_CERTS);
+        }
     }
     return sslCredentials;
 }
