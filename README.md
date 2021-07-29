@@ -17,7 +17,6 @@ export IAM_ENDPOINT= # for Yandex.Cloud, by default it is iam.api.cloud.yandex.n
 
 ### Access to internal YDB cluster
 ```bash
-export SA_ID=
 export YDB_ACCESS_TOKEN_CREDENTIALS= # here comes your oauth token
 ```
 
