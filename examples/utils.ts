@@ -22,8 +22,8 @@ export async function main(runner: Runner) {
         endpoint = parsedConnectionString.endpoint;
         db = parsedConnectionString.database;
     } else if (endpointParam && dbParam) {
-        endpoint = args.endpoint as string;
-        db = args.db as string;
+        endpoint = endpointParam;
+        db = dbParam;
     } else {
         throw new Error('Either --connection-string <connection_string> or --db <database> --endpoint <endpoint> arguments are required');
     }
