@@ -1,11 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import {
-    IAuthService,
-    TokenAuthService,
+    AnonymousAuthService,
     IamAuthService,
+    IAuthService,
     IIAmCredentials,
-    MetadataAuthService, AnonymousAuthService
+    MetadataAuthService,
+    TokenAuthService
 } from "./credentials";
 import {ISslCredentials} from "./utils";
 import {Logger} from './logging';
@@ -58,50 +59,42 @@ function getSslCredentials(entryPoint: string, logger: Logger, useInternalCertif
     return getSslCert(useInternalCertificate, rootCertificates);
 }
 
-export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger: Logger): IAuthService {
-    let sslCredentials = getSslCredentials(entryPoint, logger, false);
+export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger: Logger, rootCertificates?: Buffer): IAuthService {
+    function getOldSslCredentials() {
+        return getSslCredentials(entryPoint, logger, false);
+    }
+    function getNewSslCredentials() {
+        return getSslCredentials(entryPoint, logger, true, rootCertificates);
+    }
 
     if (process.env.YDB_TOKEN) {
-        logger.debug('YDB_TOKEN env var found, using TokenAuthService.');
-        return new TokenAuthService(process.env.YDB_TOKEN, dbName, sslCredentials);
+        logger.debug('deprecated YDB_TOKEN env var found, using TokenAuthService.');
+        return new TokenAuthService(process.env.YDB_TOKEN, dbName, getOldSslCredentials());
     }
-
     if (process.env.SA_ID) {
-        logger.debug('SA_ID env var found, using IamAuthService.');
-        return new IamAuthService(getSACredentialsFromEnv(process.env.SA_ID), dbName, sslCredentials);
-    } else if (process.env.SA_JSON_FILE) {
-        logger.debug('SA_JSON_FILE env var found, using IamAuthService with params from that json.');
-        return new IamAuthService(getSACredentialsFromJson(process.env.SA_JSON_FILE), dbName, sslCredentials);
-    } else {
-        logger.debug('Neither YDB_TOKEN nor SA_ID env variable is set, getting token from Metadata Service');
-        return new MetadataAuthService(dbName, sslCredentials);
+        logger.debug('deprecated SA_ID env var found, using IamAuthService.');
+        return new IamAuthService(getSACredentialsFromEnv(process.env.SA_ID), dbName, getOldSslCredentials());
     }
-}
-
-export function getCredentialsFromEnvNew(entryPoint: string, dbName: string, logger: Logger, rootCertificates?: Buffer): IAuthService {
-    const sslCredentials = getSslCredentials(entryPoint, logger, true, rootCertificates);
-
+    if (process.env.SA_JSON_FILE) {
+        logger.debug('deprecated SA_JSON_FILE env var found, using IamAuthService with params from that json.');
+        return new IamAuthService(getSACredentialsFromJson(process.env.SA_JSON_FILE), dbName, getOldSslCredentials());
+    }
     if (process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS) {
         logger.debug('YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS env var found, using IamAuthService with params from that json file.');
-        return new IamAuthService(getSACredentialsFromJson(process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS), dbName, sslCredentials);
+        return new IamAuthService(getSACredentialsFromJson(process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS), dbName, getNewSslCredentials());
     }
-
     if (process.env.YDB_ANONYMOUS_CREDENTIALS === '1') {
         logger.debug('YDB_ANONYMOUS_CREDENTIALS env var found, using MetadataAuthService.');
         return new AnonymousAuthService();
     }
-
     if (process.env.YDB_METADATA_CREDENTIALS === '1') {
         logger.debug('YDB_METADATA_CREDENTIALS env var found, using MetadataAuthService.');
-        return new MetadataAuthService(dbName, sslCredentials);
+        return new MetadataAuthService(dbName, getNewSslCredentials());
     }
-
-    const accessToken = process.env.YDB_ACCESS_TOKEN_CREDENTIALS;
-    if (accessToken) {
+    if (process.env.YDB_ACCESS_TOKEN_CREDENTIALS) {
         logger.debug('YDB_ACCESS_TOKEN_CREDENTIALS env var found, using TokenAuthService.');
-        return new TokenAuthService(accessToken, dbName, sslCredentials);
+        return new TokenAuthService(process.env.YDB_ACCESS_TOKEN_CREDENTIALS, dbName, getNewSslCredentials());
     }
-
-    logger.debug('Neither YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS, YDB_ANONYMOUS_CREDENTIALS, YDB_METADATA_CREDENTIALS nor YDB_ACCESS_TOKEN_CREDENTIALS env variable is set, getting token from Metadata Service');
-    return new MetadataAuthService(dbName, sslCredentials);
+    logger.debug('Neither known env variable is set, getting token from Metadata Service');
+    return new MetadataAuthService(dbName, getNewSslCredentials());
 }

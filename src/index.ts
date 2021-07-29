@@ -30,7 +30,7 @@ export {
     ExecutionPolicy,
     CachingPolicy
 } from './table';
-export {getCredentialsFromEnv, getCredentialsFromEnvNew} from './parse-env-vars';
+export {getCredentialsFromEnv} from './parse-env-vars';
 export {parseConnectionString, ParsedConnectionString} from './parse-connection-string';
 export {
     IAuthService,

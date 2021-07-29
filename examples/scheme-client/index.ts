@@ -1,11 +1,11 @@
 process.env.YDB_SDK_PRETTY_LOGS = '1';
 
-import {Driver, getCredentialsFromEnvNew, Logger} from 'ydb-sdk';
+import {Driver, getCredentialsFromEnv, Logger} from 'ydb-sdk';
 import {main} from '../utils';
 
 
 async function run(logger: Logger, entryPoint: string, dbName: string): Promise<void> {
-    const authService = getCredentialsFromEnvNew(entryPoint, dbName, logger);
+    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
     logger.info('Driver initializing...');
     const driver = new Driver(entryPoint, dbName, authService);
     const timeout = 10000;
