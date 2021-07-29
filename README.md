@@ -18,26 +18,24 @@ export IAM_ENDPOINT= # for Yandex.Cloud, by default it is iam.api.cloud.yandex.n
 ### Access to internal YDB cluster
 ```bash
 export SA_ID=
-export YDB_TOKEN= # here comes your oauth token
+export YDB_ACCESS_TOKEN_CREDENTIALS= # here comes your oauth token
 ```
 
 ### Access to Yandex.Cloud YDB cluster from local machine
 #### Serverless DB
 ```bash
-export YDB_TOKEN= # here comes your token from `yc iam create-token`
+export YDB_ACCESS_TOKEN_CREDENTIALS= # here comes your token from `yc iam create-token`
 ```
 
 #### Dedicated DB
 ```bash
-export YDB_TOKEN= # here comes your token from `yc iam create-token`
+export YDB_ACCESS_TOKEN_CREDENTIALS= # here comes your token from `yc iam create-token`
 export YDB_SSL_ROOT_CERTIFICATES_FILE= # here should be the path to ssl root certificate for YDB installation
 ```
 
 ### Access to Yandex.Cloud YDB cluster from virtual machine
 ```bash
-export SA_PRIVATE_KEY_FILE= # here should be the path to the file with your service account's private key
-export SA_ID= # here come you service account's id
-export SA_ACCESS_KEY_ID= # here comes your service account's key id
+export YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS= # here should be the path to the service account key file from 'yc iam key create --folder-id <folder_id> --service-account-name <sa_name> --output ~/.ydb/sa_name.json'
 ```
 
 ## Run basic-example script
