@@ -68,15 +68,15 @@ export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger
     }
 
     if (process.env.YDB_TOKEN) {
-        logger.debug('deprecated YDB_TOKEN env var found, using TokenAuthService.');
+        logger.warn('deprecated YDB_TOKEN env var found, using TokenAuthService.');
         return new TokenAuthService(process.env.YDB_TOKEN, dbName, getOldSslCredentials());
     }
     if (process.env.SA_ID) {
-        logger.debug('deprecated SA_ID env var found, using IamAuthService.');
+        logger.warn('deprecated SA_ID env var found, using IamAuthService.');
         return new IamAuthService(getSACredentialsFromEnv(process.env.SA_ID), dbName, getOldSslCredentials());
     }
     if (process.env.SA_JSON_FILE) {
-        logger.debug('deprecated SA_JSON_FILE env var found, using IamAuthService with params from that json.');
+        logger.warn('deprecated SA_JSON_FILE env var found, using IamAuthService with params from that json.');
         return new IamAuthService(getSACredentialsFromJson(process.env.SA_JSON_FILE), dbName, getOldSslCredentials());
     }
     if (process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS) {

@@ -25,7 +25,7 @@ export async function main(runner: Runner) {
         endpoint = args.endpoint as string;
         db = args.db as string;
     } else {
-        throw new Error('One of --connection-string <connection_string> or --db <database> --endpoint <endpoint> arguments are required');
+        throw new Error('Either --connection-string <connection_string> or --db <database> --endpoint <endpoint> arguments are required');
     }
 
     const logger = getLogger();
