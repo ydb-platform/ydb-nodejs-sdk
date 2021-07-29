@@ -27,7 +27,8 @@ export YDB_METADATA_CREDENTIALS=1 #  try local metadata service authentication
 export YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS = # here should be the path to the service account key file from 'yc iam key create --folder-id <folder_id> --service-account-name <sa_name> --output ~/.ydb/sa_name.json'
 ```
 
-Deprecated credential variables (will be removed in the next major release):
+### Deprecated variables
+These variables will be removed in the next major release:
 ```bash
 export YDB_TOKEN= # here comes your token from `yc iam create-token`
 
