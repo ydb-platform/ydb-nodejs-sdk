@@ -66,5 +66,5 @@ export YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS= # here should be the path to th
 cd examples
 npm ci
 npm run build
-npm run basic-v1 -- --connection-string grpcs://your.cloud,endpoint.hostname?database=your-cloud-db-name
+npm run basic-v1 -- --connection-string grpcs://your.cloud.endpoint.hostname?database=your-cloud-db-name
 ```
