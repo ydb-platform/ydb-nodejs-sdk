@@ -32,6 +32,7 @@ export {
     CachingPolicy
 } from './table';
 export {getCredentialsFromEnv} from './parse-env-vars';
+export {parseConnectionString, ParsedConnectionString} from './parse-connection-string';
 export {
     IAuthService,
     ITokenService,
