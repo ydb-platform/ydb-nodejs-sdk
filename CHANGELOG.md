@@ -1,5 +1,14 @@
 # Changelog
 
+### 2.4.0
+* Support new unified environment variables: YDB_ACCESS_TOKEN_CREDENTIALS, 
+  YDB_ANONYMOUS_CREDENTIALS, YDB_METADATA_CREDENTIALS, YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS
+* Deprecate old credentials environment variables: YDB_TOKEN, SA_ID, SA_PRIVATE_KEY_FILE, 
+  SA_ACCESS_KEY_ID, SA_JSON_FILE
+* Put back embedded certificate file, now certificates for YDB dedicated instances are
+  concatenated with system certificates, which should allow to use embedded certificate
+  for both dedicated and serverless databases.
+
 ### 2.3.0
 * Provide `Primitive` helper class for easy creation of primitive values, see how it's used in
   in /scan-query example.
