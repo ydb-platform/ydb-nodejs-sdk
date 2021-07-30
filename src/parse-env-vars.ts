@@ -22,12 +22,14 @@ function getSslCert(useInternalCertificate: boolean, rootCertificates?: Buffer):
     if (process.env.YDB_SSL_ROOT_CERTIFICATES_FILE) {
         sslCredentials.rootCertificates = fs.readFileSync(process.env.YDB_SSL_ROOT_CERTIFICATES_FILE);
     } else if (useInternalCertificate) {
+        const ydbRootCertificates = fs.readFileSync(FALLBACK_ROOT_CERTS);
+
         const tls = require('tls');
-        const rootCertificates = tls.rootCertificates as string[] | undefined;
-        if (rootCertificates && rootCertificates.length > 0) {
-            sslCredentials.rootCertificates = Buffer.from(rootCertificates.join('\n'));
+        const nodeRootCertificates = tls.rootCertificates as string[] | undefined;
+        if (nodeRootCertificates && nodeRootCertificates.length > 0) {
+            sslCredentials.rootCertificates = Buffer.concat([ydbRootCertificates, Buffer.from(nodeRootCertificates.join('\n'))]);
         } else {
-            sslCredentials.rootCertificates = fs.readFileSync(FALLBACK_ROOT_CERTS);
+            sslCredentials.rootCertificates = ydbRootCertificates;
         }
     }
     return sslCredentials;
