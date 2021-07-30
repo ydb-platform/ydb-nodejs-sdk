@@ -11,7 +11,8 @@ import {
 import {ISslCredentials} from "./utils";
 import {Logger} from './logging';
 
-const FALLBACK_ROOT_CERTS = path.join(__dirname, '../proto/certs/CA.pem');
+const FALLBACK_INTERNAL_ROOT_CERTS = path.join(__dirname, '../proto/certs/internal.pem');
+const FALLBACK_SYSTEM_ROOT_CERTS = path.join(__dirname, '../proto/certs/system.pem');
 
 function getSslCert(useInternalCertificate: boolean, rootCertificates?: Buffer): ISslCredentials {
     if (rootCertificates) {
@@ -22,15 +23,18 @@ function getSslCert(useInternalCertificate: boolean, rootCertificates?: Buffer):
     if (process.env.YDB_SSL_ROOT_CERTIFICATES_FILE) {
         sslCredentials.rootCertificates = fs.readFileSync(process.env.YDB_SSL_ROOT_CERTIFICATES_FILE);
     } else if (useInternalCertificate) {
-        const ydbRootCertificates = fs.readFileSync(FALLBACK_ROOT_CERTS);
+        const internalRootCertificates = fs.readFileSync(FALLBACK_INTERNAL_ROOT_CERTS);
 
+        let systemRootCertificates;
         const tls = require('tls');
         const nodeRootCertificates = tls.rootCertificates as string[] | undefined;
         if (nodeRootCertificates && nodeRootCertificates.length > 0) {
-            sslCredentials.rootCertificates = Buffer.concat([ydbRootCertificates, Buffer.from(nodeRootCertificates.join('\n'))]);
+            systemRootCertificates = Buffer.from(nodeRootCertificates.join('\n'));
         } else {
-            sslCredentials.rootCertificates = ydbRootCertificates;
+            systemRootCertificates = fs.readFileSync(FALLBACK_SYSTEM_ROOT_CERTS);
         }
+
+        sslCredentials.rootCertificates = Buffer.concat([internalRootCertificates, systemRootCertificates]);
     }
     return sslCredentials;
 }
