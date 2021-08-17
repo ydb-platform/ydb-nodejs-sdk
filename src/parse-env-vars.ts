@@ -97,7 +97,7 @@ export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger
         return new IamAuthService(getSACredentialsFromJson(process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS), dbName, getNewSslCredentials());
     }
     if (process.env.YDB_ANONYMOUS_CREDENTIALS === '1') {
-        logger.debug('YDB_ANONYMOUS_CREDENTIALS env var found, using MetadataAuthService.');
+        logger.debug('YDB_ANONYMOUS_CREDENTIALS env var found, using AnonymousAuthService.');
         return new AnonymousAuthService();
     }
     if (process.env.YDB_METADATA_CREDENTIALS === '1') {
