@@ -15,7 +15,7 @@ function makeCredentialsMetadata(token: string, dbName: string): grpc.Metadata {
     return metadata;
 }
 
-export interface IIAmCredentials {
+export interface IIamCredentials {
     serviceAccountId: string,
     accessKeyId: string,
     privateKey: Buffer,
@@ -24,7 +24,7 @@ export interface IIAmCredentials {
 
 export interface IAuthCredentials {
     sslCredentials: ISslCredentials,
-    iamCredentials: IIAmCredentials
+    iamCredentials: IIamCredentials
 }
 
 export interface ITokenService {
@@ -58,11 +58,11 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
     private token: string = '';
     private readonly dbName: string = '';
     private tokenTimestamp: DateTime|null;
-    private readonly iamCredentials: IIAmCredentials;
+    private readonly iamCredentials: IIamCredentials;
 
     public readonly sslCredentials?: ISslCredentials;
 
-    constructor(iamCredentials: IIAmCredentials, dbName: string, sslCredentials?: ISslCredentials) {
+    constructor(iamCredentials: IIamCredentials, dbName: string, sslCredentials?: ISslCredentials) {
         super(
             iamCredentials.iamEndpoint,
             'yandex.cloud.iam.v1.IamTokenService',
