@@ -4,7 +4,7 @@ import {
     AnonymousAuthService,
     IamAuthService,
     IAuthService,
-    IIAmCredentials,
+    IIamCredentials,
     MetadataAuthService,
     TokenAuthService
 } from "./credentials";
@@ -39,7 +39,7 @@ function getSslCert(useInternalCertificate: boolean, rootCertificates?: Buffer):
     return sslCredentials;
 }
 
-function getSACredentialsFromEnv(serviceAccountId: string): IIAmCredentials {
+function getSACredentialsFromEnv(serviceAccountId: string): IIamCredentials {
     return {
         iamEndpoint: process.env.IAM_ENDPOINT || 'iam.api.cloud.yandex.net:443',
         serviceAccountId,
@@ -48,7 +48,7 @@ function getSACredentialsFromEnv(serviceAccountId: string): IIAmCredentials {
     };
 }
 
-function getSACredentialsFromJson(filename: string): IIAmCredentials {
+export function getSACredentialsFromJson(filename: string): IIamCredentials {
     const buffer = fs.readFileSync(filename);
     const payload = JSON.parse(buffer.toString());
     return {
@@ -59,7 +59,7 @@ function getSACredentialsFromJson(filename: string): IIAmCredentials {
     };
 }
 
-function getSslCredentials(entryPoint: string, logger: Logger, useInternalCertificate: boolean, rootCertificates?: Buffer) {
+function getSslCredentialsImpl(entryPoint: string, logger: Logger, useInternalCertificate: boolean, rootCertificates?: Buffer) {
     if (entryPoint.startsWith('grpcs://')) {
         logger.debug('Protocol grpcs specified in entry-point, using SSL connection.');
         return getSslCert(useInternalCertificate, rootCertificates);
@@ -72,12 +72,16 @@ function getSslCredentials(entryPoint: string, logger: Logger, useInternalCertif
     return getSslCert(useInternalCertificate, rootCertificates);
 }
 
+export function getSslCredentials(entryPoint: string, logger: Logger) {
+    return getSslCredentialsImpl(entryPoint, logger, true);
+}
+
 export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger: Logger, rootCertificates?: Buffer): IAuthService {
     function getOldSslCredentials() {
-        return getSslCredentials(entryPoint, logger, false);
+        return getSslCredentialsImpl(entryPoint, logger, false);
     }
     function getNewSslCredentials() {
-        return getSslCredentials(entryPoint, logger, true, rootCertificates);
+        return getSslCredentialsImpl(entryPoint, logger, true, rootCertificates);
     }
 
     if (process.env.YDB_TOKEN) {
