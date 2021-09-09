@@ -16,6 +16,7 @@ export {
     Session,
     ExecDataQuerySettings,
     ExecuteScanQuerySettings,
+    ReadTableSettings,
     TableDescription,
     AlterTableDescription,
     Column,
