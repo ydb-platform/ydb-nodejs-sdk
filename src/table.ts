@@ -42,7 +42,13 @@ import FeatureFlag = Ydb.FeatureFlag.Status;
 import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
 import IOperationParams = Ydb.Operations.IOperationParams;
 import ExecuteScanQueryPartialResult = Ydb.Table.ExecuteScanQueryPartialResult;
+import IKeyRange = Ydb.Table.IKeyRange;
 
+interface PartialResponse<T> {
+    status?: (Ydb.StatusIds.StatusCode|null);
+    issues?: (Ydb.Issue.IIssueMessage[]|null);
+    result?: (T|null);
+}
 
 export class SessionService extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;
@@ -95,6 +101,60 @@ export class ExecDataQuerySettings {
     withKeepInCache(keepInCache: boolean) {
         this.keepInCache = keepInCache;
         return this;
+    }
+}
+
+export class ReadTableSettings {
+    columns?: string[];
+    ordered?: boolean;
+    rowLimit?: number;
+    keyRange?: Ydb.Table.IKeyRange;
+
+    withRowLimit(rowLimit: number) {
+        this.rowLimit = rowLimit;
+        return this;
+    }
+
+    withColumns(...columns: string[]) {
+        this.columns = columns;
+        return this;
+    }
+
+    withOrdered(ordered: boolean) {
+        this.ordered = ordered;
+        return this;
+    }
+
+    withKeyRange(keyRange: IKeyRange) {
+        this.keyRange = keyRange;
+        return this;
+    }
+
+    withKeyGreater(value: ITypedValue) {
+        this.getOrInitKeyRange().greater = value;
+        return this;
+    }
+
+    withKeyGreaterOrEqual(value: ITypedValue) {
+        this.getOrInitKeyRange().greaterOrEqual = value;
+        return this;
+    }
+
+    withKeyLess(value: ITypedValue) {
+        this.getOrInitKeyRange().less = value;
+        return this;
+    }
+
+    withKeyLessOrEqual(value: ITypedValue) {
+        this.getOrInitKeyRange().lessOrEqual = value;
+        return this;
+    }
+
+    private getOrInitKeyRange() {
+        if (!this.keyRange) {
+            this.keyRange = {};
+        }
+        return this.keyRange;
     }
 }
 
@@ -300,6 +360,23 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @pessimizable
+    public async streamReadTable(path: string, consumer: (result: Ydb.Table.ReadTableResult) => void, settings?: ReadTableSettings): Promise<void> {
+        const request: Ydb.Table.IReadTableRequest = {path};
+        if (settings) {
+            request.columns = settings.columns;
+            request.ordered = settings.ordered;
+            request.rowLimit = settings.rowLimit;
+            request.keyRange = settings.keyRange;
+        }
+
+        return this.executeStreamRequest(
+            request,
+            this.api.streamReadTable.bind(this.api),
+            Ydb.Table.ReadTableResult.create,
+            consumer);
+    }
+
+    @pessimizable
     public async streamExecuteScanQuery(
         query: PrepareQueryResult | string,
         consumer: (result: ExecuteScanQueryPartialResult) => void,
@@ -324,8 +401,21 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             mode,
         };
 
+        return this.executeStreamRequest(
+            request,
+            this.api.streamExecuteScanQuery.bind(this.api),
+            ExecuteScanQueryPartialResult.create,
+            consumer);
+    }
+
+    private executeStreamRequest<Req, Resp extends PartialResponse<IRes>, IRes, Res>(
+        request: Req,
+        apiStreamMethod: (request: Req, callback: (error: (Error|null), response?: Resp) => void) => void,
+        transformer: (result: IRes) => Res,
+        consumer: (result: Res) => void)
+        : Promise<void> {
         return new Promise((resolve, reject) => {
-            this.api.streamExecuteScanQuery(request, (error, response) => {
+            apiStreamMethod(request, (error, response) => {
                 try {
                     if (error) {
                         if (error instanceof StreamEnd) {
@@ -334,17 +424,18 @@ export class Session extends EventEmitter implements ICreateSessionResult {
                             reject(error);
                         }
                     } else if (response) {
-                        YdbError.checkStatus({
+                        const operation = {
                             status: response.status,
                             issues: response.issues,
-                        });
+                        } as Ydb.Operations.IOperation;
+                        YdbError.checkStatus(operation);
 
                         if (!response.result) {
-                            reject(new MissingValue('Missing execute scan query result value!'));
+                            reject(new MissingValue('Missing result value!'));
                             return;
                         }
 
-                        const result = ExecuteScanQueryPartialResult.create(response.result);
+                        const result = transformer(response.result);
                         consumer(result);
                     }
                 } catch (e) {
