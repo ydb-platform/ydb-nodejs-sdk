@@ -1,11 +1,10 @@
-import {Driver, getSACredentialsFromJson, getSslCredentials, IamAuthService, Logger} from 'ydb-sdk';
+import {Driver, getSACredentialsFromJson, IamAuthService, Logger} from 'ydb-sdk';
 
 export async function run(logger: Logger, entryPoint: string, dbName: string, args?: any) {
+    logger.debug('Driver initializing...');
     const saKeyFile = args.serviceAccountKeyFile;
     const saCredentials = getSACredentialsFromJson(saKeyFile);
-    const sslCredentials = getSslCredentials(entryPoint, logger);
-    const authService = new IamAuthService(saCredentials, dbName, sslCredentials);
-    logger.debug('Driver initializing...');
+    const authService = new IamAuthService(saCredentials, dbName);
     const driver = new Driver(entryPoint, dbName, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {

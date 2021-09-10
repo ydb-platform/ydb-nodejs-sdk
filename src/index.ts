@@ -31,7 +31,7 @@ export {
     ExecutionPolicy,
     CachingPolicy
 } from './table';
-export {getCredentialsFromEnv, getSACredentialsFromJson, getSslCredentials} from './parse-env-vars';
+export {getCredentialsFromEnv, getSACredentialsFromJson} from './parse-env-vars';
 export {parseConnectionString, ParsedConnectionString} from './parse-connection-string';
 export {
     IAuthService,

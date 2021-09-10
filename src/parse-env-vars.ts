@@ -1,42 +1,21 @@
 import fs from 'fs';
-import path from 'path';
 import {
     AnonymousAuthService,
     IamAuthService,
     IAuthService,
-    IIamCredentials,
+    IIamCredentials, makeSslCredentials,
     MetadataAuthService,
     TokenAuthService
 } from "./credentials";
 import {ISslCredentials} from "./utils";
 import {Logger} from './logging';
 
-const FALLBACK_INTERNAL_ROOT_CERTS = path.join(__dirname, '../proto/certs/internal.pem');
-const FALLBACK_SYSTEM_ROOT_CERTS = path.join(__dirname, '../proto/certs/system.pem');
-
 function getSslCert(useInternalCertificate: boolean, rootCertificates?: Buffer): ISslCredentials {
     if (rootCertificates) {
         return {rootCertificates};
     }
 
-    const sslCredentials: ISslCredentials = {};
-    if (process.env.YDB_SSL_ROOT_CERTIFICATES_FILE) {
-        sslCredentials.rootCertificates = fs.readFileSync(process.env.YDB_SSL_ROOT_CERTIFICATES_FILE);
-    } else if (useInternalCertificate) {
-        const internalRootCertificates = fs.readFileSync(FALLBACK_INTERNAL_ROOT_CERTS);
-
-        let systemRootCertificates;
-        const tls = require('tls');
-        const nodeRootCertificates = tls.rootCertificates as string[] | undefined;
-        if (nodeRootCertificates && nodeRootCertificates.length > 0) {
-            systemRootCertificates = Buffer.from(nodeRootCertificates.join('\n'));
-        } else {
-            systemRootCertificates = fs.readFileSync(FALLBACK_SYSTEM_ROOT_CERTS);
-        }
-
-        sslCredentials.rootCertificates = Buffer.concat([internalRootCertificates, systemRootCertificates]);
-    }
-    return sslCredentials;
+    return makeSslCredentials(useInternalCertificate);
 }
 
 function getSACredentialsFromEnv(serviceAccountId: string): IIamCredentials {
@@ -70,10 +49,6 @@ function getSslCredentialsImpl(entryPoint: string, logger: Logger, useInternalCe
     }
     logger.debug('No protocol specified in entry-point, using SSL connection.')
     return getSslCert(useInternalCertificate, rootCertificates);
-}
-
-export function getSslCredentials(entryPoint: string, logger: Logger) {
-    return getSslCredentialsImpl(entryPoint, logger, true);
 }
 
 export function getCredentialsFromEnv(entryPoint: string, dbName: string, logger: Logger, rootCertificates?: Buffer): IAuthService {

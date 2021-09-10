@@ -1,10 +1,9 @@
-import {Driver, getSslCredentials, Logger, TokenAuthService} from 'ydb-sdk';
+import {Driver, Logger, TokenAuthService} from 'ydb-sdk';
 
 export async function run(logger: Logger, entryPoint: string, dbName: string, args?: any) {
-    const accessToken = args.ydbAccessToken;
-    const sslCredentials = getSslCredentials(entryPoint, logger);
-    const authService = new TokenAuthService(accessToken, dbName, sslCredentials);
     logger.debug('Driver initializing...');
+    const accessToken = args.ydbAccessToken;
+    const authService = new TokenAuthService(accessToken, dbName);
     const driver = new Driver(entryPoint, dbName, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
