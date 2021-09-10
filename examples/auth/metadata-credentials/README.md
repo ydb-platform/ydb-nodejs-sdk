@@ -1,8 +1,8 @@
 # Authenticate with metadata credentials
 
-`metadata_credentials` example provide code snippet for authenticate to YDB with metadata credentials
+`metadata_credentials` example provides the code snippet for authenticating to YDB with the access token credentials.
 
-## Runing code snippet
+## Running code snippet
 ```bash
 node metadata_credentials --connection-string "grpcs://endpoint/?database=database"
 ```
