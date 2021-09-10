@@ -16,5 +16,5 @@ export async function run(logger: Logger, entryPoint: string, dbName: string, ar
 export const options = [{
     key: 'ydbAccessToken',
     name: 'ydb-access-token',
-    description: 'access token for YDB authenticate',
+    description: 'access token for YDB authentication',
 }];
