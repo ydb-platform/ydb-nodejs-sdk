@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import grpc from 'grpc';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
@@ -7,6 +9,29 @@ import {yandex} from "../proto/bundle";
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 
+const FALLBACK_INTERNAL_ROOT_CERTS = path.join(__dirname, '../proto/certs/internal.pem');
+const FALLBACK_SYSTEM_ROOT_CERTS = path.join(__dirname, '../proto/certs/system.pem');
+
+export function makeSslCredentials(useInternalCertificate: boolean = true): ISslCredentials {
+    const sslCredentials: ISslCredentials = {};
+    if (process.env.YDB_SSL_ROOT_CERTIFICATES_FILE) {
+        sslCredentials.rootCertificates = fs.readFileSync(process.env.YDB_SSL_ROOT_CERTIFICATES_FILE);
+    } else if (useInternalCertificate) {
+        const internalRootCertificates = fs.readFileSync(FALLBACK_INTERNAL_ROOT_CERTS);
+
+        let systemRootCertificates;
+        const tls = require('tls');
+        const nodeRootCertificates = tls.rootCertificates as string[] | undefined;
+        if (nodeRootCertificates && nodeRootCertificates.length > 0) {
+            systemRootCertificates = Buffer.from(nodeRootCertificates.join('\n'));
+        } else {
+            systemRootCertificates = fs.readFileSync(FALLBACK_SYSTEM_ROOT_CERTS);
+        }
+
+        sslCredentials.rootCertificates = Buffer.concat([internalRootCertificates, systemRootCertificates]);
+    }
+    return sslCredentials;
+}
 
 function makeCredentialsMetadata(token: string, dbName: string): grpc.Metadata {
     const metadata = new grpc.Metadata();
@@ -20,11 +45,6 @@ export interface IIamCredentials {
     accessKeyId: string,
     privateKey: Buffer,
     iamEndpoint: string
-}
-
-export interface IAuthCredentials {
-    sslCredentials: ISslCredentials,
-    iamCredentials: IIamCredentials
 }
 
 export interface ITokenService {
@@ -44,7 +64,7 @@ export class AnonymousAuthService implements IAuthService {
 }
 
 export class TokenAuthService implements IAuthService {
-    constructor(private token: string, private dbName: string, public sslCredentials?: ISslCredentials) {}
+    constructor(private token: string, private dbName: string, public sslCredentials: ISslCredentials = makeSslCredentials()) {}
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         return makeCredentialsMetadata(this.token, this.dbName);
@@ -62,7 +82,7 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
 
     public readonly sslCredentials?: ISslCredentials;
 
-    constructor(iamCredentials: IIamCredentials, dbName: string, sslCredentials?: ISslCredentials) {
+    constructor(iamCredentials: IIamCredentials, dbName: string, sslCredentials: ISslCredentials = makeSslCredentials()) {
         super(
             iamCredentials.iamEndpoint,
             'yandex.cloud.iam.v1.IamTokenService',
@@ -123,12 +143,14 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
 
 export class MetadataAuthService implements IAuthService {
     private tokenService: ITokenService;
+    public readonly sslCredentials: ISslCredentials;
 
     static MAX_TRIES = 5;
     static TRIES_INTERVAL = 2000;
 
-    constructor(private dbName: string, public sslCredentials?: ISslCredentials, tokenService?: ITokenService) {
+    constructor(private dbName: string, sslCredentials?: ISslCredentials, tokenService?: ITokenService) {
         this.tokenService = tokenService || new TokenService();
+        this.sslCredentials = sslCredentials || makeSslCredentials();
     }
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
