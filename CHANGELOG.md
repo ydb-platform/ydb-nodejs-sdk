@@ -1,5 +1,10 @@
 # Changelog
 
+### 2.5.0
+* All authentication helper classes are now exported from top-level and ready to be used in client
+  code.
+* Added authentication code snippets to /examples
+
 ### 2.4.0
 * Support new unified environment variables: YDB_ACCESS_TOKEN_CREDENTIALS, 
   YDB_ANONYMOUS_CREDENTIALS, YDB_METADATA_CREDENTIALS, YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS
