@@ -39,7 +39,7 @@
     "pino": "^6.3.0",
     "reflect-metadata": "^0.1.13",
     "yandex-cloud": "^1.4.2",
-    "ydb-sdk-proto": "^0.0.1"
+    "ydb-sdk-proto": "^0.1.0"
   },
   "devDependencies": {
     "@types/jest": "^27.0.1",
