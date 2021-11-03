@@ -1,4 +1,4 @@
-export {Ydb} from '../proto/bundle';
+export {Ydb} from 'ydb-sdk-proto';
 export {default as getLogger, Logger} from './logging';
 export {default as Driver} from './driver';
 export {

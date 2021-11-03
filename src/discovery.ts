@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
 import {DateTime} from 'luxon';
-import {Ydb} from "../proto/bundle";
+import {Ydb} from "ydb-sdk-proto";
 import {AuthenticatedService, getOperationPayload, withTimeout} from "./utils";
 import {IAuthService} from "./credentials";
 import {retryable} from "./retries";

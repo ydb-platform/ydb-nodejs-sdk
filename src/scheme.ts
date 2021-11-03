@@ -1,4 +1,4 @@
-import {Ydb} from "../proto/bundle";
+import {Ydb} from "ydb-sdk-proto";
 import {
     AuthenticatedService,
     getOperationPayload,

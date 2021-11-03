@@ -5,11 +5,10 @@
   "main": "build/index.js",
   "files": [
     "build/**",
-    "proto/**"
+    "certs/"
   ],
   "scripts": {
     "test": "jest",
-    "build:bundle": "pbjs -t static-module -r ydb-sdk -w commonjs -p . `ls kikimr/public/api/grpc/*.proto` yandex/cloud/iam/v1/iam_token_service.proto > proto/bundle.js && pbts -o proto/bundle.d.ts proto/bundle.js",
     "build:lib": "tsc",
     "build:examples": "cd examples && npm run build",
     "basic-example-v1": "cd examples && npm run basic-v1",
@@ -38,9 +37,9 @@
     "long": "^4.0.0",
     "luxon": "^1.21.2",
     "pino": "^6.3.0",
-    "protobufjs": "^6.8.8",
     "reflect-metadata": "^0.1.13",
-    "yandex-cloud": "^1.4.2"
+    "yandex-cloud": "^1.4.2",
+    "ydb-sdk-proto": "^0.0.1"
   },
   "devDependencies": {
     "@types/jest": "^27.0.1",
