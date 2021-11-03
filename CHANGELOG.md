@@ -1,14 +1,18 @@
 # Changelog
 
+### 2.6.0
+* YDB definitions bundle and generating bundle from protobuf files have been moved to ydb-sdk-proto
+  dependency package
+
 ### 2.5.0
 * All authentication helper classes are now exported from top-level and ready to be used in client
   code.
 * Added authentication code snippets to /examples
 
 ### 2.4.0
-* Support new unified environment variables: YDB_ACCESS_TOKEN_CREDENTIALS, 
+* Support new unified environment variables: YDB_ACCESS_TOKEN_CREDENTIALS,
   YDB_ANONYMOUS_CREDENTIALS, YDB_METADATA_CREDENTIALS, YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS
-* Deprecate old credentials environment variables: YDB_TOKEN, SA_ID, SA_PRIVATE_KEY_FILE, 
+* Deprecate old credentials environment variables: YDB_TOKEN, SA_ID, SA_PRIVATE_KEY_FILE,
   SA_ACCESS_KEY_ID, SA_JSON_FILE
 * Put back embedded certificate file, now certificates for YDB dedicated instances are
   concatenated with system certificates, which should allow to use embedded certificate
