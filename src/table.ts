@@ -73,7 +73,6 @@ enum SessionEvent {
 interface IExistingTransaction {
     txId: string
 }
-
 interface INewTransaction {
     beginTx: ITransactionSettings,
     commitTx: boolean
