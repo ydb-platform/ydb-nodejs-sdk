@@ -5,12 +5,12 @@ import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
 import {GrpcService, ISslCredentials, sleep, withTimeout} from "./utils";
 import {TokenService} from 'yandex-cloud';
-import {yandex} from "../proto/bundle";
+import {yandex} from "ydb-sdk-proto";
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 
-const FALLBACK_INTERNAL_ROOT_CERTS = path.join(__dirname, '../proto/certs/internal.pem');
-const FALLBACK_SYSTEM_ROOT_CERTS = path.join(__dirname, '../proto/certs/system.pem');
+const FALLBACK_INTERNAL_ROOT_CERTS = path.join(__dirname, '../certs/internal.pem');
+const FALLBACK_SYSTEM_ROOT_CERTS = path.join(__dirname, '../certs/system.pem');
 
 export function makeSslCredentials(useInternalCertificate: boolean = true): ISslCredentials {
     const sslCredentials: ISslCredentials = {};

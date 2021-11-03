@@ -1,7 +1,7 @@
 import Driver from '../driver';
 import {DATABASE, destroyDriver, initDriver} from '../test-utils';
 import {Column, Session, TableDescription} from '../table';
-import {Ydb} from '../../proto/bundle';
+import {Ydb} from 'ydb-sdk-proto';
 import {declareType, TypedData} from '../types';
 import {withRetries} from '../retries';
 

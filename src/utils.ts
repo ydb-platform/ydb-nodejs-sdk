@@ -1,7 +1,7 @@
 import grpc, {Metadata} from 'grpc';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
-import {Ydb} from '../proto/bundle';
+import {Ydb} from 'ydb-sdk-proto';
 import {MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, YdbError} from "./errors";
 
 import {Endpoint} from './discovery';

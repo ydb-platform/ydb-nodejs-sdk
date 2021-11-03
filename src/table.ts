@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
-import {Ydb} from '../proto/bundle';
+import {Ydb} from 'ydb-sdk-proto';
 import {
     AuthenticatedService,
     ClientOptions,

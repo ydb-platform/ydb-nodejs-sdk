@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import Long from 'long';
-import {google, Ydb} from '../proto/bundle';
+import {google, Ydb} from 'ydb-sdk-proto';
 import 'reflect-metadata';
 
 import Type = Ydb.Type;
