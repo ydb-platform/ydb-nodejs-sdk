@@ -33,10 +33,15 @@ export function makeSslCredentials(useInternalCertificate: boolean = true): ISsl
     return sslCredentials;
 }
 
-function makeCredentialsMetadata(token: string, dbName: string): grpc.Metadata {
+function makeDbMetadata(dbName: string): grpc.Metadata {
     const metadata = new grpc.Metadata();
-    metadata.add('x-ydb-auth-ticket', token);
     metadata.add('x-ydb-database', dbName);
+    return metadata;
+}
+
+function makeCredentialsMetadata(token: string, dbName: string): grpc.Metadata {
+    const metadata = makeDbMetadata(dbName);
+    metadata.add('x-ydb-auth-ticket', token);
     return metadata;
 }
 
@@ -58,8 +63,9 @@ export interface IAuthService {
 }
 
 export class AnonymousAuthService implements IAuthService {
-    getAuthMetadata(): Promise<grpc.Metadata> {
-        return Promise.resolve(new grpc.Metadata());
+    constructor(private dbName = '/local') {}
+    public async getAuthMetadata(): Promise<grpc.Metadata> {
+        return makeDbMetadata(this.dbName);
     }
 }
 
