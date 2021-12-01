@@ -7,7 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: fregante/setup-git-user@v1
+        with:
+          token: ${{ secrets.BOT_TOKEN }}
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v2
         with:
