@@ -9,6 +9,9 @@ jobs:
       - uses: actions/checkout@v2
         with:
           token: ${{ secrets.BOT_TOKEN }}
+      - run: |
+          git config --global user.email "ydb-platform@yandex-team.ru"
+          git config --global user.name "YDB Platform Bot"
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v2
         with:
