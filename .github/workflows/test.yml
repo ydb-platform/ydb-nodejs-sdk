@@ -7,7 +7,7 @@ on:
     branches: [ '**' ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -46,4 +46,3 @@ jobs:
       run: npm run test
       env:
         YDB_SSL_ROOT_CERTIFICATES_FILE: /tmp/ydb_certs/ca.pem
-    - run: npm run clean

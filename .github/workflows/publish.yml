@@ -1,7 +1,9 @@
 name: Generate Changelog, bump version and publish
+
 on:
   push:
     branches: [master]
+
 jobs:
   publish:
     runs-on: ubuntu-latest
