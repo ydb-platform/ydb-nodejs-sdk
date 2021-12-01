@@ -15,7 +15,8 @@
     "url-shortener-example": "cd examples && npm run url-shortener",
     "start": "npm run basic-example-v1",
     "clean": "rm -rf build",
-    "prepublish": "npm run clean && npm run build:lib"
+    "prepublish": "npm run clean && npm run build:lib",
+    "release": "standard-version"
   },
   "keywords": [
     "ydb",
@@ -50,6 +51,7 @@
     "pino-pretty": "^3.6.1",
     "typescript": "^3.9.3",
     "jest": "^27.1.0",
+    "standard-version": "^9.3.2",
     "ts-jest": "^27.0.5"
   }
 }
