@@ -1,14 +1,16 @@
-name: Node.js Package
+name: Generate Changelog, bump version and publish
 on:
   push:
     branches: [master]
 jobs:
   publish:
-    if: ${{ github.event.head_commit.author.name != 'YDB Platform But' }}
+    if: !contains(github.event.head_commit.author.name, 'YDB Platform But')
     runs-on: ubuntu-latest
     steps:
+      - run: echo ${{ github.event.head_commit.author.name }}
       - uses: actions/checkout@v2
         with:
+          fetch-depth: 50
           token: ${{ secrets.BOT_TOKEN }}
       - run: |
           git config --global user.email "ydb-platform@yandex-team.ru"
@@ -21,6 +23,3 @@ jobs:
       - run: npm ci
       - run: npm run release
       - run: git push --follow-tags origin master
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
