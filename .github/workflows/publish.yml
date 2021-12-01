@@ -3,7 +3,8 @@ on:
   push:
     branches: [master]
 jobs:
-  build:
+  publish:
+    if: ${{ github.event.head_commit.author.name != 'YDB Platform But' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
