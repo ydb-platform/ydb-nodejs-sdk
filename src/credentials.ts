@@ -70,7 +70,7 @@ export class AnonymousAuthService implements IAuthService {
 }
 
 export class TokenAuthService implements IAuthService {
-    constructor(private token: string, private dbName: string, public sslCredentials: ISslCredentials = makeSslCredentials()) {}
+    constructor(private token: string, private dbName: string, public sslCredentials?: ISslCredentials) {}
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         return makeCredentialsMetadata(this.token, this.dbName);
@@ -88,7 +88,7 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
 
     public readonly sslCredentials?: ISslCredentials;
 
-    constructor(iamCredentials: IIamCredentials, dbName: string, sslCredentials: ISslCredentials = makeSslCredentials()) {
+    constructor(iamCredentials: IIamCredentials, dbName: string, sslCredentials?: ISslCredentials) {
         super(
             iamCredentials.iamEndpoint,
             'yandex.cloud.iam.v1.IamTokenService',
