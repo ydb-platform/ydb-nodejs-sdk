@@ -4,8 +4,8 @@ on:
     branches: [master]
 jobs:
   publish:
-    if: !contains(github.event.head_commit.author.name, 'YDB Platform But')
     runs-on: ubuntu-latest
+    if: !contains(github.event.head_commit.author.name, 'YDB Platform But')
     steps:
       - run: echo ${{ github.event.head_commit.author.name }}
       - uses: actions/checkout@v2
