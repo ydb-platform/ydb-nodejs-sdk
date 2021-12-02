@@ -9,7 +9,6 @@ jobs:
     if: "!contains(github.event.head_commit.author.name, 'YDB Platform Bot')"
     runs-on: ubuntu-latest
     steps:
-      - run: echo ${{ github.event.head_commit.author.name }}
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
