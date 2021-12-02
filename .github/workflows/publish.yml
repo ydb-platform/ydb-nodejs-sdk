@@ -6,13 +6,13 @@ on:
 
 jobs:
   publish:
+    if: "!contains(github.event.head_commit.author.name, 'YDB Platform Bot')"
     runs-on: ubuntu-latest
-    if: !contains(github.event.head_commit.author.name, 'YDB Platform But')
     steps:
       - run: echo ${{ github.event.head_commit.author.name }}
       - uses: actions/checkout@v2
         with:
-          fetch-depth: 50
+          fetch-depth: 0
           token: ${{ secrets.BOT_TOKEN }}
       - run: |
           git config --global user.email "ydb-platform@yandex-team.ru"
@@ -25,3 +25,6 @@ jobs:
       - run: npm ci
       - run: npm run release
       - run: git push --follow-tags origin master
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
