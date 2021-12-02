@@ -1,5 +1,14 @@
 # Changelog
 
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+### [2.6.3](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.6.2...v2.6.3) (2021-12-02)
+
+
+### Bug Fixes
+
+* **ssl:** no more SSL connection attempts for grpc:// endpoints ([7c517aa](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/7c517aae5c8f9d069de16fec714e3581dfe8f922))
+
 ### 2.6.0
 * YDB definitions bundle and generating bundle from protobuf files have been moved to ydb-sdk-proto
   dependency package
