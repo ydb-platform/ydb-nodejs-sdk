@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.7.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.6.3...v2.7.0) (2021-12-03)
+
+
+### Features
+
+* **tableClient:** implement streamReadTable call ([1809215](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/1809215c8317f79a64f476d42236d337f1b334c5))
+
 ### [2.6.3](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.6.2...v2.6.3) (2021-12-02)
 
 
