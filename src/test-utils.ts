@@ -9,7 +9,7 @@ import {withRetries} from "./retries";
 
 export const DATABASE = '/local';
 
-export const TABLE = 'table';
+export const TABLE = `table_${Math.trunc(100 * Math.random())}`;
 
 export interface IRow {
     id: number;
