@@ -1,0 +1,31 @@
+name: Preview Changelog
+
+on:
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12.x'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - name: Store changelog update
+        run: |
+          CHANGELOG=$(npm run release -- --dry-run | npm run release -- --dry-run | sed -n '/---/,/---/{/---/!{/---/!p;};}')
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$CHANGELOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        id: preview
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            Merging this pull request into master branch will produce the following CHANGELOG.md entry and version:
+            ${{ env.CHANGELOG }}

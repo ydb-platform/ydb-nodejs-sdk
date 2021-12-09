@@ -9,7 +9,6 @@ jobs:
     if: "!contains(github.event.head_commit.author.name, 'YDB Platform Bot')"
     runs-on: ubuntu-latest
     steps:
-      - run: echo ${{ github.event.head_commit.author.name }}
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
@@ -23,6 +22,7 @@ jobs:
           node-version: '12.x'
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
+      - run: npm test
       - run: npm run release
       - run: git push --follow-tags origin master
       - run: npm publish
