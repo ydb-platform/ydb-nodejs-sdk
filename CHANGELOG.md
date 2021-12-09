@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.8.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.7.0...v2.8.0) (2021-12-09)
+
+
+### Features
+
+* **tableClient:** implement bulkUpsert method ([a4b63f6](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/a4b63f6b7fabde3f1411b95575b6cbf7eac6c371))
+
 ## [2.7.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.6.3...v2.7.0) (2021-12-03)
 
 
