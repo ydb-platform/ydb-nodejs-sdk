@@ -43,6 +43,8 @@ import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
 import IOperationParams = Ydb.Operations.IOperationParams;
 import ExecuteScanQueryPartialResult = Ydb.Table.ExecuteScanQueryPartialResult;
 import IKeyRange = Ydb.Table.IKeyRange;
+import TypedValue = Ydb.TypedValue;
+import BulkUpsertResult = Ydb.Table.BulkUpsertResult;
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode|null);
@@ -357,6 +359,17 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(response);
         return ExecuteQueryResult.decode(payload);
+    }
+
+    @pessimizable
+    public async bulkUpsert(table: string, rows: TypedValue, operationParams?: IOperationParams) {
+        const response = await this.api.bulkUpsert({
+            table,
+            rows,
+            operationParams
+        });
+        const payload = getOperationPayload(response);
+        return BulkUpsertResult.decode(payload);
     }
 
     @pessimizable
