@@ -20,7 +20,7 @@ export function declareType(type: IType) {
     return Reflect.metadata(typeMetadataKey, type);
 }
 
-const primitiveTypeToValue: Record<number, string> = {
+export const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.BOOL]: 'boolValue',
     [Type.PrimitiveTypeId.INT8]: 'int32Value',
     [Type.PrimitiveTypeId.UINT8]: 'uint32Value',
