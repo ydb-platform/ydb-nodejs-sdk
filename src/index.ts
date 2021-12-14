@@ -9,7 +9,9 @@ export {
     withTypeOptions,
     NamesConversion,
     snakeToCamelCaseConversion,
-    identityConversion
+    identityConversion,
+    primitiveTypeToValue,
+    typeMetadataKey
 } from './types';
 export {
     SessionPool,
