@@ -260,11 +260,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async describeTable(tablePath: string, operationParams?: IOperationParams): Promise<DescribeTableResult> {
+    public async describeTable(tablePath: string, operationParams?: IOperationParams,
+                               tableRequestAddititonalParams?:Omit<Ydb.Table.IDescribeTableRequest,'sessionId'|'path'|'operationParams'>): Promise<DescribeTableResult> {
         const request: Ydb.Table.IDescribeTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
             operationParams,
+            ...tableRequestAddititonalParams
         };
         const response = await this.api.describeTable(request);
         const payload = getOperationPayload(response);
