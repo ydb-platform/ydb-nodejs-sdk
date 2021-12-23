@@ -46,11 +46,14 @@
     "ydb-sdk-proto": "^0.1.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^15.0.0",
+    "@commitlint/config-conventional": "^15.0.0",
     "@types/jest": "^27.0.1",
     "@types/jsonwebtoken": "^8.3.5",
     "@types/lodash": "^4.14.144",
     "@types/luxon": "^1.21.0",
     "@types/node": "10.17.20",
+    "husky": "^7.0.4",
     "jest": "^27.1.0",
     "npm-run-all": "^4.1.5",
     "pino-pretty": "^3.6.1",
