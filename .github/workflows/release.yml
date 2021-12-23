@@ -1,0 +1,14 @@
+on:
+  push:
+    branches: [master]
+
+name: release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: yandex-cloud/ui-release-action@master
+        with:
+          github-token: ${{ secrets.BOT_TOKEN }}
+          npm-token: ${{ secrets.NODE_AUTH_TOKEN }}

@@ -8,7 +8,10 @@
     "certs/"
   ],
   "scripts": {
-    "test": "jest",
+    "test:unit": "exit 0",
+    "test:integration": "jest",
+    "test:all": "run-p test:unit test:integration",
+    "test": "npm run test:unit",
     "build:lib": "tsc",
     "build:examples": "cd examples && npm run build",
     "basic-example-v1": "cd examples && npm run basic-v1",
@@ -48,10 +51,11 @@
     "@types/lodash": "^4.14.144",
     "@types/luxon": "^1.21.0",
     "@types/node": "10.17.20",
-    "pino-pretty": "^3.6.1",
-    "typescript": "^3.9.3",
     "jest": "^27.1.0",
+    "npm-run-all": "^4.1.5",
+    "pino-pretty": "^3.6.1",
     "standard-version": "^9.3.2",
-    "ts-jest": "^27.0.5"
+    "ts-jest": "^27.0.5",
+    "typescript": "^3.9.3"
   }
 }
