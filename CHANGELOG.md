@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.8.2](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.8.1...v2.8.2) (2021-12-24)
+
+
+### Bug Fixes
+
+* **examples:** remove package-lock.json from examples repo ([b80de4e](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/b80de4eb9e99458067b525984d5d041f1bef73b4))
+
 ### [2.8.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.8.0...v2.8.1) (2021-12-14)
 
 ## [2.8.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.7.0...v2.8.0) (2021-12-09)
