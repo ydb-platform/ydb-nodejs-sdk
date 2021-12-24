@@ -47,7 +47,7 @@ jobs:
     - name: Build library
       run: npm run build:lib
     - name: Prepare examples build
-      run: npm link && cd examples && npm ci && npm link ydb-sdk && cd ..
+      run: npm link && cd examples && npm i && npm link ydb-sdk && cd ..
     - name: Build examples
       run: npm run build:examples
     - name: Run tests
