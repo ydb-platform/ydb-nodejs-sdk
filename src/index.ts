@@ -11,7 +11,9 @@ export {
     snakeToCamelCaseConversion,
     identityConversion,
     primitiveTypeToValue,
-    typeMetadataKey
+    typeMetadataKey,
+    getNameConverter,
+    StringFunction
 } from './types';
 export {
     SessionPool,
