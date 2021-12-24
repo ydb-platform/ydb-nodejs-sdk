@@ -169,6 +169,8 @@ export class ExecuteScanQuerySettings {
     }
 }
 
+export type DescribeTableParams = Omit<Ydb.Table.IDescribeTableRequest, 'sessionId' | 'path'> ;
+
 export class Session extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
     private free = true;
@@ -258,16 +260,41 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         ensureOperationSucceeded(await this.api.dropTable(request), [SchemeError.status]);
     }
 
+    // function signature call before 2.8.2 version
+    public async describeTable(tablePath: string, operationParams?: IOperationParams): Promise<DescribeTableResult> ;
+    // additional overload signature start from 2.8.2
+    public async describeTable(tablePath: string, operationParams?: DescribeTableParams): Promise<DescribeTableResult> ;
+
+    // implementation
     @retryable()
     @pessimizable
-    public async describeTable(tablePath: string, operationParams?: IOperationParams,
-                               tableRequestAddititonalParams?:Omit<Ydb.Table.IDescribeTableRequest,'sessionId'|'path'|'operationParams'>): Promise<DescribeTableResult> {
-        const request: Ydb.Table.IDescribeTableRequest = {
-            sessionId: this.sessionId,
-            path: `${this.endpoint.database}/${tablePath}`,
-            operationParams,
-            ...tableRequestAddititonalParams
-        };
+    public async describeTable(tablePath: string, operationParams?:IOperationParams | DescribeTableParams): Promise<DescribeTableResult> {
+
+        // type narrowing
+        // because  IOperationParams don't have any persist member - I need to check all members one by one
+        function isIOperationParams(op?: IOperationParams | DescribeTableParams): op is IOperationParams {
+            if (! op) return false;
+            return (
+                'operationMode' in op ||
+                'operationTimeout' in op ||
+                'cancelAfter' in op ||
+                'labels' in op ||
+                'reportCostInfo' in op );
+        }
+
+        let request: Ydb.Table.IDescribeTableRequest = {};
+
+        if (operationParams) {
+            if (isIOperationParams(operationParams)) {
+                request.operationParams = operationParams
+            } else {
+                request = operationParams;
+            };
+        }
+
+        request.sessionId = this.sessionId;
+        request.path = `${this.endpoint.database}/${tablePath}`;
+
         const response = await this.api.describeTable(request);
         const payload = getOperationPayload(response);
         return DescribeTableResult.decode(payload);
