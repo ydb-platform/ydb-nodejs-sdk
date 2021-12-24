@@ -34,7 +34,8 @@ export {
     ReplicationPolicy,
     CompactionPolicy,
     ExecutionPolicy,
-    CachingPolicy
+    CachingPolicy,
+    AUTO_TX
 } from './table';
 export {getCredentialsFromEnv, getSACredentialsFromJson} from './parse-env-vars';
 export {parseConnectionString, ParsedConnectionString} from './parse-connection-string';
