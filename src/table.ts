@@ -260,20 +260,30 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         ensureOperationSucceeded(await this.api.dropTable(request), [SchemeError.status]);
     }
 
-    // function signature call before 2.8.2 version
     public async describeTable(tablePath: string, operationParams?: IOperationParams): Promise<DescribeTableResult> ;
-    // additional overload signature start from 2.8.2
     public async describeTable(tablePath: string, operationParams?: DescribeTableParams): Promise<DescribeTableResult> ;
 
-    // implementation
     @retryable()
     @pessimizable
     public async describeTable(tablePath: string, operationParams?:IOperationParams | DescribeTableParams): Promise<DescribeTableResult> {
 
         // type narrowing
-        // because  IOperationParams don't have any persist member - I need to check all members one by one
+        // because IOperationParams has not required members, all possible fields need to be checked one by one
         function isIOperationParams(op?: IOperationParams | DescribeTableParams): op is IOperationParams {
             if (! op) return false;
+
+            /* можно еще записать так: - но наверно читается хуже
+            const iOperationParamsKeys = [
+                'operationMode',
+                'operationTimeout',
+                'cancelAfter',
+                'labels',
+                'reportCostInfo'];
+
+            return ( iOperationParamsKeys.some( key =>(key in op)));
+
+             */
+
             return (
                 'operationMode' in op ||
                 'operationTimeout' in op ||
@@ -358,7 +368,6 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         txControl: IExistingTransaction | INewTransaction = AUTO_TX,
         operationParams?: IOperationParams,
         settings?: ExecDataQuerySettings,
-        collectStats: Ydb.Table.QueryStatsCollection.Mode | null = null
     ): Promise<ExecuteQueryResult> {
         this.logger.trace('preparedQuery %o', query);
         this.logger.trace('parameters %o', params);
@@ -382,7 +391,6 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             parameters: params,
             query: queryToExecute,
             operationParams,
-            collectStats
         };
         if (keepInCache) {
             request.queryCachePolicy = {keepInCache};
