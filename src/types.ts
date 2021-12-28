@@ -323,7 +323,7 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
     }
 }
 
-type StringFunction = (name?: string) => string;
+export type StringFunction = (name?: string) => string;
 export interface NamesConversion {
     ydbToJs: StringFunction;
     jsToYdb: StringFunction;
@@ -336,7 +336,7 @@ export interface TypedDataOptions {
 function assertUnreachable(_c: never): never {
     throw new Error('Should not get here!');
 }
-function getNameConverter(options: TypedDataOptions, direction: keyof NamesConversion): StringFunction {
+export function getNameConverter(options: TypedDataOptions, direction: keyof NamesConversion): StringFunction {
     const converter = options.namesConversion?.[direction];
     if (converter) {
         return converter;
