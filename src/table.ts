@@ -86,7 +86,7 @@ interface INewTransaction {
     commitTx: boolean
 }
 
-const AUTO_TX: INewTransaction = {
+export const AUTO_TX: INewTransaction = {
     beginTx: {
         serializableReadWrite: {}
     },
@@ -329,6 +329,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         txControl: IExistingTransaction | INewTransaction = AUTO_TX,
         operationParams?: IOperationParams,
         settings?: ExecDataQuerySettings,
+        collectStats?: Ydb.Table.QueryStatsCollection.Mode | null
     ): Promise<ExecuteQueryResult> {
         this.logger.trace('preparedQuery %o', query);
         this.logger.trace('parameters %o', params);
@@ -352,6 +353,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             parameters: params,
             query: queryToExecute,
             operationParams,
+            collectStats
         };
         if (keepInCache) {
             request.queryCachePolicy = {keepInCache};
