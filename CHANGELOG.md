@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.9.0](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.8.1...v2.9.0) (2021-12-29)
+
+
+### Features
+
+* **describeTable:** add new function signature ([4e2106d](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/4e2106d4eb23ff3bd1ca777222bfd53ad85fa6ed))
+* **executeQuery:** add collectStats parameter ([bae40fa](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/bae40fa507bd064763178cfb4954b936da1c7b76))
+
+
+### Bug Fixes
+
+* **examples:** remove package-lock.json from examples repo ([b80de4e](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/b80de4eb9e99458067b525984d5d041f1bef73b4))
+
 ### [2.8.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.8.0...v2.8.1) (2021-12-14)
 
 ## [2.8.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.7.0...v2.8.0) (2021-12-09)
