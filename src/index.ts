@@ -37,7 +37,9 @@ export {
     CachingPolicy,
     AUTO_TX
 } from './table';
-export {getCredentialsFromEnv, getSACredentialsFromJson} from './parse-env-vars';
+export {
+    getCredentialsFromEnv, getSACredentialsFromJson, getCredentialsByType, AuthType, CredentialsOptions
+} from './parse-env-vars';
 export {parseConnectionString, ParsedConnectionString} from './parse-connection-string';
 export {
     IAuthService,
@@ -49,3 +51,10 @@ export {
 } from './credentials';
 export {withRetries, RetryParameters} from './retries';
 export {YdbError, StatusCode} from './errors';
+export {
+    databaseName,
+    logger,
+    entryPoint,
+    driver,
+    initYDBdriver
+} from "./init-driver";
