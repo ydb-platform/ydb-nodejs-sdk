@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.9.1](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.9.0...v2.9.1) (2022-01-21)
+
+
+### Bug Fixes
+
+* **package.json:** move pino-pretty to dependencies ([bf739d2](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/bf739d20f5c66fb3ce4381a31e1a410fa9e22b2d))
+
 ## [2.9.0](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.8.1...v2.9.0) (2021-12-29)
 
 
