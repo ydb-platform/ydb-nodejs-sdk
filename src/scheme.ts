@@ -7,10 +7,11 @@ import {
     ClientOptions
 } from "./utils";
 import {IAuthService} from "./credentials";
-import getLogger, {Logger} from './logging';
-import {Endpoint} from './discovery';
+// noinspection ES6PreferShortImport
+import {Logger} from './logging';
+import DiscoveryService, {Endpoint} from './discovery';
 import {retryable} from "./retries";
-import Driver from "./driver";
+import {ISslCredentials} from './ssl-credentials';
 
 import SchemeServiceAPI = Ydb.Scheme.V1.SchemeService;
 import IOperationParams = Ydb.Operations.IOperationParams;
@@ -45,19 +46,28 @@ function preparePermissionAction(action: IPermissionsAction) {
     }
 }
 
+interface ISchemeClientSettings {
+    database: string;
+    authService: IAuthService;
+    sslCredentials?: ISslCredentials;
+    clientOptions?: ClientOptions;
+    discoveryService: DiscoveryService;
+    logger: Logger;
+}
+
 export default class SchemeClient extends EventEmitter {
     private schemeServices: Map<Endpoint, SchemeService>;
 
-    constructor(private driver: Driver) {
+    constructor(private settings: ISchemeClientSettings) {
         super();
         this.schemeServices = new Map();
     }
 
     private async getSchemeService(): Promise<SchemeService> {
-        const endpoint = await this.driver.getEndpoint();
+        const endpoint = await this.settings.discoveryService.getEndpoint();
         if (!this.schemeServices.has(endpoint)) {
-            const {database, authService, settings} = this.driver;
-            const service = new SchemeService(endpoint, database, authService, settings.clientOptions);
+            const {database, authService, sslCredentials, clientOptions, logger} = this.settings;
+            const service = new SchemeService(endpoint, database, authService, logger, sslCredentials, clientOptions);
             this.schemeServices.set(endpoint, service);
         }
         return this.schemeServices.get(endpoint) as SchemeService;
@@ -98,18 +108,20 @@ class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
     private readonly database: string;
     public endpoint: Endpoint;
 
-    constructor(endpoint: Endpoint, database: string, authService: IAuthService, clientOptions?: ClientOptions) {
+    constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
         super(
             host,
+            database,
             'Ydb.Scheme.V1.SchemeService',
             SchemeServiceAPI,
             authService,
+            sslCredentials,
             clientOptions,
         );
         this.endpoint = endpoint;
         this.database = database;
-        this.logger = getLogger();
+        this.logger = logger;
     }
 
     prepareRequest(path: string, operationParams?: IOperationParams): IMakeDirectoryRequest {

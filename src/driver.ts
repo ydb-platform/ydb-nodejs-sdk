@@ -1,44 +1,93 @@
-import DiscoveryService, {Endpoint} from "./discovery";
-import {SessionService, TableClient, PoolSettings} from "./table";
+import DiscoveryService from "./discovery";
+import {TableClient} from "./table";
 import SchemeService from "./scheme";
 import {ENDPOINT_DISCOVERY_PERIOD} from "./constants";
 import {IAuthService} from "./credentials";
 import {TimeoutExpired} from "./errors";
 import getLogger, {Logger} from "./logging";
 import SchemeClient from "./scheme";
-import {Events} from './constants'
 import {ClientOptions} from "./utils";
+import {parseConnectionString} from "./parse-connection-string";
+import {makeSslCredentials, ISslCredentials} from './ssl-credentials';
 
 
-export interface DriverSettings {
-    poolSettings?: PoolSettings;
+export interface IPoolSettings {
+    minLimit?: number;
+    maxLimit?: number;
+    keepAlivePeriod?: number;
+}
+
+export interface IDriverSettings {
+    endpoint?: string;
+    database?: string;
+    connectionString?: string;
+    authService: IAuthService;
+    sslCredentials?: ISslCredentials,
+    poolSettings?: IPoolSettings;
     clientOptions?: ClientOptions;
+    logger?: Logger;
 }
 
 export default class Driver {
-    private discoveryService: DiscoveryService;
-    private sessionCreators: Map<Endpoint, SessionService>;
+    private endpoint: string;
+    private database: string;
+    private authService: IAuthService;
+    private sslCredentials?: ISslCredentials;
+    private poolSettings?: IPoolSettings;
+    private clientOptions?: ClientOptions;
     private logger: Logger;
+    private discoveryService: DiscoveryService;
 
     public tableClient: TableClient;
     public schemeClient: SchemeService;
 
-    constructor(
-        private endpoint: string,
-        public database: string,
-        public authService: IAuthService,
-        public settings: DriverSettings = {}
-    ) {
-        this.discoveryService = new DiscoveryService(
-            this.endpoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService
-        );
-        this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
-            this.sessionCreators.delete(endpoint);
+    constructor(settings: IDriverSettings) {
+        this.logger = settings.logger || getLogger();
+
+        if (settings.connectionString) {
+            const {endpoint, database} = parseConnectionString(settings.connectionString);
+            this.endpoint = endpoint;
+            this.database = database;
+        } else if (!settings.endpoint) {
+            throw new Error('The "endpoint" is a required field in driver settings');
+        } else if (!settings.database) {
+            throw new Error('The "database" is a required field in driver settings');
+        } else {
+            this.endpoint = settings.endpoint;
+            this.database = settings.database;
+        }
+
+        this.sslCredentials = makeSslCredentials(this.endpoint, this.logger, settings.sslCredentials);
+
+        this.authService = settings.authService;
+        this.poolSettings = settings.poolSettings;
+        this.clientOptions = settings.clientOptions;
+
+        this.discoveryService = new DiscoveryService({
+            endpoint: this.endpoint,
+            database: this.database,
+            authService: this.authService,
+            sslCredentials: this.sslCredentials,
+            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
+            logger: this.logger,
         });
-        this.sessionCreators = new Map();
-        this.tableClient = new TableClient(this);
-        this.schemeClient = new SchemeClient(this);
-        this.logger = getLogger();
+        this.tableClient = new TableClient({
+            database: this.database,
+            authService: this.authService,
+            sslCredentials: this.sslCredentials,
+            poolSettings: this.poolSettings,
+            clientOptions: this.clientOptions,
+            discoveryService: this.discoveryService,
+            logger: this.logger,
+        });
+        this.schemeClient = new SchemeClient({
+            database: this.database,
+            authService: this.authService,
+            sslCredentials: this.sslCredentials,
+            clientOptions: this.clientOptions,
+            discoveryService: this.discoveryService,
+            logger: this.logger,
+        });
     }
 
     public async ready(timeout: number): Promise<boolean> {
@@ -55,24 +104,11 @@ export default class Driver {
         }
     }
 
-    public async getEndpoint() {
-        return await this.discoveryService.getEndpoint();
-    }
-
     public async destroy(): Promise<void> {
         this.logger.debug('Destroying driver...');
         this.discoveryService.destroy();
         await this.tableClient.destroy();
         await this.schemeClient.destroy();
         this.logger.debug('Driver has been destroyed.');
-    }
-
-    public async getSessionCreator(): Promise<SessionService> {
-        const endpoint = await this.getEndpoint();
-        if (!this.sessionCreators.has(endpoint)) {
-            const sessionService = new SessionService(endpoint, this.authService, this.settings.clientOptions);
-            this.sessionCreators.set(endpoint, sessionService);
-        }
-        return this.sessionCreators.get(endpoint) as SessionService;
     }
 }

@@ -9,11 +9,13 @@ import {
     getOperationPayload,
     pessimizable
 } from './utils';
-import {Endpoint} from './discovery';
-import Driver from './driver';
-import {SESSION_KEEPALIVE_PERIOD} from './constants';
+import DiscoveryService, {Endpoint} from './discovery';
+import {IPoolSettings} from './driver';
+import {ISslCredentials} from './ssl-credentials';
+import {Events, SESSION_KEEPALIVE_PERIOD} from './constants';
 import {IAuthService} from './credentials';
-import getLogger, {Logger} from './logging';
+// noinspection ES6PreferShortImport
+import {Logger} from './logging';
 import {retryable} from './retries';
 import {
     SchemeError,
@@ -56,11 +58,11 @@ export class SessionService extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 
-    constructor(endpoint: Endpoint, authService: IAuthService, clientOptions?: ClientOptions) {
+    constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
-        super(host, 'Ydb.Table.V1.TableService', TableService, authService, clientOptions);
+        super(host, database, 'Ydb.Table.V1.TableService', TableService, authService, sslCredentials, clientOptions);
         this.endpoint = endpoint;
-        this.logger = getLogger();
+        this.logger = logger;
     }
 
     @retryable()
@@ -487,18 +489,28 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 }
 
-export interface PoolSettings {
-    minLimit?: number;
-    maxLimit?: number;
-    keepAlivePeriod?: number;
-}
-
 type SessionCallback<T> = (session: Session) => Promise<T>;
 
+interface ITableClientSettings {
+    database: string;
+    authService: IAuthService;
+    sslCredentials?: ISslCredentials;
+    poolSettings?: IPoolSettings;
+    clientOptions?: ClientOptions;
+    discoveryService: DiscoveryService;
+    logger: Logger;
+}
+
 export class SessionPool extends EventEmitter {
+    private readonly database: string;
+    private readonly authService: IAuthService;
+    private readonly sslCredentials?: ISslCredentials;
+    private readonly clientOptions?: ClientOptions;
     private readonly minLimit: number;
     private readonly maxLimit: number;
     private readonly sessions: Set<Session>;
+    private readonly sessionCreators: Map<Endpoint, SessionService>;
+    private readonly discoveryService: DiscoveryService;
     private newSessionsRequested: number;
     private sessionsBeingDeleted: number;
     private readonly sessionKeepAliveId: NodeJS.Timeout;
@@ -508,17 +520,26 @@ export class SessionPool extends EventEmitter {
     private static SESSION_MIN_LIMIT = 5;
     private static SESSION_MAX_LIMIT = 20;
 
-    constructor(private driver: Driver) {
+    constructor(settings: ITableClientSettings) {
         super();
-        const poolSettings = driver.settings?.poolSettings;
+        this.database = settings.database;
+        this.authService = settings.authService;
+        this.sslCredentials = settings.sslCredentials;
+        this.clientOptions = settings.clientOptions;
+        this.logger = settings.logger;
+        const poolSettings = settings.poolSettings;
         this.minLimit = poolSettings?.minLimit || SessionPool.SESSION_MIN_LIMIT;
         this.maxLimit = poolSettings?.maxLimit || SessionPool.SESSION_MAX_LIMIT;
         this.sessions = new Set();
         this.newSessionsRequested = 0;
         this.sessionsBeingDeleted = 0;
-        this.prepopulateSessions();
         this.sessionKeepAliveId = this.initListeners(poolSettings?.keepAlivePeriod || SESSION_KEEPALIVE_PERIOD);
-        this.logger = getLogger();
+        this.sessionCreators = new Map();
+        this.discoveryService = settings.discoveryService;
+        this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
+            this.sessionCreators.delete(endpoint);
+        });
+        this.prepopulateSessions();
     }
 
     public async destroy(): Promise<void> {
@@ -544,8 +565,17 @@ export class SessionPool extends EventEmitter {
         _.forEach(_.range(this.minLimit), () => this.createSession());
     }
 
+    private async getSessionCreator(): Promise<SessionService> {
+        const endpoint = await this.discoveryService.getEndpoint();
+        if (!this.sessionCreators.has(endpoint)) {
+            const sessionService = new SessionService(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
+            this.sessionCreators.set(endpoint, sessionService);
+        }
+        return this.sessionCreators.get(endpoint) as SessionService;
+    }
+
     private async createSession(): Promise<Session> {
-        const sessionCreator = await this.driver.getSessionCreator();
+        const sessionCreator = await this.getSessionCreator();
         const session = await sessionCreator.create();
         session.on(SessionEvent.SESSION_RELEASE, () => {
             if (this.waiters.length > 0) {
@@ -648,9 +678,9 @@ export class SessionPool extends EventEmitter {
 export class TableClient extends EventEmitter {
     private pool: SessionPool;
 
-    constructor(driver: Driver) {
+    constructor(settings: ITableClientSettings) {
         super();
-        this.pool = new SessionPool(driver);
+        this.pool = new SessionPool(settings);
     }
 
     public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {

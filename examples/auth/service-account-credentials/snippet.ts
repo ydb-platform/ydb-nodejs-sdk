@@ -4,8 +4,8 @@ export async function run(logger: Logger, endpoint: string, database: string, ar
     logger.debug('Driver initializing...');
     const saKeyFile = args.serviceAccountKeyFile;
     const saCredentials = getSACredentialsFromJson(saKeyFile);
-    const authService = new IamAuthService(saCredentials, database);
-    const driver = new Driver(endpoint, database, authService);
+    const authService = new IamAuthService(saCredentials);
+    const driver = new Driver({endpoint, database, authService});
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
