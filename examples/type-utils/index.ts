@@ -91,10 +91,10 @@ WHERE series_id = 1;`;
     logger.info(`selectSimple result: ${JSON.stringify(result, null, 2)}`);
 }
 
-async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
+async function run(logger: Logger, endpoint: string, datbase: string) {
+    const authService = getCredentialsFromEnv(endpoint, datbase, logger);
     logger.debug('Driver initializing...');
-    const driver = new Driver(entryPoint, dbName, authService);
+    const driver = new Driver(endpoint, datbase, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
@@ -102,10 +102,10 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
     }
     await driver.tableClient.withSession(async (session) => {
         await createTables(session, logger);
-        await fillTablesWithData(dbName, session, logger);
+        await fillTablesWithData(datbase, session, logger);
     });
     await driver.tableClient.withSession(async (session) => {
-        await selectSimple(dbName, session, logger);
+        await selectSimple(datbase, session, logger);
     });
     await driver.destroy();
 }

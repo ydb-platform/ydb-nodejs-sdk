@@ -82,10 +82,10 @@ async function readTable(tablePathPrefix: string, session: Session, logger: Logg
     }, settings);
 }
 
-async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
+async function run(logger: Logger, endpoint: string, database: string) {
+    const authService = getCredentialsFromEnv(endpoint, database, logger);
     logger.info('Driver initializing...');
-    const driver = new Driver(entryPoint, dbName, authService);
+    const driver = new Driver(endpoint, database, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
@@ -93,20 +93,20 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
     }
     await driver.tableClient.withSession(async (session) => {
         await createTable(session, logger);
-        await fillTableWithData(dbName, session, logger);
+        await fillTableWithData(database, session, logger);
     });
     await driver.tableClient.withSession(async (session) => {
         logger.info('Read whole table, unsorted:');
-        await readTable(dbName, session, logger);
+        await readTable(database, session, logger);
 
         logger.info('Sorted by composite primary key:');
-        await readTable(dbName, session, logger, new ReadTableSettings().withOrdered(true));
+        await readTable(database, session, logger, new ReadTableSettings().withOrdered(true));
 
         logger.info('Any five rows:');
-        await readTable(dbName, session, logger, new ReadTableSettings().withRowLimit(5));
+        await readTable(database, session, logger, new ReadTableSettings().withRowLimit(5));
 
         logger.info('First five rows by PK (ascending) with subset of columns:');
-        await readTable(dbName, session, logger, new ReadTableSettings()
+        await readTable(database, session, logger, new ReadTableSettings()
             .withRowLimit(5)
             .withColumns('customer_id', 'order_id', 'order_date')
             .withOrdered(true));

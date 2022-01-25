@@ -3,7 +3,7 @@ import yargs from 'yargs';
 
 
 export interface Runner {
-    (logger: Logger, entryPoint: string, dbName: string, cliParams?: any): Promise<void>;
+    (logger: Logger, endpoint: string, database: string, cliParams?: any): Promise<void>;
 }
 
 export interface Option {

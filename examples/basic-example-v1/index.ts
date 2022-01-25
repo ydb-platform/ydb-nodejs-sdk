@@ -260,10 +260,10 @@ async function explicitTcl(tablePathPrefix: string, session: Session, ids: Three
     await withRetries(update);
 }
 
-async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
+async function run(logger: Logger, endpoint: string, database: string) {
+    const authService = getCredentialsFromEnv(endpoint, database, logger);
     logger.debug('Driver initializing...');
-    const driver = new Driver(entryPoint, dbName, authService);
+    const driver = new Driver(endpoint, database, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
@@ -272,16 +272,16 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
     await driver.tableClient.withSession(async (session) => {
         await createTables(session, logger);
         await describeTable(session, 'series', logger);
-        await fillTablesWithData(dbName, session, logger);
+        await fillTablesWithData(database, session, logger);
     });
     await driver.tableClient.withSession(async (session) => {
-        await selectSimple(dbName, session, logger);
-        await upsertSimple(dbName, session, logger);
+        await selectSimple(database, session, logger);
+        await upsertSimple(database, session, logger);
 
-        await selectPrepared(dbName, session, [[2, 3, 7], [2, 3, 8]], logger);
+        await selectPrepared(database, session, [[2, 3, 7], [2, 3, 8]], logger);
 
-        await explicitTcl(dbName, session, [2, 6, 1], logger);
-        await selectPrepared(dbName, session, [[2, 6, 1]], logger);
+        await explicitTcl(database, session, [2, 6, 1], logger);
+        await selectPrepared(database, session, [[2, 6, 1]], logger);
     });
     await driver.destroy();
 }

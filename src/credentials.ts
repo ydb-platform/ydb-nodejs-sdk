@@ -33,14 +33,14 @@ export function makeSslCredentials(useInternalCertificate: boolean = true): ISsl
     return sslCredentials;
 }
 
-function makeDbMetadata(dbName: string): grpc.Metadata {
+function makeDbMetadata(database: string): grpc.Metadata {
     const metadata = new grpc.Metadata();
-    metadata.add('x-ydb-database', dbName);
+    metadata.add('x-ydb-database', database);
     return metadata;
 }
 
-function makeCredentialsMetadata(token: string, dbName: string): grpc.Metadata {
-    const metadata = makeDbMetadata(dbName);
+function makeCredentialsMetadata(token: string, database: string): grpc.Metadata {
+    const metadata = makeDbMetadata(database);
     metadata.add('x-ydb-auth-ticket', token);
     return metadata;
 }
@@ -63,17 +63,17 @@ export interface IAuthService {
 }
 
 export class AnonymousAuthService implements IAuthService {
-    constructor(private dbName = '/local') {}
+    constructor(private database = '/local') {}
     public async getAuthMetadata(): Promise<grpc.Metadata> {
-        return makeDbMetadata(this.dbName);
+        return makeDbMetadata(this.database);
     }
 }
 
 export class TokenAuthService implements IAuthService {
-    constructor(private token: string, private dbName: string, public sslCredentials?: ISslCredentials) {}
+    constructor(private token: string, private database: string, public sslCredentials?: ISslCredentials) {}
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
-        return makeCredentialsMetadata(this.token, this.dbName);
+        return makeCredentialsMetadata(this.token, this.database);
     }
 }
 
@@ -82,13 +82,13 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
     private tokenExpirationTimeout = 120 * 1000;
     private tokenRequestTimeout = 10 * 1000;
     private token: string = '';
-    private readonly dbName: string = '';
+    private readonly database: string = '';
     private tokenTimestamp: DateTime|null;
     private readonly iamCredentials: IIamCredentials;
 
     public readonly sslCredentials?: ISslCredentials;
 
-    constructor(iamCredentials: IIamCredentials, dbName: string, sslCredentials?: ISslCredentials) {
+    constructor(iamCredentials: IIamCredentials, database: string, sslCredentials?: ISslCredentials) {
         super(
             iamCredentials.iamEndpoint,
             'yandex.cloud.iam.v1.IamTokenService',
@@ -96,7 +96,7 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
             sslCredentials
         );
         this.iamCredentials = iamCredentials;
-        this.dbName = dbName;
+        this.database = database;
         this.tokenTimestamp = null;
 
         this.sslCredentials = sslCredentials;
@@ -143,7 +143,7 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
         if (this.expired) {
             await this.updateToken();
         }
-        return makeCredentialsMetadata(this.token, this.dbName);
+        return makeCredentialsMetadata(this.token, this.database);
     }
 }
 
@@ -154,7 +154,7 @@ export class MetadataAuthService implements IAuthService {
     static MAX_TRIES = 5;
     static TRIES_INTERVAL = 2000;
 
-    constructor(private dbName: string, sslCredentials?: ISslCredentials, tokenService?: ITokenService) {
+    constructor(private database: string, sslCredentials?: ISslCredentials, tokenService?: ITokenService) {
         this.tokenService = tokenService || new TokenService();
         this.sslCredentials = sslCredentials;
     }
@@ -172,7 +172,7 @@ export class MetadataAuthService implements IAuthService {
             token = this.tokenService.getToken();
         }
         if (token) {
-            return makeCredentialsMetadata(token, this.dbName);
+            return makeCredentialsMetadata(token, this.database);
         }
         throw new Error(`Failed to fetch access token via metadata service in ${MetadataAuthService.MAX_TRIES} tries!`);
     }
