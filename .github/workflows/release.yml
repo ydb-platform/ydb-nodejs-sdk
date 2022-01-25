@@ -6,6 +6,7 @@ name: release
 
 jobs:
   release:
+    if: github.repository == 'ydb-platform/ydb-nodejs-sdk'
     runs-on: ubuntu-latest
     steps:
       - uses: yandex-cloud/ui-release-action@main
