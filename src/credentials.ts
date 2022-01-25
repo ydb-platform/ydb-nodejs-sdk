@@ -12,11 +12,11 @@ import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 const FALLBACK_INTERNAL_ROOT_CERTS = path.join(__dirname, '../certs/internal.pem');
 const FALLBACK_SYSTEM_ROOT_CERTS = path.join(__dirname, '../certs/system.pem');
 
-export function makeSslCredentials(useInternalCertificate: boolean = true): ISslCredentials {
+export function makeSslCredentials(): ISslCredentials {
     const sslCredentials: ISslCredentials = {};
     if (process.env.YDB_SSL_ROOT_CERTIFICATES_FILE) {
         sslCredentials.rootCertificates = fs.readFileSync(process.env.YDB_SSL_ROOT_CERTIFICATES_FILE);
-    } else if (useInternalCertificate) {
+    } else {
         const internalRootCertificates = fs.readFileSync(FALLBACK_INTERNAL_ROOT_CERTS);
 
         let systemRootCertificates;
