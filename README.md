@@ -2,7 +2,7 @@
 ## Install dependencies and compile library
 ```bash
 npm ci
-npm run build:lib
+npm run build
 ```
 
 ## Set environment variables

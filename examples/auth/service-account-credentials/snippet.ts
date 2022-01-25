@@ -1,7 +1,7 @@
 import {Driver, getSACredentialsFromJson, IamAuthService, Logger} from 'ydb-sdk';
 
 export async function run(logger: Logger, endpoint: string, database: string, args?: any) {
-    logger.debug('Driver initializing...');
+    logger.info('Driver initializing...');
     const saKeyFile = args.serviceAccountKeyFile;
     const saCredentials = getSACredentialsFromJson(saKeyFile);
     const authService = new IamAuthService(saCredentials);
@@ -11,6 +11,7 @@ export async function run(logger: Logger, endpoint: string, database: string, ar
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
         process.exit(1);
     }
+    logger.info('Done');
 }
 
 export const options = [{

@@ -12,13 +12,9 @@
     "test:integration": "jest",
     "test:all": "run-p test:unit test:integration",
     "test": "npm run test:unit",
-    "build:lib": "tsc",
-    "build:examples": "cd examples && npm run build",
-    "basic-example-v1": "cd examples && npm run basic-v1",
-    "url-shortener-example": "cd examples && npm run url-shortener",
-    "start": "npm run basic-example-v1",
+    "build": "tsc",
     "clean": "rm -rf build",
-    "prepublish": "npm run clean && npm run build:lib",
+    "prepublish": "npm run clean && npm run build",
     "release": "standard-version"
   },
   "keywords": [
