@@ -3,8 +3,8 @@ import {Driver, Logger, TokenAuthService} from 'ydb-sdk';
 export async function run(logger: Logger, endpoint: string, database: string, args?: any) {
     logger.debug('Driver initializing...');
     const accessToken = args.ydbAccessToken;
-    const authService = new TokenAuthService(accessToken, database);
-    const driver = new Driver(endpoint, database, authService);
+    const authService = new TokenAuthService(accessToken);
+    const driver = new Driver({endpoint, database, authService});
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);

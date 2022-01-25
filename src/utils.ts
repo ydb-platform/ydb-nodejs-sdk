@@ -7,7 +7,11 @@ import {MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, Yd
 import {Endpoint} from './discovery';
 import {IAuthService} from './credentials';
 import {getVersionHeader} from './version';
+import {ISslCredentials} from './ssl-credentials';
 
+function getDatabaseHeader(database: string): [string, string] {
+    return ['x-ydb-database', database];
+}
 
 export interface Pessimizable {
     endpoint: Endpoint;
@@ -16,12 +20,6 @@ export interface Pessimizable {
 type ServiceFactory<T> = {
     create(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean): T
 };
-
-export interface ISslCredentials {
-    rootCertificates?: Buffer,
-    clientPrivateKey?: Buffer,
-    clientCertChain?: Buffer
-}
 
 function removeProtocol(endpoint: string) {
     const re = /^(grpc:\/\/|grpcs:\/\/)?(.+)/;
@@ -53,7 +51,7 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
 
     protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
         const client = sslCredentials ?
-            new grpc.Client(host, grpc.credentials.createSsl()) :
+            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientPrivateKey, sslCredentials.clientCertChain)) :
             new grpc.Client(host, grpc.credentials.createInsecure());
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
@@ -70,7 +68,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
     private metadata: Metadata | null = null;
 
-    public headers: MetadataHeaders = new Map([getVersionHeader()]);
+    private readonly headers: MetadataHeaders;
 
     static isServiceAsyncMethod(target: object, prop: string|number|symbol, receiver: any) {
         return (
@@ -82,13 +80,16 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
 
     protected constructor(
         host: string,
+        database: string,
         private name: string,
         private apiCtor: ServiceFactory<Api>,
         private authService: IAuthService,
+        private sslCredentials?: ISslCredentials,
         clientOptions?: ClientOptions,
     ) {
+        this.headers = new Map([getVersionHeader(), getDatabaseHeader(database)]);
         this.api = new Proxy(
-            this.getClient(removeProtocol(host), this.authService.sslCredentials, clientOptions),
+            this.getClient(removeProtocol(host), this.sslCredentials, clientOptions),
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);
@@ -111,7 +112,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
 
     protected getClient(host: string, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
         const client = sslCredentials ?
-            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates), clientOptions) :
+            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions) :
             new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;

@@ -1,4 +1,3 @@
-import grpc from 'grpc';
 import fs from 'fs';
 import path from 'path';
 import Driver from "./driver";
@@ -6,6 +5,7 @@ import {declareType, TypedData} from "./types";
 import {Ydb} from "ydb-sdk-proto";
 import {Column, Session, TableDescription} from "./table";
 import {withRetries} from "./retries";
+import {AnonymousAuthService} from "./credentials";
 
 export const DATABASE = '/local';
 
@@ -35,17 +35,14 @@ export async function initDriver(): Promise<Driver> {
     if (!fs.existsSync(certFile)) {
         throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_CI_CERT_PATH env variable or run Docker container https://cloud.yandex.ru/docs/ydb/solutions/ydb_docker#start inside working directory`);
     }
-    const rootCertificates = fs.readFileSync(certFile);
-    const credentials = {
-        getAuthMetadata() {
-            return Promise.resolve(new grpc.Metadata());
-        },
-        sslCredentials: {
-            rootCertificates,
-        },
-    };
+    const sslCredentials = {rootCertificates: fs.readFileSync(certFile)};
 
-    const driver = new Driver(`grpcs://localhost:2135`, DATABASE, credentials);
+    const driver = new Driver({
+        endpoint: `grpcs://localhost:2135`,
+        database: DATABASE,
+        authService: new AnonymousAuthService(),
+        sslCredentials,
+    });
     const ready = await driver.ready(1000);
     if (!ready) {
         throw new Error('Driver is not ready!');
@@ -92,4 +89,3 @@ SELECT * FROM AS_TABLE($data);`;
         });
     });
 }
-

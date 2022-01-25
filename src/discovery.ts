@@ -5,10 +5,12 @@ import {Ydb} from "ydb-sdk-proto";
 import {AuthenticatedService, getOperationPayload, withTimeout} from "./utils";
 import {IAuthService} from "./credentials";
 import {retryable} from "./retries";
-import getLogger, {Logger} from './logging';
+// noinspection ES6PreferShortImport
+import {Logger} from './logging';
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 import {Events} from "./constants";
+import {ISslCredentials} from './ssl-credentials';
 
 
 type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
@@ -69,7 +71,18 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     }
 }
 
+interface IDiscoverySettings {
+    endpoint: string;
+    database: string;
+    discoveryPeriod: number;
+    authService: IAuthService;
+    logger: Logger;
+    sslCredentials?: ISslCredentials,
+}
+
 export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
+    private readonly database: string;
+    private readonly discoveryPeriod: number;
     private readonly endpointsPromise: Promise<void>;
     private resolveEndpoints: SuccessDiscoveryHandler = noOp;
     private rejectEndpoints: FailureDiscoveryHandler = noOp;
@@ -82,14 +95,18 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
 
     // private selfLocation: string = '';
 
-    constructor(endpoint: string, private database: string, private discoveryPeriod: number, authService: IAuthService) {
+    constructor(settings: IDiscoverySettings) {
         super(
-            endpoint,
+            settings.endpoint,
+            settings.database,
             'Ydb.Discovery.V1.DiscoveryService',
             DiscoveryServiceAPI,
-            authService
+            settings.authService,
+            settings.sslCredentials,
         );
-        this.logger = getLogger();
+        this.database = settings.database;
+        this.discoveryPeriod = settings.discoveryPeriod;
+        this.logger = settings.logger;
         this.endpointsPromise = new Promise((resolve, reject) => {
             this.resolveEndpoints = (endpoints: Endpoint[]) => {
                 this.updateEndpoints(endpoints);

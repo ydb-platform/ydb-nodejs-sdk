@@ -83,9 +83,9 @@ async function readTable(tablePathPrefix: string, session: Session, logger: Logg
 }
 
 async function run(logger: Logger, endpoint: string, database: string) {
-    const authService = getCredentialsFromEnv(endpoint, database, logger);
+    const authService = getCredentialsFromEnv();
     logger.info('Driver initializing...');
-    const driver = new Driver(endpoint, database, authService);
+    const driver = new Driver({endpoint, database, authService});
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);

@@ -1,6 +1,6 @@
 export {Ydb} from 'ydb-sdk-proto';
 export {default as getLogger, Logger} from './logging';
-export {default as Driver} from './driver';
+export {default as Driver, IDriverSettings, IPoolSettings} from './driver';
 export {
     declareType,
     Primitive,
@@ -47,5 +47,6 @@ export {
     TokenAuthService,
     MetadataAuthService,
 } from './credentials';
+export {ISslCredentials} from './ssl-credentials';
 export {withRetries, RetryParameters} from './retries';
 export {YdbError, StatusCode} from './errors';

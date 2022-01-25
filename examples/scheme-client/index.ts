@@ -5,9 +5,9 @@ import {main} from '../utils';
 
 
 async function run(logger: Logger, endpoint: string, database: string): Promise<void> {
-    const authService = getCredentialsFromEnv(endpoint, database, logger);
+    const authService = getCredentialsFromEnv();
     logger.info('Driver initializing...');
-    const driver = new Driver(endpoint, database, authService);
+    const driver = new Driver({endpoint, database, authService});
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
