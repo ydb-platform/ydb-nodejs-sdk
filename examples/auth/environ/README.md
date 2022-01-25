@@ -11,11 +11,11 @@ Authentication is performed with one of next environment variables:
 
 ## Running code snippet
 ```bash
-YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS=/Users/user/.ydb/sa.json node environ --connection-string "grpcs://endpoint/?database=database"
+YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS=/Users/user/.ydb/sa.json npm run auth:environ -- --connection-string "grpcs://endpoint/?database=database"
 # or
-YDB_ANONYMOUS_CREDENTIALS="1" node environ --connection-string "grpcs://endpoint/?database=database"
+YDB_ANONYMOUS_CREDENTIALS="1" npm run auth:environ -- --connection-string "grpcs://endpoint/?database=database"
 # or
-YDB_METADATA_CREDENTIALS="1" node environ --connection-string "grpcs://endpoint/?database=database"
+YDB_METADATA_CREDENTIALS="1" npm run auth:environ -- --connection-string "grpcs://endpoint/?database=database"
 # or
-YDB_ACCESS_TOKEN_CREDENTIALS="YDB_ACCESS_TOKEN" node environ --connection-string "grpcs://endpoint/?database=database"
+YDB_ACCESS_TOKEN_CREDENTIALS="YDB_ACCESS_TOKEN" npm run auth:environ -- --connection-string "grpcs://endpoint/?database=database"
 ```

@@ -5,36 +5,29 @@
   "scripts": {
     "build": "tsc",
     "basic-v1": "node build/basic-example-v1/index.js",
+    "auth:access-token-credentials": "node build/auth/access-token-credentials/index.js",
+    "auth:anonymous-credentials": "node build/auth/anonymous-credentials/index.js",
+    "auth:environ": "node build/auth/environ/index.js",
+    "auth:metadata-credentials": "node build/auth/metadata-credentials/index.js",
+    "auth:service-account-credentials": "node build/auth/service-account-credentials/index.js",
+    "bulk-upsert": "node build/bulk-upsert/index.js",
+    "read-table": "node build/read-table/index.js",
     "scan-query": "node build/scan-query/index.js",
+    "scheme-client": "node build/scheme-client/index.js",
     "type-utils": "node build/type-utils/index.js",
-    "url-shortener": "node build/url-shortener-example/index.js"
+    "url-shortener": "node build/url-shortener/index.js"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.5.3",
-    "@grpc/proto-loader": "^0.5.1",
-    "jsonwebtoken": "^8.5.1",
-    "lodash": "^4.17.21",
-    "long": "^4.0.0",
-    "luxon": "^1.21.2",
-    "pino": "^5.14.0",
-    "protobufjs": "^6.8.8",
-    "reflect-metadata": "^0.1.13",
-    "yandex-cloud": "^1.3.3",
     "yargs": "^16.1.0",
     "ydb-sdk": "*"
   },
   "devDependencies": {
     "@types/crc": "^3.4.0",
     "@types/express": "~4.17.6",
-    "@types/jsonwebtoken": "^8.3.5",
-    "@types/lodash": "^4.14.144",
-    "@types/luxon": "^1.21.0",
     "@types/node": "10.17.20",
-    "@types/pino": "^5.14.0",
     "@types/yargs": "^15.0.9",
     "crc": "^3.8.0",
     "express": "^4.17.1",
-    "pino-pretty": "^3.6.1",
     "typescript": "^3.9.3"
   }
 }
