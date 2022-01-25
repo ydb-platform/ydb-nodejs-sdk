@@ -21,10 +21,10 @@ const BASE_URL = (process.env.USE_SSL ? 'https:\/\/' : 'http:\/\/') +
     API_PREFIX;
 
 
-async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
+async function run(logger: Logger, endpoint: string, database: string) {
+    const authService = getCredentialsFromEnv(endpoint, database, logger);
     logger.debug('Driver initializing...');
-    const driver = new Driver(entryPoint, dbName, authService);
+    const driver = new Driver(endpoint, database, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
@@ -45,7 +45,7 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
     app.get(API_PREFIX + '/:shorten', async function(req, res) : Promise<void> {
         if (RequestSourceUrl.isShortenCorrect(req.params.shorten || '') ) {
             await driver.tableClient.withSession(async (session) => {
-                const source = await selectSource(req.params.shorten, dbName, session, logger);
+                const source = await selectSource(req.params.shorten, database, session, logger);
                 // await res.status(200).send(source);
                 await res.writeHead(301, {
                     Location: source
@@ -60,7 +60,7 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
     app.post(API_PREFIX, async function(req, res) : Promise<void> {
         if (UrlsMatch.isSourceUrlCorrect(req.body.source || '')) {
             await driver.tableClient.withSession(async (session) => {
-                const shorten = await createShorten(req.body.source, dbName, session, logger);
+                const shorten = await createShorten(req.body.source, database, session, logger);
                 await res.status(200).send(BASE_URL + '/' + shorten);
             });
         } else {

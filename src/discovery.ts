@@ -82,9 +82,9 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
 
     // private selfLocation: string = '';
 
-    constructor(entryPoint: string, private database: string, private discoveryPeriod: number, authService: IAuthService) {
+    constructor(endpoint: string, private database: string, private discoveryPeriod: number, authService: IAuthService) {
         super(
-            entryPoint,
+            endpoint,
             'Ydb.Discovery.V1.DiscoveryService',
             DiscoveryServiceAPI,
             authService

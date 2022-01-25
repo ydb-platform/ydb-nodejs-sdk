@@ -62,15 +62,15 @@ async function createTable(session: Session, logger: Logger) {
     );
 }
 
-async function writeLogBatch(dbName: string, session: Session, logs: LogMessage[]) {
+async function writeLogBatch(database: string, session: Session, logs: LogMessage[]) {
     const rows = LogMessage.asTypedCollection(logs) as Ydb.TypedValue;
-    return await session.bulkUpsert(`${dbName}/${TABLE_NAME}`, rows);
+    return await session.bulkUpsert(`${database}/${TABLE_NAME}`, rows);
 }
 
-async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
+async function run(logger: Logger, endpoint: string, database: string) {
+    const authService = getCredentialsFromEnv(endpoint, database, logger);
     logger.info('Driver initializing...');
-    const driver = new Driver(entryPoint, dbName, authService);
+    const driver = new Driver(endpoint, database, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
@@ -81,7 +81,7 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
         for (let offset = 0; offset < 1000; offset++) {
             const logs = getLogBatch(offset);
             logger.info(`Write log batch with offset ${offset}`);
-            await writeLogBatch(dbName, session, logs);
+            await writeLogBatch(database, session, logs);
         }
         logger.info('Done');
     });

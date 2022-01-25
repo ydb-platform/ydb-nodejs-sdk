@@ -24,13 +24,13 @@ export default class Driver {
     public schemeClient: SchemeService;
 
     constructor(
-        private entryPoint: string,
+        private endpoint: string,
         public database: string,
         public authService: IAuthService,
         public settings: DriverSettings = {}
     ) {
         this.discoveryService = new DiscoveryService(
-            this.entryPoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService
+            this.endpoint, this.database, ENDPOINT_DISCOVERY_PERIOD, authService
         );
         this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
             this.sessionCreators.delete(endpoint);

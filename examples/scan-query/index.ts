@@ -117,10 +117,10 @@ async function executeScanQueryWithParams(tablePathPrefix: string, session: Sess
     logger.info(`Stream scan query completed, partial result count: ${count}`);
 }
 
-async function run(logger: Logger, entryPoint: string, dbName: string) {
-    const authService = getCredentialsFromEnv(entryPoint, dbName, logger);
+async function run(logger: Logger, endpoint: string, database: string) {
+    const authService = getCredentialsFromEnv(endpoint, database, logger);
     logger.debug('Driver initializing...');
-    const driver = new Driver(entryPoint, dbName, authService);
+    const driver = new Driver(endpoint, database, authService);
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
@@ -128,10 +128,10 @@ async function run(logger: Logger, entryPoint: string, dbName: string) {
     }
     await driver.tableClient.withSession(async (session) => {
         await createTable(session, logger);
-        await fillTableWithData(dbName, session, logger);
+        await fillTableWithData(database, session, logger);
     });
     await driver.tableClient.withSession(async (session) => {
-        await executeScanQueryWithParams(dbName, session, logger);
+        await executeScanQueryWithParams(database, session, logger);
     });
     await driver.destroy();
 }
