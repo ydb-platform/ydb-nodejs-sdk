@@ -1,4 +1,4 @@
-import grpc from 'grpc';
+import * as grpc from '@grpc/grpc-js';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
 import {GrpcService, sleep, withTimeout} from "./utils";

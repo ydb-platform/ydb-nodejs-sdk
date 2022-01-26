@@ -1,4 +1,4 @@
-import grpc, {Metadata} from 'grpc';
+import * as grpc from '@grpc/grpc-js';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
 import {Ydb} from 'ydb-sdk-proto';
@@ -55,7 +55,7 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
             new grpc.Client(host, grpc.credentials.createInsecure());
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
-            client.makeUnaryRequest(path, _.identity, _.identity, requestData, null, null, callback);
+            client.makeUnaryRequest(path, _.identity, _.identity, requestData, callback);
         };
         return this.apiCtor.create(rpcImpl);
     }
@@ -66,7 +66,7 @@ export type ClientOptions = Record<string, any>;
 
 export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
-    private metadata: Metadata | null = null;
+    private metadata: grpc.Metadata;
 
     private readonly headers: MetadataHeaders;
 
@@ -88,6 +88,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         clientOptions?: ClientOptions,
     ) {
         this.headers = new Map([getVersionHeader(), getDatabaseHeader(database)]);
+        this.metadata = new grpc.Metadata();
         this.api = new Proxy(
             this.getClient(removeProtocol(host), this.sslCredentials, clientOptions),
             {
@@ -117,12 +118,12 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
             if (method.name.startsWith('Stream')) {
-                client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata, null)
+                client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata)
                     .on('data', (data) => callback(null, data))
                     .on('end', () => callback(new StreamEnd(), null))
                     .on('error', (error) => callback(error, null));
             } else {
-                client.makeUnaryRequest(path, _.identity, _.identity, requestData, this.metadata, null, callback);
+                client.makeUnaryRequest(path, _.identity, _.identity, requestData, this.metadata, callback);
             }
         };
         return this.apiCtor.create(rpcImpl);
