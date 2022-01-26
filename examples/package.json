@@ -10,8 +10,8 @@
     "url-shortener": "node build/url-shortener-example/index.js"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.5.3",
     "@grpc/proto-loader": "^0.5.1",
-    "grpc": "^1.24.9",
     "jsonwebtoken": "^8.5.1",
     "lodash": "^4.17.21",
     "long": "^4.0.0",
