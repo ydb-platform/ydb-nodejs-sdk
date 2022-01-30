@@ -5,9 +5,10 @@ import {
     Driver,
     getCredentialsFromEnv,
     Logger,
-    Primitive,
     Session,
     TableDescription,
+    TypedValues,
+    Types,
     withRetries,
     Ydb,
 } from 'ydb-sdk';
@@ -27,15 +28,15 @@ async function createTable(session: Session, logger: Logger) {
         new TableDescription()
             .withColumn(new Column(
                 'key',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withColumn(new Column(
                 'hash',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'value',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withPrimaryKey('key')
     );
@@ -106,7 +107,7 @@ async function executeScanQueryWithParams(tablePathPrefix: string, session: Sess
     logger.info('Making a stream execute scan query...');
 
     const params = {
-        '$value': Primitive.utf8('odd'),
+        '$value': TypedValues.utf8('odd'),
     };
 
     let count = 0;

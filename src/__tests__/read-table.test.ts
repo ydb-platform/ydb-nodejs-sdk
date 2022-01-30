@@ -9,8 +9,7 @@ import {
     TABLE
 } from '../test-utils';
 import {ReadTableSettings, Session} from '../table';
-import {Primitive, TypedData} from '../types';
-import {Ydb} from 'ydb-sdk-proto';
+import {TypedValues, TypedData} from '../types';
 
 async function readTable(session: Session, settings: ReadTableSettings): Promise<TypedData[]> {
     const rows: TypedData[] = [];
@@ -22,30 +21,6 @@ async function readTable(session: Session, settings: ReadTableSettings): Promise
     }, settings);
 
     return rows;
-}
-
-function tupleValue(...values: Ydb.ITypedValue[]): Ydb.ITypedValue {
-    return {
-        type: {
-            tupleType: {
-                elements: values.map((v) => v.type).filter((t) => t) as Ydb.IType[],
-            },
-        },
-        value: {
-            items: values.map((v) => v.value).filter((v) => v) as Ydb.IValue[],
-        },
-    }
-}
-
-function optionalValue(value: Ydb.ITypedValue): Ydb.ITypedValue {
-    return {
-        type: {
-            optionalType: {
-                item: value.type,
-            },
-        },
-        value: value.value,
-    }
 }
 
 describe('Read table', () => {
@@ -74,8 +49,8 @@ describe('Read table', () => {
 
             {
                 const rows = await readTable(session, new ReadTableSettings().withKeyRange({
-                    greaterOrEqual: tupleValue(optionalValue(Primitive.uint64(1))),
-                    lessOrEqual: tupleValue(optionalValue(Primitive.uint64(2))),
+                    greaterOrEqual: TypedValues.tuple(TypedValues.optional(TypedValues.uint64(1))),
+                    lessOrEqual: TypedValues.tuple(TypedValues.optional(TypedValues.uint64(2))),
                 }));
 
                 expect(rows).toEqual(expectedRows);
@@ -83,8 +58,8 @@ describe('Read table', () => {
 
             {
                 const rows = await readTable(session, new ReadTableSettings().withKeyRange({
-                    greater: tupleValue(optionalValue(Primitive.uint64(1))),
-                    lessOrEqual: tupleValue(optionalValue(Primitive.uint64(2))),
+                    greater: TypedValues.tuple(TypedValues.optional(TypedValues.uint64(1))),
+                    lessOrEqual: TypedValues.tuple(TypedValues.optional(TypedValues.uint64(2))),
                 }));
 
                 expect(rows).toEqual(expectedRows.slice(1));

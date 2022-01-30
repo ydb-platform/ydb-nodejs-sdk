@@ -1,4 +1,4 @@
-import {Ydb, declareType, TypedData} from 'ydb-sdk';
+import {declareType, TypedData, Types} from 'ydb-sdk';
 
 const SOURCE_URL_REGEX = new RegExp("https?://(?:[-\\w.]|(?:%[\\da-fA-F]{2}))+");
 const SHORTEN_REGEX = new RegExp("[a-zA-Z0-9]");
@@ -10,10 +10,10 @@ interface IUrlsMatch {
     source: string
 }
 export class UrlsMatch extends TypedData {
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public shorten: string;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public source: string;
 
     static isSourceUrlCorrect(sourceUrl: string): boolean {
@@ -36,7 +36,7 @@ interface IRequestSourceUrl {
     shorten: string
 }
 export class RequestSourceUrl extends TypedData {
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public shorten: string;
 
     static isShortenCorrect(shorten: string): boolean {

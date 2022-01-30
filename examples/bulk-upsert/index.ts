@@ -4,7 +4,7 @@ import {
     getCredentialsFromEnv,
     Logger,
     Session,
-    TableDescription,
+    TableDescription, Types,
     Ydb
 } from 'ydb-sdk';
 import {main} from '../utils';
@@ -40,23 +40,23 @@ async function createTable(session: Session, logger: Logger) {
         new TableDescription()
             .withColumn(new Column(
                 'app',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withColumn(new Column(
                 'timestamp',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.TIMESTAMP}}})
+                Types.optional(Types.TIMESTAMP),
             ))
             .withColumn(new Column(
                 'host',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withColumn(new Column(
                 'http_code',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT32}}})
+                Types.optional(Types.UINT32),
             ))
             .withColumn(new Column(
                 'message',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withPrimaryKeys('app', 'timestamp', 'host')
     );

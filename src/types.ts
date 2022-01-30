@@ -50,8 +50,47 @@ export const primitiveTypeToValue: Record<number, string> = {
 
 type primitive = boolean | string | number | Date;
 
-export class Primitive {
-    static create(type: Ydb.Type.PrimitiveTypeId, value: primitive): ITypedValue {
+export class Types {
+    static BOOL: IType = {typeId: Ydb.Type.PrimitiveTypeId.BOOL};
+    static INT8: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT8};
+    static UINT8: IType = {typeId: Ydb.Type.PrimitiveTypeId.UINT8};
+    static INT16: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT16};
+    static UINT16: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT16};
+    static INT32: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT32};
+    static UINT32: IType = {typeId: Ydb.Type.PrimitiveTypeId.UINT32};
+    static INT64: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT64};
+    static UINT64: IType = {typeId: Ydb.Type.PrimitiveTypeId.UINT64};
+    static FLOAT: IType = {typeId: Ydb.Type.PrimitiveTypeId.FLOAT};
+    static DOUBLE: IType = {typeId: Ydb.Type.PrimitiveTypeId.DOUBLE};
+    static STRING: IType = {typeId: Ydb.Type.PrimitiveTypeId.STRING};
+    static UTF8: IType = {typeId: Ydb.Type.PrimitiveTypeId.UTF8};
+    static YSON: IType = {typeId: Ydb.Type.PrimitiveTypeId.YSON};
+    static JSON: IType = {typeId: Ydb.Type.PrimitiveTypeId.JSON};
+    static UUID: IType = {typeId: Ydb.Type.PrimitiveTypeId.UUID};
+    static JSON_DOCUMENT: IType = {typeId: Ydb.Type.PrimitiveTypeId.JSON_DOCUMENT};
+    static DATE: IType = {typeId: Ydb.Type.PrimitiveTypeId.DATE};
+    static DATETIME: IType = {typeId: Ydb.Type.PrimitiveTypeId.DATETIME};
+    static TIMESTAMP: IType = {typeId: Ydb.Type.PrimitiveTypeId.TIMESTAMP};
+    static INTERVAL: IType = {typeId: Ydb.Type.PrimitiveTypeId.INTERVAL};
+    static TZ_DATE: IType = {typeId: Ydb.Type.PrimitiveTypeId.TZ_DATE};
+    static TZ_DATETIME: IType = {typeId: Ydb.Type.PrimitiveTypeId.TZ_DATETIME};
+    static TZ_TIMESTAMP: IType = {typeId: Ydb.Type.PrimitiveTypeId.TZ_TIMESTAMP};
+
+    static optional(type: IType): IType {
+        return {optionalType: {item: type}};
+    }
+
+    static tuple(...types: IType[]): IType {
+        return {tupleType: {elements: types}};
+    }
+
+    static list(type: IType): IType {
+        return {listType: {item: type}};
+    }
+}
+
+export class TypedValues {
+    private static primitive(type: Ydb.Type.PrimitiveTypeId, value: primitive): ITypedValue {
         return {
             type: {
                 typeId: type
@@ -62,92 +101,137 @@ export class Primitive {
         };
     }
 
+    static bool(value: boolean): ITypedValue {
+        return TypedValues.primitive(Type.PrimitiveTypeId.BOOL, value);
+    }
+
     static int8(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.INT8, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.INT8, value);
     }
 
     static uint8(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.UINT8, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.UINT8, value);
     }
 
     static int16(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.INT16, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.INT16, value);
     }
 
     static uint16(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.UINT16, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.UINT16, value);
     }
 
     static int32(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.INT32, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.INT32, value);
     }
 
     static uint32(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.UINT32, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.UINT32, value);
     }
 
     static int64(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.INT64, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.INT64, value);
     }
 
     static uint64(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.UINT64, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.UINT64, value);
     }
 
     static float(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.FLOAT, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.FLOAT, value);
     }
 
     static double(value: number): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.DOUBLE, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.DOUBLE, value);
     }
 
     static string(value: string): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.STRING, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.STRING, value);
     }
 
     static utf8(value: string): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.UTF8, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.UTF8, value);
     }
 
     static yson(value: string): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.YSON, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.YSON, value);
     }
 
     static json(value: string): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.JSON, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.JSON, value);
     }
 
     static uuid(value: string): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.UUID, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.UUID, value);
     }
 
     static jsonDocument(value: string): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.JSON_DOCUMENT, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.JSON_DOCUMENT, value);
     }
 
     static date(value: Date): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.DATE, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.DATE, value);
     }
 
     static datetime(value: Date): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.DATETIME, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.DATETIME, value);
     }
 
     static timestamp(value: Date): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.TIMESTAMP, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.TIMESTAMP, value);
+    }
+
+    static interval(value: number): ITypedValue {
+        return TypedValues.primitive(Type.PrimitiveTypeId.INTERVAL, value);
     }
 
     static tzDate(value: Date): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.TZ_DATE, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.TZ_DATE, value);
     }
 
     static tzDatetime(value: Date): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.TZ_DATETIME, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.TZ_DATETIME, value);
     }
 
     static tzTimestamp(value: Date): ITypedValue {
-        return Primitive.create(Type.PrimitiveTypeId.TZ_TIMESTAMP, value);
+        return TypedValues.primitive(Type.PrimitiveTypeId.TZ_TIMESTAMP, value);
+    }
+
+    static optional(value: Ydb.ITypedValue): Ydb.ITypedValue {
+        return {
+            type: {
+                optionalType: {
+                    item: value.type,
+                },
+            },
+            value: value.value,
+        };
+    }
+
+    static tuple(...values: Ydb.ITypedValue[]): Ydb.ITypedValue {
+        return {
+            type: {
+                tupleType: {
+                    elements: values.map((v) => v.type).filter((t) => t) as Ydb.IType[],
+                },
+            },
+            value: {
+                items: values.map((v) => v.value).filter((v) => v) as Ydb.IValue[],
+            },
+        };
+    }
+
+    static list(type: Ydb.IType, ...values: any[]): Ydb.ITypedValue {
+        return {
+            type: {
+                listType: {
+                    item: type,
+                },
+            },
+            value: {
+                items: values.map(value => typeToValue(type, value)),
+            },
+        };
     }
 }
 

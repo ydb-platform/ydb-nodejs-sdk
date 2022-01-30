@@ -1,4 +1,4 @@
-import {declareType, TypedData, Ydb} from 'ydb-sdk';
+import {declareType, TypedData, Types} from 'ydb-sdk';
 
 export interface ILogMessage {
     app: string;
@@ -9,19 +9,19 @@ export interface ILogMessage {
 }
 
 export class LogMessage extends TypedData {
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public app: string;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public host: string;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.TIMESTAMP})
+    @declareType(Types.TIMESTAMP)
     public timestamp: Date;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UINT32})
+    @declareType(Types.UINT32)
     public httpCode: number;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public message: string;
 
     static create(app: string, host: string, timestamp: Date, httpCode: number, message: string) {
