@@ -1,5 +1,4 @@
-import {Ydb, declareType, TypedData} from 'ydb-sdk';
-import Type = Ydb.Type;
+import {declareType, TypedData, Types} from 'ydb-sdk';
 
 interface ISeries {
     seriesId: number;
@@ -8,16 +7,16 @@ interface ISeries {
     seriesInfo: string;
 }
 export class Series extends TypedData {
-    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public seriesId: number;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType(Types.DATE)
     public releaseDate: Date;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public seriesInfo: string;
 
     static create(seriesId: number, title: string, releaseDate: Date, seriesInfo: string): Series {
@@ -41,19 +40,19 @@ interface IEpisode {
     airDate: Date;
 }
 export class Episode extends TypedData {
-    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public seriesId: number;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public seasonId: number;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public episodeId: number;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType(Types.DATE)
     public airDate: Date;
 
     static create(seriesId: number, seasonId: number, episodeId: number, title: string, airDate: Date): Episode {
@@ -78,19 +77,19 @@ interface ISeason {
     lastAired: Date;
 }
 export class Season extends TypedData {
-    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public seriesId: number;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public seasonId: number;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public title: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType(Types.DATE)
     public firstAired: Date;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType(Types.DATE)
     public lastAired: Date;
 
     static create(seriesId: number, seasonId: number, title: string, firstAired: Date, lastAired: Date): Season {

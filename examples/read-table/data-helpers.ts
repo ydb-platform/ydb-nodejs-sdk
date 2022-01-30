@@ -1,4 +1,4 @@
-import {declareType, TypedData, Ydb} from 'ydb-sdk';
+import {declareType, TypedData, Types} from 'ydb-sdk';
 
 export interface IOrder {
     customerId: number;
@@ -8,16 +8,16 @@ export interface IOrder {
 }
 
 export class Order extends TypedData {
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public customerId: number;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public orderId: number;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.DATE})
+    @declareType(Types.DATE)
     public orderDate: Date;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public description: string;
 
     static create(customerId: number, orderId: number, description: string, orderDate: Date) {

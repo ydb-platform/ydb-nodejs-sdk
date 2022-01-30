@@ -1,4 +1,4 @@
-import {Ydb, Column, Session, TableDescription, Logger, withRetries} from 'ydb-sdk';
+import {Column, Session, TableDescription, Logger, withRetries, Types} from 'ydb-sdk';
 import {RequestSourceUrl, UrlsMatch} from "./data-helpers";
 import {SYNTAX_V1} from "../utils";
 
@@ -13,12 +13,12 @@ export async function createTable(session: Session, logger: Logger) : Promise<vo
             .withColumn(
                 new Column(
                     'shorten',
-                    Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                    Types.optional(Types.UTF8),
                 ))
             .withColumn(
                 new Column(
                     'source',
-                    Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                    Types.optional(Types.UTF8),
                 ))
             .withPrimaryKey('shorten')
     );

@@ -7,8 +7,8 @@ import {
     Logger,
     Session,
     TableDescription,
+    Types,
     withRetries,
-    Ydb
 } from 'ydb-sdk';
 import {Episode, getEpisodesData, getSeasonsData, getSeriesData, Series} from './data-helpers';
 import {main, SYNTAX_V1} from '../utils';
@@ -30,19 +30,19 @@ async function createTables(session: Session, logger: Logger) {
         new TableDescription()
             .withColumn(new Column(
                 'series_id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'title',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withColumn(new Column(
                 'series_info',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withColumn(new Column(
                 'release_date',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Types.optional(Types.DATE),
             ))
             .withPrimaryKey('series_id')
     );
@@ -52,23 +52,23 @@ async function createTables(session: Session, logger: Logger) {
         new TableDescription()
             .withColumn(new Column(
                 'series_id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'season_id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'title',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withColumn(new Column(
                 'first_aired',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Types.optional(Types.DATE),
             ))
             .withColumn(new Column(
                 'last_aired',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Types.optional(Types.DATE),
             ))
             .withPrimaryKeys('series_id', 'season_id')
     );
@@ -78,23 +78,23 @@ async function createTables(session: Session, logger: Logger) {
         new TableDescription()
             .withColumn(new Column(
                 'series_id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'season_id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'episode_id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'title',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withColumn(new Column(
                 'air_date',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Types.optional(Types.DATE),
             ))
             .withPrimaryKeys('series_id', 'season_id', 'episode_id')
     );

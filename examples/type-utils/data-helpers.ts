@@ -1,5 +1,4 @@
-import {declareType, TypedData, Ydb, withTypeOptions, identityConversion} from 'ydb-sdk';
-import Type = Ydb.Type;
+import {declareType, TypedData, withTypeOptions, identityConversion, Types} from 'ydb-sdk';
 
 interface ISeries {
     series_id: number;
@@ -10,16 +9,16 @@ interface ISeries {
 @withTypeOptions({
     namesConversion: identityConversion,
 })export class Series extends TypedData {
-    @declareType({typeId: Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public series_id!: number;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public title!: string;
 
-    @declareType({typeId: Type.PrimitiveTypeId.DATE})
+    @declareType(Types.DATE)
     public release_date!: Date;
 
-    @declareType({typeId: Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public series_info!: string;
 
     static create(series_id: number, title: string, release_date: Date, series_info: string): Series {

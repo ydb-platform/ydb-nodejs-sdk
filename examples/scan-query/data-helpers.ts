@@ -1,4 +1,4 @@
-import {declareType, TypedData, Ydb} from 'ydb-sdk';
+import {declareType, TypedData, Types} from 'ydb-sdk';
 
 export interface IRow {
     key: string;
@@ -7,13 +7,13 @@ export interface IRow {
 }
 
 export class Row extends TypedData {
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public key: string;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public hash: number;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public value: string;
 
     constructor(data: IRow) {

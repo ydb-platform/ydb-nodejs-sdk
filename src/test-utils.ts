@@ -1,8 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import Driver from "./driver";
-import {declareType, TypedData} from "./types";
-import {Ydb} from "ydb-sdk-proto";
+import {declareType, TypedData, Types} from "./types";
 import {Column, Session, TableDescription} from "./table";
 import {withRetries} from "./retries";
 import {AnonymousAuthService} from "./credentials";
@@ -17,10 +16,10 @@ export interface IRow {
 }
 
 export class Row extends TypedData {
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UINT64})
+    @declareType(Types.UINT64)
     public id: number;
 
-    @declareType({typeId: Ydb.Type.PrimitiveTypeId.UTF8})
+    @declareType(Types.UTF8)
     public title: string;
 
     constructor(data: IRow) {
@@ -63,11 +62,11 @@ export async function createTable(session: Session) {
         new TableDescription()
             .withColumn(new Column(
                 'id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'title',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withPrimaryKey('id')
     );

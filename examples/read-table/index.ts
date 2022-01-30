@@ -5,9 +5,9 @@ import {
     TableDescription,
     ReadTableSettings,
     Column,
-    Ydb,
     Session,
     withRetries,
+    Types,
 } from 'ydb-sdk';
 import {getOrdersData, Order} from "./data-helpers";
 import {main, SYNTAX_V1} from "../utils";
@@ -24,19 +24,19 @@ async function createTable(session: Session, logger: Logger) {
         new TableDescription()
             .withColumn(new Column(
                 'customer_id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'order_id',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT64}}})
+                Types.optional(Types.UINT64),
             ))
             .withColumn(new Column(
                 'description',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UTF8}}})
+                Types.optional(Types.UTF8),
             ))
             .withColumn(new Column(
                 'order_date',
-                Ydb.Type.create({optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.DATE}}})
+                Types.optional(Types.DATE),
             ))
             .withPrimaryKeys('customer_id', 'order_id')
     );
