@@ -86,7 +86,7 @@ FROM ${SERIES_TABLE}
 WHERE series_id = 1;`;
     logger.info('Making a simple select...');
     const {resultSets} = await session.executeQuery(query);
-    console.log(JSON.stringify(resultSets, null, 2))
+    logger.info(JSON.stringify(resultSets, null, 2))
     const result = Series.createNativeObjects(resultSets[0]);
     logger.info(`selectSimple result: ${JSON.stringify(result, null, 2)}`);
 }
