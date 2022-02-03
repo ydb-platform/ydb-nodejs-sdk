@@ -32,6 +32,7 @@ async function run(logger: Logger, endpoint: string, database: string): Promise<
     logger.info(`Path contents: ${JSON.stringify(children, null, 2)}`);
     await driver.schemeClient.removeDirectory('example-path/subpath');
     await driver.schemeClient.removeDirectory('example-path');
+    await driver.destroy();
 }
 
 main(run);
