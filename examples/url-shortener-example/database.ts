@@ -27,13 +27,13 @@ export async function createTable(session: Session, logger: Logger) : Promise<vo
 }
 
 
-export async function createShorten(sourceUrl: string, tablePathPrefix: string,
-                                    session: Session, logger: Logger) : Promise<string> {
+export async function createShorten(
+    sourceUrl: string,
+    session: Session,
+    logger: Logger) : Promise<string> {
     const shortenUrl = UrlsMatch.calculateShortenUrl(sourceUrl);
     const query = `
 ${SYNTAX_V1}
-PRAGMA TablePathPrefix("${tablePathPrefix}");
-
 DECLARE $shortenUrl as Utf8;
 DECLARE $sourceUrl as Utf8;
 
@@ -54,12 +54,12 @@ VALUES ($shortenUrl, $sourceUrl);`;
 }
 
 
-export async function selectSource(shortenUrl: string, tablePathPrefix: string,
-                                   session: Session, logger: Logger): Promise<string> {
+export async function selectSource(
+    shortenUrl: string,
+    session: Session,
+    logger: Logger): Promise<string> {
     const query = `
     ${SYNTAX_V1}
-    PRAGMA TablePathPrefix("${tablePathPrefix}");
-
     DECLARE $shortenUrl as Utf8;
 
     SELECT *

@@ -42,11 +42,9 @@ async function createTable(session: Session, logger: Logger) {
     );
 }
 
-async function fillTableWithData(tablePathPrefix: string, session: Session, logger: Logger) {
+async function fillTableWithData(session: Session, logger: Logger) {
     const query = `
 ${SYNTAX_V1}
-PRAGMA TablePathPrefix("${tablePathPrefix}");
-
 DECLARE $data AS List<Struct<
     key: Utf8,
     hash: Uint64,
@@ -93,11 +91,9 @@ row count: ${result.resultSet.rows?.length},
 first rows: ${formatFirstRows(result.resultSet.rows)}`;
 }
 
-async function executeScanQueryWithParams(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
+async function executeScanQueryWithParams(session: Session, logger: Logger): Promise<void> {
     const query = `
-        ${SYNTAX_V1}
-        PRAGMA TablePathPrefix("${tablePathPrefix}");
-        
+        ${SYNTAX_V1}        
         DECLARE $value AS Utf8;
         
         SELECT key
@@ -129,10 +125,10 @@ async function run(logger: Logger, endpoint: string, database: string) {
     }
     await driver.tableClient.withSession(async (session) => {
         await createTable(session, logger);
-        await fillTableWithData(database, session, logger);
+        await fillTableWithData(session, logger);
     });
     await driver.tableClient.withSession(async (session) => {
-        await executeScanQueryWithParams(database, session, logger);
+        await executeScanQueryWithParams(session, logger);
     });
     await driver.destroy();
 }
