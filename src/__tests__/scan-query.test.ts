@@ -1,6 +1,5 @@
 import Driver from '../driver';
 import {
-    DATABASE,
     TABLE,
     createTable,
     destroyDriver,
@@ -12,9 +11,7 @@ import {Session} from '../table';
 import {TypedData} from '../types';
 
 async function executeScanQuery(session: Session): Promise<TypedData[]> {
-    const query = `
-        PRAGMA TablePathPrefix("${DATABASE}");
-        SELECT * FROM ${TABLE};`;
+    const query = `SELECT * FROM ${TABLE};`;
 
     const rows: TypedData[] = [];
 

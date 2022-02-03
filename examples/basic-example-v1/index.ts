@@ -108,10 +108,9 @@ async function describeTable(session: Session, tableName: string, logger: Logger
     }
 }
 
-async function fillTablesWithData(tablePathPrefix: string, session: Session, logger: Logger) {
+async function fillTablesWithData(session: Session, logger: Logger) {
     const query = `
 ${SYNTAX_V1}
-PRAGMA TablePathPrefix("${tablePathPrefix}");
 
 DECLARE $seriesData AS List<Struct<
     series_id: Uint64,
@@ -169,10 +168,9 @@ FROM AS_TABLE($episodesData);`;
     await withRetries(fillTable);
 }
 
-async function selectSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
+async function selectSimple(session: Session, logger: Logger): Promise<void> {
     const query = `
 ${SYNTAX_V1}
-PRAGMA TablePathPrefix("${tablePathPrefix}");
 SELECT series_id,
        title,
        release_date
@@ -184,10 +182,9 @@ WHERE series_id = 1;`;
     logger.info(`selectSimple result: ${JSON.stringify(result, null, 2)}`);
 }
 
-async function upsertSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
+async function upsertSimple(session: Session, logger: Logger): Promise<void> {
     const query = `
 ${SYNTAX_V1}
-PRAGMA TablePathPrefix("${tablePathPrefix}");
 UPSERT INTO ${EPISODES_TABLE} (series_id, season_id, episode_id, title) VALUES
 (2, 6, 1, "TBD");`;
     logger.info('Making an upsert...');
@@ -197,11 +194,9 @@ UPSERT INTO ${EPISODES_TABLE} (series_id, season_id, episode_id, title) VALUES
 
 type ThreeIds = [number, number, number];
 
-async function selectPrepared(tablePathPrefix: string, session: Session, data: ThreeIds[], logger: Logger): Promise<void> {
+async function selectPrepared(session: Session, data: ThreeIds[], logger: Logger): Promise<void> {
     const query = `
     ${SYNTAX_V1}
-    PRAGMA TablePathPrefix("${tablePathPrefix}");
-
     DECLARE $seriesId AS Uint64;
     DECLARE $seasonId AS Uint64;
     DECLARE $episodeId AS Uint64;
@@ -228,11 +223,9 @@ async function selectPrepared(tablePathPrefix: string, session: Session, data: T
     await withRetries(select);
 }
 
-async function explicitTcl(tablePathPrefix: string, session: Session, ids: ThreeIds, logger: Logger) {
+async function explicitTcl(session: Session, ids: ThreeIds, logger: Logger) {
     const query = `
     ${SYNTAX_V1}
-    PRAGMA TablePathPrefix("${tablePathPrefix}");
-
     DECLARE $seriesId AS Uint64;
     DECLARE $seasonId AS Uint64;
     DECLARE $episodeId AS Uint64;
@@ -272,16 +265,16 @@ async function run(logger: Logger, endpoint: string, database: string) {
     await driver.tableClient.withSession(async (session) => {
         await createTables(session, logger);
         await describeTable(session, 'series', logger);
-        await fillTablesWithData(database, session, logger);
+        await fillTablesWithData(session, logger);
     });
     await driver.tableClient.withSession(async (session) => {
-        await selectSimple(database, session, logger);
-        await upsertSimple(database, session, logger);
+        await selectSimple(session, logger);
+        await upsertSimple(session, logger);
 
-        await selectPrepared(database, session, [[2, 3, 7], [2, 3, 8]], logger);
+        await selectPrepared(session, [[2, 3, 7], [2, 3, 8]], logger);
 
-        await explicitTcl(database, session, [2, 6, 1], logger);
-        await selectPrepared(database, session, [[2, 6, 1]], logger);
+        await explicitTcl(session, [2, 6, 1], logger);
+        await selectPrepared(session, [[2, 6, 1]], logger);
     });
     await driver.destroy();
 }

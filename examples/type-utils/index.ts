@@ -44,11 +44,9 @@ async function createTables(session: Session, logger: Logger) {
     );
 }
 
-async function fillTablesWithData(tablePathPrefix: string, session: Session, logger: Logger) {
+async function fillTablesWithData(session: Session, logger: Logger) {
     const query = `
 ${SYNTAX_V1}
-PRAGMA TablePathPrefix("${tablePathPrefix}");
-
 DECLARE $seriesData AS List<Struct<
     series_id: Uint64,
     title: Utf8,
@@ -74,10 +72,9 @@ FROM AS_TABLE($seriesData);
     await withRetries(fillTable);
 }
 
-async function selectSimple(tablePathPrefix: string, session: Session, logger: Logger): Promise<void> {
+async function selectSimple(session: Session, logger: Logger): Promise<void> {
     const query = `
 ${SYNTAX_V1}
-PRAGMA TablePathPrefix("${tablePathPrefix}");
 SELECT series_id,
        title,
        series_info,
@@ -102,10 +99,10 @@ async function run(logger: Logger, endpoint: string, database: string) {
     }
     await driver.tableClient.withSession(async (session) => {
         await createTables(session, logger);
-        await fillTablesWithData(database, session, logger);
+        await fillTablesWithData(session, logger);
     });
     await driver.tableClient.withSession(async (session) => {
-        await selectSimple(database, session, logger);
+        await selectSimple(session, logger);
     });
     await driver.destroy();
 }

@@ -45,7 +45,7 @@ async function run(logger: Logger, endpoint: string, database: string) {
     app.get(API_PREFIX + '/:shorten', async function(req, res) : Promise<void> {
         if (RequestSourceUrl.isShortenCorrect(req.params.shorten || '') ) {
             await driver.tableClient.withSession(async (session) => {
-                const source = await selectSource(req.params.shorten, database, session, logger);
+                const source = await selectSource(req.params.shorten, session, logger);
                 // await res.status(200).send(source);
                 await res.writeHead(301, {
                     Location: source
@@ -60,7 +60,7 @@ async function run(logger: Logger, endpoint: string, database: string) {
     app.post(API_PREFIX, async function(req, res) : Promise<void> {
         if (UrlsMatch.isSourceUrlCorrect(req.body.source || '')) {
             await driver.tableClient.withSession(async (session) => {
-                const shorten = await createShorten(req.body.source, database, session, logger);
+                const shorten = await createShorten(req.body.source, session, logger);
                 await res.status(200).send(BASE_URL + '/' + shorten);
             });
         } else {

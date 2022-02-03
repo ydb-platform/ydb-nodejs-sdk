@@ -6,7 +6,7 @@ import {Column, Session, TableDescription} from "./table";
 import {withRetries} from "./retries";
 import {AnonymousAuthService} from "./credentials";
 
-export const DATABASE = '/local';
+const DATABASE = '/local';
 
 export const TABLE = `table_${Math.trunc(100 * Math.random())}`;
 
@@ -74,8 +74,6 @@ export async function createTable(session: Session) {
 
 export async function fillTableWithData(session: Session, rows: Row[]) {
     const query = `
-PRAGMA TablePathPrefix("${DATABASE}");
-
 DECLARE $data AS List<Struct<id: Uint64, title: Utf8>>;
 
 REPLACE INTO ${TABLE}
