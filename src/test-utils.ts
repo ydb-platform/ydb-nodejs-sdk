@@ -32,7 +32,7 @@ export class Row extends TypedData {
 export async function initDriver(): Promise<Driver> {
     const certFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || path.join(process.cwd(), 'ydb_certs/ca.pem');
     if (!fs.existsSync(certFile)) {
-        throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_CI_CERT_PATH env variable or run Docker container https://cloud.yandex.ru/docs/ydb/solutions/ydb_docker#start inside working directory`);
+        throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_SSL_ROOT_CERTIFICATES_FILE env variable or run Docker container https://cloud.yandex.ru/docs/ydb/getting_started/ydb_docker inside working directory`);
     }
     const sslCredentials = {rootCertificates: fs.readFileSync(certFile)};
 
