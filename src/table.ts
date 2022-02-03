@@ -392,9 +392,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @pessimizable
-    public async bulkUpsert(table: string, rows: TypedValue, operationParams?: IOperationParams) {
+    public async bulkUpsert(tablePath: string, rows: TypedValue, operationParams?: IOperationParams) {
         const response = await this.api.bulkUpsert({
-            table,
+            table: `${this.endpoint.database}/${tablePath}`,
             rows,
             operationParams
         });
@@ -403,8 +403,10 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @pessimizable
-    public async streamReadTable(path: string, consumer: (result: Ydb.Table.ReadTableResult) => void, settings?: ReadTableSettings): Promise<void> {
-        const request: Ydb.Table.IReadTableRequest = {path};
+    public async streamReadTable(tablePath: string, consumer: (result: Ydb.Table.ReadTableResult) => void, settings?: ReadTableSettings): Promise<void> {
+        const request: Ydb.Table.IReadTableRequest = {
+            path: `${this.endpoint.database}/${tablePath}`,
+        };
         if (settings) {
             request.columns = settings.columns;
             request.ordered = settings.ordered;

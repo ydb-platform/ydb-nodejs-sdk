@@ -70,8 +70,8 @@ FROM AS_TABLE($ordersData);`;
     await withRetries(fillTable);
 }
 
-async function readTable(tablePathPrefix: string, session: Session, logger: Logger, settings?: ReadTableSettings): Promise<void> {
-    await session.streamReadTable(tablePathPrefix + '/' + TABLE_NAME, (result) => {
+async function readTable(session: Session, logger: Logger, settings?: ReadTableSettings): Promise<void> {
+    await session.streamReadTable(TABLE_NAME, (result) => {
         const resultSet = result.resultSet;
         if (resultSet) {
             const orders = Order.createNativeObjects(resultSet) as Order[];
@@ -97,16 +97,16 @@ async function run(logger: Logger, endpoint: string, database: string) {
     });
     await driver.tableClient.withSession(async (session) => {
         logger.info('Read whole table, unsorted:');
-        await readTable(database, session, logger);
+        await readTable(session, logger);
 
         logger.info('Sorted by composite primary key:');
-        await readTable(database, session, logger, new ReadTableSettings().withOrdered(true));
+        await readTable(session, logger, new ReadTableSettings().withOrdered(true));
 
         logger.info('Any five rows:');
-        await readTable(database, session, logger, new ReadTableSettings().withRowLimit(5));
+        await readTable(session, logger, new ReadTableSettings().withRowLimit(5));
 
         logger.info('First five rows by PK (ascending) with subset of columns:');
-        await readTable(database, session, logger, new ReadTableSettings()
+        await readTable(session, logger, new ReadTableSettings()
             .withRowLimit(5)
             .withColumns('customer_id', 'order_id', 'order_date')
             .withOrdered(true));

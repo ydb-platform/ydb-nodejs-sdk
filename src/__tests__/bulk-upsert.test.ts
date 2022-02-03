@@ -1,7 +1,6 @@
 import Driver from '../driver';
 import {
     createTable,
-    DATABASE,
     destroyDriver,
     fillTableWithData,
     initDriver,
@@ -14,7 +13,7 @@ import {Ydb} from 'ydb-sdk-proto';
 async function readTable(session: Session): Promise<Row[]> {
     const rows: Row[] = [];
 
-    await session.streamReadTable(`${DATABASE}/${TABLE}`, (result) => {
+    await session.streamReadTable(TABLE, (result) => {
         if (result.resultSet) {
             rows.push(...Row.createNativeObjects(result.resultSet) as Row[]);
         }
@@ -52,7 +51,7 @@ describe('Bulk upsert', () => {
 
             await createTable(session);
             await fillTableWithData(session, initialRows);
-            await session.bulkUpsert(DATABASE + '/' + TABLE, rowsToUpsert);
+            await session.bulkUpsert(TABLE, rowsToUpsert);
             const actualRows = await readTable(session);
             expect(expectedRows).toEqual(actualRows);
         });
