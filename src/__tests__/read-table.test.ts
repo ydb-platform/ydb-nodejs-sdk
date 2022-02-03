@@ -1,7 +1,6 @@
 import Driver from '../driver';
 import {
     createTable,
-    DATABASE,
     destroyDriver,
     fillTableWithData,
     initDriver,
@@ -14,7 +13,7 @@ import {TypedValues, TypedData} from '../types';
 async function readTable(session: Session, settings: ReadTableSettings): Promise<TypedData[]> {
     const rows: TypedData[] = [];
 
-    await session.streamReadTable(`${DATABASE}/${TABLE}`, (result) => {
+    await session.streamReadTable(TABLE, (result) => {
         if (result.resultSet) {
             rows.push(...Row.createNativeObjects(result.resultSet));
         }

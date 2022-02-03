@@ -62,9 +62,9 @@ async function createTable(session: Session, logger: Logger) {
     );
 }
 
-async function writeLogBatch(database: string, session: Session, logs: LogMessage[]) {
+async function writeLogBatch(session: Session, logs: LogMessage[]) {
     const rows = LogMessage.asTypedCollection(logs) as Ydb.TypedValue;
-    return await session.bulkUpsert(`${database}/${TABLE_NAME}`, rows);
+    return await session.bulkUpsert(TABLE_NAME, rows);
 }
 
 async function run(logger: Logger, endpoint: string, database: string) {
@@ -81,7 +81,7 @@ async function run(logger: Logger, endpoint: string, database: string) {
         for (let offset = 0; offset < 1000; offset++) {
             const logs = getLogBatch(offset);
             logger.info(`Write log batch with offset ${offset}`);
-            await writeLogBatch(database, session, logs);
+            await writeLogBatch(session, logs);
         }
         logger.info('Done');
     });
