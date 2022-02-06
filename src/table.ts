@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
-import {Ydb} from 'ydb-sdk-proto';
+import {google, Ydb} from 'ydb-sdk-proto';
 import {
     AuthenticatedService,
     ClientOptions,
@@ -42,7 +42,6 @@ import AutoPartitioningPolicy = Ydb.Table.PartitioningPolicy.AutoPartitioningPol
 import ITypedValue = Ydb.ITypedValue;
 import FeatureFlag = Ydb.FeatureFlag.Status;
 import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
-import IOperationParams = Ydb.Operations.IOperationParams;
 import ExecuteScanQueryPartialResult = Ydb.Table.ExecuteScanQueryPartialResult;
 import IKeyRange = Ydb.Table.IKeyRange;
 import TypedValue = Ydb.TypedValue;
@@ -99,13 +98,127 @@ interface IQueryParams {
     [k: string]: Ydb.ITypedValue
 }
 
-export class ExecDataQuerySettings {
+export class OperationParams implements Ydb.Operations.IOperationParams {
+    operationMode?: Ydb.Operations.OperationParams.OperationMode;
+    operationTimeout?: google.protobuf.IDuration;
+    cancelAfter?: google.protobuf.IDuration;
+    labels?: { [k: string]: string };
+    reportCostInfo?: Ydb.FeatureFlag.Status;
+
+    withSyncMode() {
+        this.operationMode = Ydb.Operations.OperationParams.OperationMode.SYNC;
+        return this;
+    }
+
+    withAsyncMode() {
+        this.operationMode = Ydb.Operations.OperationParams.OperationMode.ASYNC;
+        return this;
+    }
+
+    withOperationTimeout(duration: google.protobuf.IDuration) {
+        this.operationTimeout = duration;
+        return this;
+    }
+
+    withOperationTimeoutSeconds(seconds: number) {
+        this.operationTimeout = {seconds};
+        return this;
+    }
+
+    withCancelAfter(duration: google.protobuf.IDuration) {
+        this.cancelAfter = duration;
+        return this;
+    }
+
+    withCancelAfterSeconds(seconds: number) {
+        this.cancelAfter = {seconds};
+        return this;
+    }
+
+    withLabels(labels: {[k: string]: string}) {
+        this.labels = labels;
+        return this;
+    }
+
+    withReportCostInfo() {
+        this.reportCostInfo = Ydb.FeatureFlag.Status.ENABLED;
+        return this;
+    }
+}
+
+export class OperationParamsSettings {
+    operationParams?: OperationParams;
+
+    withOperationParams(operationParams: OperationParams) {
+        this.operationParams = operationParams;
+        return this;
+    }
+}
+
+export class CreateTableSettings extends OperationParamsSettings {
+}
+
+export class AlterTableSettings extends OperationParamsSettings {
+}
+
+export class DropTableSettings extends OperationParamsSettings {
+}
+
+export class DescribeTableSettings extends OperationParamsSettings {
+    includeShardKeyBounds?: boolean;
+    includeTableStats?: boolean;
+    includePartitionStats?: boolean;
+
+    withIncludeShardKeyBounds(includeShardKeyBounds: boolean) {
+        this.includeShardKeyBounds = includeShardKeyBounds;
+        return this;
+    }
+
+    withIncludeTableStats(includeTableStats: boolean) {
+        this.includeTableStats = includeTableStats;
+        return this;
+    }
+
+    withIncludePartitionStats(includePartitionStats: boolean) {
+        this.includePartitionStats = includePartitionStats;
+        return this;
+    }
+}
+
+export class BeginTransactionSettings extends OperationParamsSettings {
+}
+
+export class CommitTransactionSettings extends OperationParamsSettings {
+    collectStats?: Ydb.Table.QueryStatsCollection.Mode;
+
+    withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
+        this.collectStats = collectStats;
+        return this;
+    }
+}
+
+export class RollbackTransactionSettings extends OperationParamsSettings {
+}
+
+export class PrepareQuerySettings extends OperationParamsSettings {
+}
+
+export class ExecuteQuerySettings extends OperationParamsSettings {
     keepInCache: boolean = false;
+    collectStats?: Ydb.Table.QueryStatsCollection.Mode;
 
     withKeepInCache(keepInCache: boolean) {
         this.keepInCache = keepInCache;
         return this;
     }
+
+    withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
+        this.collectStats = collectStats;
+        return this;
+    }
+}
+
+export class BulkUpsertSettings extends OperationParamsSettings {
 }
 
 export class ReadTableSettings {
@@ -163,15 +276,19 @@ export class ReadTableSettings {
 }
 
 export class ExecuteScanQuerySettings {
-    mode: Ydb.Table.ExecuteScanQueryRequest.Mode = Ydb.Table.ExecuteScanQueryRequest.Mode.MODE_EXEC;
+    mode?: Ydb.Table.ExecuteScanQueryRequest.Mode;
+    collectStats?: Ydb.Table.QueryStatsCollection.Mode;
 
     withMode(mode: Ydb.Table.ExecuteScanQueryRequest.Mode) {
         this.mode = mode;
         return this;
     }
-}
 
-export type DescribeTableParams = Omit<Ydb.Table.IDescribeTableRequest, 'sessionId' | 'path'> ;
+    withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
+        this.collectStats = collectStats;
+        return this;
+    }
+}
 
 export class Session extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
@@ -217,7 +334,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async createTable(tablePath: string, description: TableDescription, operationParams?: IOperationParams): Promise<void> {
+    public async createTable(tablePath: string, description: TableDescription, settings?: CreateTableSettings): Promise<void> {
         const {columns, primaryKey, indexes, profile, ttlSettings} = description;
         const request: Ydb.Table.ICreateTableRequest = {
             sessionId: this.sessionId,
@@ -227,14 +344,16 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             indexes,
             profile,
             ttlSettings,
-            operationParams,
         };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
         ensureOperationSucceeded(await this.api.createTable(request));
     }
 
     @retryable()
     @pessimizable
-    public async alterTable(tablePath: string, description: AlterTableDescription, operationParams?: IOperationParams): Promise<void> {
+    public async alterTable(tablePath: string, description: AlterTableDescription, settings?: AlterTableSettings): Promise<void> {
         const {addColumns, dropColumns, alterColumns, setTtlSettings, dropTtlSettings} = description;
         const request: Ydb.Table.IAlterTableRequest = {
             sessionId: this.sessionId,
@@ -244,55 +363,42 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             alterColumns,
             setTtlSettings,
             dropTtlSettings,
-
-            operationParams,
         };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
         ensureOperationSucceeded(await this.api.alterTable(request));
     }
 
     @retryable()
     @pessimizable
-    public async dropTable(tablePath: string, operationParams?: IOperationParams): Promise<void> {
+    public async dropTable(tablePath: string, settings?: DropTableSettings): Promise<void> {
         const request: Ydb.Table.IDropTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
-            operationParams,
         };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
         // suppress error when dropping non-existent table
         ensureOperationSucceeded(await this.api.dropTable(request), [SchemeError.status]);
     }
 
-    public async describeTable(tablePath: string, operationParams?: IOperationParams): Promise<DescribeTableResult> ;
-    public async describeTable(tablePath: string, operationParams?: DescribeTableParams): Promise<DescribeTableResult> ;
-
     @retryable()
     @pessimizable
-    public async describeTable(tablePath: string, operationParams?: IOperationParams | DescribeTableParams): Promise<DescribeTableResult> {
+    public async describeTable(tablePath: string, settings?: DescribeTableSettings): Promise<DescribeTableResult> {
+        const request: Ydb.Table.IDescribeTableRequest = {
+            sessionId: this.sessionId,
+            path: `${this.endpoint.database}/${tablePath}`,
+            operationParams: settings?.operationParams,
+        };
 
-        // type narrowing
-        // because  IOperationParams don't have any persistent member - it needs to check all members one by one
-        function isIOperationParams(op?: IOperationParams | DescribeTableParams): op is IOperationParams {
-            if (! op) return false;
-            return (
-                'operationMode' in op ||
-                'operationTimeout' in op ||
-                'cancelAfter' in op ||
-                'labels' in op ||
-                'reportCostInfo' in op );
+        if (settings) {
+            request.includeTableStats = settings.includeTableStats;
+            request.includeShardKeyBounds = settings.includeShardKeyBounds;
+            request.includePartitionStats = settings.includePartitionStats;
+            request.operationParams = settings.operationParams;
         }
-
-        let request: Ydb.Table.IDescribeTableRequest = {};
-
-        if (operationParams) {
-            if (isIOperationParams(operationParams)) {
-                request.operationParams = operationParams
-            } else {
-                request = operationParams;
-            };
-        }
-
-        request.sessionId = this.sessionId;
-        request.path = `${this.endpoint.database}/${tablePath}`;
 
         const response = await this.api.describeTable(request);
         const payload = getOperationPayload(response);
@@ -301,12 +407,15 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async beginTransaction(txSettings: ITransactionSettings, operationParams?: IOperationParams): Promise<ITransactionMeta> {
-        const response = await this.api.beginTransaction({
+    public async beginTransaction(txSettings: ITransactionSettings, settings?: BeginTransactionSettings): Promise<ITransactionMeta> {
+        const request: Ydb.Table.IBeginTransactionRequest = {
             sessionId: this.sessionId,
             txSettings,
-            operationParams,
-        });
+        };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
+        const response = await this.api.beginTransaction(request);
         const payload = getOperationPayload(response);
         const {txMeta} = BeginTransactionResult.decode(payload);
         if (txMeta) {
@@ -317,34 +426,41 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async commitTransaction(txControl: IExistingTransaction, operationParams?: IOperationParams): Promise<void> {
+    public async commitTransaction(txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void> {
         const request: Ydb.Table.ICommitTransactionRequest = {
             sessionId: this.sessionId,
             txId: txControl.txId,
-            operationParams,
         };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+            request.collectStats = settings.collectStats;
+        }
         ensureOperationSucceeded(await this.api.commitTransaction(request));
     }
 
     @retryable()
     @pessimizable
-    public async rollbackTransaction(txControl: IExistingTransaction, operationParams?: IOperationParams): Promise<void> {
+    public async rollbackTransaction(txControl: IExistingTransaction, settings?: RollbackTransactionSettings): Promise<void> {
         const request: Ydb.Table.IRollbackTransactionRequest = {
             sessionId: this.sessionId,
             txId: txControl.txId,
-            operationParams,
         };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
         ensureOperationSucceeded(await this.api.rollbackTransaction(request));
     }
 
     @retryable()
     @pessimizable
-    public async prepareQuery(queryText: string, operationParams?: IOperationParams): Promise<PrepareQueryResult> {
+    public async prepareQuery(queryText: string, settings?: PrepareQuerySettings): Promise<PrepareQueryResult> {
         const request: Ydb.Table.IPrepareDataQueryRequest = {
             sessionId: this.sessionId,
             yqlText: queryText,
-            operationParams,
         };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
         const response = await this.api.prepareDataQuery(request);
         const payload = getOperationPayload(response);
         return PrepareQueryResult.decode(payload);
@@ -355,9 +471,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         query: PrepareQueryResult | string,
         params: IQueryParams = {},
         txControl: IExistingTransaction | INewTransaction = AUTO_TX,
-        operationParams?: IOperationParams,
-        settings?: ExecDataQuerySettings,
-        collectStats?: Ydb.Table.QueryStatsCollection.Mode | null
+        settings?: ExecuteQuerySettings,
     ): Promise<ExecuteQueryResult> {
         this.logger.trace('preparedQuery %o', query);
         this.logger.trace('parameters %o', params);
@@ -380,9 +494,11 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             txControl,
             parameters: params,
             query: queryToExecute,
-            operationParams,
-            collectStats
         };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+            request.collectStats = settings.collectStats;
+        }
         if (keepInCache) {
             request.queryCachePolicy = {keepInCache};
         }
@@ -392,19 +508,26 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     @pessimizable
-    public async bulkUpsert(tablePath: string, rows: TypedValue, operationParams?: IOperationParams) {
-        const response = await this.api.bulkUpsert({
+    public async bulkUpsert(tablePath: string, rows: TypedValue, settings?: BulkUpsertSettings) {
+        const request: Ydb.Table.IBulkUpsertRequest = {
             table: `${this.endpoint.database}/${tablePath}`,
             rows,
-            operationParams
-        });
+        };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
+        const response = await this.api.bulkUpsert(request);
         const payload = getOperationPayload(response);
         return BulkUpsertResult.decode(payload);
     }
 
     @pessimizable
-    public async streamReadTable(tablePath: string, consumer: (result: Ydb.Table.ReadTableResult) => void, settings?: ReadTableSettings): Promise<void> {
+    public async streamReadTable(
+        tablePath: string,
+        consumer: (result: Ydb.Table.ReadTableResult) => void,
+        settings?: ReadTableSettings): Promise<void> {
         const request: Ydb.Table.IReadTableRequest = {
+            sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
         };
         if (settings) {
@@ -438,13 +561,15 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             };
         }
 
-        const mode = settings?.mode || Ydb.Table.ExecuteScanQueryRequest.Mode.MODE_EXEC;
-
         const request: Ydb.Table.IExecuteScanQueryRequest = {
             query: queryToExecute,
             parameters: params,
-            mode,
+            mode: settings?.mode || Ydb.Table.ExecuteScanQueryRequest.Mode.MODE_EXEC,
         };
+
+        if (settings) {
+            request.collectStats = settings.collectStats;
+        }
 
         return this.executeStreamRequest(
             request,
