@@ -19,9 +19,18 @@ export {
 export {
     SessionPool,
     Session,
-    ExecDataQuerySettings,
+    CreateTableSettings,
+    AlterTableSettings,
+    DropTableSettings,
+    BeginTransactionSettings,
+    CommitTransactionSettings,
+    RollbackTransactionSettings,
+    DescribeTableSettings,
+    PrepareQuerySettings,
+    ExecuteQuerySettings,
     ExecuteScanQuerySettings,
     ReadTableSettings,
+    BulkUpsertSettings,
     TableDescription,
     AlterTableDescription,
     Column,
@@ -36,6 +45,7 @@ export {
     CompactionPolicy,
     ExecutionPolicy,
     CachingPolicy,
+    OperationParams,
     AUTO_TX
 } from './table';
 export {getCredentialsFromEnv, getSACredentialsFromJson} from './parse-env-vars';
