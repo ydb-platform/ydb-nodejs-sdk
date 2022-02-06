@@ -38,6 +38,7 @@ export const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.JSON]: 'textValue',
     [Type.PrimitiveTypeId.UUID]: 'textValue',
     [Type.PrimitiveTypeId.JSON_DOCUMENT]: 'textValue',
+    [Type.PrimitiveTypeId.DYNUMBER]: 'textValue',
 
     [Type.PrimitiveTypeId.DATE]: 'uint32Value',
     [Type.PrimitiveTypeId.DATETIME]: 'uint32Value',
@@ -49,6 +50,8 @@ export const primitiveTypeToValue: Record<number, string> = {
 };
 
 type primitive = boolean | string | number | Date;
+
+export type StructFields = Record<string, IType>;
 
 export class Types {
     static BOOL: IType = {typeId: Ydb.Type.PrimitiveTypeId.BOOL};
@@ -75,9 +78,16 @@ export class Types {
     static TZ_DATE: IType = {typeId: Ydb.Type.PrimitiveTypeId.TZ_DATE};
     static TZ_DATETIME: IType = {typeId: Ydb.Type.PrimitiveTypeId.TZ_DATETIME};
     static TZ_TIMESTAMP: IType = {typeId: Ydb.Type.PrimitiveTypeId.TZ_TIMESTAMP};
+    static DYNUMBER: IType = {typeId: Ydb.Type.PrimitiveTypeId.DYNUMBER};
+    static VOID: IType = {voidType: NullValue.NULL_VALUE};
+    static DEFAULT_DECIMAL: IType = Types.decimal(22, 9);
 
     static optional(type: IType): IType {
         return {optionalType: {item: type}};
+    }
+
+    static decimal(precision: number, scale: number): IType {
+        return {decimalType: {precision, scale}};
     }
 
     static tuple(...types: IType[]): IType {
@@ -86,6 +96,42 @@ export class Types {
 
     static list(type: IType): IType {
         return {listType: {item: type}};
+    }
+
+    static struct(fields: StructFields): IType {
+        return {
+            structType: {
+                members: Object.entries(fields).map(([name, type]) => ({name, type})),
+            },
+        };
+    }
+
+    static dict(key: IType, payload: IType): IType {
+        return {
+            dictType: {
+                key,
+                payload,
+            },
+        };
+    }
+
+    static variant(type: IType): IType {
+        if (type.structType) {
+            return {
+                variantType: {
+                    structItems: type.structType,
+                },
+            };
+        }
+        if (type.tupleType) {
+            return {
+                variantType: {
+                    tupleItems: type.tupleType,
+                },
+            };
+        }
+
+        throw new Error('Either tupleItems or structItems should be present in VariantType!');
     }
 }
 
@@ -98,6 +144,20 @@ export class TypedValues {
             value: {
                 [primitiveTypeToValue[type]]: preparePrimitiveValue(type, value)
             }
+        };
+    }
+
+    static VOID: ITypedValue = {
+        type: Types.VOID,
+        value: {
+            nullFlagValue: NullValue.NULL_VALUE,
+        },
+    };
+
+    static fromNative(type: Ydb.Type, value: any): ITypedValue {
+        return {
+            type,
+            value: typeToValue(type, value),
         };
     }
 
@@ -197,6 +257,10 @@ export class TypedValues {
         return TypedValues.primitive(Type.PrimitiveTypeId.TZ_TIMESTAMP, value);
     }
 
+    static dynumber(value: string): ITypedValue {
+        return TypedValues.primitive(Type.PrimitiveTypeId.DYNUMBER, value);
+    }
+
     static optional(value: Ydb.ITypedValue): Ydb.ITypedValue {
         return {
             type: {
@@ -205,6 +269,14 @@ export class TypedValues {
                 },
             },
             value: value.value,
+        };
+    }
+
+    static decimal(value: bigint, precision: number = 22, scale: number = 9): ITypedValue {
+        const type = Types.decimal(precision, scale);
+        return {
+            type,
+            value: typeToValue(type, value),
         };
     }
 
@@ -231,6 +303,22 @@ export class TypedValues {
             value: {
                 items: values.map(value => typeToValue(type, value)),
             },
+        };
+    }
+
+    static struct(fields: StructFields, struct: any): Ydb.ITypedValue {
+        const type = Types.struct(fields);
+        return {
+            type,
+            value: typeToValue(type, struct),
+        };
+    }
+
+    static dict(key: Ydb.IType, payload: Ydb.IType, dict: Record<any, any>): Ydb.ITypedValue {
+        const type = Types.dict(key, payload);
+        return {
+            type,
+            value: typeToValue(type, dict),
         };
     }
 }
@@ -521,7 +609,7 @@ export class TypedData {
         })
     }
 
-    static asTypedCollection(collection: TypedData[]) {
+    static asTypedCollection(collection: TypedData[]): ITypedValue {
         return {
             type: {
                 listType: {

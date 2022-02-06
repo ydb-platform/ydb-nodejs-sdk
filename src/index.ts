@@ -3,6 +3,7 @@ export {default as getLogger, Logger} from './logging';
 export {default as Driver, IDriverSettings, IPoolSettings} from './driver';
 export {
     declareType,
+    StructFields,
     Types,
     TypedValues,
     TypedData,
