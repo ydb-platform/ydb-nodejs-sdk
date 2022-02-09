@@ -149,14 +149,14 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
 
 export class MetadataAuthService implements IAuthService {
     private tokenService: ITokenService;
-    public readonly sslCredentials: ISslCredentials;
+    public readonly sslCredentials?: ISslCredentials;
 
     static MAX_TRIES = 5;
     static TRIES_INTERVAL = 2000;
 
     constructor(private dbName: string, sslCredentials?: ISslCredentials, tokenService?: ITokenService) {
         this.tokenService = tokenService || new TokenService();
-        this.sslCredentials = sslCredentials || makeSslCredentials();
+        this.sslCredentials = sslCredentials;
     }
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
