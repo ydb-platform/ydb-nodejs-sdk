@@ -2,6 +2,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
 import {Ydb} from 'ydb-sdk-proto';
+import Long from 'long';
 import {MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, YdbError} from "./errors";
 
 import {Endpoint} from './discovery';
@@ -180,4 +181,11 @@ export function pessimizable(_target: Pessimizable, _propertyKey: string, descri
 
 export async function sleep(milliseconds: number) {
     await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+export function toLong(value: Long | number): Long {
+    if (typeof value === 'number') {
+        return Long.fromNumber(value);
+    }
+    return value;
 }
