@@ -1,4 +1,4 @@
-import {declareType, TypedData, Types} from 'ydb-sdk';
+import {declareType, TypedData, Types, withTypeOptions, snakeToCamelCaseConversion} from 'ydb-sdk';
 
 interface ISeries {
     seriesId: number;
@@ -6,6 +6,8 @@ interface ISeries {
     releaseDate: Date;
     seriesInfo: string;
 }
+
+@withTypeOptions({namesConversion: snakeToCamelCaseConversion})
 export class Series extends TypedData {
     @declareType(Types.UINT64)
     public seriesId: number;
@@ -39,6 +41,8 @@ interface IEpisode {
     title: string;
     airDate: Date;
 }
+
+@withTypeOptions({namesConversion: snakeToCamelCaseConversion})
 export class Episode extends TypedData {
     @declareType(Types.UINT64)
     public seriesId: number;
@@ -76,6 +80,8 @@ interface ISeason {
     firstAired: Date;
     lastAired: Date;
 }
+
+@withTypeOptions({namesConversion: snakeToCamelCaseConversion})
 export class Season extends TypedData {
     @declareType(Types.UINT64)
     public seriesId: number;
