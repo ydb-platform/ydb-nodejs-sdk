@@ -577,20 +577,8 @@ export interface TypedDataOptions {
     namesConversion?: NamesConversion;
 }
 
-function assertUnreachable(_c: never): never {
-    throw new Error('Should not get here!');
-}
 export function getNameConverter(options: TypedDataOptions, direction: keyof NamesConversion): StringFunction {
-    const converter = options.namesConversion?.[direction];
-    if (converter) {
-        return converter;
-    } else { // defaults
-        switch (direction) {
-            case 'jsToYdb': return _.snakeCase;
-            case 'ydbToJs': return _.camelCase;
-            default: return assertUnreachable(direction);
-        }
-    }
+    return (options.namesConversion || identityConversion)[direction];
 }
 
 export function withTypeOptions(options: TypedDataOptions) {

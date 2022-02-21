@@ -1,4 +1,4 @@
-import {declareType, TypedData, Types} from 'ydb-sdk';
+import {declareType, TypedData, Types, snakeToCamelCaseConversion, withTypeOptions} from 'ydb-sdk';
 
 export interface ILogMessage {
     app: string;
@@ -8,6 +8,7 @@ export interface ILogMessage {
     message: string;
 }
 
+@withTypeOptions({namesConversion: snakeToCamelCaseConversion})
 export class LogMessage extends TypedData {
     @declareType(Types.UTF8)
     public app: string;

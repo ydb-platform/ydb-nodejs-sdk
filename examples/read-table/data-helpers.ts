@@ -1,4 +1,4 @@
-import {declareType, TypedData, Types} from 'ydb-sdk';
+import {declareType, TypedData, Types, withTypeOptions, snakeToCamelCaseConversion} from 'ydb-sdk';
 
 export interface IOrder {
     customerId: number;
@@ -7,6 +7,7 @@ export interface IOrder {
     orderDate: Date;
 }
 
+@withTypeOptions({namesConversion: snakeToCamelCaseConversion})
 export class Order extends TypedData {
     @declareType(Types.UINT64)
     public customerId: number;

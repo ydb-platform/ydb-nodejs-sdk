@@ -381,20 +381,20 @@ describe('Types', () => {
                         DyNumber("1234567890.123") AS dynumber_value;`;
 
                     const data = {
-                        boolValue: true,
-                        uint8Value: 0,
-                        int8Value: -1,
-                        uint16Value: 2,
-                        int16Value: -3,
-                        uint32Value: 4,
-                        int32Value: -5,
-                        uint64Value: 6,
-                        uint64LongValue: Long.MAX_VALUE,
-                        int64Value: 7,
-                        int64LongValue: Long.fromValue(-7),
-                        floatValue: -1.100000023841858,
-                        doubleValue: -1.1,
-                        dynumberValue: '.1234567890123e10',
+                        bool_value: true,
+                        uint8_value: 0,
+                        int8_value: -1,
+                        uint16_value: 2,
+                        int16_value: -3,
+                        uint32_value: 4,
+                        int32_value: -5,
+                        uint64_value: 6,
+                        uint64_long_value: Long.MAX_VALUE,
+                        int64_value: 7,
+                        int64_long_value: Long.fromValue(-7),
+                        float_value: -1.100000023841858,
+                        double_value: -1.1,
+                        dynumber_value: '.1234567890123e10',
                     };
 
                     const response = await session.executeQuery(query);
@@ -416,11 +416,11 @@ describe('Types', () => {
                     JsonDocument("[]") AS json_document_value;`;
 
                     const data = {
-                        stringValue: 'foo',
-                        utf8Value: 'привет',
-                        ysonValue: '<a=1>[3;%false]',
-                        jsonValue: '{"a":1,"b":null}',
-                        jsonDocumentValue: '[]',
+                        string_value: 'foo',
+                        utf8_value: 'привет',
+                        yson_value: '<a=1>[3;%false]',
+                        json_value: '{"a":1,"b":null}',
+                        json_document_value: '[]',
                     };
 
                     const response = await session.executeQuery(query);
@@ -436,7 +436,7 @@ describe('Types', () => {
                     const query = `SELECT Uuid("f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb") AS uuid_value;`;
 
                     const data = {
-                        uuidValue: 'f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb',
+                        uuid_value: 'f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb',
                     };
 
                     const response = await session.executeQuery(query);
@@ -460,13 +460,13 @@ describe('Types', () => {
                     TzTimestamp("2022-01-01T10:00:00.987,GMT") AS tz_timestamp_value;`;
 
                     const data = {
-                        dateValue: new Date('2022-01-01:00:00:00Z'),
-                        datetimeValue: new Date('2022-01-01T10:00:00.000Z'),
-                        timestampValue: new Date('2022-01-01T10:00:00.987Z'),
-                        intervalValue: Long.fromValue('93784567890'),
-                        tzDateValue: new Date('2022-01-01T00:00:00Z'),
-                        tzDatetimeValue: new Date('2022-01-01T10:00:00.000Z'),
-                        tzTimestampValue: new Date('2022-01-01T10:00:00.987Z'),
+                        date_value: new Date('2022-01-01:00:00:00Z'),
+                        datetime_value: new Date('2022-01-01T10:00:00.000Z'),
+                        timestamp_value: new Date('2022-01-01T10:00:00.987Z'),
+                        interval_value: Long.fromValue('93784567890'),
+                        tz_date_value: new Date('2022-01-01T00:00:00Z'),
+                        tz_datetime_value: new Date('2022-01-01T10:00:00.000Z'),
+                        tz_timestamp_value: new Date('2022-01-01T10:00:00.987Z'),
                     };
 
                     const response = await session.executeQuery(query);
@@ -515,8 +515,8 @@ describe('Types', () => {
                 CAST(NULL AS Optional<Uint64>) AS optional_null_value;`;
 
                 const data = {
-                    optionalValue: 1,
-                    optionalNullValue: null,
+                    optional_value: 1,
+                    optional_null_value: null,
                 };
 
                 const response = await session.executeQuery(query);
@@ -538,10 +538,10 @@ describe('Types', () => {
             ;`;
 
                 const data = {
-                    listValue: [1, 2, 3],
-                    tupleValue: [1, 2, '3'],
-                    structValue: {a: 1, b: 2, c: '3'},
-                    dictValue: {a: 1, b: 2, c: 3},
+                    list_value: [1, 2, 3],
+                    tuple_value: [1, 2, '3'],
+                    struct_value: {a: 1, b: 2, c: '3'},
+                    dict_value: {a: 1, b: 2, c: 3},
                 };
 
                 const response = await session.executeQuery(query);
@@ -556,7 +556,7 @@ describe('Types', () => {
             await driver.tableClient.withSession(async (session) => {
                 const query = 'SELECT Void() as void_value;'
                 const data = {
-                    voidValue: null,
+                    void_value: null,
                 };
 
                 const response = await session.executeQuery(query);

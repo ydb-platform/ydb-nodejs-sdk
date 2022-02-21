@@ -1,4 +1,4 @@
-import {declareType, TypedData, withTypeOptions, identityConversion, Types} from 'ydb-sdk';
+import {declareType, TypedData, Types} from 'ydb-sdk';
 
 interface ISeries {
     series_id: number;
@@ -6,9 +6,7 @@ interface ISeries {
     release_date: Date;
     series_info: string;
 }
-@withTypeOptions({
-    namesConversion: identityConversion,
-})export class Series extends TypedData {
+export class Series extends TypedData {
     @declareType(Types.UINT64)
     public series_id!: number;
 
