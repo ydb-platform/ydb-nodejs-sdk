@@ -46,10 +46,8 @@ jobs:
       run: npm ci
     - name: Build library
       run: npm run build
-    - name: Prepare examples build
-      run: npm link && cd examples && npm i && npm link ydb-sdk && cd ..
     - name: Build examples
-      run: cd examples && npm run build
+      run: npm link && cd examples && npm i && npm link ydb-sdk && npm run build
     - name: Run tests
       run: npm run test:all
       env:
