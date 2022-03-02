@@ -70,7 +70,7 @@ All notable changes to this project will be documented in this file. See [standa
 * little fixes in examples ([9c19b95](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/9c19b95dd541705673844aaf960b36c67e2b7b48))
 
 
-### chore
+### Miscellaneous
 
 * drop support of old environment variables ([963819a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/963819af9209a45749f5118077f1da4bdb390fa6))
 * reorganize signature of SchemeClient's methods ([734d57a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/734d57a2dd7c655cf727b96df415212504339cf8))
