@@ -12,9 +12,9 @@ import {Logger} from './logging';
 import DiscoveryService, {Endpoint} from './discovery';
 import {retryable} from "./retries";
 import {ISslCredentials} from './ssl-credentials';
+import {OperationParamsSettings} from './table';
 
 import SchemeServiceAPI = Ydb.Scheme.V1.SchemeService;
-import IOperationParams = Ydb.Operations.IOperationParams;
 import ListDirectoryResult = Ydb.Scheme.ListDirectoryResult;
 import DescribePathResult = Ydb.Scheme.DescribePathResult;
 import IPermissionsAction = Ydb.Scheme.IPermissionsAction;
@@ -46,6 +46,21 @@ function preparePermissionAction(action: IPermissionsAction) {
     }
 }
 
+export class MakeDirectorySettings extends OperationParamsSettings {
+}
+
+export class RemoveDirectorySettings extends OperationParamsSettings {
+}
+
+export class ListDirectorySettings extends OperationParamsSettings {
+}
+
+export class DescribePathSettings extends OperationParamsSettings {
+}
+
+export class ModifyPermissionsSettings extends OperationParamsSettings {
+}
+
 interface ISchemeClientSettings {
     database: string;
     authService: IAuthService;
@@ -73,29 +88,29 @@ export default class SchemeClient extends EventEmitter {
         return this.schemeServices.get(endpoint) as SchemeService;
     }
 
-    public async makeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
+    public async makeDirectory(path: string, settings?: MakeDirectorySettings): Promise<void> {
         const service = await this.getSchemeService();
-        return await service.makeDirectory(path, operationParams);
+        return await service.makeDirectory(path, settings);
     }
 
-    public async removeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
+    public async removeDirectory(path: string, settings?: RemoveDirectorySettings): Promise<void> {
         const service = await this.getSchemeService();
-        return await service.removeDirectory(path, operationParams);
+        return await service.removeDirectory(path, settings);
     }
 
-    public async listDirectory(path: string, operationParams?: IOperationParams): Promise<ListDirectoryResult> {
+    public async listDirectory(path: string, settings?: ListDirectorySettings): Promise<ListDirectoryResult> {
         const service = await this.getSchemeService();
-        return await service.listDirectory(path, operationParams);
+        return await service.listDirectory(path, settings);
     }
 
-    public async describePath(path: string, operationParams?: IOperationParams): Promise<DescribePathResult> {
+    public async describePath(path: string, settings?: DescribePathSettings): Promise<DescribePathResult> {
         const service = await this.getSchemeService();
-        return await service.describePath(path, operationParams);
+        return await service.describePath(path, settings);
     }
 
-    public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, operationParams?: IOperationParams) {
+    public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, settings?: ModifyPermissionsSettings) {
         const service = await this.getSchemeService();
-        return await service.modifyPermissions(path, permissionActions, clearPermissions, operationParams);
+        return await service.modifyPermissions(path, permissionActions, clearPermissions, settings);
     }
 
     public async destroy() {
@@ -124,33 +139,33 @@ class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
         this.logger = logger;
     }
 
-    prepareRequest(path: string, operationParams?: IOperationParams): IMakeDirectoryRequest {
+    prepareRequest(path: string, settings?: OperationParamsSettings): IMakeDirectoryRequest {
         return {
             path: `${this.database}/${path}`,
-            operationParams
+            operationParams: settings?.operationParams,
         };
     }
 
     @retryable()
     @pessimizable
-    public async makeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
-        const request = this.prepareRequest(path, operationParams);
+    public async makeDirectory(path: string, settings?: MakeDirectorySettings): Promise<void> {
+        const request = this.prepareRequest(path, settings);
         this.logger.debug(`Making directory ${request.path}`);
         ensureOperationSucceeded(await this.api.makeDirectory(request));
     }
 
     @retryable()
     @pessimizable
-    public async removeDirectory(path: string, operationParams?: IOperationParams): Promise<void> {
-        const request = this.prepareRequest(path, operationParams);
+    public async removeDirectory(path: string, settings?: RemoveDirectorySettings): Promise<void> {
+        const request = this.prepareRequest(path, settings);
         this.logger.debug(`Removing directory ${request.path}`);
         ensureOperationSucceeded(await this.api.removeDirectory(request));
     }
 
     @retryable()
     @pessimizable
-    public async listDirectory(path: string, operationParams?: IOperationParams): Promise<ListDirectoryResult> {
-        const request = this.prepareRequest(path, operationParams);
+    public async listDirectory(path: string, settings?: ListDirectorySettings): Promise<ListDirectoryResult> {
+        const request = this.prepareRequest(path, settings);
         this.logger.debug(`Listing directory ${request.path} contents`);
         const response = await this.api.listDirectory(request);
         const payload = getOperationPayload(response);
@@ -159,8 +174,8 @@ class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
 
     @retryable()
     @pessimizable
-    public async describePath(path: string, operationParams?: IOperationParams): Promise<DescribePathResult> {
-        const request = this.prepareRequest(path, operationParams);
+    public async describePath(path: string, settings?: DescribePathSettings): Promise<DescribePathResult> {
+        const request = this.prepareRequest(path, settings);
         this.logger.debug(`Describing path ${request.path}`);
         const response = await this.api.describePath(request);
         const payload = getOperationPayload(response);
@@ -169,9 +184,9 @@ class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
 
     @retryable()
     @pessimizable
-    public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, operationParams?: IOperationParams) {
+    public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, settings?: ModifyPermissionsSettings) {
         const request = {
-            ...this.prepareRequest(path, operationParams),
+            ...this.prepareRequest(path, settings),
             actions: permissionActions.map(preparePermissionAction),
             clearPermissions
         };

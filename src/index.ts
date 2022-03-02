@@ -49,6 +49,13 @@ export {
     OperationParams,
     AUTO_TX
 } from './table';
+export {
+    MakeDirectorySettings,
+    RemoveDirectorySettings,
+    ListDirectorySettings,
+    DescribePathSettings,
+    ModifyPermissionsSettings,
+} from './scheme';
 export {getCredentialsFromEnv, getSACredentialsFromJson} from './parse-env-vars';
 export {parseConnectionString, ParsedConnectionString} from './parse-connection-string';
 export {
