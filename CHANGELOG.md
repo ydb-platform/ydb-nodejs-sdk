@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.9.2](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.9.1...v2.9.2) (2022-02-09)
+
+
+### Bug Fixes
+
+* **MetadataAuthService:** remove ssl defaults for grpc scheme ([40523f7](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/40523f796f281bbba6de23c6c86013d1bb794d0b))
+
+### [2.9.1](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.9.0...v2.9.1) (2022-01-21)
+
+
+### Bug Fixes
+
+* **package.json:** move pino-pretty to dependencies ([bf739d2](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/bf739d20f5c66fb3ce4381a31e1a410fa9e22b2d))
+
 ## [2.9.0](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.8.1...v2.9.0) (2021-12-29)
 
 
