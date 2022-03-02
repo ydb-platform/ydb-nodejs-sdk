@@ -2,6 +2,81 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.0.0](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.9.2...v3.0.0) (2022-03-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* all signatures of SchemeClient's methods now have optional `settings` parameter instead of `operationParams`.
+    - Before: `makeDirectory(path, operationParams?)`
+      After: `makeDirectory(path, {operationParams: ...}?)`
+    - Before: `removeDirectory(path, operationParams?)`
+      After: `removeDirectory(path, {operationParams: ...}?)`
+    - Before: `listDirectory(path, operationParams?)`
+      After: `listDirectory(path, {operationParams: ...}?)`
+    - Before: `describePath(path, operationParams?)`
+      After: `describePath(path, {operationParams: ...}?)`
+    - Before: `modifyPermissions(path, ..., ..., operationParams?)`
+      After: `modifyPermissions(path, ..., ..., {operationParams: ...}?)`
+* TypedData fields have identity conversion to YDB column names instead of camelCase to snake_case. Use `@withTypeOptions({namesConversion:snakeToCamelCaseConversion})` for backward compatibility.
+* several types have changed their representation, namely
+    - struct value is present as object instead of array
+    - decimal value is present as string instead of bigint
+      (it wasn't working for float values before)
+    - fix uuid and tz-date types conversion (it wasn't working before)
+* signatures of most methods in Session are changed:
+    - executeQuery
+      Before: `(query, params, txControl, operationParams?, settings?, collectStats?)`
+      After: `(query, params, txControl, settings?)`
+    - describeTable
+      Before: `(tablePath: string, operationParams?)|(tablePath, describeTableParams?)`
+      After: `(tablePath, settings?)`
+    - commitTransaction
+      Before: `(txControl, operationParams?)`
+      After: `(txControl, settings?)` (and `collectStats` support)
+    - createTable, alterTable, dropTable, beginTransaction, rollbackTransaction, prepareQuery,
+      bulkUpsert
+      Before: `(<required params>, operationParams?)`
+      After: `(<required params>, settings?)`
+* `tablePath` in `bulkUpsert` and `readTable` methods must be without database prefix
+* Primitive class is renamed to `TypedValues`
+* signatures of Driver, getCredentialsFromEnv and *AuthService classes are changed:
+    - Driver:
+      Before: `new Driver(entryPoint, dbName, authService, ...)`
+      After: `new Driver({connectionString: "...", authService: ..., ...})`
+      or `new Driver({endpoint: "...", database: "...", authService: ..., ...})`
+    - *AuthService - `database` and `sslCredentials` are no longer needed in *AuthService constructors
+      (ssl credentials option is now initialized in the driver if it's necessary)
+      Before: `const authService = new MetadataAuthService(dbName, sslCredentials);`
+      After: `const authService = new MetadataAuthService();`
+    - getCredentialsFromEnv:
+      Before: `const authService = getCredentialsFromEnv(endpoint, database, logger);`
+      After: `const authService = getCredentialsFromEnv();` (logger is optional)
+* old environment variables are no longer supported. Use YDB_ACCESS_TOKEN_CREDENTIALS instead of YDB_TOKEN, YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS instead of SA_ID, SA_PRIVATE_KEY_FILE, SA_ACCESS_KEY_ID and SA_JSON_FILE.
+
+### Features
+
+* add more methods and fields to type helper classes ([82f26ea](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/82f26eaaad902ca832cbfece2e85536642c4f53b))
+* implement `Types` and `TypedValues` helper classes ([029db0e](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/029db0ee5e0996a9e73e19dcd5a5fb846b3d6332))
+* implement new type conversions and fix existing type conversions ([0edbcdd](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/0edbcdd09997e7644825c6bd3b015549c5356211))
+* reorganize Driver and credentials to simplify SDK usage ([6526378](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/6526378c501addd6a8ab75f9a6fd8f172fc79c26))
+* replace grpc with @grpc/grpc-js ([1bd8d06](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/1bd8d06f75c68eed1ec8c855ecab0d0b4bfe7bc4))
+
+
+### Bug Fixes
+
+* don't use database in `tablePath` for `bulkUpsert` and `readTable` methods ([d416d59](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/d416d59e44a34088d2909bf28d9c3b8535ff2d59))
+* error message in test-utils ([af39fd1](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/af39fd1178d22aa8fc558d6a4ef6f80d53acd3a5))
+* little fixes in examples ([9c19b95](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/9c19b95dd541705673844aaf960b36c67e2b7b48))
+
+
+### chore
+
+* drop support of old environment variables ([963819a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/963819af9209a45749f5118077f1da4bdb390fa6))
+* reorganize signature of SchemeClient's methods ([734d57a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/734d57a2dd7c655cf727b96df415212504339cf8))
+* reorganize signatures of Session's methods ([431f149](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/431f1491bf880f3ba9541d9455d8dd2f2b7849e6))
+* use identity names conversion in TypedData ([275598a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/275598aa444e1e977386a3dadd02bbc9ba01f38e))
+
 ### [2.9.2](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.9.1...v2.9.2) (2022-02-09)
 
 
