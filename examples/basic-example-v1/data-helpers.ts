@@ -208,6 +208,6 @@ export function getEpisodesData() {
         Episode.create(2, 5, 5, "Facial Recognition", new Date("2018-04-22")),
         Episode.create(2, 5, 6, "Artificial Emotional Intelligence", new Date("2018-04-29")),
         Episode.create(2, 5, 7, "Initial Coin Offering", new Date("2018-05-06")),
-        Episode.create  (2, 5, 8, "Fifty-One Percent", new Date("2018-05-13")),
+        Episode.create(2, 5, 8, "Fifty-One Percent", new Date("2018-05-13")),
     ]);
 }
