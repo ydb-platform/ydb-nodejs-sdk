@@ -2,7 +2,8 @@ import * as grpc from '@grpc/grpc-js';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
 import {GrpcService, sleep, withTimeout} from "./utils";
-import {TokenService} from 'yandex-cloud';
+import {MetadataTokenService} from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
+import {TokenService} from "@yandex-cloud/nodejs-sdk/dist/types";
 import {yandex} from "ydb-sdk-proto";
 import {ISslCredentials, makeDefaultSslCredentials} from './ssl-credentials';
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
@@ -21,10 +22,11 @@ export interface IIamCredentials {
     iamEndpoint: string
 }
 
-export interface ITokenService {
+interface ITokenServiceCompat {
     getToken: () => string|undefined;
     initialize?: () => Promise<void>;
 }
+export type ITokenService = TokenService | ITokenServiceCompat;
 
 export interface IAuthService {
     getAuthMetadata: () => Promise<grpc.Metadata>,
@@ -112,28 +114,37 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
 export class MetadataAuthService implements IAuthService {
     private tokenService: ITokenService;
 
-    static MAX_TRIES = 5;
-    static TRIES_INTERVAL = 2000;
-
     constructor(tokenService?: ITokenService) {
-        this.tokenService = tokenService || new TokenService();
+        this.tokenService = tokenService || new MetadataTokenService();
     }
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
-        let token = this.tokenService.getToken();
-        if (!token && typeof this.tokenService.initialize === 'function') {
-            await this.tokenService.initialize();
-            token = this.tokenService.getToken();
+        if (this.tokenService instanceof MetadataTokenService) {
+            const token = await this.tokenService.getToken();
+            return makeCredentialsMetadata(token);
+        } else {
+            return this.getAuthMetadataCompat();
+        }
+    }
+
+    // Compatibility method for working with TokenService defined in yandex-cloud@1.x
+    private async getAuthMetadataCompat(): Promise<grpc.Metadata> {
+        const MAX_TRIES = 5;
+        const tokenService = this.tokenService as ITokenServiceCompat;
+        let token = tokenService.getToken();
+        if (!token && typeof tokenService.initialize === 'function') {
+            await tokenService.initialize();
+            token = tokenService.getToken();
         }
         let tries = 0;
-        while (!token && tries < MetadataAuthService.MAX_TRIES) {
-            await sleep(MetadataAuthService.TRIES_INTERVAL);
+        while (!token && tries < MAX_TRIES) {
+            await sleep(2000);
             tries++;
-            token = this.tokenService.getToken();
+            token = tokenService.getToken();
         }
         if (token) {
             return makeCredentialsMetadata(token);
         }
-        throw new Error(`Failed to fetch access token via metadata service in ${MetadataAuthService.MAX_TRIES} tries!`);
+        throw new Error(`Failed to fetch access token via metadata service in ${MAX_TRIES} tries!`);
     }
 }

@@ -153,7 +153,8 @@ export function getOperationPayload(response: AsyncResponse): Uint8Array {
 export function ensureOperationSucceeded(response: AsyncResponse, suppressedErrors: StatusCode[] = []): void {
     try {
         getOperationPayload(response);
-    } catch (e) {
+    } catch (error) {
+        const e = error as any;
         if (suppressedErrors.indexOf(e.constructor.status) > -1) {
             return;
         }
