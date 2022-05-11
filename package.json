@@ -39,7 +39,7 @@
     "pino-pretty": "^3.6.1",
     "reflect-metadata": "^0.1.13",
     "uuid": "^8.3.2",
-    "yandex-cloud": "^1.4.2",
+    "@yandex-cloud/nodejs-sdk": "^2.0.0",
     "ydb-sdk-proto": "^0.1.0"
   },
   "devDependencies": {
@@ -56,6 +56,6 @@
     "npm-run-all": "^4.1.5",
     "standard-version": "^9.3.2",
     "ts-jest": "^27.0.5",
-    "typescript": "^3.9.3"
+    "typescript": "^4.6.4"
   }
 }

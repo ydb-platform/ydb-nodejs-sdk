@@ -132,7 +132,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
                 const endpoints = await this.discoverEndpoints(this.database);
                 this.updateEndpoints(endpoints);
             } catch (error) {
-                this.logger.error(error);
+                this.logger.error(error as object);
             }
         }, this.discoveryPeriod);
     }

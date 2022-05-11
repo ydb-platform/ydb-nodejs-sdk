@@ -62,7 +62,7 @@ export async function main(runner: Runner, options?: Option[]) {
     try {
         await runner(logger, endpoint, db, cliParams);
     } catch (error) {
-        logger.error(error);
+        logger.error(error as object);
     }
 }
 
