@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.1.0](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.0.0...v3.1.0) (2022-05-12)
+
+
+### Features
+
+* use newer @yandex-cloud/nodejs-sdk package based on grpc-js ([2d37272](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/2d372729a9a89a96e4342787b86448dab4762be7)), closes [#146](https://www.github.com/ydb-platform/ydb-nodejs-sdk/issues/146)
+
 ## [3.0.0](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.9.2...v3.0.0) (2022-03-02)
 
 
