@@ -161,7 +161,16 @@ export class CreateTableSettings extends OperationParamsSettings {
 export class AlterTableSettings extends OperationParamsSettings {
 }
 
+interface IDropTableSettings {
+    muteNonExistingTableErrors: boolean;
+}
 export class DropTableSettings extends OperationParamsSettings {
+    muteNonExistingTableErrors: boolean;
+
+    constructor({muteNonExistingTableErrors = true} = {} as IDropTableSettings) {
+        super();
+        this.muteNonExistingTableErrors = muteNonExistingTableErrors;
+    }
 }
 
 export class DescribeTableSettings extends OperationParamsSettings {
@@ -370,6 +379,10 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         ensureOperationSucceeded(await this.api.alterTable(request));
     }
 
+    /*
+     Drop table located at `tablePath` in the current database. By default dropping non-existent tables does not
+     throw an error, to throw an error pass `new DropTableSettings({muteNonExistingTableErrors: true})` as 2nd argument.
+     */
     @retryable()
     @pessimizable
     public async dropTable(tablePath: string, settings?: DropTableSettings): Promise<void> {
@@ -380,8 +393,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        // suppress error when dropping non-existent table
-        ensureOperationSucceeded(await this.api.dropTable(request), [SchemeError.status]);
+        settings = settings || new DropTableSettings();
+        const suppressedErrors = settings?.muteNonExistingTableErrors ? [SchemeError.status] : [];
+        ensureOperationSucceeded(await this.api.dropTable(request), suppressedErrors);
     }
 
     @retryable()
