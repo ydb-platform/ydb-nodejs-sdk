@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [3.1.1](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.1.0...v3.1.1) (2022-05-13)
+
+
+### Bug Fixes
+
+* add `muteNonExistingTableErrors` to `DropTableSettings` class ([c2f6037](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/c2f60374862f7e0307521254c58e543fb6c12a30)), closes [#141](https://www.github.com/ydb-platform/ydb-nodejs-sdk/issues/141)
+
 ## [3.1.0](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.0.0...v3.1.0) (2022-05-12)
 
 
