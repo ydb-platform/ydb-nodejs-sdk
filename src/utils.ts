@@ -68,6 +68,8 @@ export type ClientOptions = Record<string, any>;
 export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
     private metadata: grpc.Metadata;
+    private responseMetadata: WeakMap<object, grpc.Metadata>;
+    private lastRequest!: object;
 
     private readonly headers: MetadataHeaders;
 
@@ -77,6 +79,10 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
             typeof Reflect.get(target, prop, receiver) === 'function' &&
             prop !== 'create'
         );
+    }
+
+    public getResponseMetadata(request: object) {
+        return this.responseMetadata.get(request);
     }
 
     protected constructor(
@@ -90,6 +96,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     ) {
         this.headers = new Map([getVersionHeader(), getDatabaseHeader(database)]);
         this.metadata = new grpc.Metadata();
+        this.responseMetadata = new WeakMap();
         this.api = new Proxy(
             this.getClient(removeProtocol(host), this.sslCredentials, clientOptions),
             {
@@ -97,6 +104,12 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
                     const property = Reflect.get(target, prop, receiver);
                     return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
                         async (...args: any[]) => {
+                            if (!['emit', 'rpcCall', 'rpcImpl'].includes(String(prop))) {
+                                if (args.length) {
+                                    this.lastRequest = args[0];
+                                }
+                            }
+
                             this.metadata = await this.authService.getAuthMetadata();
                             for (const [name, value] of this.headers) {
                                 if (value) {
@@ -124,14 +137,20 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
                     .on('end', () => callback(new StreamEnd(), null))
                     .on('error', (error) => callback(error, null));
             } else {
-                client.makeUnaryRequest(path, _.identity, _.identity, requestData, this.metadata, callback);
+                const req = client.makeUnaryRequest(path, _.identity, _.identity, requestData, this.metadata, callback);
+                const lastRequest = this.lastRequest;
+                req.on('status', ({metadata}: grpc.StatusObject) => {
+                    if (lastRequest) {
+                        this.responseMetadata.set(lastRequest, metadata);
+                    }
+                });
             }
         };
         return this.apiCtor.create(rpcImpl);
     }
 }
 
-interface AsyncResponse {
+export interface AsyncResponse {
     operation?: Ydb.Operations.IOperation | null
 }
 
