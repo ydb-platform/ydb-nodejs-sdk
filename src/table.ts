@@ -1,5 +1,6 @@
 import _ from 'lodash';
 import EventEmitter from 'events';
+import * as grpc from '@grpc/grpc-js';
 import {google, Ydb} from 'ydb-sdk-proto';
 import {
     AuthenticatedService,
@@ -7,12 +8,12 @@ import {
     StreamEnd,
     ensureOperationSucceeded,
     getOperationPayload,
-    pessimizable
+    pessimizable, AsyncResponse
 } from './utils';
 import DiscoveryService, {Endpoint} from './discovery';
 import {IPoolSettings} from './driver';
 import {ISslCredentials} from './ssl-credentials';
-import {Events, SESSION_KEEPALIVE_PERIOD} from './constants';
+import {Events, ResponseMetadataKeys, SESSION_KEEPALIVE_PERIOD} from './constants';
 import {IAuthService} from './credentials';
 // noinspection ES6PreferShortImport
 import {Logger} from './logging';
@@ -70,7 +71,7 @@ export class SessionService extends AuthenticatedService<TableService> {
         const response = await this.api.createSession(CreateSessionRequest.create());
         const payload = getOperationPayload(response);
         const {sessionId} = CreateSessionResult.decode(payload);
-        return new Session(this.api, this.endpoint, sessionId, this.logger);
+        return new Session(this.api, this.endpoint, sessionId, this.logger, this.getResponseMetadata.bind(this));
     }
 }
 
@@ -215,6 +216,7 @@ export class PrepareQuerySettings extends OperationParamsSettings {
 export class ExecuteQuerySettings extends OperationParamsSettings {
     keepInCache: boolean = false;
     collectStats?: Ydb.Table.QueryStatsCollection.Mode;
+    onResponseMetadata?: (metadata: grpc.Metadata) => void;
 
     withKeepInCache(keepInCache: boolean) {
         this.keepInCache = keepInCache;
@@ -302,8 +304,15 @@ export class ExecuteScanQuerySettings {
 export class Session extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
     private free = true;
+    private closing = false;
 
-    constructor(private api: TableService, public endpoint: Endpoint, public sessionId: string, private logger: Logger) {
+    constructor(
+        private api: TableService,
+        public endpoint: Endpoint,
+        public sessionId: string,
+        private logger: Logger,
+        private getResponseMetadata: (request: object) => grpc.Metadata | undefined
+    ) {
         super();
     }
 
@@ -320,6 +329,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     public isFree() {
         return this.free && !this.isDeleted();
+    }
+    public isClosing() {
+        return this.closing;
     }
     public isDeleted() {
         return this.beingDeleted;
@@ -338,7 +350,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async keepAlive(): Promise<void> {
-        ensureOperationSucceeded(await this.api.keepAlive({sessionId: this.sessionId}));
+        const request = {sessionId: this.sessionId};
+        const response = await this.api.keepAlive(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
     @retryable()
@@ -357,7 +371,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        ensureOperationSucceeded(await this.api.createTable(request));
+        const response = await this.api.createTable(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
     @retryable()
@@ -376,7 +391,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        ensureOperationSucceeded(await this.api.alterTable(request));
+        const response = await this.api.alterTable(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
     /*
@@ -395,7 +411,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         }
         settings = settings || new DropTableSettings();
         const suppressedErrors = settings?.muteNonExistingTableErrors ? [SchemeError.status] : [];
-        ensureOperationSucceeded(await this.api.dropTable(request), suppressedErrors);
+        const response = await this.api.dropTable(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response), suppressedErrors);
     }
 
     @retryable()
@@ -415,7 +432,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         }
 
         const response = await this.api.describeTable(request);
-        const payload = getOperationPayload(response);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
         return DescribeTableResult.decode(payload);
     }
 
@@ -430,7 +447,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.beginTransaction(request);
-        const payload = getOperationPayload(response);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
         const {txMeta} = BeginTransactionResult.decode(payload);
         if (txMeta) {
             return txMeta;
@@ -449,7 +466,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
             request.collectStats = settings.collectStats;
         }
-        ensureOperationSucceeded(await this.api.commitTransaction(request));
+        const response = await this.api.commitTransaction(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
     @retryable()
@@ -462,7 +480,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        ensureOperationSucceeded(await this.api.rollbackTransaction(request));
+        const response = await this.api.rollbackTransaction(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
     @retryable()
@@ -476,7 +495,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.prepareDataQuery(request);
-        const payload = getOperationPayload(response);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
         return PrepareQueryResult.decode(payload);
     }
 
@@ -517,8 +536,24 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.queryCachePolicy = {keepInCache};
         }
         const response = await this.api.executeDataQuery(request);
-        const payload = getOperationPayload(response);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response, settings?.onResponseMetadata));
         return ExecuteQueryResult.decode(payload);
+    }
+
+    private processResponseMetadata(
+        request: object,
+        response: AsyncResponse,
+        onResponseMetadata?: (metadata: grpc.Metadata) => void
+    ) {
+        const metadata = this.getResponseMetadata(request);
+        if (metadata) {
+            const serverHints = metadata.get(ResponseMetadataKeys.ServerHints) || [];
+            if (serverHints.includes('session-close')) {
+                this.closing = true;
+            }
+            onResponseMetadata?.(metadata);
+        }
+        return response;
     }
 
     @pessimizable
@@ -531,7 +566,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.bulkUpsert(request);
-        const payload = getOperationPayload(response);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
         return BulkUpsertResult.decode(payload);
     }
 
@@ -718,8 +753,10 @@ export class SessionPool extends EventEmitter {
     private async createSession(): Promise<Session> {
         const sessionCreator = await this.getSessionCreator();
         const session = await sessionCreator.create();
-        session.on(SessionEvent.SESSION_RELEASE, () => {
-            if (this.waiters.length > 0) {
+        session.on(SessionEvent.SESSION_RELEASE, async () => {
+            if (session.isClosing()) {
+                await this.deleteSession(session);
+            } else if (this.waiters.length > 0) {
                 const waiter = this.waiters.shift();
                 if (typeof waiter === "function") {
                     waiter(session);

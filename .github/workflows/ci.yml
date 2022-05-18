@@ -28,12 +28,16 @@ jobs:
         image: cr.yandex/yc/yandex-docker-local-ydb:latest
         ports:
           - 2135:2135
+          - 8765:8765
         volumes:
           - /tmp/ydb_certs:/ydb_certs
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
           YDB_USE_IN_MEMORY_PDISKS: true
         options: '-h localhost'
+
+    env:
+      YDB_SHUTDOWN_URL: http://localhost:8765/actors/kqp_proxy?force_shutdown=all
 
     steps:
     - uses: actions/checkout@v2

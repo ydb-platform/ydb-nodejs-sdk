@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import Driver from "./driver";
+import Driver, {IDriverSettings} from "./driver";
 import {declareType, TypedData, Types} from "./types";
 import {Column, Session, TableDescription} from "./table";
 import {withRetries} from "./retries";
@@ -29,19 +29,19 @@ export class Row extends TypedData {
     }
 }
 
-export async function initDriver(): Promise<Driver> {
+export async function initDriver(settings?: Partial<IDriverSettings>): Promise<Driver> {
     const certFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || path.join(process.cwd(), 'ydb_certs/ca.pem');
     if (!fs.existsSync(certFile)) {
         throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_SSL_ROOT_CERTIFICATES_FILE env variable or run Docker container https://cloud.yandex.ru/docs/ydb/getting_started/ydb_docker inside working directory`);
     }
     const sslCredentials = {rootCertificates: fs.readFileSync(certFile)};
 
-    const driver = new Driver({
+    const driver = new Driver(Object.assign({
         endpoint: `grpcs://localhost:2135`,
         database: DATABASE,
         authService: new AnonymousAuthService(),
         sslCredentials,
-    });
+    }, settings));
     const ready = await driver.ready(1000);
     if (!ready) {
         throw new Error('Driver is not ready!');
