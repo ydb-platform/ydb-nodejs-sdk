@@ -8,7 +8,6 @@ const SHUTDOWN_URL = process.env.YDB_SHUTDOWN_URL || 'http://localhost:8765/acto
 describe('Graceful session close', () => {
     let driver: Driver;
     afterAll(async () => await destroyDriver(driver));
-    jest.setTimeout(60_000);
 
     it('All sessions should be closed from the server side and be deleted upon return to the pool', async () => {
         const PREALLOCATED_SESSIONS = 10;
@@ -19,11 +18,10 @@ describe('Graceful session close', () => {
         // give time for the asynchronous session creation to finish before shutting down all existing sessions
         await sleep(100)
         await http.get(SHUTDOWN_URL);
-
         let sessionsToClose = 0;
         const promises = [];
         for (let i = 0; i < 100; i++) {
-            const promise = driver.tableClient.withSession(async (session) => {
+            const promise = driver.tableClient.withSessionRetry(async (session) => {
                 await session.executeQuery('SELECT Random(1);');
 
                 if (session.isClosing()) {
@@ -33,7 +31,7 @@ describe('Graceful session close', () => {
             promises.push(promise);
         }
         await Promise.all(promises);
-        expect(sessionsToClose).toBe(PREALLOCATED_SESSIONS);
+        expect(sessionsToClose).toBeGreaterThanOrEqual(PREALLOCATED_SESSIONS);
     });
 
 });

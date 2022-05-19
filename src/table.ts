@@ -750,17 +750,25 @@ export class SessionPool extends EventEmitter {
         return this.sessionCreators.get(endpoint) as SessionService;
     }
 
+    private maybeUseSession(session: Session) {
+        if (this.waiters.length > 0) {
+            const waiter = this.waiters.shift();
+            if (typeof waiter === "function") {
+                waiter(session);
+                return true;
+            }
+        }
+        return false;
+    }
+
     private async createSession(): Promise<Session> {
         const sessionCreator = await this.getSessionCreator();
         const session = await sessionCreator.create();
         session.on(SessionEvent.SESSION_RELEASE, async () => {
             if (session.isClosing()) {
                 await this.deleteSession(session);
-            } else if (this.waiters.length > 0) {
-                const waiter = this.waiters.shift();
-                if (typeof waiter === "function") {
-                    waiter(session);
-                }
+            } else {
+                this.maybeUseSession(session);
             }
         })
         session.on(SessionEvent.SESSION_BROKEN, async () => {
@@ -776,6 +784,14 @@ export class SessionPool extends EventEmitter {
         }
 
         this.sessionsBeingDeleted++;
+        // acquire new session as soon one of existing ones is deleted
+        if (this.waiters.length > 0) {
+            this.acquire().then((session) => {
+                if (!this.maybeUseSession(session)) {
+                    session.release();
+                }
+            });
+        }
         return session.delete()
             // delete session in any case
             .finally(() => {
