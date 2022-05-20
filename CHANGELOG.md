@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.3.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.2.0...v3.3.0) (2022-05-20)
+
+
+### Features
+
+* add esnext target to support using library via ES modules ([09deade](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/09deade911096c1ea86d437add6853c0e540ee38)), closes [#145](https://github.com/ydb-platform/ydb-nodejs-sdk/issues/145)
+
 ## [3.2.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.1.1...v3.2.0) (2022-05-20)
 
 
