@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.2.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.1.1...v3.2.0) (2022-05-20)
+
+
+### Features
+
+* process 'session-close' server hint from trailing metadata ([d9c15ba](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/d9c15bacaa1907f6f206ba1f2ca63bbc4da16c26))
+
+
+### Bug Fixes
+
+* acquire new session once free slot becomes available in pool ([4500226](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/4500226c058707aab8f5f78f0a8ba9d6da6aad4d))
+
 ### [3.1.1](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.1.0...v3.1.1) (2022-05-13)
 
 
