@@ -2,7 +2,14 @@
   "name": "ydb-sdk",
   "version": "3.2.0",
   "description": "Node.js bindings for working with YDB API over gRPC",
-  "main": "build/index.js",
+  "main": "build/cjs/index.js",
+  "module": "build/esm/index.js",
+  "exports": {
+    ".": {
+      "import": "./build/esm/index.js",
+      "require": "./build/cjs/index.js"
+    }
+  },
   "files": [
     "build/**",
     "certs/"
@@ -12,7 +19,7 @@
     "test:integration": "jest",
     "test:all": "run-p test:unit test:integration",
     "test": "npm run test:unit",
-    "build": "tsc",
+    "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json && ./fixup.sh",
     "clean": "rm -rf build",
     "prepublish": "npm run clean && npm run build",
     "release": "standard-version"
