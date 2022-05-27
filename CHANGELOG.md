@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [3.3.2](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.3.1...v3.3.2) (2022-05-27)
+
+
+### Bug Fixes
+
+* correctly access internal certs from compiled sources ([f7e520d](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/f7e520dbc7ef1fd31cb30684a66b3daa22792f03)), closes [#163](https://github.com/ydb-platform/ydb-nodejs-sdk/issues/163)
+
 ### [3.3.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.3.0...v3.3.1) (2022-05-26)
 
 
