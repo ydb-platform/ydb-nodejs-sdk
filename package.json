@@ -16,8 +16,9 @@
   ],
   "scripts": {
     "test:unit": "exit 0",
-    "test:integration": "jest",
-    "test:all": "run-p test:unit test:integration",
+    "test:integration:development": "TEST_ENVIRONMENT=dev jest --config jest.config.development.js",
+    "test:integration:production": "jest --config jest.config.production.js",
+    "test:all": "run-p test:unit test:integration:production",
     "test": "npm run test:unit",
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json && ./fixup.sh",
     "clean": "rm -rf build",

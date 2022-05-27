@@ -1,4 +1,5 @@
-const pkgInfo = require('../package.json');
+const pkgPath = process.env.TEST_ENVIRONMENT === 'dev' ? '../package.json' : '../../package.json';
+const pkgInfo = require(pkgPath);
 
 function getVersion() {
     return pkgInfo.version;
