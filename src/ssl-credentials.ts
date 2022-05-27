@@ -2,9 +2,10 @@
 import {Logger} from './logging';
 import fs from 'fs';
 import path from 'path';
+import {getRelTopLevelPath} from "./version";
 
-const FALLBACK_INTERNAL_ROOT_CERTS = path.join(__dirname, '../certs/internal.pem');
-const FALLBACK_SYSTEM_ROOT_CERTS = path.join(__dirname, '../certs/system.pem');
+const FALLBACK_INTERNAL_ROOT_CERTS = path.join(__dirname, getRelTopLevelPath(), 'certs/internal.pem');
+const FALLBACK_SYSTEM_ROOT_CERTS = path.join(__dirname, getRelTopLevelPath(), 'certs/system.pem');
 
 function makeInternalRootCertificates() {
     const internalRootCertificates = fs.readFileSync(FALLBACK_INTERNAL_ROOT_CERTS);

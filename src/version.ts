@@ -1,5 +1,10 @@
-const pkgPath = process.env.TEST_ENVIRONMENT === 'dev' ? '../package.json' : '../../package.json';
-const pkgInfo = require(pkgPath);
+import path from 'path';
+
+export function getRelTopLevelPath() {
+    return process.env.TEST_ENVIRONMENT === 'dev' ? '..' : '../..';
+}
+
+const pkgInfo = require(path.join(getRelTopLevelPath(), 'package.json'));
 
 function getVersion() {
     return pkgInfo.version;
