@@ -47,7 +47,7 @@
     "pino-pretty": "^3.6.1",
     "reflect-metadata": "^0.1.13",
     "uuid": "^8.3.2",
-    "@yandex-cloud/nodejs-sdk": "^2.0.0",
+    "@yandex-cloud/nodejs-sdk": "2.1.0",
     "ydb-sdk-proto": "^0.1.0"
   },
   "devDependencies": {
