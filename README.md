@@ -1,4 +1,9 @@
 # How to use
+## Install package from NPM
+```bash
+npm install ydb-sdk
+```
+
 ## Install dependencies and compile library
 ```bash
 npm ci
