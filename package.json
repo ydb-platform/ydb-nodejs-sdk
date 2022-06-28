@@ -39,6 +39,7 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.5.3",
     "@types/pino": "^6.0.0",
+    "@yandex-cloud/nodejs-sdk": "^2.1.1",
     "jsonwebtoken": "^8.5.1",
     "lodash": "^4.17.21",
     "long": "^4.0.0",
@@ -47,7 +48,6 @@
     "pino-pretty": "^3.6.1",
     "reflect-metadata": "^0.1.13",
     "uuid": "^8.3.2",
-    "@yandex-cloud/nodejs-sdk": "^2.0.0",
     "ydb-sdk-proto": "^0.1.0"
   },
   "devDependencies": {
