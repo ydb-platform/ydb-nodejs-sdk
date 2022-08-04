@@ -19,7 +19,7 @@ export class Row extends TypedData {
     @declareType(Types.UINT64)
     public id: number;
 
-    @declareType(Types.UTF8)
+    @declareType(Types.STRING)
     public title: string;
 
     constructor(data: IRow) {
@@ -66,7 +66,7 @@ export async function createTable(session: Session) {
             ))
             .withColumn(new Column(
                 'title',
-                Types.optional(Types.UTF8),
+                Types.optional(Types.STRING),
             ))
             .withPrimaryKey('id')
     );
@@ -74,7 +74,7 @@ export async function createTable(session: Session) {
 
 export async function fillTableWithData(session: Session, rows: Row[]) {
     const query = `
-DECLARE $data AS List<Struct<id: Uint64, title: Utf8>>;
+DECLARE $data AS List<Struct<id: Uint64, title: String>>;
 
 REPLACE INTO ${TABLE}
 SELECT * FROM AS_TABLE($data);`;

@@ -48,7 +48,7 @@ export const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.TZ_TIMESTAMP]: 'textValue',
 };
 
-type primitive = boolean | string | number | Long | Date;
+type primitive = boolean | string | number | Long | Date | Buffer;
 
 export type StructFields = Record<string, IType>;
 
@@ -201,7 +201,7 @@ export class TypedValues {
         return TypedValues.primitive(Type.PrimitiveTypeId.DOUBLE, value);
     }
 
-    static string(value: string): ITypedValue {
+    static string(value: string | Buffer): ITypedValue {
         return TypedValues.primitive(Type.PrimitiveTypeId.STRING, value);
     }
 
@@ -345,7 +345,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
     'uint64Value': (input) => parseLong(input),
     'floatValue': (input) => Number(input),
     'doubleValue': (input) => Number(input),
-    'bytesValue': (input) => Buffer.from(input as string, 'base64').toString(),
+    'bytesValue': (input: any) => input,
     'textValue': (input) => input,
     'nullFlagValue': () => null,
 };
@@ -454,6 +454,9 @@ function objectFromValue(typeId: PrimitiveTypeId, value: unknown) {
 
 function preparePrimitiveValue(typeId: PrimitiveTypeId, value: any) {
     switch (typeId) {
+        case PrimitiveTypeId.STRING:
+        case PrimitiveTypeId.YSON:
+            return value instanceof Buffer ? value : Buffer.from(value);
         case PrimitiveTypeId.DATE:
             return Number(value) / 3600 / 1000 / 24;
         case PrimitiveTypeId.DATETIME:
