@@ -350,7 +350,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
     'nullFlagValue': () => null,
 };
 
-function convertYdbValueToNative(type: IType, value: IValue): any {
+function convertYdbValueToNative(type: IType, value: IValue, options: TypedDataOptions): any {
     if (type.typeId) {
         if (type.typeId === PrimitiveTypeId.UUID) {
             return uuidToNative(value);
@@ -360,7 +360,7 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
             throw new Error(`Unknown PrimitiveTypeId: ${type.typeId}`);
         }
         const input = (value as any)[label];
-        return objectFromValue(type.typeId, valueToNativeConverters[label](input));
+        return objectFromValue(type.typeId, valueToNativeConverters[label](input), options);
     } else if (type.decimalType) {
         const high128 = value.high_128 as number | Long;
         const low128 = value.low_128 as number | Long;
@@ -371,14 +371,14 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
         if (value.nullFlagValue === NullValue.NULL_VALUE) {
             return null;
         }
-        return convertYdbValueToNative(innerType, value);
+        return convertYdbValueToNative(innerType, value, options);
     } else if (type.listType) {
         const innerType = type.listType.item as IType;
-        return _.map(value.items, (item) => convertYdbValueToNative(innerType, item));
+        return _.map(value.items, (item) => convertYdbValueToNative(innerType, item, options));
     } else if (type.tupleType) {
         const types = type.tupleType.elements as IType[];
         const values = value.items as IValue[];
-        return values.map((value, index) => convertYdbValueToNative(types[index], value));
+        return values.map((value, index) => convertYdbValueToNative(types[index], value, options));
     } else if (type.structType) {
         const members = type.structType.members as Ydb.IStructMember[];
         const items = value.items as Ydb.IValue[];
@@ -387,7 +387,7 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
             const member = members[index];
             const memberName = member.name as string;
             const memberType = member.type as IType;
-            struct[memberName] = convertYdbValueToNative(memberType, item);
+            struct[memberName] = convertYdbValueToNative(memberType, item, options);
         });
         return struct;
     } else if (type.dictType) {
@@ -396,8 +396,8 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
 
         const dict = {} as any;
         value.pairs?.forEach((pair) => {
-            const nativeKey = convertYdbValueToNative(keyType, pair.key as IValue);
-            dict[nativeKey] = convertYdbValueToNative(payloadType, pair.payload as IValue);
+            const nativeKey = convertYdbValueToNative(keyType, pair.key as IValue, options);
+            dict[nativeKey] = convertYdbValueToNative(payloadType, pair.payload as IValue, options);
         });
         return dict;
     } else if (type.variantType) {
@@ -408,7 +408,7 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
 
             return items.map((item, index) => {
                 if (index === variantIndex) {
-                    return convertYdbValueToNative(elements[index], item);
+                    return convertYdbValueToNative(elements[index], item, options);
                 }
                 return null;
             });
@@ -419,7 +419,7 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
 
             return items.map((item, index) => {
                 if (index === variantIndex) {
-                    return convertYdbValueToNative(members[index].type as IType, item);
+                    return convertYdbValueToNative(members[index].type as IType, item, options);
                 }
                 return null;
             });
@@ -433,8 +433,11 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
     }
 }
 
-function objectFromValue(typeId: PrimitiveTypeId, value: unknown) {
+function objectFromValue(typeId: PrimitiveTypeId, value: unknown, options: TypedDataOptions) {
     switch (typeId) {
+        case PrimitiveTypeId.YSON:
+        case PrimitiveTypeId.STRING:
+            return getBinaryStringConverter(options)(value as Buffer);
         case PrimitiveTypeId.DATE:
             return new Date((value as number) * 3600 * 1000 * 24);
         case PrimitiveTypeId.DATETIME:
@@ -575,13 +578,18 @@ export interface NamesConversion {
     ydbToJs: StringFunction;
     jsToYdb: StringFunction;
 }
+export type BinaryMaybeToStringFunction = (input: Buffer) => Buffer | string;
 
 export interface TypedDataOptions {
     namesConversion?: NamesConversion;
+    binaryStringConversion?: BinaryMaybeToStringFunction;
 }
 
 export function getNameConverter(options: TypedDataOptions, direction: keyof NamesConversion): StringFunction {
     return (options.namesConversion || identityConversion)[direction];
+}
+export function getBinaryStringConverter(options: TypedDataOptions): BinaryMaybeToStringFunction {
+    return options.binaryStringConversion || _.identity;
 }
 
 export function withTypeOptions(options: TypedDataOptions) {
@@ -664,7 +672,7 @@ export class TypedData {
             const obj = _.reduce(row.items, (acc: Record<string, any>, value, index) => {
                 const column = columns[index] as IColumn;
                 if (column.name && column.type) {
-                    acc[converter(column.name)] = convertYdbValueToNative(column.type, value);
+                    acc[converter(column.name)] = convertYdbValueToNative(column.type, value, this.__options);
                 }
                 return acc;
             }, {});

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import Driver, {IDriverSettings} from "./driver";
-import {declareType, TypedData, Types} from "./types";
+import {declareType, TypedData, Types, withTypeOptions} from "./types";
 import {Column, Session, TableDescription} from "./table";
 import {withRetries} from "./retries";
 import {AnonymousAuthService} from "./credentials";
@@ -15,6 +15,9 @@ export interface IRow {
     title: string;
 }
 
+@withTypeOptions({
+    binaryStringConversion: (input: Buffer) => input.toString()
+})
 export class Row extends TypedData {
     @declareType(Types.UINT64)
     public id: number;
