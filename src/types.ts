@@ -5,6 +5,7 @@ import 'reflect-metadata';
 import {DateTime} from 'luxon';
 import {uuidToNative, uuidToValue} from './uuid';
 import {fromDecimalString, toDecimalString} from './decimal';
+import {emitWarning} from 'process';
 import Type = Ydb.Type;
 import IType = Ydb.IType;
 import IStructMember = Ydb.IStructMember;
@@ -17,7 +18,21 @@ import NullValue = google.protobuf.NullValue;
 
 export const typeMetadataKey = Symbol('type');
 
+const shownDeprecations = new Set();
+function warnDeprecation(message: string) {
+    if (!shownDeprecations.has(message)) {
+        shownDeprecations.add(message);
+        emitWarning(message);
+    }
+}
+
 export function declareType(type: IType) {
+    if (type === Types.STRING) {
+        warnDeprecation(
+            'Types.STRING type is deprecated and will be removed in the next major release. Please migrate ' +
+            'to the newer type Types.BYTES which avoids implicit conversions between Buffer and string types.'
+        );
+    }
     return Reflect.metadata(typeMetadataKey, type);
 }
 
@@ -48,7 +63,7 @@ export const primitiveTypeToValue: Record<number, string> = {
     [Type.PrimitiveTypeId.TZ_TIMESTAMP]: 'textValue',
 };
 
-type primitive = boolean | string | number | Long | Date;
+type primitive = boolean | string | number | Long | Date | Buffer;
 
 export type StructFields = Record<string, IType>;
 
@@ -57,7 +72,7 @@ export class Types {
     static INT8: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT8};
     static UINT8: IType = {typeId: Ydb.Type.PrimitiveTypeId.UINT8};
     static INT16: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT16};
-    static UINT16: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT16};
+    static UINT16: IType = {typeId: Ydb.Type.PrimitiveTypeId.UINT16};
     static INT32: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT32};
     static UINT32: IType = {typeId: Ydb.Type.PrimitiveTypeId.UINT32};
     static INT64: IType = {typeId: Ydb.Type.PrimitiveTypeId.INT64};
@@ -65,7 +80,9 @@ export class Types {
     static FLOAT: IType = {typeId: Ydb.Type.PrimitiveTypeId.FLOAT};
     static DOUBLE: IType = {typeId: Ydb.Type.PrimitiveTypeId.DOUBLE};
     static STRING: IType = {typeId: Ydb.Type.PrimitiveTypeId.STRING};
+    static BYTES: IType = {typeId: Ydb.Type.PrimitiveTypeId.STRING};
     static UTF8: IType = {typeId: Ydb.Type.PrimitiveTypeId.UTF8};
+    static TEXT: IType = {typeId: Ydb.Type.PrimitiveTypeId.UTF8};
     static YSON: IType = {typeId: Ydb.Type.PrimitiveTypeId.YSON};
     static JSON: IType = {typeId: Ydb.Type.PrimitiveTypeId.JSON};
     static UUID: IType = {typeId: Ydb.Type.PrimitiveTypeId.UUID};
@@ -135,11 +152,10 @@ export class Types {
 }
 
 export class TypedValues {
-    private static primitive(type: Ydb.Type.PrimitiveTypeId, value: primitive): ITypedValue {
-        const primitiveType = {typeId: type};
+    private static primitive(type: IType, value: primitive): ITypedValue {
         return {
-            type: primitiveType,
-            value: typeToValue(primitiveType, value),
+            type: type,
+            value: typeToValue(type, value),
         };
     }
 
@@ -158,103 +174,115 @@ export class TypedValues {
     }
 
     static bool(value: boolean): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.BOOL, value);
+        return TypedValues.primitive(Types.BOOL, value);
     }
 
     static int8(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.INT8, value);
+        return TypedValues.primitive(Types.INT8, value);
     }
 
     static uint8(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.UINT8, value);
+        return TypedValues.primitive(Types.UINT8, value);
     }
 
     static int16(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.INT16, value);
+        return TypedValues.primitive(Types.INT16, value);
     }
 
     static uint16(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.UINT16, value);
+        return TypedValues.primitive(Types.UINT16, value);
     }
 
     static int32(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.INT32, value);
+        return TypedValues.primitive(Types.INT32, value);
     }
 
     static uint32(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.UINT32, value);
+        return TypedValues.primitive(Types.UINT32, value);
     }
 
     static int64(value: number | Long): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.INT64, value);
+        return TypedValues.primitive(Types.INT64, value);
     }
 
     static uint64(value: number | Long): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.UINT64, value);
+        return TypedValues.primitive(Types.UINT64, value);
     }
 
     static float(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.FLOAT, value);
+        return TypedValues.primitive(Types.FLOAT, value);
     }
 
     static double(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.DOUBLE, value);
+        return TypedValues.primitive(Types.DOUBLE, value);
     }
 
     static string(value: string): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.STRING, value);
+        warnDeprecation(
+            'string() helper is deprecated and will be removed in the next major release. Please migrate ' +
+            'to the newer helper bytes() which avoids implicit conversions between Buffer and string types.'
+        );
+        return TypedValues.primitive(Types.STRING, value);
+    }
+
+    static bytes(value: Buffer): ITypedValue {
+        return TypedValues.primitive(Types.BYTES, value);
     }
 
     static utf8(value: string): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.UTF8, value);
+        return TypedValues.primitive(Types.UTF8, value);
+    }
+
+    static text(value: string): ITypedValue {
+        return TypedValues.primitive(Types.TEXT, value);
     }
 
     static yson(value: string): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.YSON, value);
+        return TypedValues.primitive(Types.YSON, value);
     }
 
     static json(value: string): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.JSON, value);
+        return TypedValues.primitive(Types.JSON, value);
     }
 
     static uuid(value: string): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.UUID, value);
+        return TypedValues.primitive(Types.UUID, value);
     }
 
     static jsonDocument(value: string): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.JSON_DOCUMENT, value);
+        return TypedValues.primitive(Types.JSON_DOCUMENT, value);
     }
 
     static date(value: Date): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.DATE, value);
+        return TypedValues.primitive(Types.DATE, value);
     }
 
     static datetime(value: Date): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.DATETIME, value);
+        return TypedValues.primitive(Types.DATETIME, value);
     }
 
     static timestamp(value: Date): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.TIMESTAMP, value);
+        return TypedValues.primitive(Types.TIMESTAMP, value);
     }
 
     static interval(value: number): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.INTERVAL, value);
+        return TypedValues.primitive(Types.INTERVAL, value);
     }
 
     static tzDate(value: Date): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.TZ_DATE, value);
+        return TypedValues.primitive(Types.TZ_DATE, value);
     }
 
     static tzDatetime(value: Date): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.TZ_DATETIME, value);
+        return TypedValues.primitive(Types.TZ_DATETIME, value);
     }
 
     static tzTimestamp(value: Date): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.TZ_TIMESTAMP, value);
+        return TypedValues.primitive(Types.TZ_TIMESTAMP, value);
     }
 
     static dynumber(value: string): ITypedValue {
-        return TypedValues.primitive(Type.PrimitiveTypeId.DYNUMBER, value);
+        return TypedValues.primitive(Types.DYNUMBER, value);
     }
 
     static optional(value: Ydb.ITypedValue): Ydb.ITypedValue {
@@ -345,7 +373,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
     'uint64Value': (input) => parseLong(input),
     'floatValue': (input) => Number(input),
     'doubleValue': (input) => Number(input),
-    'bytesValue': (input) => Buffer.from(input as string, 'base64').toString(),
+    'bytesValue': (input) => input,
     'textValue': (input) => input,
     'nullFlagValue': () => null,
 };
@@ -360,7 +388,7 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
             throw new Error(`Unknown PrimitiveTypeId: ${type.typeId}`);
         }
         const input = (value as any)[label];
-        return objectFromValue(type.typeId, valueToNativeConverters[label](input));
+        return objectFromValue(type, valueToNativeConverters[label](input));
     } else if (type.decimalType) {
         const high128 = value.high_128 as number | Long;
         const low128 = value.low_128 as number | Long;
@@ -433,8 +461,15 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
     }
 }
 
-function objectFromValue(typeId: PrimitiveTypeId, value: unknown) {
+function objectFromValue(type: IType, value: unknown) {
+    if (type === Types.BYTES) {
+        return value as Buffer;
+    }
+    const {typeId} = type;
     switch (typeId) {
+        case PrimitiveTypeId.YSON:
+        case PrimitiveTypeId.STRING:
+            return (value as Buffer).toString('utf8');
         case PrimitiveTypeId.DATE:
             return new Date((value as number) * 3600 * 1000 * 24);
         case PrimitiveTypeId.DATETIME:
@@ -452,7 +487,11 @@ function objectFromValue(typeId: PrimitiveTypeId, value: unknown) {
     }
 }
 
-function preparePrimitiveValue(typeId: PrimitiveTypeId, value: any) {
+function preparePrimitiveValue(type: IType, value: any) {
+    if (type === Types.BYTES) {
+        return value instanceof Buffer ? value : Buffer.from(value);
+    }
+    const typeId = type.typeId;
     switch (typeId) {
         case PrimitiveTypeId.DATE:
             return Number(value) / 3600 / 1000 / 24;
@@ -484,7 +523,7 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
         }
         const valueLabel = primitiveTypeToValue[type.typeId];
         if (valueLabel) {
-            return {[valueLabel]: preparePrimitiveValue(type.typeId, value)};
+            return {[valueLabel]: preparePrimitiveValue(type, value)};
         } else {
             throw new Error(`Unknown PrimitiveTypeId: ${type.typeId}`);
         }

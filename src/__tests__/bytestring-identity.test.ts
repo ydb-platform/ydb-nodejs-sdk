@@ -1,0 +1,99 @@
+import Driver from '../driver';
+import {
+    destroyDriver,
+    initDriver,
+    TABLE
+} from '../test-utils';
+import {Column, Session, TableDescription} from '../table';
+import {declareType, TypedData, Types} from "../types";
+import {withRetries} from "../retries";
+
+
+async function createTable(session: Session) {
+    await session.dropTable(TABLE);
+    await session.createTable(
+        TABLE,
+        new TableDescription()
+            .withColumn(new Column(
+                'id',
+                Types.optional(Types.UINT64),
+            ))
+            .withColumn(new Column(
+                'field1',
+                Types.optional(Types.STRING),
+            ))
+            .withColumn(new Column(
+                'field2',
+                Types.optional(Types.STRING),
+            ))
+            .withPrimaryKey('id')
+    );
+}
+
+export interface IRow {
+    id: number;
+    field1: string;
+    field2: Buffer;
+}
+
+class Row extends TypedData {
+    @declareType(Types.UINT64)
+    public id: number;
+
+    @declareType(Types.STRING)
+    public field1: string;
+
+    @declareType(Types.BYTES)
+    public field2: Buffer;
+
+    constructor(data: IRow) {
+        super(data);
+        this.id = data.id;
+        this.field1 = data.field1;
+        this.field2 = data.field2;
+    }
+}
+
+export async function fillTableWithData(session: Session, rows: Row[]) {
+    const query = `
+DECLARE $data AS List<Struct<id: Uint64, field1: String, field2: String>>;
+
+REPLACE INTO ${TABLE}
+SELECT * FROM AS_TABLE($data);`;
+
+    await withRetries(async () => {
+        const preparedQuery = await session.prepareQuery(query);
+        await session.executeQuery(preparedQuery, {
+            '$data': Row.asTypedCollection(rows),
+        });
+    });
+}
+
+describe('bytestring identity', () => {
+    let driver: Driver;
+    let actualRows: Row[];
+    const initialRows = [
+        new Row({id: 0, field1: 'zero', field2: Buffer.from('half')}),
+    ];
+
+    afterAll(async () => await destroyDriver(driver));
+
+    beforeAll(async () => {
+        driver = await initDriver();
+        await driver.tableClient.withSession(async (session) => {
+            await createTable(session);
+            await fillTableWithData(session, initialRows);
+
+            const {resultSets} = await session.executeQuery(`SELECT * FROM ${TABLE}`);
+            actualRows = Row.createNativeObjects(resultSets[0]) as Row[];
+        });
+    });
+
+    it('Types.STRING does not keep the original string in write-read cycle', () => {
+        expect(actualRows[0].field1).not.toEqual('zero');
+    });
+
+    it('Types.BYTES keeps the original string in write-read cycle', () => {
+        expect(actualRows[0].field2.toString()).toEqual('half');
+    });
+});

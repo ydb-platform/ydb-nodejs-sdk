@@ -76,7 +76,15 @@ describe('Types', () => {
                     type: {typeId: Ydb.Type.PrimitiveTypeId.STRING},
                     value: {bytesValue: 'foo'},
                 });
+                expect(TypedValues.bytes(Buffer.from('foo'))).toEqual({
+                    type: {typeId: Ydb.Type.PrimitiveTypeId.STRING},
+                    value: {bytesValue: Buffer.from('foo')},
+                });
                 expect(TypedValues.utf8('привет')).toEqual({
+                    type: {typeId: Ydb.Type.PrimitiveTypeId.UTF8},
+                    value: {textValue: 'привет'},
+                });
+                expect(TypedValues.text('привет')).toEqual({
                     type: {typeId: Ydb.Type.PrimitiveTypeId.UTF8},
                     value: {textValue: 'привет'},
                 });
