@@ -237,7 +237,7 @@ export class TypedValues {
         return TypedValues.primitive(Types.TEXT, value);
     }
 
-    static yson(value: string): ITypedValue {
+    static yson(value: Buffer): ITypedValue {
         return TypedValues.primitive(Types.YSON, value);
     }
 

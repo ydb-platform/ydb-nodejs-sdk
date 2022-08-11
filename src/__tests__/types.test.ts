@@ -80,17 +80,17 @@ describe('Types', () => {
                     type: {typeId: Ydb.Type.PrimitiveTypeId.STRING},
                     value: {bytesValue: Buffer.from('foo')},
                 });
-                expect(TypedValues.utf8('привет')).toEqual({
+                expect(TypedValues.utf8('hello')).toEqual({
                     type: {typeId: Ydb.Type.PrimitiveTypeId.UTF8},
-                    value: {textValue: 'привет'},
+                    value: {textValue: 'hello'},
                 });
-                expect(TypedValues.text('привет')).toEqual({
+                expect(TypedValues.text('hello')).toEqual({
                     type: {typeId: Ydb.Type.PrimitiveTypeId.UTF8},
-                    value: {textValue: 'привет'},
+                    value: {textValue: 'hello'},
                 });
-                expect(TypedValues.yson('<a=1>[3;%false]')).toEqual({
+                expect(TypedValues.yson(Buffer.from('<a=1>[3;%false]'))).toEqual({
                     type: {typeId: Ydb.Type.PrimitiveTypeId.YSON},
-                    value: {bytesValue: '<a=1>[3;%false]'},
+                    value: {bytesValue: Buffer.from('<a=1>[3;%false]')},
                 });
                 expect(TypedValues.json('{"a":1,"b":null}')).toEqual({
                     type: {typeId: Ydb.Type.PrimitiveTypeId.JSON},
@@ -418,14 +418,14 @@ describe('Types', () => {
                     const query = `
                 SELECT
                     String("foo") AS string_value,
-                    Utf8("привет") AS utf8_value,
+                    Utf8("hello") AS utf8_value,
                     Yson("<a=1>[3;%false]") AS yson_value,
                     Json(@@{"a":1,"b":null}@@) AS json_value,
                     JsonDocument("[]") AS json_document_value;`;
 
                     const data = {
                         string_value: 'foo',
-                        utf8_value: 'привет',
+                        utf8_value: 'hello',
                         yson_value: '<a=1>[3;%false]',
                         json_value: '{"a":1,"b":null}',
                         json_document_value: '[]',
