@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.4.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.3.2...v3.4.0) (2022-08-12)
+
+
+### Features
+
+* introduce new type aliases: Types.BYTES & Types.TEXT ([61c17dc](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/61c17dc41838a425e3e2fff30e8a6ea763d15dd2))
+
+
+### Bug Fixes
+
+* the expected type of TypedData.yson() arg should be Buffer ([cd327de](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/cd327de3ca3ae08942a61272cb54133866eee0e6))
+
 ### [3.3.2](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.3.1...v3.3.2) (2022-05-27)
 
 
