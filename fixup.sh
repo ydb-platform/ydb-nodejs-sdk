@@ -2,16 +2,12 @@
 
 package_version=`npm show . version`
 
-cat >build/cjs/package.json <<!EOF
+for target in esm cjs; do
+    cp -R certs build/$target/src/
+    cat >build/$target/package.json <<!EOF
 {
     "version": "$package_version",
     "type": "commonjs"
 }
 !EOF
-
-cat >build/esm/package.json <<!EOF
-{
-    "version": "$package_version",
-    "type": "module"
-}
-!EOF
+done
