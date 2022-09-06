@@ -11,8 +11,7 @@
     }
   },
   "files": [
-    "build/**",
-    "certs/"
+    "build/**"
   ],
   "scripts": {
     "test:unit": "exit 0",
