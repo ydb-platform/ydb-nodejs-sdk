@@ -1,5 +1,5 @@
 // noinspection ES6PreferShortImport
-import {Logger} from './logging';
+import { Logger } from './logging';
 import fs from 'fs';
 import path from 'path';
 
@@ -16,7 +16,7 @@ function makeInternalRootCertificates() {
     }
 
     const internalRootCertificates = fs.readFileSync(FALLBACK_INTERNAL_ROOT_CERTS)
-    const failbackSystemRootCertificates = fs.readFileSync(FALLBACK_SYSTEM_ROOT_CERTS)
+    const fallbackSystemRootCertificates = fs.readFileSync(FALLBACK_SYSTEM_ROOT_CERTS)
 
     let systemRootCertificates: Buffer;
     const tls = require('tls');
@@ -24,7 +24,7 @@ function makeInternalRootCertificates() {
     if (nodeRootCertificates && nodeRootCertificates.length > 0) {
         systemRootCertificates = Buffer.from(nodeRootCertificates.join('\n'));
     } else {
-        systemRootCertificates = failbackSystemRootCertificates;
+        systemRootCertificates = fallbackSystemRootCertificates;
     }
 
     return Buffer.concat([internalRootCertificates, systemRootCertificates]);
