@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.4.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.4.0...v3.4.1) (2022-09-13)
+
+
+### Bug Fixes
+
+* certificates path for bundling compilation ([ebc10ad](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/ebc10ad1b6e3e6c772b30c8252f3cdab3823898e)), closes [#173](https://github.com/ydb-platform/ydb-nodejs-sdk/issues/173)
+
 ## [3.4.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.3.2...v3.4.0) (2022-08-12)
 
 
