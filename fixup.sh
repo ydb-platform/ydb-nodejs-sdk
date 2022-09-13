@@ -1,13 +1,14 @@
 #!/bin/sh
 
-cat >build/cjs/package.json <<!EOF
-{
-    "type": "commonjs"
-}
-!EOF
+package_version=`npm show . version`
 
-cat >build/esm/package.json <<!EOF
+for target in esm cjs; do
+    cp -R certs build/$target/src/
+    [[ $target == "esm" ]] && type="module" || type="commonjs"
+    cat >build/$target/package.json <<!EOF
 {
-    "type": "module"
+    "version": "$package_version",
+    "type": "$type"
 }
 !EOF
+done
