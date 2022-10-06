@@ -16,7 +16,10 @@
     "experimentalDecorators": true,
     "allowJs": true,
     "declaration": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "target": "es2017",
+    "module": "commonjs",
+    "outDir": "build"
   },
   "include": [
     "src/**/*.ts"
