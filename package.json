@@ -19,7 +19,7 @@
     "test:integration:production": "jest --config jest.config.production.js",
     "test:all": "run-p test:unit test:integration:production",
     "test": "npm run test:unit",
-    "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json && ./fixup.sh",
+    "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rm -rf build",
     "prepublish": "npm run clean && npm run build",
     "release": "standard-version"
