@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.4.2](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.4.1...v3.4.2) (2022-10-18)
+
+
+### Bug Fixes
+
+* **build:** fix es module build ([8d4715b](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/8d4715bb3c5b0c7073787cbf6f0c9741d6e13fc3))
+
 ## [3.4.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.4.0...v3.4.1) (2022-09-13)
 
 
