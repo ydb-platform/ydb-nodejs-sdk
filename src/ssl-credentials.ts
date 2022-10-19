@@ -1,5 +1,5 @@
-import fs from 'fs';
-import tls from 'tls';
+import * as fs from 'fs';
+import * as tls from 'tls';
 
 // noinspection ES6PreferShortImport
 import { Logger } from './logging';
