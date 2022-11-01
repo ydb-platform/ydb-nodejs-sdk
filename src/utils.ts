@@ -55,6 +55,11 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
             new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientPrivateKey, sslCredentials.clientCertChain)) :
             new grpc.Client(host, grpc.credentials.createInsecure());
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
+            if(null===method && requestData === null && callback === null) {
+                // signal `end` from protobuf service
+                client.close()
+                return
+            }
             const path = `/${this.name}/${method.name}`;
             client.makeUnaryRequest(path, _.identity, _.identity, requestData, callback);
         };

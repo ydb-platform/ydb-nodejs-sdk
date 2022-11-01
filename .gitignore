@@ -9,6 +9,7 @@ build/
 
 #personal
 .idea/
+.vscode/
 .DS_Store
 
 # git merge leftovers
