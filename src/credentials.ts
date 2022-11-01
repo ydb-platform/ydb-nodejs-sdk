@@ -47,22 +47,38 @@ export class TokenAuthService implements IAuthService {
     }
 }
 
-export class IamAuthService extends GrpcService<IamTokenService> implements IAuthService {
+class TempIamAuthService extends GrpcService<IamTokenService> {
+    constructor(iamCredentials: IIamCredentials, sslCredentials: ISslCredentials) {
+        super(
+            iamCredentials.iamEndpoint,
+            'yandex.cloud.iam.v1.IamTokenService',
+            IamTokenService,
+            sslCredentials,
+        );
+    }
+
+    create(request: yandex.cloud.iam.v1.ICreateIamTokenRequest) {
+        return this.api.create(request)
+    }
+
+    destroy() {
+        this.api.end()
+    }
+}
+
+export class IamAuthService implements IAuthService {
     private jwtExpirationTimeout = 3600 * 1000;
     private tokenExpirationTimeout = 120 * 1000;
     private tokenRequestTimeout = 10 * 1000;
     private token: string = '';
     private tokenTimestamp: DateTime|null;
+    private tokenUpdateInProgress: Boolean = false;
     private readonly iamCredentials: IIamCredentials;
+    private readonly sslCredentials: ISslCredentials
 
     constructor(iamCredentials: IIamCredentials, sslCredentials?: ISslCredentials) {
-        super(
-            iamCredentials.iamEndpoint,
-            'yandex.cloud.iam.v1.IamTokenService',
-            IamTokenService,
-            sslCredentials || makeDefaultSslCredentials(),
-        );
         this.iamCredentials = iamCredentials;
+        this.sslCredentials = sslCredentials || makeDefaultSslCredentials()
         this.tokenTimestamp = null;
     }
 
@@ -88,24 +104,37 @@ export class IamAuthService extends GrpcService<IamTokenService> implements IAut
         );
     }
 
-    private sendTokenRequest(): Promise<ICreateIamTokenResponse> {
-        const tokenPromise = this.api.create({jwt: this.getJwtRequest()});
-        return withTimeout<ICreateIamTokenResponse>(tokenPromise, this.tokenRequestTimeout);
+    private async sendTokenRequest(): Promise<ICreateIamTokenResponse> {
+        let tempIamAuthService = new TempIamAuthService(this.iamCredentials, this.sslCredentials)
+        const tokenPromise = tempIamAuthService.create({jwt: this.getJwtRequest()});
+        const result = await withTimeout<ICreateIamTokenResponse>(tokenPromise, this.tokenRequestTimeout);
+        tempIamAuthService.destroy()
+        return result
     }
 
     private async updateToken() {
+        this.tokenUpdateInProgress=true
         const {iamToken} = await this.sendTokenRequest();
         if (iamToken) {
             this.token = iamToken;
             this.tokenTimestamp = DateTime.utc();
+            this.tokenUpdateInProgress=false
         } else {
+            this.tokenUpdateInProgress=false
             throw new Error('Received empty token from IAM!');
         }
     }
 
+    private async waitUntilTokenUpdated() {
+        while(this.tokenUpdateInProgress) await sleep(1)
+        return
+    }
+
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         if (this.expired) {
-            await this.updateToken();
+            // block updateToken calls while token updating
+            if(this.tokenUpdateInProgress) await this.waitUntilTokenUpdated()
+            else await this.updateToken();
         }
         return makeCredentialsMetadata(this.token);
     }
