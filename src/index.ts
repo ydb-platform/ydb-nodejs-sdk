@@ -1,5 +1,5 @@
 export {Ydb} from 'ydb-sdk-proto';
-export {default as getLogger, Logger} from './logging';
+export {default as getLogger, setDefaultLogger, Logger, LogFn} from './logging';
 export {default as Driver, IDriverSettings, IPoolSettings} from './driver';
 export {
     declareType,

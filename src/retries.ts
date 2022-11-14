@@ -100,14 +100,13 @@ export function retryable(strategyParams?: RetryParameters) {
     return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
         const originalMethod = descriptor.value;
         const wrappedMethodName = `${target.constructor.name}::${propertyKey}`;
-        if (!strategyParams) {
-            strategyParams = new RetryParameters();
-        }
-        const strategy = new RetryStrategy(wrappedMethodName, strategyParams);
+        let strategy: RetryStrategy | undefined;
         descriptor.value = async function (...args: any) {
-            return await strategy.retry(
-                async () => await originalMethod.call(this, ...args)
-            );
+            if (!strategy) {
+                if (!strategyParams) strategyParams = new RetryParameters();
+                strategy = new RetryStrategy(wrappedMethodName, strategyParams);
+            }
+            return await strategy.retry(async () => await originalMethod.call(this, ...args));
         };
     };
 }
