@@ -43,8 +43,8 @@
     "lodash": "^4.17.21",
     "long": "^4.0.0",
     "luxon": "^1.21.2",
-    "pino": "^6.3.0",
-    "pino-pretty": "^3.6.1",
+    "pino": "^8.7.0",
+    "pino-pretty": "^9.1.1",
     "reflect-metadata": "^0.1.13",
     "uuid": "^8.3.2",
     "ydb-sdk-proto": "^0.1.0"
