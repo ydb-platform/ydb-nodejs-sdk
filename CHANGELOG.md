@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.5.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.4.4...v3.5.0) (2022-11-15)
+
+
+### Features
+
+* add custom logger ([2d411cd](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/2d411cd5e613d07ebefdde8f34d582981fc0fedf)), closes [#191](https://github.com/ydb-platform/ydb-nodejs-sdk/issues/191)
+
+
+### Bug Fixes
+
+* **deps:** update logging packages to latest ([ad8dbd2](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/ad8dbd25ddfe8eb9a4617cb9f34a85ddb83d9aae))
+
 ## [3.4.4](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.4.3...v3.4.4) (2022-10-20)
 
 
