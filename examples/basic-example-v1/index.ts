@@ -7,6 +7,7 @@ import {
     Logger,
     Session,
     TableDescription,
+    TableIndex,
     Types,
     withRetries,
 } from 'ydb-sdk';
@@ -73,6 +74,11 @@ async function createTables(session: Session, logger: Logger) {
             .withPrimaryKeys('series_id', 'season_id')
     );
 
+    const episodesIndex = new TableIndex('episodes_index')
+        .withIndexColumns('title')
+        .withDataColumns('air_date')
+        .withGlobalAsync(true)
+
     await session.createTable(
         EPISODES_TABLE,
         new TableDescription()
@@ -97,6 +103,7 @@ async function createTables(session: Session, logger: Logger) {
                 Types.optional(Types.DATE),
             ))
             .withPrimaryKeys('series_id', 'season_id', 'episode_id')
+            .withIndex(episodesIndex)
     );
 }
 
