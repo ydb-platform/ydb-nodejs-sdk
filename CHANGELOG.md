@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.6.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.5.0...v3.6.0) (2022-11-21)
+
+
+### Features
+
+* add data columns and sync/async index to TableIndex ([7304dce](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/7304dcecb06befd43f854d313ff4b4d0f2737b67))
+
 ## [3.5.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.4.4...v3.5.0) (2022-11-15)
 
 
