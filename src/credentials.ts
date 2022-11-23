@@ -47,25 +47,6 @@ export class TokenAuthService implements IAuthService {
     }
 }
 
-class TempIamAuthService extends GrpcService<IamTokenService> {
-    constructor(iamCredentials: IIamCredentials, sslCredentials: ISslCredentials) {
-        super(
-            iamCredentials.iamEndpoint,
-            'yandex.cloud.iam.v1.IamTokenService',
-            IamTokenService,
-            sslCredentials,
-        );
-    }
-
-    create(request: yandex.cloud.iam.v1.ICreateIamTokenRequest) {
-        return this.api.create(request)
-    }
-
-    destroy() {
-        this.api.end()
-    }
-}
-
 export class IamAuthService implements IAuthService {
     private jwtExpirationTimeout = 3600 * 1000;
     private tokenExpirationTimeout = 120 * 1000;
@@ -74,7 +55,23 @@ export class IamAuthService implements IAuthService {
     private tokenTimestamp: DateTime|null;
     private tokenUpdateInProgress: Boolean = false;
     private readonly iamCredentials: IIamCredentials;
-    private readonly sslCredentials: ISslCredentials
+    private readonly sslCredentials: ISslCredentials;
+    private readonly GrpcService = class extends GrpcService<IamTokenService> {
+        constructor(iamCredentials: IIamCredentials, sslCredentials: ISslCredentials) {
+            super(
+                iamCredentials.iamEndpoint,
+                'yandex.cloud.iam.v1.IamTokenService',
+                IamTokenService,
+                sslCredentials,
+            );
+        }
+    
+        create(request: yandex.cloud.iam.v1.ICreateIamTokenRequest) {
+            return this.api.create(request)
+        }
+    
+        destroy() { this.api.end() }
+    }
 
     constructor(iamCredentials: IIamCredentials, sslCredentials?: ISslCredentials) {
         this.iamCredentials = iamCredentials;
@@ -105,28 +102,28 @@ export class IamAuthService implements IAuthService {
     }
 
     private async sendTokenRequest(): Promise<ICreateIamTokenResponse> {
-        let tempIamAuthService = new TempIamAuthService(this.iamCredentials, this.sslCredentials)
-        const tokenPromise = tempIamAuthService.create({jwt: this.getJwtRequest()});
+        let runtimeIamAuthService = new this.GrpcService(this.iamCredentials, this.sslCredentials)
+        const tokenPromise = runtimeIamAuthService.create({jwt: this.getJwtRequest()});
         const result = await withTimeout<ICreateIamTokenResponse>(tokenPromise, this.tokenRequestTimeout);
-        tempIamAuthService.destroy()
+        runtimeIamAuthService.destroy()
         return result
     }
 
     private async updateToken() {
-        this.tokenUpdateInProgress=true
+        this.tokenUpdateInProgress = true
         const {iamToken} = await this.sendTokenRequest();
         if (iamToken) {
             this.token = iamToken;
             this.tokenTimestamp = DateTime.utc();
-            this.tokenUpdateInProgress=false
+            this.tokenUpdateInProgress = false
         } else {
-            this.tokenUpdateInProgress=false
+            this.tokenUpdateInProgress = false
             throw new Error('Received empty token from IAM!');
         }
     }
 
     private async waitUntilTokenUpdated() {
-        while(this.tokenUpdateInProgress) await sleep(1)
+        while (this.tokenUpdateInProgress) { await sleep(1) }
         return
     }
 
