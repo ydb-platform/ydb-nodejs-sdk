@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.6.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.6.0...v3.6.1) (2022-11-28)
+
+
+### Bug Fixes
+
+* **auth:** new IAM auth grpc service per token update ([341872a](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/341872abf300c27fd2d9d91703d8d2ebd94cfe68))
+
 ## [3.6.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.5.0...v3.6.0) (2022-11-21)
 
 
