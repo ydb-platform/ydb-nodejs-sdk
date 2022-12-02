@@ -65,6 +65,7 @@ export {
     IamAuthService,
     TokenAuthService,
     MetadataAuthService,
+    StaticCredentialsAuthService
 } from './credentials';
 export {ISslCredentials} from './ssl-credentials';
 export {withRetries, RetryParameters} from './retries';

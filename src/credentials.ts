@@ -1,12 +1,13 @@
 import * as grpc from '@grpc/grpc-js';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
-import {GrpcService, sleep, withTimeout} from "./utils";
+import {getOperationPayload, GrpcService,  sleep, withTimeout} from "./utils";
 import {MetadataTokenService} from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
 import {TokenService} from "@yandex-cloud/nodejs-sdk/dist/types";
-import {yandex} from "ydb-sdk-proto";
+import {yandex, Ydb} from "ydb-sdk-proto";
 import {ISslCredentials, makeDefaultSslCredentials} from './ssl-credentials';
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
+import AuthServiceResult = Ydb.Auth.LoginResult;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 
 function makeCredentialsMetadata(token: string): grpc.Metadata {
@@ -36,6 +37,90 @@ export class AnonymousAuthService implements IAuthService {
     constructor() {}
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         return new grpc.Metadata();
+    }
+}
+
+
+export class StaticCredentialsAuthService implements IAuthService {
+    private tokenExpirationTimeout =  30 * 60 * 1000;
+    private tokenRequestTimeout = 10 * 1000;
+    private tokenTimestamp: DateTime|null;
+    private token: string = '';
+    private tokenUpdateInProgress: Boolean = false;
+    private user: string;
+    private password: string;
+    private endpoint: string
+    private sslCredentials: ISslCredentials | undefined
+
+    private readonly GrpcService = class extends GrpcService<Ydb.Auth.V1.AuthService> {
+        constructor(endpoint: string, sslCredentials?: ISslCredentials) {
+            super(endpoint, 'Ydb.Auth.V1.AuthService', Ydb.Auth.V1.AuthService, sslCredentials)
+        }
+
+        login(request: Ydb.Auth.ILoginRequest) {
+            return this.api.login(request)
+        }
+
+        destroy() { this.api.end() }
+    
+    }
+
+    constructor(user: string, password: string, endpoint: string, sslCredentials?: ISslCredentials) {
+        this.user = user;
+        this.password = password;
+        this.endpoint = endpoint;
+        this.sslCredentials = sslCredentials
+        this.tokenTimestamp = null;
+    }
+
+    private get expired() {
+        return !this.tokenTimestamp || (
+            DateTime.utc().diff(this.tokenTimestamp).valueOf() > this.tokenExpirationTimeout
+        );
+    }
+
+    private async sendTokenRequest(): Promise<AuthServiceResult> {
+        let runtimeAuthService = new this.GrpcService(this.endpoint, this.sslCredentials)
+        try {
+            const tokenPromise = runtimeAuthService.login({
+                user: this.user,
+                password: this.password
+            });
+            const response = await withTimeout<Ydb.Auth.LoginResponse>(tokenPromise, this.tokenRequestTimeout);
+            const result = AuthServiceResult.decode(getOperationPayload(response));
+            runtimeAuthService.destroy()
+            return result
+        } catch (error) {
+            throw new Error("Can't login by user and password " + String(error))
+        }
+        
+    }
+
+    private async updateToken() {
+        this.tokenUpdateInProgress = true
+        const {token} = await this.sendTokenRequest();
+        if (token) {
+            this.token = token;
+            this.tokenTimestamp = DateTime.utc();
+            this.tokenUpdateInProgress = false
+        } else {
+            this.tokenUpdateInProgress = false
+            throw new Error('Received empty token from credentials!');
+        }
+    }
+
+    private async waitUntilTokenUpdated() {
+        while (this.tokenUpdateInProgress) { await sleep(1) }
+        return
+    }
+
+    public async getAuthMetadata(): Promise<grpc.Metadata> {
+        if (this.expired) {
+            // block updateToken calls while token updating
+            if(this.tokenUpdateInProgress) await this.waitUntilTokenUpdated()
+            else await this.updateToken();
+        }
+        return makeCredentialsMetadata(this.token);
     }
 }
 
