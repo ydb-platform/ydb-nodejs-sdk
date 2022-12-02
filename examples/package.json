@@ -10,6 +10,7 @@
     "auth:environ": "node build/auth/environ/index.js",
     "auth:metadata-credentials": "node build/auth/metadata-credentials/index.js",
     "auth:service-account-credentials": "node build/auth/service-account-credentials/index.js",
+    "auth:static-credentials": "node build/auth/static-credentials/index.js",
     "bulk-upsert": "node build/bulk-upsert/index.js",
     "read-table": "node build/read-table/index.js",
     "scan-query": "node build/scan-query/index.js",
