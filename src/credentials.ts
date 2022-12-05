@@ -40,37 +40,58 @@ export class AnonymousAuthService implements IAuthService {
     }
 }
 
+interface StaticCredentialsAuthOptions {
+    /** Custom ssl sertificates. If you use it in driver, you must use it here too */
+    sslCredentials?: ISslCredentials;
+    /** 
+     * Timeout for token request in milliseconds
+     * @default 10 * 1000
+     */
+    tokenRequestTimeout?: number;
+    /** Expiration time for token in milliseconds
+     * @default 6 * 60 * 60 * 1000
+     */
+    tokenExpirationTimeout?: number
+}
 
 export class StaticCredentialsAuthService implements IAuthService {
-    private tokenExpirationTimeout =  30 * 60 * 1000;
-    private tokenRequestTimeout = 10 * 1000;
-    private tokenTimestamp: DateTime|null;
-    private token: string = '';
-    private tokenUpdateInProgress: Boolean = false;
+    private readonly tokenRequestTimeout = 10 * 1000;
+    private readonly tokenExpirationTimeout = 6 * 60 * 60 * 1000;
+    private tokenTimestamp: DateTime | null;
+    private token: string = "";
+    private tokenUpdatePromise: Promise<any> | null = null;
     private user: string;
     private password: string;
-    private endpoint: string
-    private sslCredentials: ISslCredentials | undefined
+    private endpoint: string;
+    private sslCredentials: ISslCredentials | undefined;
 
     private readonly GrpcService = class extends GrpcService<Ydb.Auth.V1.AuthService> {
         constructor(endpoint: string, sslCredentials?: ISslCredentials) {
-            super(endpoint, 'Ydb.Auth.V1.AuthService', Ydb.Auth.V1.AuthService, sslCredentials)
+            super(endpoint, "Ydb.Auth.V1.AuthService", Ydb.Auth.V1.AuthService, sslCredentials);
         }
 
         login(request: Ydb.Auth.ILoginRequest) {
-            return this.api.login(request)
+            return this.api.login(request);
         }
 
-        destroy() { this.api.end() }
-    
-    }
+        destroy() {
+            this.api.end();
+        }
+    };
 
-    constructor(user: string, password: string, endpoint: string, sslCredentials?: ISslCredentials) {
+    constructor(
+        user: string,
+        password: string,
+        endpoint: string,
+        options?: StaticCredentialsAuthOptions
+    ) {
+        this.tokenTimestamp = null;
         this.user = user;
         this.password = password;
         this.endpoint = endpoint;
-        this.sslCredentials = sslCredentials
-        this.tokenTimestamp = null;
+        this.sslCredentials = options?.sslCredentials;
+        if (options?.tokenRequestTimeout) this.tokenRequestTimeout = options.tokenRequestTimeout;
+        if (options?.tokenExpirationTimeout) this.tokenExpirationTimeout = options.tokenExpirationTimeout;
     }
 
     private get expired() {
@@ -80,45 +101,38 @@ export class StaticCredentialsAuthService implements IAuthService {
     }
 
     private async sendTokenRequest(): Promise<AuthServiceResult> {
-        let runtimeAuthService = new this.GrpcService(this.endpoint, this.sslCredentials)
+        let runtimeAuthService = new this.GrpcService(this.endpoint, this.sslCredentials);
         try {
             const tokenPromise = runtimeAuthService.login({
                 user: this.user,
-                password: this.password
+                password: this.password,
             });
             const response = await withTimeout<Ydb.Auth.LoginResponse>(tokenPromise, this.tokenRequestTimeout);
             const result = AuthServiceResult.decode(getOperationPayload(response));
-            runtimeAuthService.destroy()
-            return result
+            runtimeAuthService.destroy();
+            return result;
         } catch (error) {
-            throw new Error("Can't login by user and password " + String(error))
+            throw new Error("Can't login by user and password " + String(error));
         }
-        
     }
 
     private async updateToken() {
-        this.tokenUpdateInProgress = true
-        const {token} = await this.sendTokenRequest();
+        const { token } = await this.sendTokenRequest();
         if (token) {
             this.token = token;
             this.tokenTimestamp = DateTime.utc();
-            this.tokenUpdateInProgress = false
         } else {
-            this.tokenUpdateInProgress = false
-            throw new Error('Received empty token from credentials!');
+            throw new Error("Received empty token from credentials!");
         }
     }
 
-    private async waitUntilTokenUpdated() {
-        while (this.tokenUpdateInProgress) { await sleep(1) }
-        return
-    }
-
     public async getAuthMetadata(): Promise<grpc.Metadata> {
-        if (this.expired) {
-            // block updateToken calls while token updating
-            if(this.tokenUpdateInProgress) await this.waitUntilTokenUpdated()
-            else await this.updateToken();
+        if (this.expired || this.tokenUpdatePromise) {
+            if (!this.tokenUpdatePromise) {
+                this.tokenUpdatePromise = this.updateToken();
+            }
+            await this.tokenUpdatePromise;
+            this.tokenUpdatePromise = null;
         }
         return makeCredentialsMetadata(this.token);
     }
