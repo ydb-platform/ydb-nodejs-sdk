@@ -3,7 +3,9 @@ import {Driver, StaticCredentialsAuthService, Logger} from 'ydb-sdk';
 export async function run(logger: Logger, endpoint: string, database: string, args?: any) {
     logger.info('Driver initializing...');
     const {user, password} = args;
-    const authService = new StaticCredentialsAuthService(user, password, endpoint)
+    const authService = new StaticCredentialsAuthService(user, password, endpoint, {
+        tokenExpirationTimeout: 20000,
+    })
     const driver = new Driver({endpoint, database, authService});
     const timeout = 100000;
     if (!await driver.ready(timeout)) {
