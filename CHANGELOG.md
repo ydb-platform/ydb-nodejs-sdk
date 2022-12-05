@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.7.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.6.1...v3.7.0) (2022-12-05)
+
+
+### Features
+
+* add staticAuthService and examples ([4592026](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/4592026cfdf081de2c4036ce8ea794340ea05ec0))
+* update ydb-sdk-proto package ([a0ff3ea](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/a0ff3eac20606d19532317a0491ade0fea24e24c))
+
 ## [3.6.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.6.0...v3.6.1) (2022-11-28)
 
 
