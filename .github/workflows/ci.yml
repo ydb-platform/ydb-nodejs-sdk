@@ -25,7 +25,7 @@ jobs:
 
     services:
       ydb:
-        image: amyasnikov/ydb:latesst
+        image: amyasnikov/ydb:latest
         ports:
           - 2135:2135
           - 8765:8765
