@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.7.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.7.0...v3.7.1) (2023-01-12)
+
+
+### Bug Fixes
+
+* **deps:** update luxon, jsonwebtoken and YC sdk ([60ba72d](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/60ba72d4b69df87e582e033b3c0af4653f700cef))
+
 ## [3.7.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.6.1...v3.7.0) (2022-12-05)
 
 
