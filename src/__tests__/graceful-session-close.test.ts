@@ -20,7 +20,7 @@ describe('Graceful session close', () => {
         await http.get(SHUTDOWN_URL);
         let sessionsToClose = 0;
         const promises = [];
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 200; i++) {
             const promise = driver.tableClient.withSessionRetry(async (session) => {
                 await session.executeQuery('SELECT Random(1);');
 

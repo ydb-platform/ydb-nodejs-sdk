@@ -42,7 +42,7 @@ export async function initDriver(settings?: Partial<IDriverSettings>): Promise<D
         authService: new AnonymousAuthService(),
         sslCredentials,
     }, settings));
-    const ready = await driver.ready(1000);
+    const ready = await driver.ready(3000);
     if (!ready) {
         throw new Error('Driver is not ready!');
     }
