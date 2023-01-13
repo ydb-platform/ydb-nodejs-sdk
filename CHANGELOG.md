@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.8.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.7.1...v3.8.0) (2023-01-13)
+
+
+### Features
+
+* update ydb-sdk-proto to 1.1.0 ([8106921](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/81069216712830c51cd3ca6168889e42e27bff2c))
+
 ## [3.7.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.7.0...v3.7.1) (2023-01-12)
 
 
