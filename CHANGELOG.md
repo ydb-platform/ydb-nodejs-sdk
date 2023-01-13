@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.8.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.8.0...v3.8.1) (2023-01-13)
+
+
+### Bug Fixes
+
+* **tests:** update timeouts to run tests correctly ([82bc6b7](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/82bc6b77e2e2c35cc2872d3e42c4b337281fba50))
+
 ## [3.8.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.7.1...v3.8.0) (2023-01-13)
 
 
