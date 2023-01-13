@@ -47,7 +47,7 @@
     "pino-pretty": "^3.6.1",
     "reflect-metadata": "^0.1.13",
     "uuid": "^8.3.2",
-    "ydb-sdk-proto": "1.0.0"
+    "ydb-sdk-proto": "^1.1.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^15.0.0",
