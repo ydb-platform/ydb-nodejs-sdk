@@ -378,15 +378,10 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async alterTable(tablePath: string, description: AlterTableDescription, settings?: AlterTableSettings): Promise<void> {
-        const {addColumns, dropColumns, alterColumns, setTtlSettings, dropTtlSettings} = description;
         const request: Ydb.Table.IAlterTableRequest = {
+            ...description,
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
-            addColumns,
-            dropColumns,
-            alterColumns,
-            setTtlSettings,
-            dropTtlSettings,
         };
         if (settings) {
             request.operationParams = settings.operationParams;
@@ -1196,6 +1191,17 @@ export class AlterTableDescription {
     public dropTtlSettings?: {};
     public addIndexes: TableIndex[] = [];
     public dropIndexes: string[] = [];
+    public alterStorageSettings?: Ydb.Table.IStorageSettings;
+    public addColumnFamilies?: Ydb.Table.IColumnFamily[];
+    public alterColumnFamilies?: Ydb.Table.IColumnFamily[];
+    public alterAttributes?: { [k: string]: string };
+    public setCompactionPolicy?: string;
+    public alterPartitioningSettings?: Ydb.Table.IPartitioningSettings;
+    public setKeyBloomFilter?: Ydb.FeatureFlag.Status;
+    public setReadReplicasSettings?: Ydb.Table.IReadReplicasSettings;
+    public addChangefeeds?: Ydb.Table.IChangefeed[];
+    public dropChangefeeds?: string[];
+    public renameIndexes?: Ydb.Table.IRenameIndexItem[];
 
     constructor() {}
 
