@@ -1,18 +1,19 @@
-import Driver from '../driver';
 import {initDriver, destroyDriver} from '../test-utils';
 
 describe('Connection', () => {
-    let driver: Driver;
-
-    beforeAll(async () => {
-       driver = await initDriver();
-    });
-
-    afterAll(() => destroyDriver(driver));
-
-    it('Test connection', async () => {
+    it('Test GRPC connection', async () => {
+        let driver = await initDriver({endpoint: 'grpc://localhost:2136'});
         await driver.tableClient.withSession(async (session) => {
             await session.executeQuery('SELECT 1');
         });
+        await destroyDriver(driver)
+    });
+
+    it('Test GRPCS connection', async () => {
+        let driver = await initDriver();
+        await driver.tableClient.withSession(async (session) => {
+            await session.executeQuery('SELECT 1');
+        });
+        await destroyDriver(driver)
     });
 });
