@@ -24,7 +24,8 @@ import {
     BadSession,
     SessionBusy,
     MissingValue,
-    YdbError
+    YdbError,
+    MissingStatus
 } from './errors';
 
 import TableService = Ydb.Table.V1.TableService;
