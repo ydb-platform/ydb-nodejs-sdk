@@ -392,14 +392,14 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        
-        // !! does not returns response if async operation mode
+
         const response = await this.api.alterTable(request);
         try {
             ensureOperationSucceeded(this.processResponseMetadata(request, response));
         } catch (error) {
-            if (request.operationParams?.operationMode !== OperationMode.SYNC && error instanceof MissingStatus) {
-            } else throw error;
+            // !! does not returns response status if async operation mode
+            if (request.operationParams?.operationMode !== OperationMode.SYNC && error instanceof MissingStatus) return;
+            throw error;
         }
     }
 
