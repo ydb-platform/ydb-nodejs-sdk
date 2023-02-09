@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.9.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.8.1...v3.9.0) (2023-02-09)
+
+
+### Features
+
+* add alter table async mode handling ([9c18405](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/9c184053009e97fc7914ee542f3cd6382979f4db))
+* add parameters to alterTable ([648a6ca](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/648a6ca21e7cb4ea732dc364816042bfc4f51ac6))
+
+
+### Bug Fixes
+
+* bugfix MissingStatus import ([1835a85](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/1835a85b343baae4ff894636421db7f92a83e0c2))
+
 ## [3.8.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.8.0...v3.8.1) (2023-01-13)
 
 
