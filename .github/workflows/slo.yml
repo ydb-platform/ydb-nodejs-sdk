@@ -1,0 +1,13 @@
+on:
+  pull_request:
+    branches: [main]
+
+name: SLO
+
+jobs:
+  test-slo:
+    uses: ydb-platform/slo-tests/.github/workflows/slo.yml@main
+    secrets: inherit
+    with:
+      language: nodejs
+      workload_path: slo-workload
