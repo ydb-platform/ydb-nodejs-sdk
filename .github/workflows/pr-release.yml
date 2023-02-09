@@ -1,0 +1,28 @@
+name: Prerelease pull-request package
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull Request id"
+        required: true
+        type: integer
+
+jobs:
+  release-pr-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: refs/pull/${{ inputs.pr }}/merge
+
+      - run: npm ci
+
+      - uses: codex-team/action-nodejs-package-info@v1
+        id: package
+
+      - run: npm version --no-git-tag-version "${{ steps.package.outputs.version }}-pr${{ inputs.pr }}.$(git rev-parse --short HEAD)"
+
+      - run: npm publish --dry-run --tag pr
+        env:
+          NODE_AUTH_TOKEN: ${{ inputs.npm-token }}
