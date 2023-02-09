@@ -36,7 +36,7 @@ describe('Alter table', () => {
             const createdTableDescription = await session.describeTable(TABLE_NAME);
 
             expect(createdTableDescription.primaryKey).toStrictEqual(['id']);
-            expect(JSON.stringify(createdTableDescription.columns)).toStrictEqual(
+            expect(JSON.stringify(createdTableDescription.columns)).toBe(
                 JSON.stringify([
                     { name: 'id', type: { optionalType: { item: { typeId: 'UINT64' } } } },
                     { name: 'title', type: { optionalType: { item: { typeId: 'UTF8' } } } },
@@ -153,6 +153,33 @@ describe('Alter table', () => {
             const alteredTableDescription = await session.describeTable(TABLE_NAME);
 
             expect(alteredTableDescription.indexes).toStrictEqual([]);
+        });
+    });
+
+    // https://ydb.tech/en/docs/yql/reference/syntax/alter_table#additional-alter
+    it('Alter table - alter - add attribute', async () => {
+        await driver.tableClient.withSession(async (session) => {
+            const alterTableDescription = new AlterTableDescription();
+
+            alterTableDescription.alterAttributes = { AUTO_PARTITIONING_BY_SIZE: 'DISABLED' };
+
+            await session.alterTable(TABLE_NAME, alterTableDescription);
+            const alteredTableDescription = await session.describeTable(TABLE_NAME);
+
+            expect(alteredTableDescription.attributes).toStrictEqual({ AUTO_PARTITIONING_BY_SIZE: 'DISABLED' });
+        });
+    });
+
+    it('Alter table - alter - remove attribute', async () => {
+        await driver.tableClient.withSession(async (session) => {
+            const alterTableDescription = new AlterTableDescription();
+
+            alterTableDescription.alterAttributes = { AUTO_PARTITIONING_BY_SIZE: '' };
+
+            await session.alterTable(TABLE_NAME, alterTableDescription);
+            const alteredTableDescription = await session.describeTable(TABLE_NAME);
+
+            expect(alteredTableDescription.attributes).toStrictEqual({});
         });
     });
 });
