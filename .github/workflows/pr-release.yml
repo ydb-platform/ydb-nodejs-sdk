@@ -1,0 +1,41 @@
+name: Prerelease pull-request package
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull Request id"
+        required: true
+        type: integer
+
+jobs:
+  release-pr-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: refs/pull/${{ inputs.pr }}/merge
+
+      - run: npm ci
+
+      - uses: codex-team/action-nodejs-package-info@v1.1
+        id: package
+
+      - run: echo "version=${{ steps.package.outputs.version }}-pr${{ inputs.pr }}.$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        id: version
+
+      - run: npm version --no-git-tag-version "${{ steps.version.outputs.version }}"
+
+      - run: npm publish --tag pr
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+
+      - name: Add comment to PR
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          comment_tag: slo-image
+          message: |
+            Published version `${{ steps.version.outputs.version }}`.
+
+            Install with command `npm i ${{ steps.package.outputs.name }}${{ steps.version.outputs.version }}`
+          pr_number: ${{ inputs.pr }}
