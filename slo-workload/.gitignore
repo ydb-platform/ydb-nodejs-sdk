@@ -2,3 +2,4 @@ node_modules
 dist
 .vscode
 runStats.json
+package-lock.json
