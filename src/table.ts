@@ -24,7 +24,8 @@ import {
     BadSession,
     SessionBusy,
     MissingValue,
-    YdbError
+    YdbError,
+    MissingStatus
 } from './errors';
 
 import TableService = Ydb.Table.V1.TableService;
@@ -47,6 +48,7 @@ import ExecuteScanQueryPartialResult = Ydb.Table.ExecuteScanQueryPartialResult;
 import IKeyRange = Ydb.Table.IKeyRange;
 import TypedValue = Ydb.TypedValue;
 import BulkUpsertResult = Ydb.Table.BulkUpsertResult;
+import OperationMode = Ydb.Operations.OperationParams.OperationMode;
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode|null);
@@ -100,19 +102,19 @@ interface IQueryParams {
 }
 
 export class OperationParams implements Ydb.Operations.IOperationParams {
-    operationMode?: Ydb.Operations.OperationParams.OperationMode;
+    operationMode?: OperationMode;
     operationTimeout?: google.protobuf.IDuration;
     cancelAfter?: google.protobuf.IDuration;
     labels?: { [k: string]: string };
     reportCostInfo?: Ydb.FeatureFlag.Status;
 
     withSyncMode() {
-        this.operationMode = Ydb.Operations.OperationParams.OperationMode.SYNC;
+        this.operationMode = OperationMode.SYNC;
         return this;
     }
 
     withAsyncMode() {
-        this.operationMode = Ydb.Operations.OperationParams.OperationMode.ASYNC;
+        this.operationMode = OperationMode.ASYNC;
         return this;
     }
 
@@ -377,22 +379,28 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async alterTable(tablePath: string, description: AlterTableDescription, settings?: AlterTableSettings): Promise<void> {
-        const {addColumns, dropColumns, alterColumns, setTtlSettings, dropTtlSettings} = description;
+    public async alterTable(
+        tablePath: string,
+        description: AlterTableDescription,
+        settings?: AlterTableSettings
+    ): Promise<void> {
         const request: Ydb.Table.IAlterTableRequest = {
+            ...description,
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
-            addColumns,
-            dropColumns,
-            alterColumns,
-            setTtlSettings,
-            dropTtlSettings,
         };
         if (settings) {
             request.operationParams = settings.operationParams;
         }
+
         const response = await this.api.alterTable(request);
-        ensureOperationSucceeded(this.processResponseMetadata(request, response));
+        try {
+            ensureOperationSucceeded(this.processResponseMetadata(request, response));
+        } catch (error) {
+            // !! does not returns response status if async operation mode
+            if (request.operationParams?.operationMode !== OperationMode.SYNC && error instanceof MissingStatus) return;
+            throw error;
+        }
     }
 
     /*
@@ -1196,6 +1204,17 @@ export class AlterTableDescription {
     public dropTtlSettings?: {};
     public addIndexes: TableIndex[] = [];
     public dropIndexes: string[] = [];
+    public alterStorageSettings?: Ydb.Table.IStorageSettings;
+    public addColumnFamilies?: Ydb.Table.IColumnFamily[];
+    public alterColumnFamilies?: Ydb.Table.IColumnFamily[];
+    public alterAttributes?: { [k: string]: string };
+    public setCompactionPolicy?: string;
+    public alterPartitioningSettings?: Ydb.Table.IPartitioningSettings;
+    public setKeyBloomFilter?: Ydb.FeatureFlag.Status;
+    public setReadReplicasSettings?: Ydb.Table.IReadReplicasSettings;
+    public addChangefeeds?: Ydb.Table.IChangefeed[];
+    public dropChangefeeds?: string[];
+    public renameIndexes?: Ydb.Table.IRenameIndexItem[];
 
     constructor() {}
 
