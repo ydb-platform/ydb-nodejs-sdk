@@ -2,9 +2,9 @@ import { writeFile } from 'fs/promises'
 import http from 'http'
 import { Gauge, Summary, Registry, Pushgateway } from 'prom-client'
 import { Driver, Session } from 'ydb-sdk'
-import { dependencies } from '../../package.json'
+import { packages } from '../../package-lock.json'
 
-const sdkVersion = dependencies['ydb-sdk']
+const sdkVersion = packages['node_modules/ydb-sdk'].version
 
 const percentiles = [0.5, 0.9, 0.95, 0.99, 0.999]
 
