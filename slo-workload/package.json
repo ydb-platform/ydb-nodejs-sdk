@@ -24,6 +24,6 @@
     "commander": "^9.4.1",
     "nanotimer": "^0.3.15",
     "prom-client": "^14.1.0",
-    "ydb-sdk": "^3.7.0"
+    "ydb-sdk": "^3.9.0"
   }
 }
