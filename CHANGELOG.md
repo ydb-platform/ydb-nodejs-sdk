@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.10.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.9.0...v3.10.0) (2023-02-14)
+
+
+### Features
+
+* add slo-workload ([a916f19](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/a916f19ccef66094b0e71ee3a56216d89ca2a830))
+
 ## [3.9.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.8.1...v3.9.0) (2023-02-09)
 
 
