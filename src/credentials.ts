@@ -1,10 +1,8 @@
 import * as grpc from '@grpc/grpc-js';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
-import {getOperationPayload, GrpcService,  sleep, withTimeout} from "./utils";
-import {MetadataTokenService} from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
-import {TokenService} from "@yandex-cloud/nodejs-sdk/dist/types";
-import {yandex, Ydb} from "ydb-sdk-proto";
+import {getOperationPayload, GrpcService, sleep, withTimeout} from './utils';
+import {yandex, Ydb} from 'ydb-sdk-proto';
 import {ISslCredentials, makeDefaultSslCredentials} from './ssl-credentials';
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import AuthServiceResult = Ydb.Auth.LoginResult;
@@ -23,11 +21,14 @@ export interface IIamCredentials {
     iamEndpoint: string
 }
 
+interface ITokenServiceYC {
+    getToken: () => Promise<string>;
+}
 interface ITokenServiceCompat {
-    getToken: () => string|undefined;
+    getToken: () => string | undefined;
     initialize?: () => Promise<void>;
 }
-export type ITokenService = TokenService | ITokenServiceCompat;
+export type ITokenService = ITokenServiceYC | ITokenServiceCompat;
 
 export interface IAuthService {
     getAuthMetadata: () => Promise<grpc.Metadata>,
@@ -237,14 +238,35 @@ export class IamAuthService implements IAuthService {
 }
 
 export class MetadataAuthService implements IAuthService {
-    private tokenService: ITokenService;
+    private tokenService?: ITokenService;
+    private MetadataTokenServiceClass?: typeof import('@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service').MetadataTokenService;
 
+    /** Do not use this, use MetadataAuthService.create */
     constructor(tokenService?: ITokenService) {
-        this.tokenService = tokenService || new MetadataTokenService();
+        this.tokenService = tokenService;
+    }
+
+    /**
+     * Load @yandex-cloud/nodejs-sdk and create `MetadataTokenService` if tokenService is not set
+     */
+    private async createMetadata(): Promise<void> {
+        if (!this.tokenService) {
+            console.log('importing `@yandex-cloud/nodejs-sdk`');
+            const {MetadataTokenService} = await import(
+                '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service'
+            );
+            console.log('\timported ...');
+            this.MetadataTokenServiceClass = MetadataTokenService;
+            this.tokenService = new MetadataTokenService();
+        }
     }
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
-        if (this.tokenService instanceof MetadataTokenService) {
+        await this.createMetadata();
+        if (
+            this.MetadataTokenServiceClass &&
+            this.tokenService instanceof this.MetadataTokenServiceClass
+        ) {
             const token = await this.tokenService.getToken();
             return makeCredentialsMetadata(token);
         } else {
