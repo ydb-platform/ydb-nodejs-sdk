@@ -1,6 +1,9 @@
-import pino, { LogFn, LoggerOptions } from 'pino';
+export interface LogFn {
+    (obj: unknown, msg?: string, ...args: any[]): void;
+    (msg: string, ...args: any[]): void;
+}
 
-interface Logger {
+export interface Logger {
     fatal: LogFn;
     error: LogFn;
     warn: LogFn;
@@ -10,28 +13,79 @@ interface Logger {
 }
 
 const LOGLEVEL = process.env.YDB_SDK_LOGLEVEL || 'info';
-const PRETTY_LOGS = Boolean(process.env.YDB_SDK_PRETTY_LOGS);
 
 const defaultLoggerOptions = {
     level: LOGLEVEL,
-    prettyPrint: PRETTY_LOGS,
 };
 
-let logger: Logger | null = null;
+let globalLogger: Logger | null = null;
 
 /**
- * Sets the default logger
+ * Sets up logger
+ * Use before any usage of YDB-SDK functions. If not used, fallback logger will be used
  */
-export function setDefaultLogger(newLogger: Logger) {
-    logger = newLogger;
-    logger.debug(`Default logger changed to ${newLogger.constructor.name}`);
+export function setupLogger(logger: Logger) {
+    globalLogger = logger;
+    globalLogger.debug(`Default logger changed to ${globalLogger.constructor.name}`);
 }
 
-export default function getLogger(options: LoggerOptions = defaultLoggerOptions): Logger {
-    if (!logger) {
-        logger = pino(options);
+/** basic fallback implementation of LogFn */
+export function getFallbackLogFunction(level: string) {
+    function log(msg: string, ...args: any[]): void;
+    function log(obj: unknown, msg?: string, ...args: any[]): void;
+    function log(obj: string | unknown, ...args: any[]): void {
+        const dateLevel = `[${new Date().toISOString()} ${level.toUpperCase()}]`;
+
+        if (typeof obj === 'object') {
+            let objectString: string;
+            try {
+                objectString = JSON.stringify(obj);
+            } catch (error) {
+                objectString = String(obj);
+            }
+            console.log(dateLevel, objectString, ...args);
+        } else console.log(dateLevel, obj, ...args);
     }
-    return logger;
+    return log;
 }
 
-export { Logger, LogFn };
+export class FallbackLogger implements Logger {
+    fatal: LogFn = () => {};
+    error: LogFn = () => {};
+    warn: LogFn = () => {};
+    info: LogFn = () => {};
+    debug: LogFn = () => {};
+    trace: LogFn = () => {};
+
+    constructor(options = defaultLoggerOptions) {
+        if (!options.level) options.level = 'info';
+        switch (options.level.toLowerCase()) {
+            // @ts-ignore no-switch-case-fall-through
+            case 'trace':
+                this.trace = getFallbackLogFunction('trace');
+            // @ts-ignore
+            case 'debug':
+                this.debug = getFallbackLogFunction('debug');
+            default:
+            // @ts-ignore
+            case 'info':
+                this.info = getFallbackLogFunction('info');
+            // @ts-ignore
+            case 'warn':
+                this.warn = getFallbackLogFunction('warn');
+            // @ts-ignore
+            case 'error':
+                this.error = getFallbackLogFunction('error');
+            case 'fatal':
+                this.fatal = getFallbackLogFunction('fatal');
+        }
+    }
+}
+
+export function getLogger(options?: any): Logger {
+    if (!globalLogger) {
+        globalLogger = new FallbackLogger(options);
+        globalLogger.warn('Using fallback logger');
+    }
+    return globalLogger;
+}

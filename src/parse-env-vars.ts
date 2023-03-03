@@ -5,9 +5,9 @@ import {
     IAuthService,
     IIamCredentials,
     MetadataAuthService,
-    TokenAuthService
+    TokenAuthService,
 } from './credentials';
-import getLogger, {Logger} from './logging';
+import {getLogger, Logger} from './logging';
 
 export function getSACredentialsFromJson(filename: string): IIamCredentials {
     const buffer = fs.readFileSync(filename);

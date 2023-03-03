@@ -1,5 +1,12 @@
 export {Ydb} from 'ydb-sdk-proto';
-export {default as getLogger, setDefaultLogger, Logger, LogFn} from './logging';
+export {
+    getLogger,
+    setupLogger,
+    Logger,
+    LogFn,
+    FallbackLogger,
+    getFallbackLogFunction,
+} from './logging';
 export {default as Driver, IDriverSettings, IPoolSettings} from './driver';
 export {
     declareType,
@@ -15,7 +22,7 @@ export {
     primitiveTypeToValue,
     typeMetadataKey,
     getNameConverter,
-    StringFunction
+    StringFunction,
 } from './types';
 export {
     SessionPool,
@@ -47,7 +54,7 @@ export {
     ExecutionPolicy,
     CachingPolicy,
     OperationParams,
-    AUTO_TX
+    AUTO_TX,
 } from './table';
 export {
     MakeDirectorySettings,
@@ -65,7 +72,7 @@ export {
     IamAuthService,
     TokenAuthService,
     MetadataAuthService,
-    StaticCredentialsAuthService
+    StaticCredentialsAuthService,
 } from './credentials';
 export {ISslCredentials} from './ssl-credentials';
 export {withRetries, RetryParameters} from './retries';
