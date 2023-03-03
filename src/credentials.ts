@@ -7,6 +7,7 @@ import {ISslCredentials, makeDefaultSslCredentials} from './ssl-credentials';
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import AuthServiceResult = Ydb.Auth.LoginResult;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
+import type {MetadataTokenService} from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
 
 function makeCredentialsMetadata(token: string): grpc.Metadata {
     const metadata = new grpc.Metadata();
@@ -239,7 +240,7 @@ export class IamAuthService implements IAuthService {
 
 export class MetadataAuthService implements IAuthService {
     private tokenService?: ITokenService;
-    private MetadataTokenServiceClass?: typeof import('@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service').MetadataTokenService;
+    private MetadataTokenServiceClass?: typeof MetadataTokenService;
 
     /** Do not use this, use MetadataAuthService.create */
     constructor(tokenService?: ITokenService) {
@@ -251,11 +252,9 @@ export class MetadataAuthService implements IAuthService {
      */
     private async createMetadata(): Promise<void> {
         if (!this.tokenService) {
-            console.log('importing `@yandex-cloud/nodejs-sdk`');
             const {MetadataTokenService} = await import(
                 '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service'
             );
-            console.log('\timported ...');
             this.MetadataTokenServiceClass = MetadataTokenService;
             this.tokenService = new MetadataTokenService();
         }
