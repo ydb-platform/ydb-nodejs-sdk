@@ -1,5 +1,5 @@
-import {YdbError} from "./errors";
-import getLogger, {Logger} from './logging';
+import {YdbError} from './errors';
+import {getLogger, Logger} from './logging';
 import * as errors from './errors';
 import {sleep} from './utils';
 
