@@ -5,6 +5,9 @@ import yargs from 'yargs';
 export interface Runner {
     (logger: Logger, endpoint: string, database: string, cliParams?: any): Promise<void>;
 }
+export interface RunnerWithoutLogger {
+    (endpoint: string, database: string, cliParams?: any): Promise<void>;
+}
 
 export interface Option {
     key: string;
@@ -12,7 +15,7 @@ export interface Option {
     description: string;
 }
 
-export async function main(runner: Runner, options?: Option[]) {
+export function getCliParams(options?: Option[]) {
     const optionsUsage = options && options.length > 0 ? options.map((option) => ` --${option.name}`).join('') : '';
 
     const argsBuilder = yargs
@@ -55,15 +58,30 @@ export async function main(runner: Runner, options?: Option[]) {
     options?.forEach((option) => {
         cliParams[option.key] = args[option.key] as string;
     });
+    return {endpoint, db, cliParams}
+}
 
-    const logger = getLogger();
-    logger.info(`Running basic-example script against endpoint '${endpoint}' and database '${db}'.`);
-
+export async function mainWithoutLogger(runner: RunnerWithoutLogger, options?: Option[]) {
+    const {db, endpoint, cliParams} = getCliParams(options)
+    console.log(`Running basic-example script against endpoint '${endpoint}' and database '${db}'.`)
     try {
-        await runner(logger, endpoint, db, cliParams);
+        await runner(endpoint, db, cliParams);
     } catch (error) {
-        logger.error(error as object);
+        console.error(error as object);
     }
+}
+
+export async function main(runner: Runner, options?: Option[]) {
+        const {db, endpoint, cliParams} = getCliParams(options)
+
+        const logger = getLogger();
+        logger.info(`Running basic-example script against endpoint '${endpoint}' and database '${db}'.`);
+
+        try {
+            await runner(logger, endpoint, db, cliParams);
+        } catch (error) {
+            logger.error(error as object);
+        }
 }
 
 export const SYNTAX_V1 = '--!syntax_v1';
