@@ -19,6 +19,8 @@
     "url-shortener": "node build/url-shortener/index.js"
   },
   "dependencies": {
+    "pino": "^8.11.0",
+    "winston": "^3.8.2",
     "yargs": "^16.1.0",
     "ydb-sdk": "file:.."
   },
