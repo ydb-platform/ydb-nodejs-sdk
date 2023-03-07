@@ -2,6 +2,7 @@ export {Ydb} from 'ydb-sdk-proto';
 export {
     getLogger,
     setupLogger,
+    setDefaultLogger,
     Logger,
     LogFn,
     FallbackLogger,

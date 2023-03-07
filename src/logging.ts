@@ -28,6 +28,13 @@ export function setupLogger(logger: Logger) {
     globalLogger = logger;
     globalLogger.debug(`Default logger changed to ${globalLogger.constructor.name}`);
 }
+/**
+ * @deprecated
+ * Use setupLogger instead
+ */
+export function setDefaultLogger(logger: Logger){
+    return setupLogger(logger)
+}
 
 /** basic fallback implementation of LogFn */
 export function getFallbackLogFunction(level: string) {
@@ -85,7 +92,7 @@ export class FallbackLogger implements Logger {
 export function getLogger(options?: any): Logger {
     if (!globalLogger) {
         globalLogger = new FallbackLogger(options);
-        globalLogger.warn('Using fallback logger');
+        globalLogger.debug('Using fallback logger');
     }
     return globalLogger;
 }
