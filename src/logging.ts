@@ -25,6 +25,7 @@ let globalLogger: Logger | null = null;
  * Use before any usage of YDB-SDK functions. If not used, fallback logger will be used
  */
 export function setupLogger(logger: Logger) {
+    if(globalLogger !== null) globalLogger.warn(`Reassigning logger, some logs can be lost`)
     globalLogger = logger;
     globalLogger.debug(`Default logger changed to ${globalLogger.constructor.name}`);
 }
