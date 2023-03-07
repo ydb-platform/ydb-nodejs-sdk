@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.0.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.9.0...v4.0.0) (2023-03-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove pino from deps, add setupLogger
+* move optional deps to peerDeps
+
+### Features
+
+* add backward compatibility for `setDefaultLogger` ([bd637bc](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/bd637bc3f888b16bcd80af839b3989c456e20275))
+* add custom logger examples ([11273aa](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/11273aa1775f84bb1d0c19edb2a8b7923961c1d4))
+* add slo-workload ([a916f19](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/a916f19ccef66094b0e71ee3a56216d89ca2a830))
+* lock engine&gt;npm version ([f35dc42](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/f35dc426e2e7081908a7d8d904e58fc514c98d2d))
+
+
+### Bug Fixes
+
+* import type from `@yandex-cloud/nodejs-sdk` ([331074b](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/331074b4f5d31e037de901990eedc5fb97723f94))
+* move optional deps to peerDeps ([701bb6c](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/701bb6cdf83a0bef219e70d918bd0244c42bdf4e))
+* remove pino from deps, add setupLogger ([fb77499](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/fb77499345e100d98095c94e850928e127a90d0c))
+* update MetadataAuthService to load module async way ([2d9be70](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/2d9be7082efa840b69b8ab44b5960f5388a7f49e))
+
 ## [3.9.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.8.1...v3.9.0) (2023-02-09)
 
 
