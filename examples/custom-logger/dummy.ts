@@ -1,5 +1,5 @@
 import {main} from '../utils';
-import {Logger, LogFn, Driver, getCredentialsFromEnv, setupLogger} from 'ydb-sdk';
+import {Logger, LogFn, Driver, getCredentialsFromEnv, setupLogger, setDefaultLogger} from 'ydb-sdk';
 
 const logFunction: LogFn = (obj: any, ...args: any[]) => {
     console.log('Custom logging!', obj, ...args);
@@ -14,7 +14,8 @@ const MyLogger: Logger = {
 };
 
 export async function run(logger: Logger, endpoint: string, database: string) {
-    await setupLogger(MyLogger);
+    setupLogger(MyLogger);
+    // setDefaultLogger(MyLogger); // will work too
     logger.info('Driver initializing...');
     const authService = getCredentialsFromEnv();
     const driver = new Driver({endpoint, database, authService});
