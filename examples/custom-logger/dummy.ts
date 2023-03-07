@@ -15,7 +15,7 @@ const MyLogger: Logger = {
 
 export async function run(logger: Logger, endpoint: string, database: string) {
     setupLogger(MyLogger);
-    // setDefaultLogger(MyLogger); // will work too
+    setDefaultLogger(MyLogger); // will work too
     logger.info('Driver initializing...');
     const authService = getCredentialsFromEnv();
     const driver = new Driver({endpoint, database, authService});
