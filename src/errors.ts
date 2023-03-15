@@ -54,7 +54,7 @@ export class YdbError extends Error {
             if (!ErrCls) {
                 throw new Error(`Unexpected status code ${status}!`);
             } else {
-                throw new ErrCls(`${ErrCls.name}: ${YdbError.formatIssues(operation.issues)}`, operation.issues);
+                throw new ErrCls(`${ErrCls.name} (code ${status}): ${YdbError.formatIssues(operation.issues)}`, operation.issues);
             }
         }
     }
