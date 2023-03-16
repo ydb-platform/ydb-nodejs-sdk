@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.1.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.0.0...v4.1.0) (2023-03-16)
+
+
+### Features
+
+* add error code number ([90d71c1](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/90d71c1e1ae60994c0fb4d0b42c22b55fece239f))
+
 ## [4.0.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v3.9.0...v4.0.0) (2023-03-07)
 
 
