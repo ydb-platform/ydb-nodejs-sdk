@@ -562,7 +562,7 @@ describe('Types', () => {
 
         it('Void value', async () => {
             await driver.tableClient.withSession(async (session) => {
-                const query = 'SELECT Void() as void_value;'
+                const query = 'SELECT Void() as void_value;';
                 const data = {
                     void_value: null,
                 };
@@ -574,5 +574,61 @@ describe('Types', () => {
                 expect(expected).toEqual(actual);
             });
         });
+
+        it('Variant value', async () => {
+            await driver.tableClient.withSession(async (session) => {
+                const query = `$var_type_struct = Variant<foo: Int32, bar: Bool>;
+                $var_type_tuple = Variant<Int32,String>;
+                SELECT
+                    Variant(6, "foo", $var_type_struct) as v1,
+                    Variant(false, "bar", $var_type_struct) as v2,
+                    Variant(-123, "0", $var_type_tuple) as v3,
+                    Variant("abcdef", "1", $var_type_tuple) as v4;`;
+                const data = {
+                    v1: {foo: 6},
+                    v2: {bar: false},
+                    v3: [-123, undefined],
+                    v4: [undefined, 'abcdef'],
+                };
+
+                const response = await session.executeQuery(query);
+
+                const actual = TypedData.createNativeObjects(response.resultSets[0]);
+                const expected = [new TypedData(data)];
+                expect(expected).toEqual(actual);
+            });
+        });
+
+        it('Enum value', async () => {
+            await driver.tableClient.withSession(async (session) => {
+                const query = `$enum_type = Enum<Foo, Bar>;
+                SELECT
+                   Enum("Foo", $enum_type) as e1,
+                   Enum("Bar", $enum_type) as e2;`;
+                const data = {e1: {Foo: null}, e2: {Bar: null}};
+                const response = await session.executeQuery(query);
+
+                const actual = TypedData.createNativeObjects(response.resultSets[0]);
+                const expected = [new TypedData(data)];
+                expect(expected).toEqual(actual);
+            });
+        });
+
+        // // TODO: Enable in future versions of YDB
+        // // now it just returns usual value and there is no way to determine tag
+        // it('Tagged value', async () => {
+        //     await driver.tableClient.withSession(async (session) => {
+        //         const query = 'SELECT AsTagged(1, "Foo") as tagged_value;';
+        //         const data = {
+        //             tagged_value: 1,
+        //         };
+
+        //         const response = await session.executeQuery(query);
+
+        //         const actual = TypedData.createNativeObjects(response.resultSets[0]);
+        //         const expected = [new TypedData(data)];
+        //         expect(expected).toEqual(actual);
+        //     });
+        // });
     });
 });
