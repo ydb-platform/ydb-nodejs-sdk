@@ -431,29 +431,34 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
     } else if (type.variantType) {
         if (type.variantType.tupleItems) {
             const elements = type.variantType.tupleItems.elements as IType[];
-            const items = value.items as IValue[];
+            const item = value.nestedValue as IValue;
             const variantIndex = value.variantIndex as number;
 
-            return items.map((item, index) => {
+            return elements.map((element, index) => {
                 if (index === variantIndex) {
-                    return convertYdbValueToNative(elements[index], item);
+                    return convertYdbValueToNative(element, item);
                 }
-                return null;
+                return undefined;
             });
         } else if (type.variantType.structItems) {
             const members = type.variantType.structItems.members as IStructMember[];
-            const items = value.items as IValue[];
+            const item = value.nestedValue as IValue;
             const variantIndex = value.variantIndex as number;
+            const variantType = members[variantIndex].type as IType;
+            const variantName = members[variantIndex].name as string;
 
-            return items.map((item, index) => {
-                if (index === variantIndex) {
-                    return convertYdbValueToNative(members[index].type as IType, item);
-                }
-                return null;
-            });
+            return {
+                [variantName]: convertYdbValueToNative(variantType, item),
+            };
         } else {
             throw new Error('Either tupleItems or structItems should be present in VariantType!');
         }
+        // } else if (type.taggedType) {
+        //     // TODO: Enable in future versions of YDB
+        //     const memberType = type.taggedType.type as IType
+        //     const memberTag = type.taggedType.tag as string
+        //     const res = convertYdbValueToNative(memberType, value)
+        //     res.__proto__.tag = memberTag
     } else if (type.voidType === NullValue.NULL_VALUE) {
         return null;
     } else {
