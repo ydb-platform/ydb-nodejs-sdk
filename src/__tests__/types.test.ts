@@ -310,7 +310,12 @@ describe('Types', () => {
             });
 
             it('Tuple variant value', () => {
-                expect(TypedValues.fromNative(Types.variant(Types.tuple(Types.UINT32, Types.BOOL)), [3, null])).toEqual({
+                expect(
+                    TypedValues.fromNative(Types.variant(Types.tuple(Types.UINT32, Types.BOOL)), [
+                        3,
+                        null,
+                    ]),
+                ).toEqual({
                     type: {
                         variantType: {
                             tupleItems: {
@@ -323,19 +328,18 @@ describe('Types', () => {
                     },
                     value: {
                         variantIndex: 0,
-                        items: [
-                            {uint32Value: 3},
-                            {nullFlagValue: 0},
-                        ],
+                        nestedValue: {uint32Value: 3},
                     },
                 });
             });
 
             it('Struct variant value', () => {
-                expect(TypedValues.fromNative(Types.variant(Types.struct({
-                    a: Types.UINT32,
-                    b: Types.BOOL
-                })), [3, null])).toEqual({
+                expect(
+                    TypedValues.fromNative(
+                        Types.variant(Types.struct({a: Types.UINT32, b: Types.BOOL})),
+                        {a: 3},
+                    ),
+                ).toEqual({
                     type: {
                         variantType: {
                             structItems: {
@@ -348,10 +352,7 @@ describe('Types', () => {
                     },
                     value: {
                         variantIndex: 0,
-                        items: [
-                            {uint32Value: 3},
-                            {nullFlagValue: 0},
-                        ],
+                        nestedValue: {uint32Value: 3},
                     },
                 });
             });
@@ -598,6 +599,109 @@ describe('Types', () => {
                 expect(expected).toEqual(actual);
             });
         });
+
+        it('Variant YDB -> SDK value', async () => {
+            await driver.tableClient.withSession(async (session) => {
+                const query = `$var_type_struct = Variant<foo: UInt32, bar: String>;
+                $var_type_tuple = Variant<Int32,Bool>;
+                SELECT
+                    Variant(12345678, "foo", $var_type_struct) as v1,
+                    Variant("AbCdEfGh", "bar", $var_type_struct) as v2,
+                    Variant(-12345678, "0", $var_type_tuple) as v3,
+                    Variant(false, "1", $var_type_tuple) as v4;`;
+
+                const sdkValues = {
+                    v1: TypedValues.fromNative(
+                        Types.variant(Types.struct({foo: Types.UINT32, bar: Types.STRING})),
+                        {foo: 12345678},
+                    ),
+                    v2: TypedValues.fromNative(
+                        Types.variant(Types.struct({foo: Types.UINT32, bar: Types.STRING})),
+                        {bar: 'AbCdEfGh'},
+                    ),
+                    v3: TypedValues.fromNative(
+                        Types.variant(Types.tuple(Types.INT32, Types.BOOL)),
+                        [-12345678, null],
+                    ),
+                    v4: TypedValues.fromNative(
+                        Types.variant(Types.tuple(Types.INT32, Types.BOOL)),
+                        [null, false],
+                    ),
+                };
+
+                const response = await session.executeQuery(query);
+                const actual = TypedData.createNativeObjects(response.resultSets[0]);
+
+                // SDK writes string as given, while YDB returns it in base64 encoding.
+                // though, we need to change it in future
+                if (!sdkValues.v2.value) sdkValues.v2.value = {};
+                sdkValues.v2.value.nestedValue = {
+                    bytesValue: Buffer.from(
+                        sdkValues.v2.value?.nestedValue?.bytesValue as unknown as string,
+                    ).toString('base64') as unknown as Uint8Array,
+                };
+
+                Object.values(sdkValues).map((v, idx) => {
+                    expect(JSON.stringify(v.value?.nestedValue)).toEqual(
+                        JSON.stringify(response.resultSets[0].rows?.[0].items?.[idx]?.nestedValue),
+                    );
+                });
+
+                expect(actual).toEqual([
+                    {
+                        v1: {foo: 12345678},
+                        v2: {bar: 'AbCdEfGh'},
+                        v3: [-12345678, undefined],
+                        v4: [undefined, false],
+                    },
+                ]);
+            });
+        });
+
+        // // TODO: Enable in future versions of YDB
+        // // now throws error `Failed to export parameter type: $var1
+        // // Unsupported protobuf type: Variant<'bar':Bool,'foo':Int32>`
+        // it('Variant SDK -> YDB value', async () => {
+        //     await driver.tableClient.withSession(async (session) => {
+        //         const query = `
+        //         DECLARE $var1 AS Variant<foo: Int32, bar: Bool>;
+        //         DECLARE $var2 AS Variant<foo: Int32, bar: Bool>;
+        //         DECLARE $var3 AS Variant<Int32,String>;
+        //         DECLARE $var4 AS Variant<Int32,String>;
+        //         SELECT $var1 as var1, $var2 as var2, $var3 as var3, $var4 as var4;`;
+
+        //         const params = {
+        //             $var1: TypedValues.fromNative(
+        //                 Types.variant(Types.struct({foo: Types.INT32, bar: Types.BOOL})),
+        //                 [111, null],
+        //             ),
+        //             $var2: TypedValues.fromNative(
+        //                 Types.variant(Types.struct({foo: Types.INT32, bar: Types.BOOL})),
+        //                 [null, true],
+        //             ),
+        //             $var3: TypedValues.fromNative(
+        //                 Types.variant(Types.tuple(Types.INT32, Types.STRING)),
+        //                 [333, null],
+        //             ),
+        //             $var4: TypedValues.fromNative(
+        //                 Types.variant(Types.tuple(Types.INT32, Types.STRING)),
+        //                 [null, '444'],
+        //             ),
+        //         };
+
+        //         const response = await session.executeQuery(query, params);
+        //         const actual = TypedData.createNativeObjects(response.resultSets[0]);
+
+        //         const data = {
+        //             var1: {foo: 6},
+        //             var2: {bar: false},
+        //             var3: [-123, null],
+        //             var4: [null, 'abcdef'],
+        //         };
+        //         const expected = [new TypedData(data)];
+        //         expect(expected).toEqual(actual);
+        //     });
+        // });
 
         it('Enum value', async () => {
             await driver.tableClient.withSession(async (session) => {

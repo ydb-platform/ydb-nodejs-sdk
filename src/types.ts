@@ -574,32 +574,25 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
             }))
         }
     } else if (type.variantType) {
-        let variantIndex = -1;
         if (type.variantType.tupleItems) {
             const elements = type.variantType.tupleItems.elements as IType[];
+            const variantIndex = (value as Array<any>).findIndex((v) => v !== null);
             return {
-                items: _.map(value, (item, index: number) => {
-                    if (item) {
-                        variantIndex = index;
-                        return typeToValue(elements[index], item);
-                    }
-                    return {nullFlagValue: NullValue.NULL_VALUE};
-                }),
-                variantIndex
-            }
+                nestedValue: typeToValue(elements[variantIndex], value[variantIndex]),
+                variantIndex,
+            };
         } else if (type.variantType.structItems) {
             const members = type.variantType.structItems.members as IStructMember[];
+            const variantKey = Object.keys(value)[0];
+            const variantIndex = members.findIndex((a) => variantKey === a.name);
+
+            if (variantKey === undefined)
+                throw new Error("Variant type doesn't have not null fields");
+
             return {
-                items: _.map(value, (item, index: number)=> {
-                    if (item) {
-                        variantIndex = index;
-                        const type = members[index].type;
-                        return typeToValue(type, item);
-                    }
-                    return {nullFlagValue: NullValue.NULL_VALUE};
-                }),
-                variantIndex
-            }
+                nestedValue: typeToValue(members[variantIndex].type, value[variantKey]),
+                variantIndex,
+            };
         }
         throw new Error('Either tupleItems or structItems should be present in VariantType!');
     } else if (type.voidType === NullValue.NULL_VALUE) {
