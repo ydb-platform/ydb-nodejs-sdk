@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.2.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.1.0...v4.2.0) (2023-03-28)
+
+
+### Features
+
+* make variant type converting to YDB native working ([2c0a9d9](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/2c0a9d9fbcf287ab98e6838270f3337b48e0e7ab))
+* make variant type parsing working ([5320024](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/5320024ed8136381d9442a76127b21096b4c6cb3))
+
 ## [4.1.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.0.0...v4.1.0) (2023-03-16)
 
 
