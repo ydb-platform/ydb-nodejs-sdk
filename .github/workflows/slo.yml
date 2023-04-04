@@ -10,5 +10,6 @@ jobs:
     uses: ydb-platform/slo-tests/.github/workflows/slo.yml@main
     secrets: inherit
     with:
+      language_id: nodejs
       language: nodejs
       workload_path: slo-workload
