@@ -37,6 +37,7 @@ import IType = Ydb.IType;
 import DescribeTableResult = Ydb.Table.DescribeTableResult;
 import PrepareQueryResult = Ydb.Table.PrepareQueryResult;
 import ExecuteQueryResult = Ydb.Table.ExecuteQueryResult;
+import ExplainQueryResult = Ydb.Table.ExplainQueryResult
 import ITransactionSettings = Ydb.Table.ITransactionSettings;
 import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
 import ITransactionMeta = Ydb.Table.ITransactionMeta;
@@ -670,6 +671,17 @@ export class Session extends EventEmitter implements ICreateSessionResult {
                 }
             });
         });
+    }
+
+    public async explainQuery(query: string, operationParams?: Ydb.Operations.IOperationParams): Promise<ExplainQueryResult> {
+        const request: Ydb.Table.IExplainDataQueryRequest = {
+            sessionId: this.sessionId,
+            yqlText: query,
+            operationParams
+        };
+        const response = await this.api.explainDataQuery(request);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
+        return ExplainQueryResult.decode(payload);
     }
 }
 
