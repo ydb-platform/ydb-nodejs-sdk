@@ -76,13 +76,13 @@ function main() {
         db,
         {
           tableName,
+          promPgw,
           readRps,
           readTimeout,
           writeRps,
           writeTimeout,
           time,
           shutdownTime,
-          promPgw,
           reportPeriod,
         }
       ) => {
