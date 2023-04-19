@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.4.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.3.0...v4.4.0) (2023-04-19)
+
+
+### Features
+
+* explain query request ([25354e8](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/25354e8d2139c05cbc1bceb1b24b26f418db59c4))
+
 ## [4.3.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.2.0...v4.3.0) (2023-04-04)
 
 
