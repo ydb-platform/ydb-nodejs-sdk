@@ -447,7 +447,24 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async beginTransaction(txSettings: ITransactionSettings, settings?: BeginTransactionSettings): Promise<ITransactionMeta> {
+    public async describeTableOptions(
+        settings?: DescribeTableSettings,
+    ): Promise<Ydb.Table.DescribeTableOptionsResult> {
+        const request: Ydb.Table.IDescribeTableOptionsRequest = {
+            operationParams: settings?.operationParams,
+        };
+
+        const response = await this.api.describeTableOptions(request);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
+        return Ydb.Table.DescribeTableOptionsResult.decode(payload);
+    }
+
+    @retryable()
+    @pessimizable
+    public async beginTransaction(
+        txSettings: ITransactionSettings,
+        settings?: BeginTransactionSettings,
+    ): Promise<ITransactionMeta> {
         const request: Ydb.Table.IBeginTransactionRequest = {
             sessionId: this.sessionId,
             txSettings,
