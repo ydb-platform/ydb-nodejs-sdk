@@ -22,7 +22,9 @@ const defaultArgs = (p: typeof program) => {
 
 interface ICreateOptions {
   tableName?: string
-  partitionsCount?: string
+  minPartitionsCount?: string
+  maxPartitionsCount?: string
+  partitionSize?: string
   initialDataCount?: string
 }
 
@@ -34,20 +36,36 @@ function main() {
   // create
   defaultArgs(program.command('create'))
     .option('-t --table-name <tableName>', 'table name to create')
-    .option('-p --partitions-count <partitionsCount>', 'amount of partitions in table creation')
+    .option('--min-partitions-count <minPartitionsCount>', 'minimum amount of partitions in table')
+    .option('--max-partitions-count <maxPartitionsCount>', 'maximum amount of partitions in table')
+    .option('--partition-size <partitionSize>', 'partition size in mb')
     .option('-c --initial-data-count <initialDataCount>', 'amount of initially created rows')
     .action(
-      async (endpoint, db, { tableName, partitionsCount, initialDataCount }: ICreateOptions) => {
+      async (
+        endpoint,
+        db,
+        {
+          tableName,
+          minPartitionsCount,
+          maxPartitionsCount,
+          partitionSize,
+          initialDataCount,
+        }: ICreateOptions
+      ) => {
         console.log('Run create over', endpoint, db, {
           tableName,
-          partitionsCount,
+          minPartitionsCount,
           initialDataCount,
+          maxPartitionsCount,
+          partitionSize,
         })
         await create(
           await createDriver(endpoint, db),
           db,
           tableName,
-          partitionsCount,
+          minPartitionsCount,
+          maxPartitionsCount,
+          partitionSize,
           initialDataCount
         )
       }
