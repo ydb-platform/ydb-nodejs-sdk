@@ -13,33 +13,36 @@ import { PackGenerator } from './utils/PackGenerator'
 import { StructValue } from './utils/StructValue'
 import {
   TABLE_NAME,
-  TABLE_PARTITION_COUNT,
+  TABLE_MIN_PARTITION_COUNT,
+  TABLE_MAX_PARTITION_COUNT,
   GENERATOR_DATA_COUNT,
   GENERATOR_PACK_SIZE,
+  TABLE_PARTITION_SIZE,
 } from './utils/defaults'
 
 export async function create(
   driver: Driver,
   db: string,
   tableName?: string,
-  _partitionsCount?: string,
+  _minPartitionsCount?: string,
+  _maxPartitionsCount?: string,
+  _partitionSize?: string,
   _dataCount?: string
 ) {
   if (!tableName) tableName = TABLE_NAME
 
-  let partitionsCount: number = TABLE_PARTITION_COUNT
-  if (_partitionsCount) {
-    partitionsCount = parseIntNumber(_partitionsCount)
-    partitionsCount = Math.floor(partitionsCount)
-  }
+  let minPartitionsCount: number = TABLE_MIN_PARTITION_COUNT
+  let maxPartitionsCount: number = TABLE_MAX_PARTITION_COUNT
+  let partitionSize: number = TABLE_PARTITION_SIZE
+
+  if (_minPartitionsCount) minPartitionsCount = parseIntNumber(_minPartitionsCount)
+  if (_maxPartitionsCount) maxPartitionsCount = parseIntNumber(_maxPartitionsCount)
+  if (_partitionSize) partitionSize = parseIntNumber(_partitionSize)
 
   let dataCount: number = GENERATOR_DATA_COUNT
-  if (_dataCount) {
-    dataCount = parseIntNumber(_dataCount)
-    dataCount = Math.floor(dataCount)
-  }
+  if (_dataCount) dataCount = parseIntNumber(_dataCount)
 
-  await createTable(driver, tableName, partitionsCount)
+  await createTable(driver, tableName, minPartitionsCount, maxPartitionsCount, partitionSize)
   await generateInitialContent(driver, tableName, dataCount)
 
   process.exit(0)
@@ -48,22 +51,36 @@ export async function create(
 function parseIntNumber(numberCandidate: string): number {
   const n = Number(numberCandidate)
   if (isNaN(n)) throw Error('Not a number')
-  return n
+  return Math.floor(n)
 }
 
-async function createTable(driver: Driver, tableName: string, partitions: number) {
-  console.log('Create table', { task: 'createTable', tableName, partitions })
+async function createTable(
+  driver: Driver,
+  tableName: string,
+  minPartitionsCount: number,
+  maxPartitionsCount: number,
+  partitionSize: number
+) {
+  console.log('Create table', {
+    task: 'createTable',
+    tableName,
+    minPartitionsCount,
+    maxPartitionsCount,
+    partitionSize,
+  })
   await driver.tableClient.withSession(async (session) => {
-    const profile = new TableProfile().withPartitioningPolicy(
-      new PartitioningPolicy().withUniformPartitions(partitions)
-    )
     const tableDescription = new TableDescription()
       .withColumn(new Column('object_id_key', Types.optional(Types.UINT32)))
       .withColumn(new Column('object_id', Types.optional(Types.UINT32)))
       .withColumn(new Column('timestamp', Types.optional(Types.UINT64)))
       .withColumn(new Column('payload', Types.optional(Types.UTF8)))
       .withPrimaryKeys('object_id_key', 'object_id')
-      .withProfile(profile)
+
+    tableDescription.partitioningSettings = {
+      minPartitionsCount: minPartitionsCount,
+      maxPartitionsCount: maxPartitionsCount,
+      partitionSizeMb: partitionSize,
+    }
 
     await session.createTable(tableName, tableDescription)
     console.log('Table created')
