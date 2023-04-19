@@ -928,7 +928,7 @@ export class TableClient extends EventEmitter {
 }
 
 export class Column implements Ydb.Table.IColumnMeta {
-    constructor(public name: string, public type: IType) {}
+    constructor(public name: string, public type: IType, public family?: string) {}
 }
 
 export class StorageSettings implements Ydb.Table.IStoragePool {
