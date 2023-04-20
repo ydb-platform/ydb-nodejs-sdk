@@ -5,12 +5,8 @@ export class MetricsJob {
   private endTime: number
   private promise: Promise<void>
 
-  constructor(
-    private executor: Executor,
-    private reportPeriod: number = 1000,
-    private time: number
-  ) {
-    this.endTime = new Date().valueOf() + time * 1000
+  constructor(private executor: Executor, private reportPeriod: number = 1000, endTime: number) {
+    this.endTime = endTime
 
     this.promise = new Promise((resolve) => {
       this.intervalId = setInterval(() => {
