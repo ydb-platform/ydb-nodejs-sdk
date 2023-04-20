@@ -11,8 +11,8 @@ import {
   PROMETHEUS_PUSH_PERIOD,
 } from './utils/defaults'
 import Executor from './utils/Executor'
-import { getMaxId } from './utils/getMaxId'
 import { writeJob } from './writeJob'
+import { DataGenerator } from './utils/DataGenerator'
 
 const defaultArgs = (p: typeof program) => {
   return p
