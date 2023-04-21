@@ -9,10 +9,13 @@ import {
   SHUTDOWN_TIME,
   PROMETHEUS_PUSH_GATEWAY,
   PROMETHEUS_PUSH_PERIOD,
+  READ_TIME,
+  READ_TIMEOUT,
+  WRITE_TIMEOUT,
 } from './utils/defaults'
 import Executor from './utils/Executor'
-import { getMaxId } from './utils/getMaxId'
 import { writeJob } from './writeJob'
+import { DataGenerator } from './utils/DataGenerator'
 
 const defaultArgs = (p: typeof program) => {
   return p
@@ -22,7 +25,9 @@ const defaultArgs = (p: typeof program) => {
 
 interface ICreateOptions {
   tableName?: string
-  partitionsCount?: string
+  minPartitionsCount?: string
+  maxPartitionsCount?: string
+  partitionSize?: string
   initialDataCount?: string
 }
 
@@ -34,20 +39,35 @@ function main() {
   // create
   defaultArgs(program.command('create'))
     .option('-t --table-name <tableName>', 'table name to create')
-    .option('-p --partitions-count <partitionsCount>', 'amount of partitions in table creation')
+    .option('--min-partitions-count <minPartitionsCount>', 'minimum amount of partitions in table')
+    .option('--max-partitions-count <maxPartitionsCount>', 'maximum amount of partitions in table')
+    .option('--partition-size <partitionSize>', 'partition size in mb')
     .option('-c --initial-data-count <initialDataCount>', 'amount of initially created rows')
     .action(
-      async (endpoint, db, { tableName, partitionsCount, initialDataCount }: ICreateOptions) => {
+      async (
+        endpoint,
+        db,
+        {
+          tableName,
+          minPartitionsCount,
+          maxPartitionsCount,
+          partitionSize,
+          initialDataCount,
+        }: ICreateOptions
+      ) => {
         console.log('Run create over', endpoint, db, {
           tableName,
-          partitionsCount,
+          minPartitionsCount,
           initialDataCount,
+          maxPartitionsCount,
+          partitionSize,
         })
         await create(
           await createDriver(endpoint, db),
-          db,
           tableName,
-          partitionsCount,
+          minPartitionsCount,
+          maxPartitionsCount,
+          partitionSize,
           initialDataCount
         )
       }
@@ -70,61 +90,61 @@ function main() {
     .option('--time <time>', 'run time in seconds')
     .option('--shutdown-time <shutdownTime>', 'graceful shutdown time in seconds')
     .option('--report-period <reportPeriod>', 'prometheus push period in milliseconds')
-    .action(
-      async (
-        endpoint,
-        db,
-        {
-          tableName,
-          readRps,
-          readTimeout,
-          writeRps,
-          writeTimeout,
-          time,
-          shutdownTime,
-          promPgw,
-          reportPeriod,
-        }
-      ) => {
-        if (!tableName) tableName = TABLE_NAME
-        if (!shutdownTime) shutdownTime = SHUTDOWN_TIME
-        if (!promPgw) promPgw = PROMETHEUS_PUSH_GATEWAY
-        if (!reportPeriod) reportPeriod = PROMETHEUS_PUSH_PERIOD
-        console.log('Run workload over', {
-          tableName,
-          readRps,
-          readTimeout,
-          writeRps,
-          writeTimeout,
-          time,
-          shutdownTime,
-          promPgw,
-        })
+    .action(async (endpoint, db, params) => {
+      let {
+        tableName,
+        readRps,
+        readTimeout,
+        writeRps,
+        writeTimeout,
+        time,
+        shutdownTime,
+        promPgw,
+        reportPeriod,
+      } = params
 
-        const driver = await createDriver(endpoint, db)
-        const maxId = await getMaxId(driver, tableName)
-        console.log('Max id', { maxId })
-        const executor = new Executor(driver, promPgw)
-        const metricsJob = new MetricsJob(executor, reportPeriod, time + shutdownTime)
+      if (!tableName) tableName = TABLE_NAME
+      if (!time) time = READ_TIME
+      if (!shutdownTime) shutdownTime = SHUTDOWN_TIME
+      if (!promPgw) promPgw = PROMETHEUS_PUSH_GATEWAY
+      if (!reportPeriod) reportPeriod = PROMETHEUS_PUSH_PERIOD
+      if (!readTimeout) readTimeout = READ_TIMEOUT
+      if (!writeTimeout) writeTimeout = WRITE_TIMEOUT
 
-        await executor.printStats()
-        await executor.pushStats()
-        await Promise.all([
-          readJob(executor, tableName, maxId, readRps, readTimeout, time),
-          writeJob(executor, tableName, maxId, writeRps, writeTimeout, time),
-          metricsJob,
-        ])
-        await new Promise((resolve) => setTimeout(resolve, shutdownTime * 1000))
-        await executor.pushStats()
-        await executor.printStats('runStats.json')
-        console.log('Reset metrics')
-        executor.stopCollectingMetrics()
-        await executor.resetStats()
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        await executor.pushStats()
-        process.exit(0)
-      }
-    )
+      time = +time
+      shutdownTime = +shutdownTime
+
+      console.log('Run workload over', {
+        tableName,
+        time,
+        shutdownTime,
+        promPgw,
+        reportPeriod,
+        readTimeout,
+        writeTimeout,
+      })
+
+      const driver = await createDriver(endpoint, db)
+      const executor = new Executor(driver, promPgw, tableName, time, readTimeout, writeTimeout)
+
+      // metricsJob works all write/read time + shutdown time
+      const metricsJob = new MetricsJob(executor, reportPeriod, time + shutdownTime).getPromise()
+
+      await DataGenerator.loadMaxId(driver, tableName)
+      console.log('Max id', DataGenerator.getMaxId())
+      await executor.printStats()
+      await executor.pushStats()
+      console.log('beforeallJob')
+      await Promise.all([readJob(executor, readRps), writeJob(executor, writeRps), metricsJob])
+      await new Promise((resolve) => setTimeout(resolve, shutdownTime * 1000))
+      await executor.pushStats()
+      console.log('Reset metrics')
+      executor.stopCollectingMetrics()
+      await executor.resetStats()
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await executor.pushStats()
+      process.exit(0)
+    })
 
   program.parse()
 }

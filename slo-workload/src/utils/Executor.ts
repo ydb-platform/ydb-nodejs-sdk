@@ -1,8 +1,8 @@
-import { writeFile } from 'fs/promises'
 import http from 'http'
 import { Gauge, Summary, Registry, Pushgateway } from 'prom-client'
 import { Driver, Session } from 'ydb-sdk'
 import { packages } from '../../package-lock.json'
+import { QueryBuilder } from './QueryBuilder'
 
 const sdkVersion = packages['node_modules/ydb-sdk'].version
 
@@ -17,10 +17,24 @@ export default class Executor {
   private readonly latencies: Summary
   private readonly gateway: Pushgateway
   private collectingMetrics: Boolean = true
-  public readonly realRPS: Gauge
+  readonly realRPS: Gauge
+  readonly tableName: string
+  readonly stopTime: number
+  readonly qb: QueryBuilder
 
-  constructor(driver: Driver, pushGateway: string) {
+  constructor(
+    driver: Driver,
+    pushGateway: string,
+    tableName: string,
+    runTimeSecs: number,
+    readTimeout: number,
+    writeTimeout: number
+  ) {
     this.driver = driver
+    this.tableName = tableName
+    this.stopTime = new Date().valueOf() + runTimeSecs * 1000
+    this.qb = new QueryBuilder(tableName, readTimeout, writeTimeout)
+
     this.gateway = new Pushgateway(
       pushGateway,
       {
@@ -61,7 +75,8 @@ export default class Executor {
       percentiles,
       registers,
       labelNames: ['status', 'jobName'],
-      // add more options?
+      ageBuckets: 5,
+      maxAgeSeconds: 15 * 60,
     })
     this.realRPS = new Gauge({
       name: 'realRPS',
@@ -102,15 +117,12 @@ export default class Executor {
     }
   }
 
-  async printStats(file?: string) {
+  async printStats() {
     const json = await this.registry.getMetricsAsJSON()
-    if (file) {
-      await writeFile(file, JSON.stringify(json))
-    }
     console.log(
-      '========== Stats: ========== \n\n',
+      '========== Stats: ========== \n',
       JSON.stringify(json),
-      '========== Stats end =========='
+      '\n========== Stats end =========='
     )
   }
 

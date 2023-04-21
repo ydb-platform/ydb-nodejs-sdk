@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.5.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.4.0...v4.5.0) (2023-04-19)
+
+
+### Features
+
+* add `family` option to Column constructor ([06a955d](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/06a955dde9f96cccd5a38f146576e1008e1288cf))
+* add all defined options to `createTable` functions ([feb2570](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/feb2570b44df5850f2431207794db3eea97d5e10))
+* add describeTableOptions function ([b532c90](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/b532c90fc9c34622d16d8b923cbfaccfc93c7351))
+
+## [4.4.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.3.0...v4.4.0) (2023-04-19)
+
+
+### Features
+
+* explain query request ([25354e8](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/25354e8d2139c05cbc1bceb1b24b26f418db59c4))
+
 ## [4.3.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.2.0...v4.3.0) (2023-04-04)
 
 

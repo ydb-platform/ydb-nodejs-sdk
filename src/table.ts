@@ -8,7 +8,8 @@ import {
     StreamEnd,
     ensureOperationSucceeded,
     getOperationPayload,
-    pessimizable, AsyncResponse
+    pessimizable,
+    AsyncResponse,
 } from './utils';
 import DiscoveryService, {Endpoint} from './discovery';
 import {IPoolSettings} from './driver';
@@ -25,7 +26,7 @@ import {
     SessionBusy,
     MissingValue,
     YdbError,
-    MissingStatus
+    MissingStatus,
 } from './errors';
 
 import TableService = Ydb.Table.V1.TableService;
@@ -37,6 +38,7 @@ import IType = Ydb.IType;
 import DescribeTableResult = Ydb.Table.DescribeTableResult;
 import PrepareQueryResult = Ydb.Table.PrepareQueryResult;
 import ExecuteQueryResult = Ydb.Table.ExecuteQueryResult;
+import ExplainQueryResult = Ydb.Table.ExplainQueryResult
 import ITransactionSettings = Ydb.Table.ITransactionSettings;
 import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
 import ITransactionMeta = Ydb.Table.ITransactionMeta;
@@ -359,17 +361,17 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async createTable(tablePath: string, description: TableDescription, settings?: CreateTableSettings): Promise<void> {
-        const {columns, primaryKey, indexes, profile, ttlSettings} = description;
+    public async createTable(
+        tablePath: string,
+        description: TableDescription,
+        settings?: CreateTableSettings,
+    ): Promise<void> {
         const request: Ydb.Table.ICreateTableRequest = {
+            ...description,
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
-            columns,
-            primaryKey,
-            indexes,
-            profile,
-            ttlSettings,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
@@ -446,7 +448,24 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @retryable()
     @pessimizable
-    public async beginTransaction(txSettings: ITransactionSettings, settings?: BeginTransactionSettings): Promise<ITransactionMeta> {
+    public async describeTableOptions(
+        settings?: DescribeTableSettings,
+    ): Promise<Ydb.Table.DescribeTableOptionsResult> {
+        const request: Ydb.Table.IDescribeTableOptionsRequest = {
+            operationParams: settings?.operationParams,
+        };
+
+        const response = await this.api.describeTableOptions(request);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
+        return Ydb.Table.DescribeTableOptionsResult.decode(payload);
+    }
+
+    @retryable()
+    @pessimizable
+    public async beginTransaction(
+        txSettings: ITransactionSettings,
+        settings?: BeginTransactionSettings,
+    ): Promise<ITransactionMeta> {
         const request: Ydb.Table.IBeginTransactionRequest = {
             sessionId: this.sessionId,
             txSettings,
@@ -670,6 +689,17 @@ export class Session extends EventEmitter implements ICreateSessionResult {
                 }
             });
         });
+    }
+
+    public async explainQuery(query: string, operationParams?: Ydb.Operations.IOperationParams): Promise<ExplainQueryResult> {
+        const request: Ydb.Table.IExplainDataQueryRequest = {
+            sessionId: this.sessionId,
+            yqlText: query,
+            operationParams
+        };
+        const response = await this.api.explainDataQuery(request);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
+        return ExplainQueryResult.decode(payload);
     }
 }
 
@@ -899,7 +929,7 @@ export class TableClient extends EventEmitter {
 }
 
 export class Column implements Ydb.Table.IColumnMeta {
-    constructor(public name: string, public type: IType) {}
+    constructor(public name: string, public type: IType, public family?: string) {}
 }
 
 export class StorageSettings implements Ydb.Table.IStoragePool {
@@ -1141,10 +1171,22 @@ export class TtlSettings implements Ydb.Table.ITtlSettings {
     }
 }
 
-export class TableDescription {
+export class TableDescription implements Ydb.Table.ICreateTableRequest {
+    /** @deprecated use TableDescription options instead */
     public profile?: TableProfile;
     public indexes: TableIndex[] = [];
     public ttlSettings?: TtlSettings;
+    public partitioningSettings?: Ydb.Table.IPartitioningSettings;
+    public uniformPartitions?: number;
+    public columnFamilies?: Ydb.Table.IColumnFamily[];
+    public attributes?: {[k: string]: string};
+    public compactionPolicy?: 'default' | 'small_table' | 'log_table';
+    public keyBloomFilter?: FeatureFlag;
+    public partitionAtKeys?: Ydb.Table.IExplicitPartitions;
+    public readReplicasSettings?: Ydb.Table.IReadReplicasSettings;
+    public storageSettings?: Ydb.Table.IStorageSettings;
+    // path and operationPrams defined in createTable,
+    // columns and primaryKey are in constructor
 
     constructor(public columns: Column[] = [], public primaryKey: string[] = []) {}
 
@@ -1172,6 +1214,7 @@ export class TableDescription {
         return this;
     }
 
+    /** @deprecated use TableDescription options instead */
     withProfile(profile: TableProfile) {
         this.profile = profile;
         return this;
@@ -1191,8 +1234,11 @@ export class TableDescription {
 
     withTtl(columnName: string, expireAfterSeconds: number = 0) {
         this.ttlSettings = new TtlSettings(columnName, expireAfterSeconds);
-
         return this;
+    }
+
+    withPartitioningSettings(partitioningSettings: Ydb.Table.IPartitioningSettings) {
+        this.partitioningSettings = partitioningSettings;
     }
 }
 
