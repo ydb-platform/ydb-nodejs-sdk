@@ -64,7 +64,6 @@ function main() {
         })
         await create(
           await createDriver(endpoint, db),
-          db,
           tableName,
           minPartitionsCount,
           maxPartitionsCount,
@@ -115,25 +114,30 @@ function main() {
       time = +time
       shutdownTime = +shutdownTime
 
-      console.log('Run workload over', params)
+      console.log('Run workload over', {
+        tableName,
+        time,
+        shutdownTime,
+        promPgw,
+        reportPeriod,
+        readTimeout,
+        writeTimeout,
+      })
 
       const driver = await createDriver(endpoint, db)
       const executor = new Executor(driver, promPgw, tableName, time, readTimeout, writeTimeout)
 
       // metricsJob works all write/read time + shutdown time
-      const metricsJob = new MetricsJob(
-        executor,
-        reportPeriod,
-        time + shutdownTime * 1000
-      ).getPromise()
+      const metricsJob = new MetricsJob(executor, reportPeriod, time + shutdownTime).getPromise()
 
       await DataGenerator.loadMaxId(driver, tableName)
+      console.log('Max id', DataGenerator.getMaxId())
       await executor.printStats()
       await executor.pushStats()
+      console.log('beforeallJob')
       await Promise.all([readJob(executor, readRps), writeJob(executor, writeRps), metricsJob])
       await new Promise((resolve) => setTimeout(resolve, shutdownTime * 1000))
       await executor.pushStats()
-      await executor.printStats('runStats.json')
       console.log('Reset metrics')
       executor.stopCollectingMetrics()
       await executor.resetStats()
