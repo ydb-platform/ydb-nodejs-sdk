@@ -4,7 +4,6 @@ export const TABLE_MAX_PARTITION_COUNT = 1000
 export const TABLE_PARTITION_SIZE = 1
 
 export const GENERATOR_DATA_COUNT = 1000
-export const GENERATOR_PACK_SIZE = 100
 
 export const READ_RPS = 1000
 export const READ_TIMEOUT = 70 // milliseconds

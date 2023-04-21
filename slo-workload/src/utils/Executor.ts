@@ -1,8 +1,8 @@
-import { writeFile } from 'fs/promises'
 import http from 'http'
 import { Gauge, Summary, Registry, Pushgateway } from 'prom-client'
-import { Driver, ExecuteQuerySettings, OperationParams, Session } from 'ydb-sdk'
+import { Driver, Session } from 'ydb-sdk'
 import { packages } from '../../package-lock.json'
+import { QueryBuilder } from './QueryBuilder'
 
 const sdkVersion = packages['node_modules/ydb-sdk'].version
 
@@ -20,10 +20,7 @@ export default class Executor {
   readonly realRPS: Gauge
   readonly tableName: string
   readonly stopTime: number
-  readonly readExecuteQuerySettings: ExecuteQuerySettings
-  readonly writeExecuteQuerySettings: ExecuteQuerySettings
-  readonly readQuery: string
-  readonly writeQuery: string
+  readonly qb: QueryBuilder
 
   constructor(
     driver: Driver,
@@ -36,33 +33,7 @@ export default class Executor {
     this.driver = driver
     this.tableName = tableName
     this.stopTime = new Date().valueOf() + runTimeSecs * 1000
-
-    this.readQuery = `DECLARE $id AS Uint64;
-SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
-FROM \`${this.tableName}\` WHERE id = $id AND hash = Digest::NumericHash($id);`
-    this.writeQuery = `DECLARE $id AS Uint64;
-DECLARE $payload_str AS Utf8;
-DECLARE $payload_double AS Double;
-DECLARE $payload_timestamp AS Timestamp;
-UPSERT INTO \`${this.tableName}\` (
-  id, hash, payload_str, payload_double, payload_timestamp
-) VALUES (
-  $id, Digest::NumericHash($id), $payload_str, $payload_double, $payload_timestamp
-);`
-    this.readExecuteQuerySettings = new ExecuteQuerySettings()
-      .withKeepInCache(true)
-      .withOperationParams(
-        new OperationParams().withOperationTimeout({
-          nanos: readTimeout * 1000 * 1000,
-        })
-      )
-    this.writeExecuteQuerySettings = new ExecuteQuerySettings()
-      .withKeepInCache(true)
-      .withOperationParams(
-        new OperationParams().withOperationTimeout({
-          nanos: writeTimeout * 1000 * 1000,
-        })
-      )
+    this.qb = new QueryBuilder(tableName, readTimeout, writeTimeout)
 
     this.gateway = new Pushgateway(
       pushGateway,
@@ -104,7 +75,8 @@ UPSERT INTO \`${this.tableName}\` (
       percentiles,
       registers,
       labelNames: ['status', 'jobName'],
-      // add more options?
+      ageBuckets: 5,
+      maxAgeSeconds: 15 * 60,
     })
     this.realRPS = new Gauge({
       name: 'realRPS',
@@ -145,15 +117,12 @@ UPSERT INTO \`${this.tableName}\` (
     }
   }
 
-  async printStats(file?: string) {
+  async printStats() {
     const json = await this.registry.getMetricsAsJSON()
-    if (file) {
-      await writeFile(file, JSON.stringify(json))
-    }
     console.log(
-      '========== Stats: ========== \n\n',
+      '========== Stats: ========== \n',
       JSON.stringify(json),
-      '========== Stats end =========='
+      '\n========== Stats end =========='
     )
   }
 

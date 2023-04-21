@@ -6,7 +6,6 @@ import {
   TABLE_MAX_PARTITION_COUNT,
   GENERATOR_DATA_COUNT,
   TABLE_PARTITION_SIZE,
-  GENERATOR_PACK_SIZE,
 } from './utils/defaults'
 import { QueryBuilder } from './utils/QueryBuilder'
 import { DataGenerator } from './utils/DataGenerator'
