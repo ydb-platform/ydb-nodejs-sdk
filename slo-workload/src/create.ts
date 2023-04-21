@@ -1,28 +1,18 @@
-import {
-  Column,
-  Driver,
-  ExecuteQuerySettings,
-  PartitioningPolicy,
-  TableDescription,
-  TableProfile,
-  TypedData,
-  Types,
-} from 'ydb-sdk'
+import { Column, Driver, ExecuteQuerySettings, TableDescription, Types, Ydb } from 'ydb-sdk'
 
-import { PackGenerator } from './utils/PackGenerator'
-import { StructValue } from './utils/StructValue'
 import {
   TABLE_NAME,
   TABLE_MIN_PARTITION_COUNT,
   TABLE_MAX_PARTITION_COUNT,
   GENERATOR_DATA_COUNT,
-  GENERATOR_PACK_SIZE,
   TABLE_PARTITION_SIZE,
+  GENERATOR_PACK_SIZE,
 } from './utils/defaults'
+import { QueryBuilder } from './utils/QueryBuilder'
+import { DataGenerator } from './utils/DataGenerator'
 
 export async function create(
   driver: Driver,
-  db: string,
   tableName?: string,
   _minPartitionsCount?: string,
   _maxPartitionsCount?: string,
@@ -68,18 +58,22 @@ async function createTable(
     maxPartitionsCount,
     partitionSize,
   })
+
   await driver.tableClient.withSession(async (session) => {
     const tableDescription = new TableDescription()
-      .withColumn(new Column('object_id_key', Types.optional(Types.UINT32)))
-      .withColumn(new Column('object_id', Types.optional(Types.UINT32)))
-      .withColumn(new Column('timestamp', Types.optional(Types.UINT64)))
-      .withColumn(new Column('payload', Types.optional(Types.UTF8)))
-      .withPrimaryKeys('object_id_key', 'object_id')
+      .withColumn(new Column('hash', Types.optional(Types.UINT64)))
+      .withColumn(new Column('id', Types.optional(Types.UINT64)))
+      .withColumn(new Column('payload_str', Types.optional(Types.UTF8)))
+      .withColumn(new Column('payload_double', Types.optional(Types.DOUBLE)))
+      .withColumn(new Column('payload_timestamp', Types.optional(Types.TIMESTAMP)))
+      .withColumn(new Column('payload_hash', Types.optional(Types.UINT64)))
+      .withPrimaryKeys('hash', 'id')
 
     tableDescription.partitioningSettings = {
       minPartitionsCount: minPartitionsCount,
       maxPartitionsCount: maxPartitionsCount,
       partitionSizeMb: partitionSize,
+      partitioningBySize: Ydb.FeatureFlag.Status.ENABLED,
     }
 
     await session.createTable(tableName, tableDescription)
@@ -89,30 +83,23 @@ async function createTable(
 
 async function generateInitialContent(driver: Driver, tableName: string, count: number) {
   console.log('Generate initial content', { task: 'generateInitialContent', tableName, count })
-  const generator = new PackGenerator(count, GENERATOR_PACK_SIZE, 0)
 
-  const query = `--!syntax_v1
-    DECLARE $items AS
-    List<Struct<
-    object_id_key: Uint32,
-    object_id: Uint32,
-    timestamp: Uint64,
-    payload: Utf8>>;
-    UPSERT INTO \`${tableName}\`
-    SELECT * FROM AS_TABLE($items);`
+  const count5p = Math.floor(count / 20) // every 5% of count for logs
 
-  let batch: StructValue[]
-  while ((batch = generator.get()).length > 0) {
-    // TODO: add executor
-    await driver.tableClient.withSession(async (session) => {
-      await session.executeQuery(
-        query,
-        { $items: TypedData.asTypedCollection(batch) },
-        { commitTx: true, beginTx: { serializableReadWrite: {} } },
-        new ExecuteQuerySettings().withKeepInCache(true)
-      )
-    }, 10000)
-    console.log(`Successfully inserted ${batch.length} rows`)
-  }
+  const qb = new QueryBuilder(tableName, 10, 10) // stub timeouts
+  DataGenerator.setMaxId(0)
+
+  await Promise.all(
+    Array.apply(null, Array(count)).map(() => {
+      return driver.tableClient.withSession(async (session) => {
+        await session.executeQuery(
+          qb.writeQuery,
+          { ...DataGenerator.getUpsertData() },
+          { commitTx: true, beginTx: { serializableReadWrite: {} } },
+          new ExecuteQuerySettings().withKeepInCache(true)
+        )
+      }, 10000)
+    })
+  )
   console.log('Initial content generated')
 }
