@@ -33,14 +33,12 @@ export class RetryParameters {
     public fastBackoff: BackoffSettings;
     public slowBackoff: BackoffSettings;
 
-    constructor(
-        {
-            maxRetries = 10,
-            onYdbErrorCb = (_error: YdbError) => {},
-            backoffCeiling = 6,
-            backoffSlotDuration = 1000,
-        } = {}
-    ) {
+    constructor({
+        maxRetries = 10,
+        onYdbErrorCb = (_error: YdbError) => {},
+        backoffCeiling = 6,
+        backoffSlotDuration = 1000,
+    } = {}) {
         this.maxRetries = maxRetries;
         this.onYdbErrorCb = onYdbErrorCb;
         this.fastBackoff = new BackoffSettings(10, 5);
@@ -51,18 +49,18 @@ export class RetryParameters {
     }
 }
 
-const RETRYABLE_ERRORS_FAST = [
-    errors.Unavailable, errors.Aborted, errors.NotFound
-];
+const RETRYABLE_ERRORS_FAST = [errors.Unavailable, errors.Aborted, errors.NotFound];
 const RETRYABLE_ERRORS_SLOW = [errors.Overloaded];
 
 class RetryStrategy {
     private logger: Logger;
     constructor(
         public methodName = 'UnknownClass::UnknownMethod',
-        public retryParameters: RetryParameters
+        public retryParameters: RetryParameters,
+        logger?: Logger,
     ) {
-        this.logger = getLogger();
+        if (!logger) this.logger = getLogger();
+        else this.logger = logger;
     }
 
     async retry<T>(asyncMethod: () => Promise<T>) {
@@ -83,12 +81,16 @@ class RetryStrategy {
                             throw e;
                         }
 
-                        this.logger.warn(`Caught an error ${errName}, retrying with small backoff,, ${retriesLeft} retries left`);
+                        this.logger.warn(
+                            `Caught an error ${errName}, retrying with fast backoff, ${retriesLeft} retries left`,
+                        );
                         await this.retryParameters.fastBackoff.waitBackoffTimeout(retries);
                     } else if (RETRYABLE_ERRORS_SLOW.some((cls) => e instanceof cls)) {
                         retryParameters.onYdbErrorCb(e);
 
-                        this.logger.warn(`Caught an error ${errName}, retrying with a backoff, ${retriesLeft} retries left`);
+                        this.logger.warn(
+                            `Caught an error ${errName}, retrying with slow backoff, ${retriesLeft} retries left`,
+                        );
                         await this.retryParameters.slowBackoff.waitBackoffTimeout(retries);
                     } else {
                         retryParameters.onYdbErrorCb(e);
@@ -101,27 +103,29 @@ class RetryStrategy {
             }
             retries++;
         }
-        this.logger.debug('All retries have been used, re-throwing error');
+        this.logger.warn('All retries have been used, re-throwing error');
         throw error;
     }
 }
 
-export function retryable(strategyParams?: RetryParameters) {
+export function retryable(strategyParams?: RetryParameters, retryStrategyLogger?: Logger) {
     return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
         const originalMethod = descriptor.value;
         const wrappedMethodName = `${target.constructor.name}::${propertyKey}`;
-        let strategy: RetryStrategy | undefined;
+
+        if (!strategyParams) strategyParams = new RetryParameters();
+        let strategy = new RetryStrategy(wrappedMethodName, strategyParams, retryStrategyLogger);
+
         descriptor.value = async function (...args: any) {
-            if (!strategy) {
-                if (!strategyParams) strategyParams = new RetryParameters();
-                strategy = new RetryStrategy(wrappedMethodName, strategyParams);
-            }
             return await strategy.retry(async () => await originalMethod.call(this, ...args));
         };
     };
 }
 
-export async function withRetries<T>(originalFunction: () => Promise<T>, strategyParams?: RetryParameters) {
+export async function withRetries<T>(
+    originalFunction: () => Promise<T>,
+    strategyParams?: RetryParameters,
+) {
     const wrappedMethodName = originalFunction.name;
     if (!strategyParams) {
         strategyParams = new RetryParameters();
