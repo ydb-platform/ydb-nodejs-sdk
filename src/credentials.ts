@@ -8,6 +8,7 @@ import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import AuthServiceResult = Ydb.Auth.LoginResult;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 import type {MetadataTokenService} from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
+import {retryable} from './retries';
 
 function makeCredentialsMetadata(token: string): grpc.Metadata {
     const metadata = new grpc.Metadata();
@@ -56,30 +57,31 @@ interface StaticCredentialsAuthOptions {
     tokenExpirationTimeout?: number
 }
 
+class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> {
+    constructor(endpoint: string, sslCredentials?: ISslCredentials) {
+        super(endpoint, 'Ydb.Auth.V1.AuthService', Ydb.Auth.V1.AuthService, sslCredentials);
+    }
+
+    @retryable()
+    login(request: Ydb.Auth.ILoginRequest) {
+        return this.api.login(request);
+    }
+
+    destroy() {
+        this.api.end();
+    }
+}
+
 export class StaticCredentialsAuthService implements IAuthService {
     private readonly tokenRequestTimeout = 10 * 1000;
     private readonly tokenExpirationTimeout = 6 * 60 * 60 * 1000;
     private tokenTimestamp: DateTime | null;
-    private token: string = "";
+    private token: string = '';
     private tokenUpdatePromise: Promise<any> | null = null;
     private user: string;
     private password: string;
     private endpoint: string;
     private sslCredentials: ISslCredentials | undefined;
-
-    private readonly GrpcService = class extends GrpcService<Ydb.Auth.V1.AuthService> {
-        constructor(endpoint: string, sslCredentials?: ISslCredentials) {
-            super(endpoint, "Ydb.Auth.V1.AuthService", Ydb.Auth.V1.AuthService, sslCredentials);
-        }
-
-        login(request: Ydb.Auth.ILoginRequest) {
-            return this.api.login(request);
-        }
-
-        destroy() {
-            this.api.end();
-        }
-    };
 
     constructor(
         user: string,
@@ -103,19 +105,18 @@ export class StaticCredentialsAuthService implements IAuthService {
     }
 
     private async sendTokenRequest(): Promise<AuthServiceResult> {
-        let runtimeAuthService = new this.GrpcService(this.endpoint, this.sslCredentials);
-        try {
-            const tokenPromise = runtimeAuthService.login({
-                user: this.user,
-                password: this.password,
-            });
-            const response = await withTimeout<Ydb.Auth.LoginResponse>(tokenPromise, this.tokenRequestTimeout);
-            const result = AuthServiceResult.decode(getOperationPayload(response));
-            runtimeAuthService.destroy();
-            return result;
-        } catch (error) {
-            throw new Error("Can't login by user and password " + String(error));
-        }
+        let runtimeAuthService = new StaticCredentialsGrpcService(
+            this.endpoint,
+            this.sslCredentials,
+        );
+        const tokenPromise = runtimeAuthService.login({
+            user: this.user,
+            password: this.password,
+        });
+        const response = await withTimeout(tokenPromise, this.tokenRequestTimeout);
+        const result = AuthServiceResult.decode(getOperationPayload(response));
+        runtimeAuthService.destroy();
+        return result;
     }
 
     private async updateToken() {
@@ -124,7 +125,7 @@ export class StaticCredentialsAuthService implements IAuthService {
             this.token = token;
             this.tokenTimestamp = DateTime.utc();
         } else {
-            throw new Error("Received empty token from credentials!");
+            throw new Error('Received empty token from static credentials!');
         }
     }
 
@@ -148,31 +149,35 @@ export class TokenAuthService implements IAuthService {
     }
 }
 
+class IamTokenGrpcService extends GrpcService<IamTokenService> {
+    constructor(iamCredentials: IIamCredentials, sslCredentials: ISslCredentials) {
+        super(
+            iamCredentials.iamEndpoint,
+            'yandex.cloud.iam.v1.IamTokenService',
+            IamTokenService,
+            sslCredentials,
+        );
+    }
+
+    @retryable()
+    create(request: yandex.cloud.iam.v1.ICreateIamTokenRequest) {
+        return this.api.create(request);
+    }
+
+    destroy() {
+        this.api.end();
+    }
+}
+
 export class IamAuthService implements IAuthService {
     private jwtExpirationTimeout = 3600 * 1000;
     private tokenExpirationTimeout = 120 * 1000;
     private tokenRequestTimeout = 10 * 1000;
     private token: string = '';
-    private tokenTimestamp: DateTime|null;
+    private tokenTimestamp: DateTime | null;
     private tokenUpdateInProgress: Boolean = false;
     private readonly iamCredentials: IIamCredentials;
     private readonly sslCredentials: ISslCredentials;
-    private readonly GrpcService = class extends GrpcService<IamTokenService> {
-        constructor(iamCredentials: IIamCredentials, sslCredentials: ISslCredentials) {
-            super(
-                iamCredentials.iamEndpoint,
-                'yandex.cloud.iam.v1.IamTokenService',
-                IamTokenService,
-                sslCredentials,
-            );
-        }
-    
-        create(request: yandex.cloud.iam.v1.ICreateIamTokenRequest) {
-            return this.api.create(request)
-        }
-    
-        destroy() { this.api.end() }
-    }
 
     constructor(iamCredentials: IIamCredentials, sslCredentials?: ISslCredentials) {
         this.iamCredentials = iamCredentials;
@@ -203,11 +208,17 @@ export class IamAuthService implements IAuthService {
     }
 
     private async sendTokenRequest(): Promise<ICreateIamTokenResponse> {
-        let runtimeIamAuthService = new this.GrpcService(this.iamCredentials, this.sslCredentials)
+        let runtimeIamAuthService = new IamTokenGrpcService(
+            this.iamCredentials,
+            this.sslCredentials,
+        );
         const tokenPromise = runtimeIamAuthService.create({jwt: this.getJwtRequest()});
-        const result = await withTimeout<ICreateIamTokenResponse>(tokenPromise, this.tokenRequestTimeout);
-        runtimeIamAuthService.destroy()
-        return result
+        const result = await withTimeout<ICreateIamTokenResponse>(
+            tokenPromise,
+            this.tokenRequestTimeout,
+        );
+        runtimeIamAuthService.destroy();
+        return result;
     }
 
     private async updateToken() {
