@@ -1,4 +1,4 @@
-import {YdbError} from './errors';
+import {YdbError, TransportError} from './errors';
 import {getLogger, Logger} from './logging';
 import * as errors from './errors';
 import {sleep} from './utils';
@@ -49,8 +49,14 @@ export class RetryParameters {
     }
 }
 
-const RETRYABLE_ERRORS_FAST = [errors.Unavailable, errors.Aborted, errors.NotFound];
-const RETRYABLE_ERRORS_SLOW = [errors.Overloaded];
+const RETRYABLE_ERRORS_FAST = [
+    errors.Unavailable,
+    errors.Aborted,
+    errors.NotFound,
+    errors.TransportUnavailable,
+    errors.ClientDeadlineExceeded,
+];
+const RETRYABLE_ERRORS_SLOW = [errors.Overloaded, errors.ClientResourceExhausted];
 
 class RetryStrategy {
     private logger: Logger;
@@ -71,6 +77,7 @@ class RetryStrategy {
             try {
                 return await asyncMethod();
             } catch (e) {
+                if(TransportError.isMember(e)) e = TransportError.convertToYdbError(e)
                 error = e;
                 if (e instanceof YdbError) {
                     const errName = e.constructor.name;
