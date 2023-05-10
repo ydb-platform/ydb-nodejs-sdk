@@ -1,7 +1,8 @@
+import {StatusObject as GrpcStatusObject} from '@grpc/grpc-js';
 import {Ydb} from 'ydb-sdk-proto';
 import ApiStatusCode = Ydb.StatusIds.StatusCode;
 import IOperation = Ydb.Operations.IOperation;
-
+import {Status as GrpcStatus} from '@grpc/grpc-js/build/src/constants';
 
 const TRANSPORT_STATUSES_FIRST = 401000;
 const CLIENT_STATUSES_FIRST = 402000;
@@ -28,11 +29,12 @@ export enum StatusCode {
     UNSUPPORTED = ApiStatusCode.UNSUPPORTED,
     SESSION_BUSY = ApiStatusCode.SESSION_BUSY,
 
-    CONNECTION_LOST = TRANSPORT_STATUSES_FIRST + 10,
-    CONNECTION_FAILURE = TRANSPORT_STATUSES_FIRST + 20,
-    DEADLINE_EXCEEDED = TRANSPORT_STATUSES_FIRST + 30,
-    CLIENT_INTERNAL_ERROR = TRANSPORT_STATUSES_FIRST + 40,
-    UNIMPLEMENTED = TRANSPORT_STATUSES_FIRST + 50,
+    // Client statuses
+    /** Cannot connect or unrecoverable network error. (map from gRPC UNAVAILABLE) */
+    TRANSPORT_UNAVAILABLE = TRANSPORT_STATUSES_FIRST + 10,
+    // Theoritically should begin with `TRANSPORT_`, but renamed due to compatibility
+    CLIENT_RESOURCE_EXHAUSTED = TRANSPORT_STATUSES_FIRST + 20,
+    CLIENT_DEADLINE_EXCEEDED = TRANSPORT_STATUSES_FIRST + 30,
 
     UNAUTHENTICATED = CLIENT_STATUSES_FIRST + 30,
     SESSION_POOL_EMPTY = CLIENT_STATUSES_FIRST + 40,
@@ -68,19 +70,6 @@ export class YdbError extends Error {
     }
 }
 
-export class ConnectionError extends YdbError {}
-export class ConnectionFailure extends ConnectionError {
-    static status = StatusCode.CONNECTION_FAILURE
-}
-export class ConnectionLost extends ConnectionError {
-    static status = StatusCode.CONNECTION_LOST
-}
-export class DeadlineExceed extends ConnectionError {
-    static status = StatusCode.DEADLINE_EXCEEDED
-}
-export class Unimplemented extends ConnectionError {
-    static status = StatusCode.UNIMPLEMENTED
-}
 
 export class Unauthenticated extends YdbError {
     static status = StatusCode.UNAUTHENTICATED
@@ -186,6 +175,47 @@ const SERVER_SIDE_ERROR_CODES = new Map([
     [StatusCode.UNDETERMINED, Undetermined],
     [StatusCode.UNSUPPORTED, Unsupported],
     [StatusCode.SESSION_BUSY, SessionBusy],
+]);
+
+export class TransportError extends YdbError {
+    /** Check if error is member of GRPC error */
+    static isMember(e: any): e is Error & GrpcStatusObject {
+        return e instanceof Error && 'code' in e && 'details' in e && 'metadata' in e;
+    }
+
+    static convertToYdbError(e: Error & GrpcStatusObject): YdbError {
+        const ErrCls = TRANSPORT_ERROR_CODES.get(e.code);
+
+        if (!ErrCls) {
+            let errStr = `Can't convert grpc error to string`;
+            try {
+                errStr = JSON.stringify(e);
+            } catch (error) {}
+            throw new Error(`Unexpected transport error code ${e.code}! Error itself: ${errStr}`);
+        } else {
+            return new ErrCls(
+                `${ErrCls.name} (code ${ErrCls.status}): ${e.name}: ${e.message}. ${e.details}`,
+            );
+        }
+    }
+}
+
+export class TransportUnavailable extends TransportError {
+    static status = StatusCode.TRANSPORT_UNAVAILABLE;
+}
+
+export class ClientDeadlineExceeded extends TransportError {
+    static status = StatusCode.CLIENT_DEADLINE_EXCEEDED;
+}
+
+export class ClientResourceExhausted extends TransportError {
+    static status = StatusCode.CLIENT_RESOURCE_EXHAUSTED;
+}
+
+const TRANSPORT_ERROR_CODES = new Map([
+    [GrpcStatus.UNAVAILABLE, TransportUnavailable],
+    [GrpcStatus.DEADLINE_EXCEEDED, ClientDeadlineExceeded],
+    [GrpcStatus.RESOURCE_EXHAUSTED, ClientResourceExhausted]
 ]);
 
 export class MissingOperation extends YdbError {}
