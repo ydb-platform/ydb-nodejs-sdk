@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [4.6.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.5.0...v4.6.0) (2023-05-10)
+
+
+### Features
+
+* add logging to retryable decorator ([dc747b0](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/dc747b081bc44d80a3a4c112d193f05d19d0ee6b))
+* add retries to static and IAM credentials services ([783d977](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/783d9778f510c0a23ef5bca7bdc5be99c8631945))
+* update errors classes list ([3d860b8](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/3d860b800e3540ef77f346c9308b1ca85bb64c0e))
+
+
+### Bug Fixes
+
+* fix withTimeout hanging when errored ([83409c5](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/83409c58919b98971dcc15889234c65aeb11fb56))
+
 ## [4.5.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.4.0...v4.5.0) (2023-04-19)
 
 
