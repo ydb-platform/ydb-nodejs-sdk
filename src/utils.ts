@@ -35,9 +35,8 @@ export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<
             reject(new TimeoutExpired(`Timeout of ${timeoutMs}ms has expired`));
         }, timeoutMs);
     });
-    return Promise.race([promise.then((result: T) => {
+    return Promise.race([promise.finally(() => {
         clearTimeout(timeoutId);
-        return result;
     }), timedRejection]);
 }
 
