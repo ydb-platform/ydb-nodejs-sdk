@@ -71,11 +71,7 @@ describe('Types', () => {
                 });
             });
 
-            it('String values', () => {
-                expect(TypedValues.string('foo')).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.STRING},
-                    value: {bytesValue: 'foo'},
-                });
+            it('String and bytes values', () => {
                 expect(TypedValues.bytes(Buffer.from('foo'))).toEqual({
                     type: {typeId: Ydb.Type.PrimitiveTypeId.STRING},
                     value: {bytesValue: Buffer.from('foo')},
@@ -425,9 +421,9 @@ describe('Types', () => {
                     JsonDocument("[]") AS json_document_value;`;
 
                     const data = {
-                        string_value: 'foo',
+                        string_value: Buffer.from('foo'),
                         utf8_value: 'hello',
-                        yson_value: '<a=1>[3;%false]',
+                        yson_value: Buffer.from('<a=1>[3;%false]'),
                         json_value: '{"a":1,"b":null}',
                         json_document_value: '[]',
                     };
@@ -548,8 +544,8 @@ describe('Types', () => {
 
                 const data = {
                     list_value: [1, 2, 3],
-                    tuple_value: [1, 2, '3'],
-                    struct_value: {a: 1, b: 2, c: '3'},
+                    tuple_value: [1, 2, Buffer.from('3')],
+                    struct_value: {a: 1, b: 2, c: Buffer.from('3')},
                     dict_value: {a: 1, b: 2, c: 3},
                 };
 
@@ -589,7 +585,7 @@ describe('Types', () => {
                     v1: {foo: 6},
                     v2: {bar: false},
                     v3: [-123, undefined],
-                    v4: [undefined, 'abcdef'],
+                    v4: [undefined, Buffer.from('abcdef')],
                 };
 
                 const response = await session.executeQuery(query);
@@ -602,7 +598,7 @@ describe('Types', () => {
 
         it('Variant YDB -> SDK value', async () => {
             await driver.tableClient.withSession(async (session) => {
-                const query = `$var_type_struct = Variant<foo: UInt32, bar: String>;
+                const query = `$var_type_struct = Variant<foo: UInt32, bar: Text>;
                 $var_type_tuple = Variant<Int32,Bool>;
                 SELECT
                     Variant(12345678, "foo", $var_type_struct) as v1,
@@ -612,11 +608,11 @@ describe('Types', () => {
 
                 const sdkValues = {
                     v1: TypedValues.fromNative(
-                        Types.variant(Types.struct({foo: Types.UINT32, bar: Types.STRING})),
+                        Types.variant(Types.struct({foo: Types.UINT32, bar: Types.TEXT})),
                         {foo: 12345678},
                     ),
                     v2: TypedValues.fromNative(
-                        Types.variant(Types.struct({foo: Types.UINT32, bar: Types.STRING})),
+                        Types.variant(Types.struct({foo: Types.UINT32, bar: Types.TEXT})),
                         {bar: 'AbCdEfGh'},
                     ),
                     v3: TypedValues.fromNative(
@@ -631,15 +627,6 @@ describe('Types', () => {
 
                 const response = await session.executeQuery(query);
                 const actual = TypedData.createNativeObjects(response.resultSets[0]);
-
-                // SDK writes string as given, while YDB returns it in base64 encoding.
-                // though, we need to change it in future
-                if (!sdkValues.v2.value) sdkValues.v2.value = {};
-                sdkValues.v2.value.nestedValue = {
-                    bytesValue: Buffer.from(
-                        sdkValues.v2.value?.nestedValue?.bytesValue as unknown as string,
-                    ).toString('base64') as unknown as Uint8Array,
-                };
 
                 Object.values(sdkValues).map((v, idx) => {
                     expect(JSON.stringify(v.value?.nestedValue)).toEqual(
@@ -666,27 +653,20 @@ describe('Types', () => {
         //         const query = `
         //         DECLARE $var1 AS Variant<foo: Int32, bar: Bool>;
         //         DECLARE $var2 AS Variant<foo: Int32, bar: Bool>;
-        //         DECLARE $var3 AS Variant<Int32,String>;
-        //         DECLARE $var4 AS Variant<Int32,String>;
+        //         DECLARE $var3 AS Variant<Int32,Text>;
+        //         DECLARE $var4 AS Variant<Int32,Text>;
         //         SELECT $var1 as var1, $var2 as var2, $var3 as var3, $var4 as var4;`;
 
+        //         const structVariantType = Types.variant(
+        //             Types.struct({foo: Types.INT32, bar: Types.BOOL}),
+        //         );
+        //         const tupleVariantType = Types.variant(Types.tuple(Types.INT32, Types.TEXT));
+
         //         const params = {
-        //             $var1: TypedValues.fromNative(
-        //                 Types.variant(Types.struct({foo: Types.INT32, bar: Types.BOOL})),
-        //                 [111, null],
-        //             ),
-        //             $var2: TypedValues.fromNative(
-        //                 Types.variant(Types.struct({foo: Types.INT32, bar: Types.BOOL})),
-        //                 [null, true],
-        //             ),
-        //             $var3: TypedValues.fromNative(
-        //                 Types.variant(Types.tuple(Types.INT32, Types.STRING)),
-        //                 [333, null],
-        //             ),
-        //             $var4: TypedValues.fromNative(
-        //                 Types.variant(Types.tuple(Types.INT32, Types.STRING)),
-        //                 [null, '444'],
-        //             ),
+        //             $var1: TypedValues.fromNative(structVariantType, {foo: 12345678}),
+        //             $var2: TypedValues.fromNative(structVariantType, {bar: 'AbCdEfGh'}),
+        //             $var3: TypedValues.fromNative(tupleVariantType, [333, undefined]),
+        //             $var4: TypedValues.fromNative(tupleVariantType, [undefined, '444']),
         //         };
 
         //         const response = await session.executeQuery(query, params);
