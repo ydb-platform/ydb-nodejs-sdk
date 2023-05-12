@@ -341,9 +341,9 @@ export class TypedValues {
     }
 }
 
-const parseLong = (input: string|number): Long|number => {
-   const long = typeof input === 'string' ? Long.fromString(input) : Long.fromNumber(input);
-   return long.high ? long : long.low;
+const parseLong = (input: string | number): Long | number => {
+    let res = Long.fromValue(input);
+    return res.high ? res : res.low;
 };
 
 const valueToNativeConverters: Record<string, (input: string|number) => any> = {
