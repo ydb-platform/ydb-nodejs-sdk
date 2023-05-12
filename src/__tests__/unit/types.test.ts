@@ -125,3 +125,79 @@ describe('Types mutual conversions', () => {
             Buffer.from('abcdefgHkLmn13*#^@*'),
         );
     });
+
+    describe('Container values', () => {
+        testType('Types.list(Types.UINT32)', Types.list(Types.UINT32), [1, 2, 3, 4, 5]);
+        testType('Types.tuple(Types.UINT32, Types.TEXT)', Types.tuple(Types.UINT32, Types.TEXT), [
+            1,
+            '2',
+        ]);
+        testType(
+            'Types.struct(Types.UINT64)',
+            Types.struct({
+                uint64: Types.UINT64,
+                double: Types.DOUBLE,
+                bytes: Types.BYTES,
+                tuple: Types.tuple(Types.UINT64, Types.TEXT),
+            }),
+            {
+                uint64: Long.MAX_UNSIGNED_VALUE,
+                double: 1.23456,
+                bytes: Buffer.from('abcdefgHkLmn13*#^@*'),
+                tuple: [Long.fromString('18446744073709551615'), 'qwerASDF'],
+            },
+        );
+        // now only simple types allowed
+        // for example, can't use Types.tuple(Types.UINT64, Types.TEXT) as key
+        // for example, can't use Long as key
+        testType('Types.dict(Types.UINT32, Types.TEXT)', Types.dict(Types.UINT32, Types.TEXT), {
+            [1844674407370955]: 'qwerASDF',
+            [1844674407370954]: 'qwerASDF',
+        });
+        testType('Void', Types.VOID, null);
+    });
+
+    describe('Variant value', () => {
+        const variantStructValue = {
+            uint64: Long.MAX_UNSIGNED_VALUE,
+            double: 1.23456,
+            bytes: Buffer.from('abcdefgHkLmn13*#^@*'),
+            tuple: [Long.fromString('18446744073709551615'), 'qwerASDF'],
+        };
+        for (const valueKey of Object.keys(
+            variantStructValue,
+        ) as (keyof typeof variantStructValue)[]) {
+            testType(
+                `Variant Types.variant(Types.struct(...))- ${valueKey}`,
+                Types.variant(
+                    Types.struct({
+                        uint64: Types.UINT64,
+                        double: Types.DOUBLE,
+                        bytes: Types.BYTES,
+                        tuple: Types.tuple(Types.UINT64, Types.TEXT),
+                    }),
+                ),
+                {[valueKey]: variantStructValue[valueKey]},
+            );
+        }
+        const variantTupleValues = [
+            Long.fromString('18446744073709551613'),
+            123456789123450,
+            'ABCDEF',
+            Buffer.from('Hello Ydb!'),
+        ].map((v, i) => [v, i]) as [Ydb.IType, number][];
+
+        for (const [value, idx] of variantTupleValues) {
+            const val: any[] = [undefined, undefined, undefined, undefined];
+            val[idx] = value;
+            testType(
+                `Variant Types.variant(Types.tuple(...)) - ${idx}`,
+                Types.variant(Types.tuple(Types.UINT64, Types.INT32, Types.TEXT, Types.BYTES)),
+                val,
+            );
+        }
+    });
+
+    // TODO: add enum
+    // TODO: add tagged
+});
