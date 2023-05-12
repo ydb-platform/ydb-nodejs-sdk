@@ -554,7 +554,7 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
     } else if (type.variantType) {
         if (type.variantType.tupleItems) {
             const elements = type.variantType.tupleItems.elements as IType[];
-            const variantIndex = (value as Array<any>).findIndex((v) => v !== null);
+            const variantIndex = (value as Array<any>).findIndex((v) => v !== undefined);
             return {
                 nestedValue: typeToValue(elements[variantIndex], value[variantIndex]),
                 variantIndex,

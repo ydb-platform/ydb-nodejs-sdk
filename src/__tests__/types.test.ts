@@ -617,11 +617,11 @@ describe('Types', () => {
                     ),
                     v3: TypedValues.fromNative(
                         Types.variant(Types.tuple(Types.INT32, Types.BOOL)),
-                        [-12345678, null],
+                        [-12345678, undefined],
                     ),
                     v4: TypedValues.fromNative(
                         Types.variant(Types.tuple(Types.INT32, Types.BOOL)),
-                        [null, false],
+                        [undefined, false],
                     ),
                 };
 
