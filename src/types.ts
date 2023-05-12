@@ -86,6 +86,11 @@ export class Types {
         return {optionalType: {item: type}};
     }
 
+    /**
+     * A real number with the specified precision, up to 35 decimal digits
+     * @param precision Total number of decimal places (up to 35, inclusive).
+     * @param scale Number of places after the decimal point (out of the total number, meaning it can't be larger than the previous argument)
+     */
     static decimal(precision: number, scale: number): IType {
         return {decimalType: {precision, scale}};
     }
