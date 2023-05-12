@@ -20,11 +20,11 @@ async function createTable(session: Session) {
             ))
             .withColumn(new Column(
                 'field1',
-                Types.optional(Types.STRING),
+                Types.optional(Types.TEXT),
             ))
             .withColumn(new Column(
                 'field2',
-                Types.optional(Types.STRING),
+                Types.optional(Types.BYTES),
             ))
             .withColumn(new Column(
                 'field3',
@@ -45,7 +45,7 @@ class Row extends TypedData {
     @declareType(Types.UINT64)
     public id: number;
 
-    @declareType(Types.STRING)
+    @declareType(Types.TEXT)
     public field1: string;
 
     @declareType(Types.BYTES)

@@ -5,7 +5,6 @@ import 'reflect-metadata';
 import {DateTime} from 'luxon';
 import {uuidToNative, uuidToValue} from './uuid';
 import {fromDecimalString, toDecimalString} from './decimal';
-import {emitWarning} from 'process';
 import Type = Ydb.Type;
 import IType = Ydb.IType;
 import IStructMember = Ydb.IStructMember;
@@ -18,21 +17,7 @@ import NullValue = google.protobuf.NullValue;
 
 export const typeMetadataKey = Symbol('type');
 
-const shownDeprecations = new Set();
-function warnDeprecation(message: string) {
-    if (!shownDeprecations.has(message)) {
-        shownDeprecations.add(message);
-        emitWarning(message);
-    }
-}
-
 export function declareType(type: IType) {
-    if (type === Types.STRING) {
-        warnDeprecation(
-            'Types.STRING type is deprecated and will be removed in the next major release. Please migrate ' +
-            'to the newer type Types.BYTES which avoids implicit conversions between Buffer and string types.'
-        );
-    }
     return Reflect.metadata(typeMetadataKey, type);
 }
 
@@ -79,7 +64,6 @@ export class Types {
     static UINT64: IType = {typeId: Ydb.Type.PrimitiveTypeId.UINT64};
     static FLOAT: IType = {typeId: Ydb.Type.PrimitiveTypeId.FLOAT};
     static DOUBLE: IType = {typeId: Ydb.Type.PrimitiveTypeId.DOUBLE};
-    static STRING: IType = {typeId: Ydb.Type.PrimitiveTypeId.STRING};
     static BYTES: IType = {typeId: Ydb.Type.PrimitiveTypeId.STRING};
     static UTF8: IType = {typeId: Ydb.Type.PrimitiveTypeId.UTF8};
     static TEXT: IType = {typeId: Ydb.Type.PrimitiveTypeId.UTF8};
@@ -215,14 +199,6 @@ export class TypedValues {
 
     static double(value: number): ITypedValue {
         return TypedValues.primitive(Types.DOUBLE, value);
-    }
-
-    static string(value: string): ITypedValue {
-        warnDeprecation(
-            'string() helper is deprecated and will be removed in the next major release. Please migrate ' +
-            'to the newer helper bytes() which avoids implicit conversions between Buffer and string types.'
-        );
-        return TypedValues.primitive(Types.STRING, value);
     }
 
     static bytes(value: Buffer): ITypedValue {
@@ -467,14 +443,11 @@ function convertYdbValueToNative(type: IType, value: IValue): any {
 }
 
 function objectFromValue(type: IType, value: unknown) {
-    if (type === Types.BYTES) {
-        return value as Buffer;
-    }
     const {typeId} = type;
     switch (typeId) {
         case PrimitiveTypeId.YSON:
         case PrimitiveTypeId.STRING:
-            return (value as Buffer).toString('utf8');
+            return value as Buffer;
         case PrimitiveTypeId.DATE:
             return new Date((value as number) * 3600 * 1000 * 24);
         case PrimitiveTypeId.DATETIME:
