@@ -359,7 +359,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
     'nullFlagValue': () => null,
 };
 
-function convertYdbValueToNative(type: IType, value: IValue): any {
+export function convertYdbValueToNative(type: IType, value: IValue): any {
     if (type.typeId) {
         if (type.typeId === PrimitiveTypeId.UUID) {
             return uuidToNative(value);
