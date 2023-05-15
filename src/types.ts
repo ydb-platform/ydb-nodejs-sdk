@@ -451,6 +451,7 @@ function objectFromValue(type: IType, value: unknown) {
     const {typeId} = type;
     switch (typeId) {
         case PrimitiveTypeId.YSON:
+            return (value as Buffer).toString('utf8');
         case PrimitiveTypeId.STRING:
             return value as Buffer;
         case PrimitiveTypeId.DATE:
