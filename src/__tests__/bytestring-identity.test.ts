@@ -1,36 +1,19 @@
 import Driver from '../driver';
-import {
-    destroyDriver,
-    initDriver,
-    TABLE
-} from '../test-utils';
+import {destroyDriver, initDriver, TABLE} from '../test-utils';
 import {Column, Session, TableDescription} from '../table';
-import {declareType, TypedData, Types} from "../types";
-import {withRetries} from "../retries";
-
+import {declareType, TypedData, Types} from '../types';
+import {withRetries} from '../retries';
 
 async function createTable(session: Session) {
     await session.dropTable(TABLE);
     await session.createTable(
         TABLE,
         new TableDescription()
-            .withColumn(new Column(
-                'id',
-                Types.optional(Types.UINT64),
-            ))
-            .withColumn(new Column(
-                'field1',
-                Types.optional(Types.TEXT),
-            ))
-            .withColumn(new Column(
-                'field2',
-                Types.optional(Types.BYTES),
-            ))
-            .withColumn(new Column(
-                'field3',
-                Types.optional(Types.YSON),
-            ))
-            .withPrimaryKey('id')
+            .withColumn(new Column('id', Types.optional(Types.UINT64)))
+            .withColumn(new Column('field1', Types.optional(Types.TEXT)))
+            .withColumn(new Column('field2', Types.optional(Types.BYTES)))
+            .withColumn(new Column('field3', Types.optional(Types.YSON)))
+            .withPrimaryKey('id'),
     );
 }
 
@@ -65,7 +48,7 @@ class Row extends TypedData {
 
 export async function fillTableWithData(session: Session, rows: Row[]) {
     const query = `
-DECLARE $data AS List<Struct<id: Uint64, field1: String, field2: String, field3: Yson>>;
+DECLARE $data AS List<Struct<id: Uint64, field1: Text, field2: String, field3: Yson>>;
 
 REPLACE INTO ${TABLE}
 SELECT * FROM AS_TABLE($data);`;
@@ -73,7 +56,7 @@ SELECT * FROM AS_TABLE($data);`;
     await withRetries(async () => {
         const preparedQuery = await session.prepareQuery(query);
         await session.executeQuery(preparedQuery, {
-            '$data': Row.asTypedCollection(rows),
+            $data: Row.asTypedCollection(rows),
         });
     });
 }
@@ -86,7 +69,7 @@ describe('bytestring identity', () => {
             id: 0,
             field1: 'zero',
             field2: Buffer.from('half'),
-            field3: Buffer.from('<a=1>[3;%false]')
+            field3: Buffer.from('<a=1>[3;%false]'),
         }),
     ];
 
@@ -103,8 +86,8 @@ describe('bytestring identity', () => {
         });
     });
 
-    it('Types.STRING does not keep the original string in write-read cycle', () => {
-        expect(actualRows[0].field1).not.toEqual('zero');
+    it('Types.TEXT keeps the original string in write-read cycle', () => {
+        expect(actualRows[0].field1).toEqual('zero');
     });
 
     it('Types.BYTES keeps the original string in write-read cycle', () => {

@@ -423,7 +423,7 @@ describe('Types', () => {
                     const data = {
                         string_value: Buffer.from('foo'),
                         utf8_value: 'hello',
-                        yson_value: Buffer.from('<a=1>[3;%false]'),
+                        yson_value: '<a=1>[3;%false]',
                         json_value: '{"a":1,"b":null}',
                         json_document_value: '[]',
                     };
