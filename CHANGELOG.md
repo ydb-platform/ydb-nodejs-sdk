@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.0.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.6.0...v5.0.0) (2023-05-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove string type
+
+### Features
+
+* remove string type ([dfaa81e](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/dfaa81eaf7ce3e8e10b6427c0f966d07df1e6325))
+
+
+### Bug Fixes
+
+* bugfix long type parsing ([4bbecf7](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/4bbecf74885dc2b95b7c6888fffb4dacd43e0a74))
+* bugfix vaiant tuple parse ([283be5d](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/283be5d504a7a41c0ac47fb175e692b68857b8dd))
+
 ## [4.6.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v4.5.0...v4.6.0) (2023-05-10)
 
 
