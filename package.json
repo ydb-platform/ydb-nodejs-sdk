@@ -22,7 +22,8 @@
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rm -rf build",
     "prepublish": "npm run clean && npm run build && ./fixup.sh",
-    "release": "standard-version"
+    "release": "standard-version",
+    "postinstall": "husky install"
   },
   "keywords": [
     "ydb",
