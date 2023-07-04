@@ -21,7 +21,8 @@
     "test": "npm run test:unit",
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rm -rf build",
-    "prepublish": "npm run clean && npm run build && ./fixup.sh"
+    "prepublish": "npm run clean && npm run build && ./fixup.sh",
+    "postinstall": "husky install"
   },
   "keywords": [
     "ydb",
