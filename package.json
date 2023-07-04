@@ -22,7 +22,6 @@
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rm -rf build",
     "prepublish": "npm run clean && npm run build && ./fixup.sh",
-    "release": "standard-version",
     "postinstall": "husky install"
   },
   "keywords": [
@@ -59,7 +58,6 @@
     "husky": "^7.0.4",
     "jest": "^27.1.0",
     "npm-run-all": "^4.1.5",
-    "standard-version": "^9.3.2",
     "ts-jest": "^27.0.5",
     "typescript": "^4.6.4"
   },
