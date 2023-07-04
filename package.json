@@ -15,13 +15,13 @@
   ],
   "scripts": {
     "test:unit": "exit 0",
-    "test:integration:development": "TEST_ENVIRONMENT=dev jest --config jest.config.development.js",
+    "test:integration:development": "cross-env TEST_ENVIRONMENT=dev jest --config jest.config.development.js",
     "test:integration:production": "jest --config jest.config.production.js",
     "test:all": "run-p test:unit test:integration:production",
     "test": "npm run test:unit",
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
-    "clean": "rm -rf build",
-    "prepublish": "npm run clean && npm run build && ./fixup.sh",
+    "clean": "rimraf build",
+    "prepublish": "npm run clean && npm run build && node ./fixup.js",
     "postinstall": "husky install"
   },
   "keywords": [
@@ -55,9 +55,12 @@
     "@types/node": "^12.20.55",
     "@types/uuid": "^8.3.4",
     "@yandex-cloud/nodejs-sdk": "^2.0.0",
+    "cross-env": "^7.0.3",
     "husky": "^7.0.4",
     "jest": "^27.1.0",
     "npm-run-all": "^4.1.5",
+    "rimraf": "^5.0.1",
+    "standard-version": "^9.3.2",
     "ts-jest": "^27.0.5",
     "typescript": "^4.6.4"
   },
