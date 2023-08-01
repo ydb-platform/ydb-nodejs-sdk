@@ -19,6 +19,7 @@
     "test:integration:production": "jest --config jest.config.production.js",
     "test:all": "run-p test:unit test:integration:production",
     "test": "npm run test:unit",
+    "coverage": "cross-env TEST_ENVIRONMENT=dev jest --config jest.config.coverage.js",
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rimraf build",
     "prepublish": "npm run clean && npm run build && node ./fixup.js",
