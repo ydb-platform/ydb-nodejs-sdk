@@ -1,0 +1,14 @@
+on:
+  workflow_dispatch:
+
+name: release
+
+jobs:
+  release:
+    if: github.repository == 'ydb-platform/ydb-nodejs-sdk'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: yandex-cloud/ui-release-action@main
+        with:
+          github-token: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
+          npm-token: ${{ secrets.NODE_AUTH_TOKEN }}
