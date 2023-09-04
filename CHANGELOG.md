@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.1.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.0...v5.1.1) (2023-09-04)
+
+
+### Bug Fixes
+
+* quick fix husky install problem arises during SDK update ([03beecc](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/03beeccde530ea7050608502a8167a9a4a13c47d))
+
 ## [5.1.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.0.0...v5.1.0) (2023-08-31)
 
 
