@@ -17,3 +17,5 @@ altered by github project admin.
 **Important**: After performing a release, you should check that the new version has appeared in npm. If the version
 has not been updated, then to repeat the release you need to make a new commit without changing code with
 *bug: npm update* subject and repeat the release.
+
+**Final check**: Make an empty folder and execute *npm i ydb-sdk* in it.  It is desirable to do this on *unix* and *windows*.
