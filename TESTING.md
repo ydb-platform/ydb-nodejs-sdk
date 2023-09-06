@@ -2,7 +2,7 @@
 
 GIT: https://github.com/ydb-platform/slo-tests.git
 Start `docker-compose up -d` to have YDB running in local container
-Check that НВИ has started `http://localhost:8765/monitoring/cluster/tenants`
+Check that YDB has started `http://localhost:8765/monitoring/cluster/tenants`
 
 ## Install
 
