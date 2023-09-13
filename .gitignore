@@ -6,8 +6,7 @@ node_modules
 tmp/
 temp/
 
-# typescript build (next line will be removed by pre-release-branch-update GitHub action to be included in dist branch)
-build/
+###
 
 #personal
 .idea/
