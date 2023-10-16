@@ -10,7 +10,22 @@
  */
 export class Context {
 
-    constructor(readonly value?: any) { }
+    readonly id?: any;
+    readonly parent?: Context;
+
+    constructor(parent?: Context) {
+        if (parent) {
+            if (parent.id) {
+                this.id = parent.id;
+            }
+            this.parent = parent;
+        } else {
+            const id = newId();
+            if (id) {
+                this.id = id;
+            }
+        }
+    }
 
     do<T>(func: () => T): T {
         const prevContext = _context;
@@ -21,15 +36,43 @@ export class Context {
             _context = prevContext;
         }
     }
+
+    findContextByClass<T extends Context>(type: Function): T | null {
+        let ctx: Context | undefined = this;
+
+        while (ctx) {
+            if (ctx instanceof type) {
+                return ctx as T;
+            }
+            ctx = ctx.parent;
+        }
+
+        return null;
+    }
+
+    toString() {
+        return this.id ? `${this.id}: ` : '';
+    }
 }
 
 /**
- * Default context has "context.value === undefined".
+ * Default context has "context.id === undefined".
  */
 let _context: any = new Context();
 
+let newId: () => any = () => undefined;
+
 /**
- * The context must be taken before a first await, it is more reliable to take it in the first line of the function.
+ * Set the id generator for a new context. By default, the id remain undefined.
+ *
+ * @param generateNewId
+ */
+export function setContextNewId(generateNewId: () => any) {
+    newId = generateNewId;
+}
+
+/**
+ * The context must be taken in the beging function before a first await.
  *
  * const context = getContext();
  */
