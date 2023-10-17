@@ -53,6 +53,10 @@ export class Context {
         return null;
     }
 
+    /**
+     * Forms a portion of the string to be a part of logged message.   Any type of id is possible or
+     * an empty string will be returned, if id is missing.
+     */
     toString() {
         return this.id ? `${this.id}: ` : '';
     }
@@ -76,7 +80,7 @@ let newId: () => any = () => undefined;
 /**
  * Sets the id generator. By default, the id remain undefined.
  */
-export function setContextNewId(generateNewId: () => any) {
+export function setContextNewIdGenerator(generateNewId: () => any) {
     newId = generateNewId;
 }
 
