@@ -1,12 +1,15 @@
 /**
- * Context object allows to pass a value thru function calls stack.
+ * Context object allows to pass a context-chain (number of contexts, linked by "parent" field) thru function calls stack.
  *
  * To do this, you need to call functions like "context.do(() => [some function])".  And in this "some function" at the
  * beginning execute "const context = getContext();".
  *
- * Create a new context - "new Context([any optional value])".
+ * Create a new context - "new Context(context?)".  If context is provided, then new context considers it as a child-context.
+ * Otherwise, it's new context with an id, if newId() function was specified.
  *
- * Getting the context value "... = context.value".
+ * Getting the context fields "... = context...".  Also, context might have methods.
+ *
+ * Specific part of context-chain can be obtained thru findContextByClass() method.
  */
 export class Context {
 
@@ -56,25 +59,31 @@ export class Context {
 }
 
 /**
- * Default context has "context.id === undefined".
+ * This is an object that does not contain any context, but allows to execute context.do().
  */
-let _context: any = new Context();
+const NOT_A_CONTEXT = Object.create(Context.prototype);
 
+/**
+ * The current context so that it can be retrieved via getConext().
+ */
+let _context: any = NOT_A_CONTEXT;
+
+/**
+ * Method of generating a new id for a new context.
+ */
 let newId: () => any = () => undefined;
 
 /**
- * Set the id generator for a new context. By default, the id remain undefined.
- *
- * @param generateNewId
+ * Sets the id generator. By default, the id remain undefined.
  */
 export function setContextNewId(generateNewId: () => any) {
     newId = generateNewId;
 }
 
 /**
- * The context must be taken in the beging function before a first await.
+ * The context must be taken in the begining of a function before a first 'await'.
  *
- * const context = getContext();
+ * Ex.: const context = getContext();
  */
 export function getContext(): Context {
     return _context;
