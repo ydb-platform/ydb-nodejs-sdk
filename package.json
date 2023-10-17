@@ -14,7 +14,7 @@
     "build/**"
   ],
   "scripts": {
-    "test:unit": "exit 0",
+    "test:unit": "jest --config jest.config.unit.js",
     "test:integration:development": "cross-env TEST_ENVIRONMENT=dev jest --config jest.config.development.js",
     "test:integration:production": "jest --config jest.config.production.js",
     "test:all": "run-p test:unit test:integration:production",

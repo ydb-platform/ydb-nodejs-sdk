@@ -1,4 +1,4 @@
-import {initDriver, destroyDriver} from '../test-utils';
+import {initDriver, destroyDriver} from '../../test-utils';
 
 describe('Connection', () => {
     it('Test GRPC connection', async () => {

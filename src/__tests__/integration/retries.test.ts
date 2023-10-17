@@ -1,5 +1,5 @@
-import {Endpoint} from '../discovery';
-import Driver from '../driver';
+import {Endpoint} from '../../discovery';
+import Driver from '../../driver';
 import {
     Aborted,
     BadRequest,
@@ -18,11 +18,11 @@ import {
     Unavailable,
     Undetermined,
     YdbError,
-} from '../errors';
-import {FallbackLogger} from '../logging';
-import {RetryParameters, retryable} from '../retries';
-import {destroyDriver, initDriver} from '../test-utils';
-import {pessimizable} from '../utils';
+} from '../../errors';
+import {FallbackLogger} from '../../logging';
+import {RetryParameters, retryable} from '../../retries';
+import {destroyDriver, initDriver} from '../../test-utils';
+import {pessimizable} from '../../utils';
 
 const logger = new FallbackLogger({level: 'error'});
 class ErrorThrower {
