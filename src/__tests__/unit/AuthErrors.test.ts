@@ -1,5 +1,5 @@
 
-import { FallbackLogger, setupLogger } from '../../logging';
+import { FallbackLogger, setupLogger } from '../../utils/simple-logger';
 setupLogger(new FallbackLogger({level: 'error'}))
 
 import { ServiceError } from '@grpc/grpc-js/build/src/call';
@@ -40,7 +40,7 @@ describe('Retries on errors in auth services', () => {
                     throw mockCallErrorFromStatus({code: 14, details: 'My custom unavailable error', metadata: {}})
                 })
                 return service
-            } 
+            }
             return actual
         })
         require('ydb-sdk-proto')

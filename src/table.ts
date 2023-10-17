@@ -17,7 +17,7 @@ import {ISslCredentials} from './ssl-credentials';
 import {Events, ResponseMetadataKeys, SESSION_KEEPALIVE_PERIOD} from './constants';
 import {IAuthService} from './credentials';
 // noinspection ES6PreferShortImport
-import {Logger} from './logging';
+import {Logger} from './utils/simple-logger';
 import {retryable} from './retries';
 import {
     SchemeError,

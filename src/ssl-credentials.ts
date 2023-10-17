@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as tls from 'tls';
 
 // noinspection ES6PreferShortImport
-import { Logger } from './logging';
+import { Logger } from './utils/simple-logger';
 import certs from './certs/certs.json';
 
 function makeInternalRootCertificates() {

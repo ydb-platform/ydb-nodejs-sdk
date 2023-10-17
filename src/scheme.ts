@@ -8,7 +8,7 @@ import {
 } from "./utils";
 import {IAuthService} from "./credentials";
 // noinspection ES6PreferShortImport
-import {Logger} from './logging';
+import {Logger} from './utils/simple-logger';
 import DiscoveryService, {Endpoint} from './discovery';
 import {retryable} from "./retries";
 import {ISslCredentials} from './ssl-credentials';

@@ -6,7 +6,7 @@ import {AuthenticatedService, getOperationPayload, withTimeout} from "./utils";
 import {IAuthService} from "./credentials";
 import {retryable} from "./retries";
 // noinspection ES6PreferShortImport
-import {Logger} from './logging';
+import {Logger} from './utils/simple-logger';
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 import {Events} from "./constants";

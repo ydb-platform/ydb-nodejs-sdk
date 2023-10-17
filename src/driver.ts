@@ -4,7 +4,7 @@ import SchemeService from './scheme';
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {IAuthService} from './credentials';
 import {TimeoutExpired} from './errors';
-import {getLogger, Logger} from './logging';
+import {getLogger, Logger} from './utils/simple-logger';
 import SchemeClient from './scheme';
 import {ClientOptions} from './utils';
 import {parseConnectionString} from './parse-connection-string';

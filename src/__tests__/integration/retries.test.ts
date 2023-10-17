@@ -19,7 +19,7 @@ import {
     Undetermined,
     YdbError,
 } from '../../errors';
-import {FallbackLogger} from '../../logging';
+import {FallbackLogger} from '../../utils/simple-logger';
 import {RetryParameters, retryable} from '../../retries';
 import {destroyDriver, initDriver} from '../../test-utils';
 import {pessimizable} from '../../utils';

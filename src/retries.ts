@@ -1,5 +1,5 @@
 import {YdbError, TransportError} from './errors';
-import {getLogger, Logger} from './logging';
+import {getLogger, Logger} from './utils/simple-logger';
 import * as errors from './errors';
 import {sleep} from './utils';
 
