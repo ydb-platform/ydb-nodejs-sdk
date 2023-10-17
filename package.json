@@ -14,11 +14,15 @@
     "build/**"
   ],
   "scripts": {
-    "test:unit": "jest --config jest.config.unit.js",
-    "test:integration:development": "cross-env TEST_ENVIRONMENT=dev jest --config jest.config.development.js",
-    "test:integration:production": "jest --config jest.config.production.js",
+    "test:unit": "jest --config config/jest.config.unit.js",
+    "test:integration:development": "cross-env TEST_ENVIRONMENT=dev jest --config config/jest.config.development.js",
+    "test:integration:production": "jest --config config/jest.config.production.js",
     "test:all": "run-p test:unit test:integration:production",
     "test": "npm run test:unit",
+    "test:coverage": "jest -c config/jest.coverage.ts",
+    "lint": "eslint src config",
+    "lint:fix": "eslint src config --fix",
+
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rimraf build",
     "prepublish": "npm run clean && npm run build && node ./fixup.js"
