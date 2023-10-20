@@ -16,23 +16,27 @@ export class Context {
     readonly id?: any;
     readonly parent?: Context;
 
-    protected done?: (error?: Error) => void;
+    /**
+     * A non-required method that is called after the function, and allows you to collect the method
+     * run time and close spans for tracing.
+     */
+    protected done?: (error?: any) => void;
 
     constructor(parent?: Context) {
         if (parent && parent !== NOT_A_CONTEXT) {
-            if (parent.id) {
+            if (parent.id !== undefined) {
                 this.id = parent.id;
             }
             this.parent = parent;
         } else {
             const id = newId();
-            if (id) {
+            if (id !== undefined) {
                 this.id = id;
             }
         }
     }
 
-    async do<T>(func: () => T): T {
+    async do<T>(func: () => T): Promise<T> {
         const prevContext = _context;
         let error: any;
         try {
@@ -79,6 +83,7 @@ export class Context {
  * This is an object that does not contain any context, but allows to execute context.do().
  */
 export const NOT_A_CONTEXT = Object.create(Context.prototype);
+NOT_A_CONTEXT.id = 'NOT_A_CONTEXT';
 
 /**
  * The current context so that it can be retrieved via getConext().
