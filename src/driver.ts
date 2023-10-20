@@ -34,11 +34,11 @@ export default class Driver {
     private sslCredentials?: ISslCredentials;
     private poolSettings?: IPoolSettings;
     private clientOptions?: ClientOptions;
-    private logger: Logger;
     private discoveryService: DiscoveryService;
 
-    public tableClient: TableClient;
-    public schemeClient: SchemeService;
+    public readonly logger: Logger;
+    public readonly tableClient: TableClient;
+    public readonly schemeClient: SchemeService;
 
     constructor(settings: IDriverSettings) {
         this.logger = settings.logger || getLogger();

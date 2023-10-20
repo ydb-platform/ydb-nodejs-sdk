@@ -1,3 +1,5 @@
+import {logger} from "@yandex-cloud/nodejs-sdk/dist/utils/logger";
+
 const DEFAULT_ENV_KEY = 'LOG_LEVEL';
 
 const DEFAULT_LEVEL = 'info';
@@ -160,3 +162,12 @@ let consoleOrMock = console;
 export const setMockConsole = (mockConsole: Console = console) => {
     consoleOrMock = mockConsole;
 };
+
+/**
+ * @deprecated
+ * After refactoring the only logger that is in use, is the logger passed in driver settings.
+ */
+export function setupLogger(_: SimpleLogger.Logger) {
+    logger.warn('setupLogger() was deprecated');
+    // nothing
+}

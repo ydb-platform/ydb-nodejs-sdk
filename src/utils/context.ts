@@ -16,8 +16,10 @@ export class Context {
     readonly id?: any;
     readonly parent?: Context;
 
+    protected done?: (error?: Error) => void;
+
     constructor(parent?: Context) {
-        if (parent) {
+        if (parent && parent !== NOT_A_CONTEXT) {
             if (parent.id) {
                 this.id = parent.id;
             }
@@ -30,17 +32,28 @@ export class Context {
         }
     }
 
-    do<T>(func: () => T): T {
+    async do<T>(func: () => T): T {
         const prevContext = _context;
+        let error: any;
         try {
             _context = this;
-            return func();
+            return await func();
+        } catch (_error) {
+            error = _error;
+            throw error;
         } finally {
             _context = prevContext;
+            let ctx: Context | undefined = this;
+            while (ctx) {
+                if (ctx.done) {
+                    ctx.done(error);
+                }
+                ctx = ctx.parent;
+            }
         }
     }
 
-    findContextByClass<T extends Context>(type: Function): T | null {
+    findContextByClass<T extends Context>(type: Function): T {
         let ctx: Context | undefined = this;
 
         while (ctx) {
@@ -50,7 +63,7 @@ export class Context {
             ctx = ctx.parent;
         }
 
-        return null;
+        return NOT_A_CONTEXT;
     }
 
     /**
@@ -58,30 +71,33 @@ export class Context {
      * an empty string will be returned, if id is missing.
      */
     toString() {
-        return this.id ? `${this.id}: ` : '';
+        return this.id !== undefined ? `${this.id}: ` : '';
     }
 }
 
 /**
  * This is an object that does not contain any context, but allows to execute context.do().
  */
-const NOT_A_CONTEXT = Object.create(Context.prototype);
+export const NOT_A_CONTEXT = Object.create(Context.prototype);
 
 /**
  * The current context so that it can be retrieved via getConext().
  */
 let _context: any = NOT_A_CONTEXT;
 
+const noop = () => undefined;
 /**
  * Method of generating a new id for a new context.
  */
-let newId: () => any = () => undefined;
+let newId: () => any = noop;
 
 /**
- * Sets the id generator. By default, the id remain undefined.
+ * Sets the id generator. By default, the id remain undefined. In case of repeated calls, the first value is taken.
  */
 export function setContextNewIdGenerator(generateNewId: () => any) {
-    newId = generateNewId;
+    if (newId === noop) {
+        newId = generateNewId;
+    }
 }
 
 /**

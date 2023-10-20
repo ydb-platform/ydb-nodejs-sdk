@@ -1,7 +1,5 @@
-
-import { FallbackLogger, setupLogger } from '../../utils/simple-logger';
-setupLogger(new FallbackLogger({level: 'error'}))
-
+import { getContext, Context } from '../../utils/context';
+import { SimpleLogger as FallbackLogger} from '../../utils/simple-logger';
 import { ServiceError } from '@grpc/grpc-js/build/src/call';
 import {IamAuthService, StaticCredentialsAuthService} from '../../credentials';
 import { TransportUnavailable } from '../../errors';
