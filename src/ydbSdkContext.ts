@@ -1,5 +1,5 @@
-import {Context, getContext, NOT_A_CONTEXT} from "./context";
-import Driver from "../driver";
+import {Context, getContext, NOT_A_CONTEXT} from "./utils/context";
+import Driver from "./driver";
 
 /**
  * Context with reference to the head object - driver.
@@ -13,8 +13,10 @@ export class YdbSdkContext extends Context {
      * This method should be called in methods that can be called by a client code - if this type of context
      * does not already exist, it will be created.  It is important to have access to Driver object to build new context.
      */
-    getSafe(driver: Driver, methodName: string) {
+    static getSafe(driver: Driver, methodName: string) {
         const ctx = getContext();
+
+        console.info(2000, ctx)
 
         let context = ctx.findContextByClass<YdbSdkContext>(YdbSdkContext);
 
@@ -30,7 +32,7 @@ export class YdbSdkContext extends Context {
     /**
      * Returns the context of this type.  If there is no such context - throws an error.
      */
-    get(methodName: string) {
+    static get(methodName: string) {
         const ctx = getContext();
 
         let context = ctx.findContextByClass<YdbSdkContext>(YdbSdkContext);

@@ -1,4 +1,4 @@
-import { SimpleLogger } from './simple-logger';
+import { SimpleLogger } from '../simple-logger';
 
 export const buildTestLogger = () => {
     const testLoggerFn = jest.fn();
