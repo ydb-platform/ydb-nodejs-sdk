@@ -5,8 +5,6 @@ import config from './jest.config.unit';
  * https://jestjs.io/docs/configuration
  */
 
-console.info(1000, config)
-
 module.exports = {
     ...config,
     collectCoverage: true,

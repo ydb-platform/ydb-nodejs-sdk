@@ -30,7 +30,7 @@ describe('ydbSdkConext', () => {
         expect(testLoggerFn.mock.calls).toEqual([['trace', 'method1'], ['trace', 'method2']]);
     });
 
-    it('get - ok', async () => {
+    it('get - error', async () => {
         expect(() => YdbSdkContext.get('method')).toThrow();
     });
 });
