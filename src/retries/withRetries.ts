@@ -1,6 +1,6 @@
 import {RetryParameters} from "./RetryParameters";
 import {RetryStrategy} from "./RetryStrategy";
-import {DriverContext} from "../DriverContext";
+import {ContextWithLogger} from "../context-with-logger";
 import {Trace} from "./consts";
 
 /**
@@ -12,12 +12,12 @@ export async function withRetries<T>(
     originalFunction: () => Promise<T>,
     strategyParams?: RetryParameters,
 ) {
-    const ydbSdkContext = DriverContext.get(Trace.withRetries);
+    const ctx = ContextWithLogger.get(Trace.withRetries);
 
     const wrappedMethodName = originalFunction.name;
     if (!strategyParams) {
         strategyParams = new RetryParameters();
     }
-    const strategy = new RetryStrategy(wrappedMethodName, strategyParams, ydbSdkContext.logger);
-    return await strategy.retry(originalFunction);
+    const strategy = ctx.doSync(() => new RetryStrategy(wrappedMethodName, strategyParams!, ctx.logger));
+    return await ctx.do(() => strategy.retry(originalFunction));
 }

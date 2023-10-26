@@ -3,7 +3,7 @@ import {destroyDriver, initDriver, TABLE} from '../../test-utils';
 import {Column, Session, TableDescription} from '../../table';
 import {declareType, TypedData, Types} from '../../types';
 import {withRetries} from '../../retries';
-import {DriverContext} from "../../DriverContext";
+import {ContextWithLogger} from "../../context-with-logger";
 
 async function createTable(session: Session) {
     await session.dropTable(TABLE);
@@ -78,7 +78,7 @@ describe('bytestring identity', () => {
 
     beforeAll(async () => {
         driver = await initDriver();
-        await DriverContext.getSafe(driver, 'test.beforeAll').do(() =>
+        await ContextWithLogger.getSafe(driver.logger, 'test.beforeAll').do(() =>
             driver.tableClient.withSession(async (session) => {
                 await createTable(session);
                 await fillTableWithData(session, initialRows);

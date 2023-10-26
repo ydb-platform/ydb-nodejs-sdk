@@ -63,6 +63,34 @@ export class Context {
     }
 
     /**
+     * Calls the method passed as a callback with pass in the context from which the method was called.
+     *
+     * The context can be obtained in the first line of the called function - *const ctx = getContext();*.
+     *
+     * Sync version primarily required to call anything within constructors.
+     */
+    doSync<T>(callback: () => T): T {
+        const prevContext = _context;
+        let error: any;
+        try {
+            _context = this;
+            return callback();
+        } catch (_error) {
+            error = _error;
+            throw error;
+        } finally {
+            _context = prevContext;
+            let ctx: Context | undefined = this;
+            while (ctx) {
+                if (ctx.done) {
+                    ctx.done(error);
+                }
+                ctx = ctx.parent;
+            }
+        }
+    }
+
+    /**
      * Finds the context of the specified class in the context chain.
      *
      * If there is no context of the required class then returns NOT_A_CONTEXT.
