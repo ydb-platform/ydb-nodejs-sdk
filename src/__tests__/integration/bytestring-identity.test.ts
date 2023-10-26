@@ -3,6 +3,7 @@ import {destroyDriver, initDriver, TABLE} from '../../test-utils';
 import {Column, Session, TableDescription} from '../../table';
 import {declareType, TypedData, Types} from '../../types';
 import {withRetries} from '../../retries';
+import {DriverContext} from "../../DriverContext";
 
 async function createTable(session: Session) {
     await session.dropTable(TABLE);
@@ -77,13 +78,15 @@ describe('bytestring identity', () => {
 
     beforeAll(async () => {
         driver = await initDriver();
-        await driver.tableClient.withSession(async (session) => {
-            await createTable(session);
-            await fillTableWithData(session, initialRows);
+        await DriverContext.getSafe(driver, 'test.beforeAll').do(() =>
+            driver.tableClient.withSession(async (session) => {
+                await createTable(session);
+                await fillTableWithData(session, initialRows);
 
-            const {resultSets} = await session.executeQuery(`SELECT * FROM ${TABLE}`);
-            actualRows = Row.createNativeObjects(resultSets[0]) as Row[];
-        });
+                const {resultSets} = await session.executeQuery(`SELECT *
+                                                                 FROM ${TABLE}`);
+                actualRows = Row.createNativeObjects(resultSets[0]) as Row[];
+            }));
     });
 
     it('Types.TEXT keeps the original string in write-read cycle', () => {

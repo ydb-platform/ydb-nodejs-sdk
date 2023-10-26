@@ -1,4 +1,4 @@
-import { SimpleLogger, setMockConsole } from '../../../utils/simple-logger';
+import {SimpleLogger, setMockConsole, LogLevel, Logger} from '../../../utils/simple-logger';
 import { FakeTimersFixture } from '../../../utils/tests/fake-timers-fixture';
 import Mock = jest.Mock;
 
@@ -37,7 +37,7 @@ describe('utils.simple-logger', () => {
                 trace: false,
             },
             {
-                level: SimpleLogger.LogLevel.warn,
+                level: LogLevel.warn,
                 fatal: true,
                 error: true,
                 warn: true,
@@ -46,7 +46,7 @@ describe('utils.simple-logger', () => {
                 trace: false,
             },
             {
-                level: SimpleLogger.LogLevel.debug,
+                level: LogLevel.debug,
                 fatal: true,
                 error: true,
                 warn: true,
@@ -55,7 +55,7 @@ describe('utils.simple-logger', () => {
                 trace: false,
             },
             {
-                level: 'wrong' as SimpleLogger.LogLevel,
+                level: 'wrong' as LogLevel,
                 fatal: true,
                 error: true,
                 warn: true,
@@ -67,7 +67,7 @@ describe('utils.simple-logger', () => {
 
             // eslint-disable-next-line @typescript-eslint/no-loop-func
             it(`general: ${env}, ${conf.level}`, () => {
-                let logger: SimpleLogger.Logger;
+                let logger: Logger;
 
                 switch (env) {
                     case false:

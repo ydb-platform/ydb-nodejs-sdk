@@ -36,12 +36,17 @@ export class Context {
         }
     }
 
-    async do<T>(func: () => T): Promise<T> {
+    /**
+     * Calls the method passed as a callback with pass in the context from which the method was called.
+     *
+     * The context can be obtained in the first line of the called function - *const ctx = getContext();*.
+     */
+    async do<T>(callback: () => T): Promise<T> {
         const prevContext = _context;
         let error: any;
         try {
             _context = this;
-            return await func();
+            return await callback();
         } catch (_error) {
             error = _error;
             throw error;
@@ -57,6 +62,11 @@ export class Context {
         }
     }
 
+    /**
+     * Finds the context of the specified class in the context chain.
+     *
+     * If there is no context of the required class then returns NOT_A_CONTEXT.
+     */
     findContextByClass<T extends Context>(type: Function): T {
         let ctx: Context | undefined = this;
 
@@ -108,7 +118,7 @@ export function setContextNewIdGenerator(generateNewId: () => any) {
 /**
  * The context must be taken in the begining of a function before a first 'await'.
  *
- * Ex.: const context = getContext();
+ * Ex.: *const ctx = getContext();*.
  */
 export function getContext(): Context {
     return _context;

@@ -4,15 +4,16 @@ const DEFAULT_ENV_KEY = 'LOG_LEVEL';
 
 const DEFAULT_LEVEL = 'info';
 
-const silentLogFn = () => {};
+const silentLogFn = () => {
+};
 
-const simpleLogFnBuilder = (level: SimpleLogger.LogLevel): SimpleLogger.LogFn => {
+const simpleLogFnBuilder = (level: LogLevel): LogFn => {
     const LEVEL = level.toUpperCase();
 
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    if (level === SimpleLogger.LogLevel.fatal) {
+    if (level === LogLevel.fatal) {
         // eslint-disable-next-line @typescript-eslint/no-use-before-define,no-param-reassign
-        level = SimpleLogger.LogLevel.error;
+        level = LogLevel.error;
     }
 
     return function log(this: SimpleLogger, objOrMsg: string | unknown, ...args: unknown[]) {
@@ -54,13 +55,13 @@ const simpleLogFnBuilder = (level: SimpleLogger.LogLevel): SimpleLogger.LogFn =>
  * The simplest logger class, with a minimal set of logging methods and the most simple output to the console.
  */
 // eslint-disable-next-line import/export
-export class SimpleLogger implements SimpleLogger.Logger {
-    fatal: SimpleLogger.LogFn = silentLogFn;
-    error: SimpleLogger.LogFn = silentLogFn;
-    warn: SimpleLogger.LogFn = silentLogFn;
-    info: SimpleLogger.LogFn = silentLogFn;
-    debug: SimpleLogger.LogFn = silentLogFn;
-    trace: SimpleLogger.LogFn = silentLogFn;
+export class SimpleLogger implements Logger {
+    fatal: LogFn = silentLogFn;
+    error: LogFn = silentLogFn;
+    warn: LogFn = silentLogFn;
+    info: LogFn = silentLogFn;
+    debug: LogFn = silentLogFn;
+    trace: LogFn = silentLogFn;
 
     readonly prefix?: string;
 
@@ -71,7 +72,7 @@ export class SimpleLogger implements SimpleLogger.Logger {
         /**
          * Level down to which to log messages. Default is *info*.
          */
-        level?: SimpleLogger.LogLevel,
+        level?: LogLevel,
         /**
          * Prefix that gets added to a message, default undefined
          */
@@ -109,9 +110,9 @@ export class SimpleLogger implements SimpleLogger.Logger {
         const envLevel = process.env[envKey];
 
         // @ts-ignore
-        level = envLevel !== undefined ? SimpleLogger.LogLevel[envLevel] : level ?? SimpleLogger.LogLevel[DEFAULT_LEVEL];
+        level = envLevel !== undefined ? LogLevel[envLevel] : level ?? LogLevel[DEFAULT_LEVEL];
 
-        for (const lvl of Object.values<SimpleLogger.LogLevel>(SimpleLogger.LogLevel)) {
+        for (const lvl of Object.values<LogLevel>(LogLevel)) {
             // @ts-ignore
             this[lvl] = simpleLogFnBuilder(lvl);
             if (lvl === level) break;
@@ -119,36 +120,32 @@ export class SimpleLogger implements SimpleLogger.Logger {
     }
 }
 
-/* istanbul ignore next */
-// eslint-disable-next-line @typescript-eslint/no-namespace,import/export
-export namespace SimpleLogger {
-    export interface LogFn {
-        (obj: unknown, msg?: string, ...args: unknown[]): void;
+export interface LogFn {
+    (obj: unknown, msg?: string, ...args: unknown[]): void;
 
-        (msg: string, ...args: unknown[]): void;
-    }
+    (msg: string, ...args: unknown[]): void;
+}
 
-    /**
-     * The simplest interface, containing only the necessary methods used in the project.
-     * Therefore, *fatal* and *trace* methods are omitted.
-     */
-    export interface Logger {
-        fatal: LogFn,
-        error: LogFn,
-        warn: LogFn,
-        info: LogFn,
-        debug: LogFn,
-        trace: LogFn,
-    }
+/**
+ * The simplest interface, containing only the necessary methods used in the project.
+ * Therefore, *fatal* and *trace* methods are omitted.
+ */
+export interface Logger {
+    fatal: LogFn,
+    error: LogFn,
+    warn: LogFn,
+    info: LogFn,
+    debug: LogFn,
+    trace: LogFn,
+}
 
-    export enum LogLevel {
-        fatal = 'fatal',
-        error = 'error',
-        warn = 'warn',
-        info = 'info',
-        debug = 'debug',
-        trace = 'trace',
-    }
+export enum LogLevel {
+    fatal = 'fatal',
+    error = 'error',
+    warn = 'warn',
+    info = 'info',
+    debug = 'debug',
+    trace = 'trace',
 }
 
 /**
@@ -165,9 +162,50 @@ export const setMockConsole = (mockConsole: Console = console) => {
 
 /**
  * @deprecated
- * After refactoring the only logger that is in use, is the logger passed in driver settings.
+ * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
+ * fallback logger there use SimpleLogger.
  */
-export function setupLogger(_: SimpleLogger.Logger) {
+export function setupLogger(_: Logger) {
     logger.warn('setupLogger() was deprecated');
+    // nothing
+}
+
+/**
+ * @deprecated
+ * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
+ * fallback logger there use SimpleLogger.
+ */
+export function getLogger() {
+    logger.error('getLogger() was deprecated');
+    // nothing
+}
+
+/**
+ * @deprecated
+ * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
+ * fallback logger there use SimpleLogger.
+ */
+export function setDefaultLogger() {
+    logger.error('setDefaultLogger() was deprecated');
+    // nothing
+}
+
+/**
+ * @deprecated
+ * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
+ * fallback logger there use SimpleLogger.
+ */
+export function FallbackLogger() {
+    logger.error('FallbackLogger() was deprecated');
+    // nothing
+}
+
+/**
+ * @deprecated
+ * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
+ * fallback logger there use SimpleLogger.
+ */
+export function getFallbackLogFunction() {
+    logger.error('getFallbackLogFunction() was deprecated');
     // nothing
 }

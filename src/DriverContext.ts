@@ -1,13 +1,21 @@
 import {Context, getContext, NOT_A_CONTEXT} from "./utils/context";
 import Driver from "./driver";
+import {getLoggerFromObject} from "./utils/getLoggerFromObject";
+import {Logger} from "./utils/simple-logger";
 
 /**
  * Context with reference to the head object - driver.
  */
-export class YdbSdkContext extends Context {
+export class DriverContext extends Context {
+
+    readonly logger: Logger;
+
     private constructor(context: Context, readonly driver: Driver) {
         super(context);
+
+        this.logger = getLoggerFromObject(this.driver);
     }
+
 
     /**
      * This method should be called in methods that can be called by a client code - if this type of context
@@ -16,12 +24,14 @@ export class YdbSdkContext extends Context {
     static getSafe(driver: Driver, methodName: string) {
         const ctx = getContext();
 
-        console.info(2000, ctx)
+        if (!(driver instanceof Driver)) {
+            throw Error('Not the Driver! Probably the object does not have such field');
+        }
 
-        let context = ctx.findContextByClass<YdbSdkContext>(YdbSdkContext);
+        let context = ctx.findContextByClass<DriverContext>(DriverContext);
 
         if (context === NOT_A_CONTEXT) {
-            context = new YdbSdkContext(ctx, driver);
+            context = new DriverContext(ctx, driver);
         }
 
         context.trace(methodName);
@@ -35,10 +45,10 @@ export class YdbSdkContext extends Context {
     static get(methodName: string) {
         const ctx = getContext();
 
-        let context = ctx.findContextByClass<YdbSdkContext>(YdbSdkContext);
+        let context = ctx.findContextByClass<DriverContext>(DriverContext);
 
         if (context === NOT_A_CONTEXT) {
-            throw new Error('YdbSdkContext is not in the context chain. Consider using YdbSdkContext.getSafe()')
+            throw new Error('RiverContext is not in the context chain. Consider using RiverContext.getSafe()')
         }
 
         context.trace(methodName);

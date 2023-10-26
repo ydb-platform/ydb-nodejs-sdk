@@ -7,7 +7,7 @@ import {
     MetadataAuthService,
     TokenAuthService,
 } from './credentials';
-import {getLogger, Logger} from './utils/simple-logger';
+import {Logger, SimpleLogger} from './utils/simple-logger';
 
 export function getSACredentialsFromJson(filename: string): IIamCredentials {
     const buffer = fs.readFileSync(filename);
@@ -21,7 +21,7 @@ export function getSACredentialsFromJson(filename: string): IIamCredentials {
 }
 
 export function getCredentialsFromEnv(logger?: Logger): IAuthService {
-    logger = logger || getLogger();
+    logger = logger ?? new SimpleLogger();
     if (process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS) {
         logger.debug('YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS env var found, using IamAuthService with params from that json file.');
         return new IamAuthService(getSACredentialsFromJson(process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS));

@@ -4,7 +4,7 @@ import SchemeService from './scheme';
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {IAuthService} from './credentials';
 import {TimeoutExpired} from './errors';
-import {getLogger, Logger} from './utils/simple-logger';
+import {Logger, SimpleLogger} from './utils/simple-logger';
 import SchemeClient from './scheme';
 import {ClientOptions} from './utils';
 import {parseConnectionString} from './parse-connection-string';
@@ -41,7 +41,7 @@ export default class Driver {
     public readonly schemeClient: SchemeService;
 
     constructor(settings: IDriverSettings) {
-        this.logger = settings.logger || getLogger();
+        this.logger = settings.logger || new SimpleLogger();
 
         if (settings.connectionString) {
             const {endpoint, database} = parseConnectionString(settings.connectionString);
