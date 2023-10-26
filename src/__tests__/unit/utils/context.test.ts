@@ -10,7 +10,6 @@ describe('utils.context', () => {
        setContextNewIdGenerator(() => n++);
        setContextNewIdGenerator(() => ''); // 2nd assignment should be ignored
        const ctx2 = new Context();
-       console.info(100, ctx2)
        expect(ctx2.id).toBe(0);
        const ctx3 = new Context();
        expect(ctx3.id).toBe(1);

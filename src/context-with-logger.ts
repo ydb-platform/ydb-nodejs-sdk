@@ -22,7 +22,7 @@ export class ContextWithLogger extends Context {
             context = new ContextWithLogger(ctx, logger);
         }
 
-        context.trace(methodName, ctx);
+        context.trace(methodName);
 
         return context;
     }
@@ -39,7 +39,7 @@ export class ContextWithLogger extends Context {
             throw new Error('ContextWithLogger is not in the context chain. Consider using RiverContext.getSafe()')
         }
 
-        context.trace(methodName, ctx);
+        context.trace(methodName);
 
         return context;
     }
@@ -75,8 +75,8 @@ export class ContextWithLogger extends Context {
     /**
      * Writes trace to logger and creates span if tracing is enabled.
      */
-    private trace(methodName: string, ctx: Context) {
-        this.logger.trace(methodName, ctx); // as parameter goes las ontext in the chain
+    private trace(methodName: string) {
+        this.logger.trace(methodName, this); // as parameter goes las ontext in the chain
         // TODO: name span
     }
 }
