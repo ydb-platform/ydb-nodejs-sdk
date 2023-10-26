@@ -78,5 +78,6 @@ export class ContextWithLogger extends Context {
     private trace(methodName: string) {
         this.logger.trace(methodName, this); // as parameter goes las ontext in the chain
         // TODO: name span
+        return this; // may be helpful for the code compaction
     }
 }

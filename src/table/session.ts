@@ -41,6 +41,8 @@ import {
     ReadTableSettings,
     RollbackTransactionSettings
 } from "./settings";
+import {ContextWithLogger} from "../context-with-logger";
+import {NOT_A_CONTEXT} from "../utils/context";
 
 interface INewTransaction {
     beginTx: ITransactionSettings,
@@ -63,6 +65,12 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     private free = true;
     private closing = false;
 
+    /**
+     * ATTN: This field is updated through HACK every time session gets acquired.
+     */
+    // @ts-ignore
+    readonly ctx: ContextWithLogger = NOT_A_CONTEXT;
+
     constructor(
         private api: TableService,
         public endpoint: Endpoint,
@@ -74,13 +82,16 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     acquire() {
+        const ctx = ContextWithLogger.get('ydb_nodejs_sdk');
         this.free = false;
+        (this as any).ctx = ctx;
         this.logger.debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         return this;
     }
 
     release() {
         this.free = true;
+        (this as any).ctx = NOT_A_CONTEXT;
         this.logger.debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         this.emit(SessionEvent.SESSION_RELEASE, this);
     }
