@@ -8,6 +8,7 @@ temp/
 
 # typescript build (next line will be removed by pre-release-branch-update GitHub action to be included in dist branch)
 build/
+coverage/
 
 #personal
 .idea/
