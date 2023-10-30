@@ -9,6 +9,7 @@ let defaultLogger: Logger;
  * This method returns the value of the logger field with a check that there is
  * a logger there, or returns the default logger with the appropriate trace.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getLoggerFromObject = (obj: any) => {
     if (typeof obj.logger === 'object' && obj.logger !== null && 'error' in obj.logger) {
         return obj.logger as Logger;

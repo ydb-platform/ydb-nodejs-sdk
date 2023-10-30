@@ -4,6 +4,15 @@ const DEFAULT_ENV_KEY = 'LOG_LEVEL';
 
 const DEFAULT_LEVEL = 'info';
 
+export enum LogLevel {
+    fatal = 'fatal',
+    error = 'error',
+    warn = 'warn',
+    info = 'info',
+    debug = 'debug',
+    trace = 'trace',
+}
+
 const silentLogFn = () => {};
 
 const simpleLogFnBuilder = (level: LogLevel): LogFn => {
@@ -136,15 +145,6 @@ export interface Logger {
     info: LogFn,
     debug: LogFn,
     trace: LogFn,
-}
-
-export enum LogLevel {
-    fatal = 'fatal',
-    error = 'error',
-    warn = 'warn',
-    info = 'info',
-    debug = 'debug',
-    trace = 'trace',
 }
 
 /**

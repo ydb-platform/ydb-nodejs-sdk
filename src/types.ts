@@ -367,49 +367,64 @@ export const convertYdbValueToNative = (type: IType, value: IValue): any => {
             return uuidToNative(value);
         }
         const label = primitiveTypeToValue[type.typeId];
+
         if (!label) {
             throw new Error(`Unknown PrimitiveTypeId: ${type.typeId}`);
         }
         const input = (value as any)[label];
+
         return objectFromValue(type, valueToNativeConverters[label](input));
     } if (type.decimalType) {
         const high128 = value.high_128 as number | Long;
         const low128 = value.low_128 as number | Long;
         const scale = type.decimalType.scale as number;
+
         return toDecimalString(high128, low128, scale);
     } if (type.optionalType) {
         const innerType = type.optionalType.item as IType;
+
         if (value.nullFlagValue === NullValue.NULL_VALUE) {
             return null;
         }
+
         return convertYdbValueToNative(innerType, value);
     } if (type.listType) {
         const innerType = type.listType.item as IType;
+
         return _.map(value.items, (item) => convertYdbValueToNative(innerType, item));
     } if (type.tupleType) {
         const types = type.tupleType.elements as IType[];
         const values = value.items as IValue[];
+
         return values.map((value, index) => convertYdbValueToNative(types[index], value));
     } if (type.structType) {
         const members = type.structType.members as Ydb.IStructMember[];
         const items = value.items as Ydb.IValue[];
         const struct = {} as any;
-        items.forEach((item, index) => {
+
+        for (const [index, item] of items.entries()) {
             const member = members[index];
             const memberName = member.name as string;
             const memberType = member.type as IType;
+
             struct[memberName] = convertYdbValueToNative(memberType, item);
-        });
+        }
+
         return struct;
     } if (type.dictType) {
         const keyType = type.dictType.key as IType;
         const payloadType = type.dictType.payload as IType;
 
         const dict = {} as any;
-        value.pairs?.forEach((pair) => {
-            const nativeKey = convertYdbValueToNative(keyType, pair.key as IValue);
-            dict[nativeKey] = convertYdbValueToNative(payloadType, pair.payload as IValue);
-        });
+
+        if (value.pairs) {
+            for (const pair of value.pairs) {
+                const nativeKey = convertYdbValueToNative(keyType, pair.key as IValue);
+
+                dict[nativeKey] = convertYdbValueToNative(payloadType, pair.payload as IValue);
+            }
+        }
+
         return dict;
     } if (type.variantType) {
         if (type.variantType.tupleItems) {
@@ -421,7 +436,6 @@ export const convertYdbValueToNative = (type: IType, value: IValue): any => {
                 if (index === variantIndex) {
                     return convertYdbValueToNative(element, item);
                 }
-                return undefined;
             });
         } if (type.variantType.structItems) {
             const members = type.variantType.structItems.members as IStructMember[];
@@ -433,9 +447,9 @@ export const convertYdbValueToNative = (type: IType, value: IValue): any => {
             return {
                 [variantName]: convertYdbValueToNative(variantType, item),
             };
-        } else {
-            throw new Error('Either tupleItems or structItems should be present in VariantType!');
         }
+        throw new Error('Either tupleItems or structItems should be present in VariantType!');
+
         // } else if (type.taggedType) {
         //     // TODO: Enable in future versions of YDB
         //     const memberType = type.taggedType.type as IType
