@@ -4,7 +4,7 @@ import DiscoveryService, { Endpoint } from '../discovery';
 import { Session } from './session';
 import { IAuthService } from '../credentials';
 import { ISslCredentials } from '../ssl-credentials';
-import { ClientOptions } from '../utils';
+import { ClientOptions } from '../utils/service-base-classes';
 import { Logger } from '../utils/simple-logger';
 import { Events, SESSION_KEEPALIVE_PERIOD } from '../constants';
 
@@ -13,9 +13,9 @@ import {
     BadSession,
     SessionBusy,
 } from '../errors';
-import { SessionEvent } from './internal/sessionEvent';
-import { ITableClientSettings } from './internal/ITableClientSettings';
-import { SessionService } from './sessionService';
+import { SessionEvent } from './internal/session-event';
+import { ITableClientSettings } from './internal/i-table-client-settings';
+import { SessionService } from './session-service';
 import { ContextWithLogger } from '../context-with-logger';
 
 export class SessionPool extends EventEmitter {

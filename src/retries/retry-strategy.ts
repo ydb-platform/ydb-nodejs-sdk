@@ -1,7 +1,7 @@
 import { Logger } from '../utils/simple-logger';
 import { TransportError, YdbError } from '../errors';
 import * as errors from '../errors';
-import { RetryParameters } from './RetryParameters';
+import { RetryParameters } from './retry-parameters';
 import { getContext } from '../utils/context';
 import { Trace } from './consts';
 

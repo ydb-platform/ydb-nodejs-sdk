@@ -6,7 +6,7 @@ import {
     initDriver,
     Row,
     TABLE,
-} from '../../test-utils';
+} from '../../utils/tests/test-utils';
 import { ReadTableSettings, Session } from '../../table';
 import { TypedValues, TypedData } from '../../types';
 

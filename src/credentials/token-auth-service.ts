@@ -1,6 +1,6 @@
 import * as grpc from '@grpc/grpc-js';
-import { IAuthService } from './IAuthService';
-import { makeCredentialsMetadata } from './makeCredentialsMetadata';
+import { IAuthService } from './i-auth-service';
+import { makeCredentialsMetadata } from './make-credentials-metadata';
 
 export class TokenAuthService implements IAuthService {
     constructor(private token: string) {}

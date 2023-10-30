@@ -1,7 +1,7 @@
 import Long from 'long';
 import { google, Ydb } from 'ydb-sdk-proto';
 import Driver from '../../driver';
-import { initDriver, destroyDriver } from '../../test-utils';
+import { initDriver, destroyDriver } from '../../utils/tests/test-utils';
 import { TypedData, TypedValues, Types } from '../../types';
 import NullValue = google.protobuf.NullValue;
 

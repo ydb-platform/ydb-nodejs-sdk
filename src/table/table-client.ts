@@ -1,7 +1,7 @@
 import EventEmitter from 'events';
-import { SessionPool } from './sessionPool';
+import { SessionPool } from './session-pool';
 import { Session } from './session';
-import { ITableClientSettings } from './internal/ITableClientSettings';
+import { ITableClientSettings } from './internal/i-table-client-settings';
 
 export class TableClient extends EventEmitter {
     private pool: SessionPool;

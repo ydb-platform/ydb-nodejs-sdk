@@ -1,10 +1,10 @@
 import fs from 'fs';
 import path from 'path';
-import Driver, { IDriverSettings } from './driver';
-import { declareType, TypedData, Types } from './types';
-import { Column, Session, TableDescription } from './table';
-import { withRetries } from './retries';
-import { AnonymousAuthService } from './credentials';
+import Driver, { IDriverSettings } from '../../driver';
+import { declareType, TypedData, Types } from '../../types';
+import { Column, Session, TableDescription } from '../../table';
+import { withRetries } from '../../retries';
+import { AnonymousAuthService } from '../../credentials';
 
 const DATABASE = '/local';
 
@@ -33,7 +33,11 @@ export const initDriver = async (settings?: Partial<IDriverSettings>): Promise<D
     const certFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || path.join(process.cwd(), 'ydb_certs/ca.pem');
 
     if (!fs.existsSync(certFile)) {
-        throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_SSL_ROOT_CERTIFICATES_FILE env variable or run Docker container https://cloud.yandex.ru/docs/ydb/getting_started/ydb_docker inside working directory`);
+        throw new Error(
+            `Certificate file ${certFile} doesn't exist! Please use YDB_SSL_ROOT_CERTIFICATES_FILE `
+            + 'env variable or run Docker container https://cloud.yandex.ru/docs/ydb/getting_started/ydb_docker'
+            + 'inside working directory',
+        );
     }
     const sslCredentials = { rootCertificates: fs.readFileSync(certFile) };
 

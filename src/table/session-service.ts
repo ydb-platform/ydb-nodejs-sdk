@@ -1,7 +1,7 @@
 import { Ydb } from 'ydb-sdk-proto';
 import {
-    AuthenticatedService, ClientOptions, getOperationPayload, pessimizable,
-} from '../utils';
+    AuthenticatedService, ClientOptions,
+} from '../utils/service-base-classes';
 import { Endpoint } from '../discovery';
 import { Logger } from '../utils/simple-logger';
 import { IAuthService } from '../credentials';
@@ -12,6 +12,8 @@ import { Session } from './session';
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
 import CreateSessionResult = Ydb.Table.CreateSessionResult;
+import { pessimizable } from '../utils/pessimizable';
+import { getOperationPayload } from '../utils/get-operation-payload';
 
 export class SessionService extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;

@@ -1,11 +1,8 @@
 import { Ydb } from 'ydb-sdk-proto';
 import {
     AuthenticatedService,
-    getOperationPayload,
-    ensureOperationSucceeded,
-    pessimizable,
     ClientOptions,
-} from './utils';
+} from './utils/service-base-classes';
 import { IAuthService } from './credentials';
 // noinspection ES6PreferShortImport
 import { Logger } from './utils/simple-logger';
@@ -22,6 +19,9 @@ import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
 import { util } from 'protobufjs';
 import EventEmitter = util.EventEmitter;
+import { pessimizable } from './utils/pessimizable';
+import { ensureOperationSucceeded } from './utils/ensure-operation-succeeded';
+import { getOperationPayload } from './utils/get-operation-payload';
 
 const preparePermissions = (action?: IPermissions | null) => {
     if (action && action.permissionNames) {

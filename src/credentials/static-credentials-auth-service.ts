@@ -1,12 +1,13 @@
 import { Ydb } from 'ydb-sdk-proto';
 import { DateTime } from 'luxon';
 import * as grpc from '@grpc/grpc-js';
-import { getOperationPayload, GrpcService, withTimeout } from '../utils';
+import { GrpcService, withTimeout } from '../utils/service-base-classes';
 import { ISslCredentials } from '../ssl-credentials';
 import { retryable } from '../retries';
-import { makeCredentialsMetadata } from './makeCredentialsMetadata';
-import { IAuthService } from './IAuthService';
+import { makeCredentialsMetadata } from './make-credentials-metadata';
+import { IAuthService } from './i-auth-service';
 import AuthServiceResult = Ydb.Auth.LoginResult;
+import { getOperationPayload } from '../utils/get-operation-payload';
 
 class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> {
     constructor(endpoint: string, sslCredentials?: ISslCredentials) {

@@ -3,8 +3,8 @@ import { TtlSettings } from './settings';
 import { Column } from './ydb';
 
 import FeatureFlag = Ydb.FeatureFlag.Status;
-import { TableIndex } from './tableIndex';
-import { TableProfile } from './tableProfile';
+import { TableIndex } from './table-index';
+import { TableProfile } from './table-profile';
 
 export class TableDescription implements Ydb.Table.ICreateTableRequest {
     /** @deprecated use TableDescription options instead */

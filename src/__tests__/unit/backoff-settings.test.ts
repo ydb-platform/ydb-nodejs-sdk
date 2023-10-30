@@ -1,10 +1,10 @@
 import { BackoffSettings } from '../../retries';
-import * as utils from '../../utils';
+import * as utilsSleep from '../../utils/sleep';
 
 const runTest = (backoff: BackoffSettings, retries: number, min: number, max: number) => {
     it(`have correct value for ${retries} retries`, () => {
         let timeout = -1;
-        const spy = jest.spyOn(utils, 'sleep').mockImplementation((val) => {
+        const spy = jest.spyOn(utilsSleep, 'sleep').mockImplementation((val) => {
             timeout = val;
 
             return Promise.resolve();

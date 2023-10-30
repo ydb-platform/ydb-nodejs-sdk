@@ -1,5 +1,5 @@
-import { RetryParameters } from './RetryParameters';
-import { RetryStrategy } from './RetryStrategy';
+import { RetryParameters } from './retry-parameters';
+import { RetryStrategy } from './retry-strategy';
 import { ContextWithLogger } from '../context-with-logger';
 import { Trace } from './consts';
 

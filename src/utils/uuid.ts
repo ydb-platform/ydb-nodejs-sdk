@@ -1,8 +1,8 @@
 import { Ydb } from 'ydb-sdk-proto';
 import * as uuid from 'uuid';
 import Long from 'long';
-import { toLong } from './utils';
 import IValue = Ydb.IValue;
+import { toLong } from './to-long';
 
 /**
  * Every UUID string value represents as hex digits displayed in five groups separated by hyphens:

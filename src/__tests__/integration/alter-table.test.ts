@@ -1,5 +1,5 @@
 import Driver from '../../driver';
-import { destroyDriver, initDriver } from '../../test-utils';
+import { destroyDriver, initDriver } from '../../utils/tests/test-utils';
 import {
     AlterTableDescription,
     AlterTableSettings,

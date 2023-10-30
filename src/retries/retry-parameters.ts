@@ -1,5 +1,5 @@
 import { YdbError } from '../errors';
-import { BackoffSettings } from './BackoffSettings';
+import { BackoffSettings } from './backoff-settings';
 
 export class RetryParameters {
     public retryNotFound: boolean;

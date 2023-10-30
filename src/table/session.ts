@@ -5,18 +5,18 @@ import { Endpoint } from '../discovery';
 import { Logger } from '../utils/simple-logger';
 import { retryable } from '../retries';
 import {
-    AsyncResponse, ensureOperationSucceeded, getOperationPayload, pessimizable, StreamEnd,
-} from '../utils';
+    StreamEnd,
+} from '../utils/service-base-classes';
 
 import {
     MissingStatus, MissingValue, SchemeError, YdbError,
 } from '../errors';
 import { ResponseMetadataKeys } from '../constants';
-import { SessionEvent } from './internal/sessionEvent';
-import { PartialResponse } from './internal/partialResponse';
-import { IExistingTransaction } from './internal/IExistingTransaction';
-import { TableDescription } from './tableDescription';
-import { AlterTableDescription } from './alterTableDescription';
+import { SessionEvent } from './internal/session-event';
+import { PartialResponse } from './internal/partial-response';
+import { IExistingTransaction } from './internal/i-existing-transaction';
+import { TableDescription } from './table-description';
+import { AlterTableDescription } from './alter-table-description';
 import TableService = Ydb.Table.V1.TableService;
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 import IQuery = Ydb.Table.IQuery;
@@ -47,6 +47,10 @@ import {
 } from './settings';
 import { ContextWithLogger } from '../context-with-logger';
 import { NOT_A_CONTEXT } from '../utils/context';
+import { pessimizable } from '../utils/pessimizable';
+import { ensureOperationSucceeded } from '../utils/ensure-operation-succeeded';
+import { getOperationPayload } from '../utils/get-operation-payload';
+import { AsyncResponse } from '../utils/async-response';
 
 interface INewTransaction {
     beginTx: ITransactionSettings,

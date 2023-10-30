@@ -1,9 +1,10 @@
+// eslint-disable-next-line max-classes-per-file
 import _ from 'lodash';
 import Long from 'long';
 import { google, Ydb } from 'ydb-sdk-proto';
 import 'reflect-metadata';
 import { DateTime } from 'luxon';
-import { uuidToNative, uuidToValue } from './uuid';
+import { uuidToNative, uuidToValue } from './utils/uuid';
 import { fromDecimalString, toDecimalString } from './decimal';
 import Type = Ydb.Type;
 import IType = Ydb.IType;
@@ -87,7 +88,8 @@ export class Types {
     /**
      * A real number with the specified precision, up to 35 decimal digits
      * @param precision Total number of decimal places (up to 35, inclusive).
-     * @param scale Number of places after the decimal point (out of the total number, meaning it can't be larger than the previous argument)
+     * @param scale Number of places after the decimal point (out of the total number, meaning it
+     * can't be larger than the previous argument)
      */
     static decimal(precision: number, scale: number): IType {
         return { decimalType: { precision, scale } };
@@ -374,13 +376,15 @@ export const convertYdbValueToNative = (type: IType, value: IValue): any => {
         const input = (value as any)[label];
 
         return objectFromValue(type, valueToNativeConverters[label](input));
-    } if (type.decimalType) {
+    }
+    if (type.decimalType) {
         const high128 = value.high_128 as number | Long;
         const low128 = value.low_128 as number | Long;
         const scale = type.decimalType.scale as number;
 
         return toDecimalString(high128, low128, scale);
-    } if (type.optionalType) {
+    }
+    if (type.optionalType) {
         const innerType = type.optionalType.item as IType;
 
         if (value.nullFlagValue === NullValue.NULL_VALUE) {
@@ -388,16 +392,19 @@ export const convertYdbValueToNative = (type: IType, value: IValue): any => {
         }
 
         return convertYdbValueToNative(innerType, value);
-    } if (type.listType) {
+    }
+    if (type.listType) {
         const innerType = type.listType.item as IType;
 
         return _.map(value.items, (item) => convertYdbValueToNative(innerType, item));
-    } if (type.tupleType) {
+    }
+    if (type.tupleType) {
         const types = type.tupleType.elements as IType[];
         const values = value.items as IValue[];
 
         return values.map((value, index) => convertYdbValueToNative(types[index], value));
-    } if (type.structType) {
+    }
+    if (type.structType) {
         const members = type.structType.members as Ydb.IStructMember[];
         const items = value.items as Ydb.IValue[];
         const struct = {} as any;
@@ -411,7 +418,8 @@ export const convertYdbValueToNative = (type: IType, value: IValue): any => {
         }
 
         return struct;
-    } if (type.dictType) {
+    }
+    if (type.dictType) {
         const keyType = type.dictType.key as IType;
         const payloadType = type.dictType.payload as IType;
 
@@ -426,7 +434,8 @@ export const convertYdbValueToNative = (type: IType, value: IValue): any => {
         }
 
         return dict;
-    } if (type.variantType) {
+    }
+    if (type.variantType) {
         if (type.variantType.tupleItems) {
             const elements = type.variantType.tupleItems.elements as IType[];
             const item = value.nestedValue as IValue;
@@ -437,7 +446,8 @@ export const convertYdbValueToNative = (type: IType, value: IValue): any => {
                     return convertYdbValueToNative(element, item);
                 }
             });
-        } if (type.variantType.structItems) {
+        }
+        if (type.variantType.structItems) {
             const members = type.variantType.structItems.members as IStructMember[];
             const item = value.nestedValue as IValue;
             const variantIndex = value.variantIndex as number;
@@ -598,7 +608,8 @@ const typeToValue = (type: IType | null | undefined, value: any): IValue => {
                 nestedValue: typeToValue(elements[variantIndex], value[variantIndex]),
                 variantIndex,
             };
-        } if (type.variantType.structItems) {
+        }
+        if (type.variantType.structItems) {
             const members = type.variantType.structItems.members as IStructMember[];
             const variantKey = Object.keys(value)[0];
             const variantIndex = members.findIndex((a) => variantKey === a.name);
@@ -621,6 +632,7 @@ const typeToValue = (type: IType | null | undefined, value: any): IValue => {
 };
 
 export type StringFunction = (name?: string) => string;
+
 export interface NamesConversion {
     ydbToJs: StringFunction;
     jsToYdb: StringFunction;
@@ -632,7 +644,9 @@ export interface TypedDataOptions {
 
 export const getNameConverter = (options: TypedDataOptions, direction: keyof NamesConversion): StringFunction => (options.namesConversion || identityConversion)[direction];
 
-export const withTypeOptions = (options: TypedDataOptions) => <T extends Function>(constructor: T): T & { __options: TypedDataOptions } => _.merge(constructor, { __options: options });
+export const withTypeOptions = (options: TypedDataOptions) => <T extends Function>(constructor: T): T & {
+    __options: TypedDataOptions
+} => _.merge(constructor, { __options: options });
 
 export const snakeToCamelCaseConversion: NamesConversion = {
     jsToYdb: _.snakeCase,
@@ -645,6 +659,7 @@ export const identityConversion: NamesConversion = {
 
 export class TypedData {
     [property: string]: any;
+
     static __options: TypedDataOptions = {};
 
     constructor(data: Record<string, any>) {

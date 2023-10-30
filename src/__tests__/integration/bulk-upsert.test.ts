@@ -7,7 +7,7 @@ import {
     initDriver,
     Row,
     TABLE,
-} from '../../test-utils';
+} from '../../utils/tests/test-utils';
 import { Session } from '../../table';
 
 const readTable = async (session: Session): Promise<Row[]> => {

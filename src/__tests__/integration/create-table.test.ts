@@ -1,7 +1,7 @@
 import Long from 'long';
 import { Ydb } from 'ydb-sdk-proto';
 import Driver from '../../driver';
-import { destroyDriver, initDriver } from '../../test-utils';
+import { destroyDriver, initDriver } from '../../utils/tests/test-utils';
 import { Column, DescribeTableSettings, TableDescription } from '../../table';
 import { TypedValues, Types } from '../../types';
 

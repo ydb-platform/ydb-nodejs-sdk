@@ -1,6 +1,6 @@
 import { Ydb } from 'ydb-sdk-proto';
 import { Column } from './ydb';
-import { TableIndex } from './tableIndex';
+import { TableIndex } from './table-index';
 import { TtlSettings } from './settings';
 
 export class AlterTableDescription {

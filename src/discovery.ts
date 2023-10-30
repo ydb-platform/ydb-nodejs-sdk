@@ -2,7 +2,7 @@ import _ from 'lodash';
 import EventEmitter from 'events';
 import { DateTime } from 'luxon';
 import { Ydb } from 'ydb-sdk-proto';
-import { AuthenticatedService, getOperationPayload, withTimeout } from './utils';
+import { AuthenticatedService, withTimeout } from './utils/service-base-classes';
 import { IAuthService } from './credentials';
 import { retryable } from './retries';
 // noinspection ES6PreferShortImport
@@ -11,6 +11,7 @@ import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 import { Events } from './constants';
 import { ISslCredentials } from './ssl-credentials';
+import { getOperationPayload } from './utils/get-operation-payload';
 
 type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
 type FailureDiscoveryHandler = (err: Error) => void;

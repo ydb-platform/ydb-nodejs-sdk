@@ -6,7 +6,7 @@ import {
     fillTableWithData,
     initDriver,
     Row,
-} from '../../test-utils';
+} from '../../utils/tests/test-utils';
 import { Session } from '../../table';
 import { TypedData } from '../../types';
 

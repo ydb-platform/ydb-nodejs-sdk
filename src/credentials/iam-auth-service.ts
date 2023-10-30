@@ -3,13 +3,14 @@ import jwt from 'jsonwebtoken';
 import * as grpc from '@grpc/grpc-js';
 import { yandex } from 'ydb-sdk-proto';
 import { ISslCredentials, makeDefaultSslCredentials } from '../ssl-credentials';
-import { GrpcService, sleep, withTimeout } from '../utils';
-import { makeCredentialsMetadata } from './makeCredentialsMetadata';
-import { IAuthService } from './IAuthService';
-import { IIamCredentials } from './IIamCredentials';
+import { GrpcService, withTimeout } from '../utils/service-base-classes';
+import { makeCredentialsMetadata } from './make-credentials-metadata';
+import { IAuthService } from './i-auth-service';
+import { IIamCredentials } from './i-iam-credentials';
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 import { retryable } from '../retries';
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
+import { sleep } from '../utils/sleep';
 
 export class IamAuthService implements IAuthService {
     private jwtExpirationTimeout = 3600 * 1000;

@@ -1,16 +1,15 @@
+// eslint-disable-next-line max-classes-per-file
 import * as grpc from '@grpc/grpc-js';
+// TODO: Later check linter message below
+// eslint-disable-next-line import/no-extraneous-dependencies
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
-import { Ydb } from 'ydb-sdk-proto';
-import Long from 'long';
-import {
-    MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, YdbError,
-} from './errors';
+import { TimeoutExpired } from '../errors';
 
-import { Endpoint } from './discovery';
-import { IAuthService } from './credentials';
-import { getVersionHeader } from './version';
-import { ISslCredentials } from './ssl-credentials';
+import { Endpoint } from '../discovery';
+import { IAuthService } from '../credentials';
+import { getVersionHeader } from '../version';
+import { ISslCredentials } from '../ssl-credentials';
 
 const getDatabaseHeader = (database: string): [string, string] => ['x-ydb-database', database];
 
@@ -31,7 +30,7 @@ const removeProtocol = (endpoint: string) => {
 
 export const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
     let timeoutId: NodeJS.Timeout;
-    const timedRejection: Promise<never> = new Promise((_, reject) => {
+    const timedRejection: Promise<never> = new Promise((__, reject) => {
         timeoutId = setTimeout(() => {
             reject(new TimeoutExpired(`Timeout of ${timeoutMs}ms has expired`));
         }, timeoutMs);
@@ -53,7 +52,11 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
 
     protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
         const client = sslCredentials
-            ? new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientPrivateKey, sslCredentials.clientCertChain))
+            ? new grpc.Client(host, grpc.credentials.createSsl(
+                sslCredentials.rootCertificates,
+                sslCredentials.clientPrivateKey,
+                sslCredentials.clientCertChain,
+            ))
             : new grpc.Client(host, grpc.credentials.createInsecure());
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             if (method === null && requestData === null && callback === null) {
@@ -72,6 +75,7 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
 }
 
 export type MetadataHeaders = Map<string, string>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ClientOptions = Record<string, any>;
 
 export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
@@ -82,6 +86,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
 
     private readonly headers: MetadataHeaders;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static isServiceAsyncMethod(target: object, prop: string | number | symbol, receiver: any) {
         return (
             Reflect.has(target, prop)
@@ -113,15 +118,17 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
                     const property = Reflect.get(target, prop, receiver);
 
                     return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         ? async (...args: any[]) => {
                             if (!['emit', 'rpcCall', 'rpcImpl'].includes(String(prop)) && args.length > 0) {
+                                // eslint-disable-next-line prefer-destructuring
                                 this.lastRequest = args[0];
                             }
 
                             this.metadata = await this.authService.getAuthMetadata();
-                            for (const [name, value] of this.headers) {
+                            for (const [key, value] of this.headers) {
                                 if (value) {
-                                    this.metadata.add(name, value);
+                                    this.metadata.add(key, value);
                                 }
                             }
 
@@ -135,7 +142,15 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
 
     protected getClient(host: string, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
         const client = sslCredentials
-            ? new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions)
+            ? new grpc.Client(
+                host,
+                grpc.credentials.createSsl(
+                    sslCredentials.rootCertificates,
+                    sslCredentials.clientCertChain,
+                    sslCredentials.clientPrivateKey,
+                ),
+                clientOptions,
+            )
             : new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
@@ -151,6 +166,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
 
                 req.on('status', ({ metadata }: grpc.StatusObject) => {
                     if (lastRequest) {
+                        // eslint-disable-next-line unicorn/consistent-destructuring
                         this.responseMetadata.set(lastRequest, metadata);
                     }
                 });
@@ -160,68 +176,3 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         return this.apiCtor.create(rpcImpl);
     }
 }
-
-export interface AsyncResponse {
-    operation?: Ydb.Operations.IOperation | null
-}
-
-export const getOperationPayload = (response: AsyncResponse): Uint8Array => {
-    const { operation } = response;
-
-    if (operation) {
-        YdbError.checkStatus(operation);
-        const value = operation?.result?.value;
-
-        if (!value) {
-            throw new MissingValue('Missing operation result value!');
-        }
-
-        return value;
-    }
-    throw new MissingOperation('No operation in response!');
-};
-
-export const ensureOperationSucceeded = (response: AsyncResponse, suppressedErrors: StatusCode[] = []): void => {
-    try {
-        getOperationPayload(response);
-    } catch (error) {
-        const e = error as any;
-
-        if (suppressedErrors.includes(e.constructor.status)) {
-            return;
-        }
-
-        if (!(e instanceof MissingValue)) {
-            throw e;
-        }
-    }
-};
-
-export function pessimizable(_target: Pessimizable, _propertyKey: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
-
-    descriptor.value = async function (this: Pessimizable, ...args: any) {
-        try {
-            return await originalMethod.call(this, ...args);
-        } catch (error) {
-            if (!(error instanceof NotFound)) {
-                this.endpoint.pessimize();
-            }
-            throw error;
-        }
-    };
-
-    return descriptor;
-}
-
-export const sleep = async (milliseconds: number) => {
-    await new Promise((resolve) => setTimeout(resolve, milliseconds));
-};
-
-export const toLong = (value: Long | number): Long => {
-    if (typeof value === 'number') {
-        return Long.fromNumber(value);
-    }
-
-    return value;
-};

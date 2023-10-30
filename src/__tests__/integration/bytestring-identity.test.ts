@@ -1,5 +1,5 @@
 import Driver from '../../driver';
-import { destroyDriver, initDriver, TABLE } from '../../test-utils';
+import { destroyDriver, initDriver, TABLE } from '../../utils/tests/test-utils';
 import { Column, Session, TableDescription } from '../../table';
 import { declareType, TypedData, Types } from '../../types';
 import { withRetries } from '../../retries';

@@ -6,7 +6,7 @@ import { IAuthService } from './credentials';
 import { TimeoutExpired } from './errors';
 import { Logger, SimpleLogger } from './utils/simple-logger';
 import SchemeClient from './scheme';
-import { ClientOptions } from './utils';
+import { ClientOptions } from './utils/service-base-classes';
 import { parseConnectionString } from './parse-connection-string';
 import { makeSslCredentials, ISslCredentials } from './ssl-credentials';
 import { ContextWithLogger } from './context-with-logger';

@@ -1,7 +1,7 @@
 import { Ydb } from 'ydb-sdk-proto';
 import Long from 'long';
-import { toLong } from './utils';
 import IValue = Ydb.IValue;
+import { toLong } from './utils/to-long';
 
 const DECIMAL_REGEX = /^-?\d+(\.\d+)?/;
 

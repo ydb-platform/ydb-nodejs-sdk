@@ -21,8 +21,9 @@ import {
 } from '../../errors';
 import { LogLevel, SimpleLogger } from '../../utils/simple-logger';
 import { retryable, RetryParameters } from '../../retries';
-import { destroyDriver, initDriver } from '../../test-utils';
-import { pessimizable } from '../../utils';
+import { destroyDriver, initDriver } from '../../utils/tests/test-utils';
+
+import { pessimizable } from '../../utils/pessimizable';
 
 const logger = new SimpleLogger({ level: LogLevel.error });
 

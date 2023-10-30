@@ -1,8 +1,8 @@
 import { MetadataTokenService } from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
 import * as grpc from '@grpc/grpc-js';
-import { makeCredentialsMetadata } from './makeCredentialsMetadata';
-import { sleep } from '../utils';
-import { IAuthService } from './IAuthService';
+import { makeCredentialsMetadata } from './make-credentials-metadata';
+import { IAuthService } from './i-auth-service';
+import { sleep } from '../utils/sleep';
 
 interface ITokenServiceYC {
     getToken: () => Promise<string>;

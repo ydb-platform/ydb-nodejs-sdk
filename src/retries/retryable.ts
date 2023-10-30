@@ -1,6 +1,6 @@
 import { Logger } from '../utils/simple-logger';
-import { RetryParameters } from './RetryParameters';
-import { RetryStrategy } from './RetryStrategy';
+import { RetryParameters } from './retry-parameters';
+import { RetryStrategy } from './retry-strategy';
 import { getLoggerFromObject } from '../utils/get-logger-from-object';
 import { getContext } from '../utils/context';
 

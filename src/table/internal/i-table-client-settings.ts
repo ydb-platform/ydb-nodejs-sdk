@@ -1,7 +1,7 @@
 import { IAuthService } from '../../credentials';
 import { ISslCredentials } from '../../ssl-credentials';
 import { IPoolSettings } from '../../driver';
-import { ClientOptions } from '../../utils';
+import { ClientOptions } from '../../utils/service-base-classes';
 import DiscoveryService from '../../discovery';
 import { Logger } from '../../utils/simple-logger';
 

@@ -1,4 +1,5 @@
-import { sleep } from '../utils';
+// * as utilsSleep insted of simple {sleep} to be able to mock method in unit tests
+import * as utilsSleep from '../utils/sleep';
 
 export class BackoffSettings {
     /**
@@ -19,6 +20,6 @@ export class BackoffSettings {
         const maxDuration = slotsCount * this.backoffSlotDuration;
         const duration = maxDuration * (1 - Math.random() * this.uncertainRatio);
 
-        return sleep(duration);
+        return utilsSleep.sleep(duration);
     }
 }
