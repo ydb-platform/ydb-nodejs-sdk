@@ -1,10 +1,10 @@
 import fs from 'fs';
 import path from 'path';
-import Driver, {IDriverSettings} from "./driver";
-import {declareType, TypedData, Types} from "./types";
-import {Column, Session, TableDescription} from "./table";
-import {withRetries} from "./retries";
-import {AnonymousAuthService} from "./credentials";
+import Driver, { IDriverSettings } from './driver';
+import { declareType, TypedData, Types } from './types';
+import { Column, Session, TableDescription } from './table';
+import { withRetries } from './retries';
+import { AnonymousAuthService } from './credentials';
 
 const DATABASE = '/local';
 
@@ -29,33 +29,37 @@ export class Row extends TypedData {
     }
 }
 
-export async function initDriver(settings?: Partial<IDriverSettings>): Promise<Driver> {
+export const initDriver = async (settings?: Partial<IDriverSettings>): Promise<Driver> => {
     const certFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || path.join(process.cwd(), 'ydb_certs/ca.pem');
+
     if (!fs.existsSync(certFile)) {
         throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_SSL_ROOT_CERTIFICATES_FILE env variable or run Docker container https://cloud.yandex.ru/docs/ydb/getting_started/ydb_docker inside working directory`);
     }
-    const sslCredentials = {rootCertificates: fs.readFileSync(certFile)};
+    const sslCredentials = { rootCertificates: fs.readFileSync(certFile) };
 
-    const driver = new Driver(Object.assign({
-        endpoint: `grpcs://localhost:2135`,
+    const driver = new Driver({
+        endpoint: 'grpcs://localhost:2135',
         database: DATABASE,
         authService: new AnonymousAuthService(),
         sslCredentials,
-    }, settings));
+        ...settings,
+    });
     const ready = await driver.ready(3000);
+
     if (!ready) {
         throw new Error('Driver is not ready!');
     }
-    return driver;
-}
 
-export async function destroyDriver(driver: Driver): Promise<void> {
+    return driver;
+};
+
+export const destroyDriver = async (driver: Driver): Promise<void> => {
     if (driver) {
         await driver.destroy();
     }
-}
+};
 
-export async function createTable(session: Session) {
+export const createTable = async (session: Session) => {
     await session.dropTable(TABLE);
     await session.createTable(
         TABLE,
@@ -68,11 +72,11 @@ export async function createTable(session: Session) {
                 'title',
                 Types.optional(Types.UTF8),
             ))
-            .withPrimaryKey('id')
+            .withPrimaryKey('id'),
     );
-}
+};
 
-export async function fillTableWithData(session: Session, rows: Row[]) {
+export const fillTableWithData = async (session: Session, rows: Row[]) => {
     const query = `
 DECLARE $data AS List<Struct<id: Uint64, title: Utf8>>;
 
@@ -81,8 +85,9 @@ SELECT * FROM AS_TABLE($data);`;
 
     await withRetries(async () => {
         const preparedQuery = await session.prepareQuery(query);
+
         await session.executeQuery(preparedQuery, {
-            '$data': Row.asTypedCollection(rows),
+            $data: Row.asTypedCollection(rows),
         });
     });
-}
+};

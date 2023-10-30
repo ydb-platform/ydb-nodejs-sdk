@@ -1,15 +1,15 @@
 import DiscoveryService from './discovery';
-import {TableClient} from './table';
+import { TableClient } from './table';
 import SchemeService from './scheme';
-import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
-import {IAuthService} from './credentials';
-import {TimeoutExpired} from './errors';
-import {Logger, SimpleLogger} from './utils/simple-logger';
+import { ENDPOINT_DISCOVERY_PERIOD } from './constants';
+import { IAuthService } from './credentials';
+import { TimeoutExpired } from './errors';
+import { Logger, SimpleLogger } from './utils/simple-logger';
 import SchemeClient from './scheme';
-import {ClientOptions} from './utils';
-import {parseConnectionString} from './parse-connection-string';
-import {makeSslCredentials, ISslCredentials} from './ssl-credentials';
-import {ContextWithLogger} from "./context-with-logger";
+import { ClientOptions } from './utils';
+import { parseConnectionString } from './parse-connection-string';
+import { makeSslCredentials, ISslCredentials } from './ssl-credentials';
+import { ContextWithLogger } from './context-with-logger';
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -46,16 +46,17 @@ export default class Driver {
         const ctx = ContextWithLogger.getSafe(this.logger, 'ydb_nodejs_sdk.driver.ctor');
 
         if (settings.connectionString) {
-            const {endpoint, database} = ctx.doSync(() => parseConnectionString(settings.connectionString!));
+            const { endpoint, database } = ctx.doSync(() => parseConnectionString(settings.connectionString!));
+
             this.endpoint = endpoint;
             this.database = database;
         } else if (!settings.endpoint) {
             throw new Error('The "endpoint" is a required field in driver settings');
-        } else if (!settings.database) {
-            throw new Error('The "database" is a required field in driver settings');
-        } else {
+        } else if (settings.database) {
             this.endpoint = settings.endpoint;
             this.database = settings.database;
+        } else {
+            throw new Error('The "database" is a required field in driver settings');
         }
 
         this.sslCredentials = ctx.doSync(() => makeSslCredentials(this.endpoint, this.logger, settings.sslCredentials));
@@ -93,21 +94,23 @@ export default class Driver {
 
     public async ready(timeout: number): Promise<boolean> {
         const ctx = ContextWithLogger.getSafe(this.logger, 'ydb_nodejs_sdk.driver.ready');
+
         try {
             await ctx.do(() => this.discoveryService.ready(timeout));
             ctx.logger.debug('Driver is ready!');
+
             return true;
-        } catch (e) {
-            if (e instanceof TimeoutExpired) {
+        } catch (error) {
+            if (error instanceof TimeoutExpired) {
                 return false;
-            } else {
-                throw e;
             }
+            throw error;
         }
     }
 
     public async destroy(): Promise<void> {
         const ctx = ContextWithLogger.getSafe(this.logger, 'ydb_nodejs_sdk.driver.destroy');
+
         ctx.logger.debug('Destroying driver...');
         ctx.do(() => this.discoveryService.destroy());
         await ctx.do(() => this.tableClient.destroy());

@@ -1,7 +1,7 @@
-import {Column} from "./ydb";
-import {TableIndex} from "./tableIndex";
-import {Ydb} from "ydb-sdk-proto";
-import {TtlSettings} from "./settings";
+import { Ydb } from 'ydb-sdk-proto';
+import { Column } from './ydb';
+import { TableIndex } from './tableIndex';
+import { TtlSettings } from './settings';
 
 export class AlterTableDescription {
     public addColumns: Column[] = [];
@@ -23,31 +23,35 @@ export class AlterTableDescription {
     public dropChangefeeds?: string[];
     public renameIndexes?: Ydb.Table.IRenameIndexItem[];
 
-    constructor() {
-    }
+    constructor() {}
 
     withAddColumn(column: Column) {
         this.addColumns.push(column);
+
         return this;
     }
 
     withDropColumn(columnName: string) {
         this.dropColumns.push(columnName);
+
         return this;
     }
 
     withAlterColumn(column: Column) {
         this.alterColumns.push(column);
+
         return this;
     }
 
-    withSetTtl(columnName: string, expireAfterSeconds: number = 0) {
+    withSetTtl(columnName: string, expireAfterSeconds = 0) {
         this.setTtlSettings = new TtlSettings(columnName, expireAfterSeconds);
+
         return this;
     }
 
     withDropTtl() {
         this.dropTtlSettings = {};
+
         return this;
     }
 }

@@ -9,7 +9,7 @@ module.exports = {
     ...config,
     collectCoverage: true,
     collectCoverageFrom: [
-        '**/*.{js,ts}'
+        '**/*.{js,ts}',
     ],
-    coverageDirectory: '../coverage'
+    coverageDirectory: '../coverage',
 };

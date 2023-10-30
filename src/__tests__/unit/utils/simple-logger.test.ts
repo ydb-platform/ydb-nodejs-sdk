@@ -1,4 +1,6 @@
-import {SimpleLogger, setMockConsole, LogLevel, Logger} from '../../../utils/simple-logger';
+import {
+    SimpleLogger, setMockConsole, LogLevel, Logger,
+} from '../../../utils/simple-logger';
 import { FakeTimersFixture } from '../../../utils/tests/fake-timers-fixture';
 import Mock = jest.Mock;
 
@@ -70,19 +72,22 @@ describe('utils.simple-logger', () => {
                 let logger: Logger;
 
                 switch (env) {
-                    case false:
+                    case false: {
                         logger = conf.level === undefined
                             ? new SimpleLogger({ showLevel: false, showTimestamp: false })
                             : new SimpleLogger({ level: conf.level, showLevel: false, showTimestamp: false });
                         break;
-                    case true:
+                    }
+                    case true: {
                         process.env.LOG_LEVEL = conf.level;
                         logger = new SimpleLogger({ showLevel: false, showTimestamp: false });
                         break;
-                    default:
+                    }
+                    default: {
                         process.env[env] = conf.level;
                         logger = new SimpleLogger({ envKey: env, showLevel: false, showTimestamp: false });
                         delete process.env[env];
+                    }
                 }
 
                 logger.fatal('fatal');

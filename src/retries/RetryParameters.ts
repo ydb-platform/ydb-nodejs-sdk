@@ -1,5 +1,5 @@
-import {YdbError} from "../errors";
-import {BackoffSettings} from "./BackoffSettings";
+import { YdbError } from '../errors';
+import { BackoffSettings } from './BackoffSettings';
 
 export class RetryParameters {
     public retryNotFound: boolean;
@@ -10,11 +10,11 @@ export class RetryParameters {
     public slowBackoff: BackoffSettings;
 
     constructor({
-                    maxRetries = 10,
-                    onYdbErrorCb = (_error: YdbError) => {},
-                    backoffCeiling = 6,
-                    backoffSlotDuration = 1000,
-                } = {}) {
+        maxRetries = 10,
+        onYdbErrorCb = (_error: YdbError) => {},
+        backoffCeiling = 6,
+        backoffSlotDuration = 1000,
+    } = {}) {
         this.maxRetries = maxRetries;
         this.onYdbErrorCb = onYdbErrorCb;
         this.fastBackoff = new BackoffSettings(10, 5);

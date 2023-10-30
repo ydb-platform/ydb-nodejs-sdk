@@ -1,11 +1,10 @@
-import {logger} from "@yandex-cloud/nodejs-sdk/dist/utils/logger";
+import { logger } from '@yandex-cloud/nodejs-sdk/dist/utils/logger';
 
 const DEFAULT_ENV_KEY = 'LOG_LEVEL';
 
 const DEFAULT_LEVEL = 'info';
 
-const silentLogFn = () => {
-};
+const silentLogFn = () => {};
 
 const simpleLogFnBuilder = (level: LogLevel): LogFn => {
     const LEVEL = level.toUpperCase();
@@ -34,14 +33,14 @@ const simpleLogFnBuilder = (level: LogLevel): LogFn => {
         const prefixStr = prefix.length === 0 ? '' : `[${prefix.join(' ')}] `;
 
         if (typeof objOrMsg === 'object') {
-            if (typeof args[0] !== 'string') {
-                // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                consoleOrMock[level](prefix.length > 0 ? `${prefixStr}%o` : '%o', objOrMsg);
-            } else {
+            if (typeof args[0] === 'string') {
                 // @ts-ignore
                 // eslint-disable-next-line @typescript-eslint/no-use-before-define
                 consoleOrMock[level](`${prefixStr}%o ${args[0]}`, ...args.splice(1), objOrMsg);
+            } else {
+                // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                consoleOrMock[level](prefix.length > 0 ? `${prefixStr}%o` : '%o', objOrMsg);
             }
         } else {
             // @ts-ignore
@@ -110,7 +109,7 @@ export class SimpleLogger implements Logger {
         const envLevel = process.env[envKey];
 
         // @ts-ignore
-        level = envLevel !== undefined ? LogLevel[envLevel] : level ?? LogLevel[DEFAULT_LEVEL];
+        level = envLevel === undefined ? level ?? LogLevel[DEFAULT_LEVEL] : LogLevel[envLevel];
 
         for (const lvl of Object.values<LogLevel>(LogLevel)) {
             // @ts-ignore
@@ -165,47 +164,47 @@ export const setMockConsole = (mockConsole: Console = console) => {
  * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
  * fallback logger there use SimpleLogger.
  */
-export function setupLogger(_: Logger) {
+export const setupLogger = (_: Logger) => {
     logger.warn('setupLogger() was deprecated');
     // nothing
-}
+};
 
 /**
  * @deprecated
  * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
  * fallback logger there use SimpleLogger.
  */
-export function getLogger() {
+export const getLogger = () => {
     logger.error('getLogger() was deprecated');
     // nothing
-}
+};
 
 /**
  * @deprecated
  * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
  * fallback logger there use SimpleLogger.
  */
-export function setDefaultLogger() {
+export const setDefaultLogger = () => {
     logger.error('setDefaultLogger() was deprecated');
     // nothing
-}
+};
 
 /**
  * @deprecated
  * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
  * fallback logger there use SimpleLogger.
  */
-export function FallbackLogger() {
+export const FallbackLogger = () => {
     logger.error('FallbackLogger() was deprecated');
     // nothing
-}
+};
 
 /**
  * @deprecated
  * After refactoring the only logger that is in use, is the logger passed in object creation settings.  As
  * fallback logger there use SimpleLogger.
  */
-export function getFallbackLogFunction() {
+export const getFallbackLogFunction = () => {
     logger.error('getFallbackLogFunction() was deprecated');
     // nothing
-}
+};

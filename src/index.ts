@@ -1,4 +1,4 @@
-export {Ydb} from 'ydb-sdk-proto';
+export { Ydb } from 'ydb-sdk-proto';
 export {
     getLogger,
     setupLogger,
@@ -8,7 +8,7 @@ export {
     FallbackLogger,
     getFallbackLogFunction,
 } from './utils/simple-logger';
-export {default as Driver, IDriverSettings, IPoolSettings} from './driver';
+export { default as Driver, IDriverSettings, IPoolSettings } from './driver';
 export {
     declareType,
     StructFields,
@@ -64,8 +64,8 @@ export {
     DescribePathSettings,
     ModifyPermissionsSettings,
 } from './scheme';
-export {getCredentialsFromEnv, getSACredentialsFromJson} from './parse-env-vars';
-export {parseConnectionString, ParsedConnectionString} from './parse-connection-string';
+export { getCredentialsFromEnv, getSACredentialsFromJson } from './parse-env-vars';
+export { parseConnectionString, ParsedConnectionString } from './parse-connection-string';
 export {
     IAuthService,
     ITokenService,
@@ -75,6 +75,6 @@ export {
     MetadataAuthService,
     StaticCredentialsAuthService,
 } from './credentials';
-export {ISslCredentials} from './ssl-credentials';
-export {withRetries, RetryParameters} from './retries';
-export {YdbError, StatusCode} from './errors';
+export { ISslCredentials } from './ssl-credentials';
+export { withRetries, RetryParameters } from './retries';
+export { YdbError, StatusCode } from './errors';

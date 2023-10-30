@@ -12,7 +12,6 @@
  * Specific part of context-chain can be obtained thru findContextByClass() method.
  */
 export class Context {
-
     readonly id?: any;
     readonly parent?: Context;
 
@@ -30,6 +29,7 @@ export class Context {
             this.parent = parent;
         } else {
             const id = newId();
+
             if (id !== undefined) {
                 this.id = id;
             }
@@ -44,15 +44,18 @@ export class Context {
     async do<T>(callback: () => T): Promise<T> {
         const prevContext = _context;
         let error: any;
+
         try {
             _context = this;
-            return await callback();
+
+            return callback();
         } catch (_error) {
             error = _error;
             throw error;
         } finally {
             _context = prevContext;
             let ctx: Context | undefined = this;
+
             while (ctx) {
                 if (ctx.done) {
                     ctx.done(error);
@@ -72,8 +75,10 @@ export class Context {
     doSync<T>(callback: () => T): T {
         const prevContext = _context;
         let error: any;
+
         try {
             _context = this;
+
             return callback();
         } catch (_error) {
             error = _error;
@@ -81,6 +86,7 @@ export class Context {
         } finally {
             _context = prevContext;
             let ctx: Context | undefined = this;
+
             while (ctx) {
                 if (ctx.done) {
                     ctx.done(error);
@@ -113,7 +119,7 @@ export class Context {
      * an empty string will be returned, if id is missing.
      */
     toString() {
-        return this.id !== undefined ? `${this.id}: ` : '';
+        return this.id === undefined ? '' : `${this.id}: `;
     }
 }
 
@@ -128,7 +134,7 @@ NOT_A_CONTEXT.id = 'NOT_A_CONTEXT';
  */
 let _context: any = NOT_A_CONTEXT;
 
-const noop = () => undefined;
+const noop = () => {};
 /**
  * Method of generating a new id for a new context.
  */
@@ -137,17 +143,15 @@ let newId: () => any = noop;
 /**
  * Sets the id generator. By default, the id remain undefined. In case of repeated calls, the first value is taken.
  */
-export function setContextNewIdGenerator(generateNewId: () => any) {
+export const setContextNewIdGenerator = (generateNewId: () => any) => {
     if (newId === noop) {
         newId = generateNewId;
     }
-}
+};
 
 /**
  * The context must be taken in the begining of a function before a first 'await'.
  *
  * Ex.: *const ctx = getContext();*.
  */
-export function getContext(): Context {
-    return _context;
-}
+export const getContext = (): Context => _context;

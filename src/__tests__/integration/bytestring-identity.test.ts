@@ -1,11 +1,11 @@
 import Driver from '../../driver';
-import {destroyDriver, initDriver, TABLE} from '../../test-utils';
-import {Column, Session, TableDescription} from '../../table';
-import {declareType, TypedData, Types} from '../../types';
-import {withRetries} from '../../retries';
-import {ContextWithLogger} from "../../context-with-logger";
+import { destroyDriver, initDriver, TABLE } from '../../test-utils';
+import { Column, Session, TableDescription } from '../../table';
+import { declareType, TypedData, Types } from '../../types';
+import { withRetries } from '../../retries';
+import { ContextWithLogger } from '../../context-with-logger';
 
-async function createTable(session: Session) {
+const createTable = async (session: Session) => {
     await session.dropTable(TABLE);
     await session.createTable(
         TABLE,
@@ -16,7 +16,7 @@ async function createTable(session: Session) {
             .withColumn(new Column('field3', Types.optional(Types.YSON)))
             .withPrimaryKey('id'),
     );
-}
+};
 
 export interface IRow {
     id: number;
@@ -47,7 +47,7 @@ class Row extends TypedData {
     }
 }
 
-export async function fillTableWithData(session: Session, rows: Row[]) {
+export const fillTableWithData = async (session: Session, rows: Row[]) => {
     const query = `
 DECLARE $data AS List<Struct<id: Uint64, field1: Text, field2: String, field3: Yson>>;
 
@@ -56,11 +56,12 @@ SELECT * FROM AS_TABLE($data);`;
 
     await withRetries(async () => {
         const preparedQuery = await session.prepareQuery(query);
+
         await session.executeQuery(preparedQuery, {
             $data: Row.asTypedCollection(rows),
         });
     });
-}
+};
 
 describe('bytestring identity', () => {
     let driver: Driver;
@@ -74,19 +75,19 @@ describe('bytestring identity', () => {
         }),
     ];
 
-    afterAll(async () => await destroyDriver(driver));
+    afterAll(async () => destroyDriver(driver));
 
     beforeAll(async () => {
         driver = await initDriver();
-        await ContextWithLogger.getSafe(driver.logger, 'test.beforeAll').do(() =>
-            driver.tableClient.withSession(async (session) => {
-                await createTable(session);
-                await fillTableWithData(session, initialRows);
+        await ContextWithLogger.getSafe(driver.logger, 'test.beforeAll').do(() => driver.tableClient.withSession(async (session) => {
+            await createTable(session);
+            await fillTableWithData(session, initialRows);
 
-                const {resultSets} = await session.executeQuery(`SELECT *
+            const { resultSets } = await session.executeQuery(`SELECT *
                                                                  FROM ${TABLE}`);
-                actualRows = Row.createNativeObjects(resultSets[0]) as Row[];
-            }));
+
+            actualRows = Row.createNativeObjects(resultSets[0]) as Row[];
+        }));
     });
 
     it('Types.TEXT keeps the original string in write-read cycle', () => {

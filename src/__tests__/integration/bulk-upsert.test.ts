@@ -1,3 +1,4 @@
+import { Ydb } from 'ydb-sdk-proto';
 import Driver from '../../driver';
 import {
     createTable,
@@ -5,12 +6,11 @@ import {
     fillTableWithData,
     initDriver,
     Row,
-    TABLE
+    TABLE,
 } from '../../test-utils';
-import {Session} from '../../table';
-import {Ydb} from 'ydb-sdk-proto';
+import { Session } from '../../table';
 
-async function readTable(session: Session): Promise<Row[]> {
+const readTable = async (session: Session): Promise<Row[]> => {
     const rows: Row[] = [];
 
     await session.streamReadTable(TABLE, (result) => {
@@ -20,7 +20,7 @@ async function readTable(session: Session): Promise<Row[]> {
     });
 
     return rows;
-}
+};
 
 describe('Bulk upsert', () => {
     let driver: Driver;
@@ -29,30 +29,31 @@ describe('Bulk upsert', () => {
         driver = await initDriver();
     });
 
-    afterAll(async () => await destroyDriver(driver));
+    afterAll(async () => destroyDriver(driver));
 
     it('Test', async () => {
         await driver.tableClient.withSession(async (session) => {
             const initialRows = [
-                new Row({id: 0, title: 'zero'}),
-                new Row({id: 1, title: 'no title'}),
+                new Row({ id: 0, title: 'zero' }),
+                new Row({ id: 1, title: 'no title' }),
             ];
 
             const rowsToUpsert = Row.asTypedCollection([
-                new Row({id: 1, title: 'one'}),
-                new Row({id: 2, title: 'two'}),
+                new Row({ id: 1, title: 'one' }),
+                new Row({ id: 2, title: 'two' }),
             ]) as Ydb.TypedValue;
 
             const expectedRows = [
-                new Row({id: 0, title: 'zero'}),
-                new Row({id: 1, title: 'one'}),
-                new Row({id: 2, title: 'two'}),
+                new Row({ id: 0, title: 'zero' }),
+                new Row({ id: 1, title: 'one' }),
+                new Row({ id: 2, title: 'two' }),
             ];
 
             await createTable(session);
             await fillTableWithData(session, initialRows);
             await session.bulkUpsert(TABLE, rowsToUpsert);
             const actualRows = await readTable(session);
+
             expect(expectedRows).toEqual(actualRows);
         });
     });

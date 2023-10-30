@@ -1,8 +1,8 @@
 module.exports = {
     globals: {
         'ts-jest': {
-            tsconfig: 'tsconfig-cjs.json'
-        }
+            tsconfig: 'tsconfig-cjs.json',
+        },
     },
     roots: ['<rootDir>/../src'],
     transform: {
@@ -10,4 +10,4 @@ module.exports = {
     },
     testRegex: '/__tests__/integration/(.*/)*.*\.(spec|test).(j|t)sx?$',
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-}
+};

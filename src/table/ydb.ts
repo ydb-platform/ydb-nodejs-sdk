@@ -1,4 +1,4 @@
-import {Ydb} from "ydb-sdk-proto";
+import { Ydb } from 'ydb-sdk-proto';
 
 import IType = Ydb.IType;
 import AutoPartitioningPolicy = Ydb.Table.PartitioningPolicy.AutoPartitioningPolicy;
@@ -23,26 +23,31 @@ export class ColumnFamilyPolicy implements Ydb.Table.IColumnFamilyPolicy {
 
     withName(name: string) {
         this.name = name;
+
         return this;
     }
 
     withData(data: StorageSettings) {
         this.data = data;
+
         return this;
     }
 
     withExternal(external: StorageSettings) {
         this.external = external;
+
         return this;
     }
 
     withKeepInMemory(keepInMemory: FeatureFlag) {
         this.keepInMemory = keepInMemory;
+
         return this;
     }
 
     withCompression(compression: Compression) {
         this.compression = compression;
+
         return this;
     }
 }
@@ -58,31 +63,37 @@ export class StoragePolicy implements Ydb.Table.IStoragePolicy {
 
     withPresetName(presetName: string) {
         this.presetName = presetName;
+
         return this;
     }
 
     withSyslog(syslog: StorageSettings) {
         this.syslog = syslog;
+
         return this;
     }
 
     withLog(log: StorageSettings) {
         this.log = log;
+
         return this;
     }
 
     withData(data: StorageSettings) {
         this.data = data;
+
         return this;
     }
 
     withExternal(external: StorageSettings) {
         this.external = external;
+
         return this;
     }
 
     withKeepInMemory(keepInMemory: FeatureFlag) {
         this.keepInMemory = keepInMemory;
+
         return this;
     }
 
@@ -90,6 +101,7 @@ export class StoragePolicy implements Ydb.Table.IStoragePolicy {
         for (const policy of columnFamilies) {
             this.columnFamilies.push(policy);
         }
+
         return this;
     }
 }
@@ -106,21 +118,25 @@ export class PartitioningPolicy implements Ydb.Table.IPartitioningPolicy {
 
     withPresetName(presetName: string) {
         this.presetName = presetName;
+
         return this;
     }
 
     withUniformPartitions(uniformPartitions: number) {
         this.uniformPartitions = uniformPartitions;
+
         return this;
     }
 
     withAutoPartitioning(autoPartitioning: AutoPartitioningPolicy) {
         this.autoPartitioning = autoPartitioning;
+
         return this;
     }
 
     withExplicitPartitions(explicitPartitions: ExplicitPartitions) {
         this.explicitPartitions = explicitPartitions;
+
         return this;
     }
 }
@@ -133,21 +149,25 @@ export class ReplicationPolicy implements Ydb.Table.IReplicationPolicy {
 
     withPresetName(presetName: string) {
         this.presetName = presetName;
+
         return this;
     }
 
     withReplicasCount(replicasCount: number) {
         this.replicasCount = replicasCount;
+
         return this;
     }
 
     withCreatePerAvailabilityZone(createPerAvailabilityZone: FeatureFlag) {
         this.createPerAvailabilityZone = createPerAvailabilityZone;
+
         return this;
     }
 
     withAllowPromotion(allowPromotion: FeatureFlag) {
         this.allowPromotion = allowPromotion;
+
         return this;
     }
 }

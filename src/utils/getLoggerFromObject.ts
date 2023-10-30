@@ -17,5 +17,6 @@ export const getLoggerFromObject = (obj: any) => {
         defaultLogger = new SimpleLogger();
     }
     defaultLogger.trace('Missing "logger" field in the object');
+
     return defaultLogger;
 };

@@ -5,12 +5,12 @@ import {
     fillTableWithData,
     initDriver,
     Row,
-    TABLE
+    TABLE,
 } from '../../test-utils';
-import {ReadTableSettings, Session} from '../../table';
-import {TypedValues, TypedData} from '../../types';
+import { ReadTableSettings, Session } from '../../table';
+import { TypedValues, TypedData } from '../../types';
 
-async function readTable(session: Session, settings: ReadTableSettings): Promise<TypedData[]> {
+const readTable = async (session: Session, settings: ReadTableSettings): Promise<TypedData[]> => {
     const rows: TypedData[] = [];
 
     await session.streamReadTable(TABLE, (result) => {
@@ -20,7 +20,7 @@ async function readTable(session: Session, settings: ReadTableSettings): Promise
     }, settings);
 
     return rows;
-}
+};
 
 describe('Read table', () => {
     let driver: Driver;
@@ -29,13 +29,13 @@ describe('Read table', () => {
         driver = await initDriver();
     });
 
-    afterAll(async () => await destroyDriver(driver));
+    afterAll(async () => destroyDriver(driver));
 
     it('Test', async () => {
         await driver.tableClient.withSession(async (session) => {
             const expectedRows = [
-                new Row({id: 1, title: 'one'}),
-                new Row({id: 2, title: 'two'}),
+                new Row({ id: 1, title: 'one' }),
+                new Row({ id: 2, title: 'two' }),
             ];
 
             await createTable(session);
@@ -43,6 +43,7 @@ describe('Read table', () => {
 
             {
                 const rows = await readTable(session, new ReadTableSettings());
+
                 expect(rows).toEqual(expectedRows);
             }
 

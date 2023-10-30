@@ -1,18 +1,22 @@
-import EventEmitter from "events";
-import * as grpc from "@grpc/grpc-js";
-import {Ydb} from "ydb-sdk-proto";
-import {Endpoint} from "../discovery";
-import {Logger} from "../utils/simple-logger";
-import {retryable} from "../retries";
-import {AsyncResponse, ensureOperationSucceeded, getOperationPayload, pessimizable, StreamEnd} from "../utils";
+import EventEmitter from 'events';
+import * as grpc from '@grpc/grpc-js';
+import { Ydb } from 'ydb-sdk-proto';
+import { Endpoint } from '../discovery';
+import { Logger } from '../utils/simple-logger';
+import { retryable } from '../retries';
+import {
+    AsyncResponse, ensureOperationSucceeded, getOperationPayload, pessimizable, StreamEnd,
+} from '../utils';
 
-import {MissingStatus, MissingValue, SchemeError, YdbError,} from '../errors';
-import {ResponseMetadataKeys} from "../constants";
-import {SessionEvent} from "./internal/sessionEvent";
-import {PartialResponse} from "./internal/partialResponse";
-import {IExistingTransaction} from "./internal/IExistingTransaction";
-import {TableDescription} from "./tableDescription";
-import {AlterTableDescription} from "./alterTableDescription";
+import {
+    MissingStatus, MissingValue, SchemeError, YdbError,
+} from '../errors';
+import { ResponseMetadataKeys } from '../constants';
+import { SessionEvent } from './internal/sessionEvent';
+import { PartialResponse } from './internal/partialResponse';
+import { IExistingTransaction } from './internal/IExistingTransaction';
+import { TableDescription } from './tableDescription';
+import { AlterTableDescription } from './alterTableDescription';
 import TableService = Ydb.Table.V1.TableService;
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 import IQuery = Ydb.Table.IQuery;
@@ -39,10 +43,10 @@ import {
     ExecuteScanQuerySettings,
     PrepareQuerySettings,
     ReadTableSettings,
-    RollbackTransactionSettings
-} from "./settings";
-import {ContextWithLogger} from "../context-with-logger";
-import {NOT_A_CONTEXT} from "../utils/context";
+    RollbackTransactionSettings,
+} from './settings';
+import { ContextWithLogger } from '../context-with-logger';
+import { NOT_A_CONTEXT } from '../utils/context';
 
 interface INewTransaction {
     beginTx: ITransactionSettings,
@@ -51,9 +55,9 @@ interface INewTransaction {
 
 export const AUTO_TX: INewTransaction = {
     beginTx: {
-        serializableReadWrite: {}
+        serializableReadWrite: {},
     },
-    commitTx: true
+    commitTx: true,
 };
 
 interface IQueryParams {
@@ -76,16 +80,18 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         public endpoint: Endpoint,
         public sessionId: string,
         private logger: Logger,
-        private getResponseMetadata: (request: object) => grpc.Metadata | undefined
+        private getResponseMetadata: (request: object) => grpc.Metadata | undefined,
     ) {
         super();
     }
 
     acquire() {
         const ctx = ContextWithLogger.get('ydb_nodejs_sdk');
+
         this.free = false;
         (this as any).ctx = ctx;
         this.logger.debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
+
         return this;
     }
 
@@ -112,17 +118,18 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @pessimizable
     public async delete(): Promise<void> {
         if (this.isDeleted()) {
-            return Promise.resolve();
+            return;
         }
         this.beingDeleted = true;
-        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
+        ensureOperationSucceeded(await this.api.deleteSession({ sessionId: this.sessionId }));
     }
 
     @retryable()
     @pessimizable
     public async keepAlive(): Promise<void> {
-        const request = {sessionId: this.sessionId};
+        const request = { sessionId: this.sessionId };
         const response = await this.api.keepAlive(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
@@ -143,6 +150,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.createTable(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
@@ -151,18 +159,20 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     public async alterTable(
         tablePath: string,
         description: AlterTableDescription,
-        settings?: AlterTableSettings
+        settings?: AlterTableSettings,
     ): Promise<void> {
         const request: Ydb.Table.IAlterTableRequest = {
             ...description,
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
 
         const response = await this.api.alterTable(request);
+
         try {
             ensureOperationSucceeded(this.processResponseMetadata(request, response));
         } catch (error) {
@@ -183,12 +193,14 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         settings = settings || new DropTableSettings();
         const suppressedErrors = settings?.muteNonExistingTableErrors ? [SchemeError.status] : [];
         const response = await this.api.dropTable(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response), suppressedErrors);
     }
 
@@ -210,6 +222,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
         const response = await this.api.describeTable(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return DescribeTableResult.decode(payload);
     }
 
@@ -224,6 +237,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
         const response = await this.api.describeTableOptions(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return Ydb.Table.DescribeTableOptionsResult.decode(payload);
     }
 
@@ -237,12 +251,14 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             txSettings,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.beginTransaction(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
-        const {txMeta} = BeginTransactionResult.decode(payload);
+        const { txMeta } = BeginTransactionResult.decode(payload);
+
         if (txMeta) {
             return txMeta;
         }
@@ -256,11 +272,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             txId: txControl.txId,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
             request.collectStats = settings.collectStats;
         }
         const response = await this.api.commitTransaction(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
@@ -271,10 +289,12 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             txId: txControl.txId,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.rollbackTransaction(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
@@ -285,11 +305,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             yqlText: queryText,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.prepareDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return PrepareQueryResult.decode(payload);
     }
 
@@ -304,16 +326,17 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         this.logger.trace('parameters %o', params);
         let queryToExecute: IQuery;
         let keepInCache = false;
+
         if (typeof query === 'string') {
             queryToExecute = {
-                yqlText: query
+                yqlText: query,
             };
             if (settings?.keepInCache !== undefined) {
                 keepInCache = settings.keepInCache;
             }
         } else {
             queryToExecute = {
-                id: query.queryId
+                id: query.queryId,
             };
         }
         const request: Ydb.Table.IExecuteDataQueryRequest = {
@@ -322,31 +345,36 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             parameters: params,
             query: queryToExecute,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
             request.collectStats = settings.collectStats;
         }
         if (keepInCache) {
-            request.queryCachePolicy = {keepInCache};
+            request.queryCachePolicy = { keepInCache };
         }
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response, settings?.onResponseMetadata));
+
         return ExecuteQueryResult.decode(payload);
     }
 
     private processResponseMetadata(
         request: object,
         response: AsyncResponse,
-        onResponseMetadata?: (metadata: grpc.Metadata) => void
+        onResponseMetadata?: (metadata: grpc.Metadata) => void,
     ) {
         const metadata = this.getResponseMetadata(request);
+
         if (metadata) {
             const serverHints = metadata.get(ResponseMetadataKeys.ServerHints) || [];
+
             if (serverHints.includes('session-close')) {
                 this.closing = true;
             }
             onResponseMetadata?.(metadata);
         }
+
         return response;
     }
 
@@ -356,11 +384,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             table: `${this.endpoint.database}/${tablePath}`,
             rows,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.bulkUpsert(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return BulkUpsertResult.decode(payload);
     }
 
@@ -368,11 +398,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     public async streamReadTable(
         tablePath: string,
         consumer: (result: Ydb.Table.ReadTableResult) => void,
-        settings?: ReadTableSettings): Promise<void> {
+        settings?: ReadTableSettings,
+    ): Promise<void> {
         const request: Ydb.Table.IReadTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
         };
+
         if (settings) {
             request.columns = settings.columns;
             request.ordered = settings.ordered;
@@ -384,7 +416,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request,
             this.api.streamReadTable.bind(this.api),
             Ydb.Table.ReadTableResult.create,
-            consumer);
+            consumer,
+        );
     }
 
     @pessimizable
@@ -392,17 +425,15 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         query: PrepareQueryResult | string,
         consumer: (result: ExecuteScanQueryPartialResult) => void,
         params: IQueryParams = {},
-        settings?: ExecuteScanQuerySettings): Promise<void> {
+        settings?: ExecuteScanQuerySettings,
+    ): Promise<void> {
         let queryToExecute: IQuery;
-        if (typeof query === 'string') {
-            queryToExecute = {
-                yqlText: query
-            };
-        } else {
-            queryToExecute = {
-                id: query.queryId
-            };
-        }
+
+        queryToExecute = typeof query === 'string' ? {
+            yqlText: query,
+        } : {
+            id: query.queryId,
+        };
 
         const request: Ydb.Table.IExecuteScanQueryRequest = {
             query: queryToExecute,
@@ -418,14 +449,16 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request,
             this.api.streamExecuteScanQuery.bind(this.api),
             ExecuteScanQueryPartialResult.create,
-            consumer);
+            consumer,
+        );
     }
 
     private executeStreamRequest<Req, Resp extends PartialResponse<IRes>, IRes, Res>(
         request: Req,
         apiStreamMethod: (request: Req, callback: (error: (Error | null), response?: Resp) => void) => void,
         transformer: (result: IRes) => Res,
-        consumer: (result: Res) => void)
+        consumer: (result: Res) => void,
+    )
         : Promise<void> {
         return new Promise((resolve, reject) => {
             apiStreamMethod(request, (error, response) => {
@@ -441,18 +474,21 @@ export class Session extends EventEmitter implements ICreateSessionResult {
                             status: response.status,
                             issues: response.issues,
                         } as Ydb.Operations.IOperation;
+
                         YdbError.checkStatus(operation);
 
                         if (!response.result) {
                             reject(new MissingValue('Missing result value!'));
+
                             return;
                         }
 
                         const result = transformer(response.result);
+
                         consumer(result);
                     }
-                } catch (e) {
-                    reject(e);
+                } catch (error_) {
+                    reject(error_);
                 }
             });
         });
@@ -462,10 +498,11 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         const request: Ydb.Table.IExplainDataQueryRequest = {
             sessionId: this.sessionId,
             yqlText: query,
-            operationParams
+            operationParams,
         };
         const response = await this.api.explainDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return ExplainQueryResult.decode(payload);
     }
 }

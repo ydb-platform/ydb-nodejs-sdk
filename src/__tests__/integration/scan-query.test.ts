@@ -7,10 +7,10 @@ import {
     initDriver,
     Row,
 } from '../../test-utils';
-import {Session} from '../../table';
-import {TypedData} from '../../types';
+import { Session } from '../../table';
+import { TypedData } from '../../types';
 
-async function executeScanQuery(session: Session): Promise<TypedData[]> {
+const executeScanQuery = async (session: Session): Promise<TypedData[]> => {
     const query = `SELECT * FROM ${TABLE};`;
 
     const rows: TypedData[] = [];
@@ -22,7 +22,7 @@ async function executeScanQuery(session: Session): Promise<TypedData[]> {
     });
 
     return rows;
-}
+};
 
 describe('Scan query', () => {
     let driver: Driver;
@@ -31,13 +31,13 @@ describe('Scan query', () => {
         driver = await initDriver();
     });
 
-    afterAll(async () => await destroyDriver(driver));
+    afterAll(async () => destroyDriver(driver));
 
     it('Test', async () => {
         await driver.tableClient.withSession(async (session) => {
             const expectedRows = [
-                new Row({id: 1, title: 'one'}),
-                new Row({id: 2, title: 'two'}),
+                new Row({ id: 1, title: 'one' }),
+                new Row({ id: 2, title: 'two' }),
             ];
 
             await createTable(session);

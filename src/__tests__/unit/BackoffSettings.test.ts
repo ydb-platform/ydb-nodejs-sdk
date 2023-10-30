@@ -1,11 +1,12 @@
-import {BackoffSettings} from '../../retries';
+import { BackoffSettings } from '../../retries';
 import * as utils from '../../utils';
 
-function runTest(backoff: BackoffSettings, retries: number, min: number, max: number) {
+const runTest = (backoff: BackoffSettings, retries: number, min: number, max: number) => {
     it(`have correct value for ${retries} retries`, () => {
         let timeout = -1;
         const spy = jest.spyOn(utils, 'sleep').mockImplementation((val) => {
             timeout = val;
+
             return Promise.resolve();
         });
 
@@ -14,7 +15,7 @@ function runTest(backoff: BackoffSettings, retries: number, min: number, max: nu
         expect(timeout).toBeGreaterThanOrEqual(min);
         expect(timeout).toBeLessThanOrEqual(max);
     });
-}
+};
 
 describe('Fast backoff', () => {
     const fast = new BackoffSettings(10, 5);

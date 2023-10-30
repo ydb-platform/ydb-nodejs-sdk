@@ -1,14 +1,12 @@
-import {Ydb} from 'ydb-sdk-proto';
-import {convertYdbValueToNative, TypedValues, Types} from '../../types';
+import { Ydb } from 'ydb-sdk-proto';
 import Long from 'long';
+import { convertYdbValueToNative, TypedValues, Types } from '../../types';
 
-function testType(name: string, ydbType: Ydb.IType, value: any) {
-    return it(name, () => {
-        expect(
-            convertYdbValueToNative(ydbType, TypedValues.fromNative(ydbType, value).value!),
-        ).toStrictEqual(value);
-    });
-}
+const testType = (name: string, ydbType: Ydb.IType, value: any) => it(name, () => {
+    expect(
+        convertYdbValueToNative(ydbType, TypedValues.fromNative(ydbType, value).value!),
+    ).toStrictEqual(value);
+});
 
 describe('Types mutual conversions', () => {
     describe('Primitive values', () => {
@@ -142,7 +140,7 @@ describe('Types mutual conversions', () => {
             }),
             {
                 uint64: Long.MAX_UNSIGNED_VALUE,
-                double: 1.23456,
+                double: 1.234_56,
                 bytes: Buffer.from('abcdefgHkLmn13*#^@*'),
                 tuple: [Long.fromString('18446744073709551615'), 'qwerASDF'],
             },
@@ -151,8 +149,8 @@ describe('Types mutual conversions', () => {
         // for example, can't use Types.tuple(Types.UINT64, Types.TEXT) as key
         // for example, can't use Long as key
         testType('Types.dict(Types.UINT32, Types.TEXT)', Types.dict(Types.UINT32, Types.TEXT), {
-            [1844674407370955]: 'qwerASDF',
-            [1844674407370954]: 'qwerASDF',
+            1_844_674_407_370_955: 'qwerASDF',
+            1_844_674_407_370_954: 'qwerASDF',
         });
         testType('Void', Types.VOID, null);
     });
@@ -160,10 +158,11 @@ describe('Types mutual conversions', () => {
     describe('Variant value', () => {
         const variantStructValue = {
             uint64: Long.MAX_UNSIGNED_VALUE,
-            double: 1.23456,
+            double: 1.234_56,
             bytes: Buffer.from('abcdefgHkLmn13*#^@*'),
             tuple: [Long.fromString('18446744073709551615'), 'qwerASDF'],
         };
+
         for (const valueKey of Object.keys(
             variantStructValue,
         ) as (keyof typeof variantStructValue)[]) {
@@ -177,18 +176,19 @@ describe('Types mutual conversions', () => {
                         tuple: Types.tuple(Types.UINT64, Types.TEXT),
                     }),
                 ),
-                {[valueKey]: variantStructValue[valueKey]},
+                { [valueKey]: variantStructValue[valueKey] },
             );
         }
         const variantTupleValues = [
             Long.fromString('18446744073709551613'),
-            123456789123450,
+            123_456_789_123_450,
             'ABCDEF',
             Buffer.from('Hello Ydb!'),
         ].map((v, i) => [v, i]) as [Ydb.IType, number][];
 
         for (const [value, idx] of variantTupleValues) {
             const val: any[] = [undefined, undefined, undefined, undefined];
+
             val[idx] = value;
             testType(
                 `Variant Types.variant(Types.tuple(...)) - ${idx}`,

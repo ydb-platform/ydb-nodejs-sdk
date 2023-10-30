@@ -1,10 +1,10 @@
-import {Ydb} from "ydb-sdk-proto";
-import {TtlSettings} from "./settings";
-import {Column} from "./ydb";
+import { Ydb } from 'ydb-sdk-proto';
+import { TtlSettings } from './settings';
+import { Column } from './ydb';
 
 import FeatureFlag = Ydb.FeatureFlag.Status;
-import {TableIndex} from "./tableIndex";
-import {TableProfile} from "./tableProfile";
+import { TableIndex } from './tableIndex';
+import { TableProfile } from './tableProfile';
 
 export class TableDescription implements Ydb.Table.ICreateTableRequest {
     /** @deprecated use TableDescription options instead */
@@ -23,11 +23,11 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
     // path and operationPrams defined in createTable,
     // columns and primaryKey are in constructor
 
-    constructor(public columns: Column[] = [], public primaryKey: string[] = []) {
-    }
+    constructor(public columns: Column[] = [], public primaryKey: string[] = []) {}
 
     withColumn(column: Column) {
         this.columns.push(column);
+
         return this;
     }
 
@@ -35,11 +35,13 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
         for (const column of columns) {
             this.columns.push(column);
         }
+
         return this;
     }
 
     withPrimaryKey(key: string) {
         this.primaryKey.push(key);
+
         return this;
     }
 
@@ -47,17 +49,20 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
         for (const key of keys) {
             this.primaryKey.push(key);
         }
+
         return this;
     }
 
     /** @deprecated use TableDescription options instead */
     withProfile(profile: TableProfile) {
         this.profile = profile;
+
         return this;
     }
 
     withIndex(index: TableIndex) {
         this.indexes.push(index);
+
         return this;
     }
 
@@ -65,11 +70,13 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
         for (const index of indexes) {
             this.indexes.push(index);
         }
+
         return this;
     }
 
-    withTtl(columnName: string, expireAfterSeconds: number = 0) {
+    withTtl(columnName: string, expireAfterSeconds = 0) {
         this.ttlSettings = new TtlSettings(columnName, expireAfterSeconds);
+
         return this;
     }
 

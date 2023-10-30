@@ -1,4 +1,4 @@
-import {Endpoint} from '../../discovery';
+import { Endpoint } from '../../discovery';
 import Driver from '../../driver';
 import {
     Aborted,
@@ -19,17 +19,18 @@ import {
     Undetermined,
     YdbError,
 } from '../../errors';
-import {LogLevel, SimpleLogger} from '../../utils/simple-logger';
-import {retryable, RetryParameters} from '../../retries';
-import {destroyDriver, initDriver} from '../../test-utils';
-import {pessimizable} from '../../utils';
+import { LogLevel, SimpleLogger } from '../../utils/simple-logger';
+import { retryable, RetryParameters } from '../../retries';
+import { destroyDriver, initDriver } from '../../test-utils';
+import { pessimizable } from '../../utils';
 
-const logger = new SimpleLogger({level: LogLevel.error});
+const logger = new SimpleLogger({ level: LogLevel.error });
+
 class ErrorThrower {
     constructor(public endpoint: Endpoint) {}
 
     @retryable(
-        new RetryParameters({maxRetries: 3, backoffCeiling: 3, backoffSlotDuration: 5}),
+        new RetryParameters({ maxRetries: 3, backoffCeiling: 3, backoffSlotDuration: 5 }),
         logger,
     )
     @pessimizable
@@ -42,13 +43,13 @@ describe('Retries on errors', () => {
     let driver: Driver;
 
     beforeAll(async () => {
-        driver = await initDriver({logger});
+        driver = await initDriver({ logger });
     });
 
-    afterAll(async () => await destroyDriver(driver));
+    afterAll(async () => destroyDriver(driver));
 
     /** Run session with error. retries_need can be  omitted if retries must not occur */
-    function createError(error: typeof YdbError, retries_need: number = 1) {
+    const createError = (error: typeof YdbError, retries_need = 1) => {
         it(`${error.name}`, async () => {
             // here must be retries
             let retries = 0;
@@ -64,7 +65,7 @@ describe('Retries on errors', () => {
             ).rejects.toThrow(error);
             expect(retries).toBe(retries_need);
         });
-    }
+    };
 
     createError(BadRequest);
     createError(InternalError);

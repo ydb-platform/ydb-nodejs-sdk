@@ -1,11 +1,11 @@
-import {getOperationPayload, GrpcService, withTimeout} from "../utils";
-import {Ydb} from "ydb-sdk-proto";
-import {ISslCredentials} from "../ssl-credentials";
-import {retryable} from "../retries";
-import {DateTime} from "luxon";
-import * as grpc from "@grpc/grpc-js";
-import {makeCredentialsMetadata} from "./makeCredentialsMetadata";
-import {IAuthService} from "./IAuthService";
+import { Ydb } from 'ydb-sdk-proto';
+import { DateTime } from 'luxon';
+import * as grpc from '@grpc/grpc-js';
+import { getOperationPayload, GrpcService, withTimeout } from '../utils';
+import { ISslCredentials } from '../ssl-credentials';
+import { retryable } from '../retries';
+import { makeCredentialsMetadata } from './makeCredentialsMetadata';
+import { IAuthService } from './IAuthService';
 import AuthServiceResult = Ydb.Auth.LoginResult;
 
 class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> {
@@ -41,7 +41,7 @@ export class StaticCredentialsAuthService implements IAuthService {
     private readonly tokenRequestTimeout = 10 * 1000;
     private readonly tokenExpirationTimeout = 6 * 60 * 60 * 1000;
     private tokenTimestamp: DateTime | null;
-    private token: string = '';
+    private token = '';
     private tokenUpdatePromise: Promise<any> | null = null;
     private user: string;
     private password: string;
@@ -52,7 +52,7 @@ export class StaticCredentialsAuthService implements IAuthService {
         user: string,
         password: string,
         endpoint: string,
-        options?: StaticCredentialsAuthOptions
+        options?: StaticCredentialsAuthOptions,
     ) {
         this.tokenTimestamp = null;
         this.user = user;
@@ -70,7 +70,7 @@ export class StaticCredentialsAuthService implements IAuthService {
     }
 
     private async sendTokenRequest(): Promise<AuthServiceResult> {
-        let runtimeAuthService = new StaticCredentialsGrpcService(
+        const runtimeAuthService = new StaticCredentialsGrpcService(
             this.endpoint,
             this.sslCredentials,
         );
@@ -80,12 +80,15 @@ export class StaticCredentialsAuthService implements IAuthService {
         });
         const response = await withTimeout(tokenPromise, this.tokenRequestTimeout);
         const result = AuthServiceResult.decode(getOperationPayload(response));
+
         runtimeAuthService.destroy();
+
         return result;
     }
 
     private async updateToken() {
         const { token } = await this.sendTokenRequest();
+
         if (token) {
             this.token = token;
             this.tokenTimestamp = DateTime.utc();
@@ -102,6 +105,7 @@ export class StaticCredentialsAuthService implements IAuthService {
             await this.tokenUpdatePromise;
             this.tokenUpdatePromise = null;
         }
+
         return makeCredentialsMetadata(this.token);
     }
 }

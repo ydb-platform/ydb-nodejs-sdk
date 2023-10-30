@@ -1,8 +1,8 @@
 import Long from 'long';
-import {google, Ydb} from 'ydb-sdk-proto';
+import { google, Ydb } from 'ydb-sdk-proto';
 import Driver from '../../driver';
-import {initDriver, destroyDriver} from '../../test-utils';
-import {TypedData, TypedValues, Types} from '../../types';
+import { initDriver, destroyDriver } from '../../test-utils';
+import { TypedData, TypedValues, Types } from '../../types';
 import NullValue = google.protobuf.NullValue;
 
 describe('Types', () => {
@@ -18,83 +18,83 @@ describe('Types', () => {
         describe('Primitive values', () => {
             it('Numeric values', () => {
                 expect(TypedValues.bool(true)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.BOOL},
-                    value: {boolValue: true},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.BOOL },
+                    value: { boolValue: true },
                 });
                 expect(TypedValues.uint8(0)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.UINT8},
-                    value: {uint32Value: 0},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.UINT8 },
+                    value: { uint32Value: 0 },
                 });
                 expect(TypedValues.int8(-1)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.INT8},
-                    value: {int32Value: -1},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.INT8 },
+                    value: { int32Value: -1 },
                 });
                 expect(TypedValues.uint16(2)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.UINT16},
-                    value: {uint32Value: 2},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.UINT16 },
+                    value: { uint32Value: 2 },
                 });
                 expect(TypedValues.int16(-3)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.INT16},
-                    value: {int32Value: -3},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.INT16 },
+                    value: { int32Value: -3 },
                 });
                 expect(TypedValues.uint32(4)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.UINT32},
-                    value: {uint32Value: 4},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 },
+                    value: { uint32Value: 4 },
                 });
                 expect(TypedValues.int32(-5)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.INT32},
-                    value: {int32Value: -5},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.INT32 },
+                    value: { int32Value: -5 },
                 });
                 expect(TypedValues.uint64(6)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.UINT64},
-                    value: {uint64Value: 6},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.UINT64 },
+                    value: { uint64Value: 6 },
                 });
                 expect(TypedValues.uint64(Long.fromString('18446744073709551615'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.UINT64},
-                    value: {uint64Value: Long.fromValue({high: -1, low: -1, unsigned: false})},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.UINT64 },
+                    value: { uint64Value: Long.fromValue({ high: -1, low: -1, unsigned: false }) },
                 });
                 expect(TypedValues.int64(-7)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.INT64},
-                    value: {int64Value: -7},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.INT64 },
+                    value: { int64Value: -7 },
                 });
                 expect(TypedValues.float(1.1)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.FLOAT},
-                    value: {floatValue: 1.1},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.FLOAT },
+                    value: { floatValue: 1.1 },
                 });
                 expect(TypedValues.double(1.1)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.DOUBLE},
-                    value: {doubleValue: 1.1},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.DOUBLE },
+                    value: { doubleValue: 1.1 },
                 });
                 expect(TypedValues.dynumber('1.1')).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.DYNUMBER},
-                    value: {textValue: '1.1'},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.DYNUMBER },
+                    value: { textValue: '1.1' },
                 });
             });
 
             it('String and bytes values', () => {
                 expect(TypedValues.bytes(Buffer.from('foo'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.STRING},
-                    value: {bytesValue: Buffer.from('foo')},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.STRING },
+                    value: { bytesValue: Buffer.from('foo') },
                 });
                 expect(TypedValues.utf8('hello')).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.UTF8},
-                    value: {textValue: 'hello'},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.UTF8 },
+                    value: { textValue: 'hello' },
                 });
                 expect(TypedValues.text('hello')).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.UTF8},
-                    value: {textValue: 'hello'},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.UTF8 },
+                    value: { textValue: 'hello' },
                 });
                 expect(TypedValues.yson(Buffer.from('<a=1>[3;%false]'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.YSON},
-                    value: {bytesValue: Buffer.from('<a=1>[3;%false]')},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.YSON },
+                    value: { bytesValue: Buffer.from('<a=1>[3;%false]') },
                 });
                 expect(TypedValues.json('{"a":1,"b":null}')).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.JSON},
-                    value: {textValue: '{"a":1,"b":null}'},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.JSON },
+                    value: { textValue: '{"a":1,"b":null}' },
                 });
                 expect(TypedValues.jsonDocument('[]')).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.JSON_DOCUMENT},
-                    value: {textValue: '[]'},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.JSON_DOCUMENT },
+                    value: { textValue: '[]' },
                 });
             });
 
@@ -104,52 +104,53 @@ describe('Types', () => {
                 }).toThrow();
 
                 const expectedValue = {
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.UUID},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.UUID },
                     value: {
                         low_128: Long.fromValue({
-                            low: -103429057,
-                            high: 1302131164,
-                            unsigned: true
+                            low: -103_429_057,
+                            high: 1_302_131_164,
+                            unsigned: true,
                         }),
                         high_128: Long.fromValue({
-                            low: 1853259449,
-                            high: -884159913,
-                            unsigned: true
+                            low: 1_853_259_449,
+                            high: -884_159_913,
+                            unsigned: true,
                         }),
                     },
                 };
+
                 expect(TypedValues.uuid('f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb')).toEqual(expectedValue);
                 expect(TypedValues.uuid('f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb'.toUpperCase())).toEqual(expectedValue);
             });
 
             it('Datetime values', () => {
                 expect(TypedValues.date(new Date('2022-01-01T00:00:00Z'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.DATE},
-                    value: {uint32Value: 18993},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.DATE },
+                    value: { uint32Value: 18_993 },
                 });
                 expect(TypedValues.datetime(new Date('2022-01-01T10:00:00Z'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.DATETIME},
-                    value: {uint32Value: 1641031200},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.DATETIME },
+                    value: { uint32Value: 1_641_031_200 },
                 });
                 expect(TypedValues.timestamp(new Date('2022-01-01T10:00:00.987Z'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.TIMESTAMP},
-                    value: {uint64Value: 1641031200987000},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.TIMESTAMP },
+                    value: { uint64Value: 1_641_031_200_987_000 },
                 });
-                expect(TypedValues.interval(93784567890)).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.INTERVAL},
-                    value: {int64Value: 93784567890},
+                expect(TypedValues.interval(93_784_567_890)).toEqual({
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.INTERVAL },
+                    value: { int64Value: 93_784_567_890 },
                 });
                 expect(TypedValues.tzDate(new Date('2022-01-01T00:00:00Z'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.TZ_DATE},
-                    value: {textValue: '2022-01-01,GMT'},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.TZ_DATE },
+                    value: { textValue: '2022-01-01,GMT' },
                 });
                 expect(TypedValues.tzDatetime(new Date('2022-01-01T10:00:00Z'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.TZ_DATETIME},
-                    value: {textValue: '2022-01-01T10:00:00,GMT'},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.TZ_DATETIME },
+                    value: { textValue: '2022-01-01T10:00:00,GMT' },
                 });
                 expect(TypedValues.tzTimestamp(new Date('2022-01-01T10:00:00.987Z'))).toEqual({
-                    type: {typeId: Ydb.Type.PrimitiveTypeId.TZ_TIMESTAMP},
-                    value: {textValue: '2022-01-01T10:00:00.987,GMT'},
+                    type: { typeId: Ydb.Type.PrimitiveTypeId.TZ_TIMESTAMP },
+                    value: { textValue: '2022-01-01T10:00:00.987,GMT' },
                 });
             });
 
@@ -160,11 +161,12 @@ describe('Types', () => {
                     SELECT $data AS data;
                     `;
                     const preparedQuery = await session.prepareQuery(query);
-                    const response = await session.executeQuery(preparedQuery, {'$data': TypedValues.list(Types.DEFAULT_DECIMAL, ['123', '1.23', '-1', '-1.23'])});
+                    const response = await session.executeQuery(preparedQuery, { $data: TypedValues.list(Types.DEFAULT_DECIMAL, ['123', '1.23', '-1', '-1.23']) });
                     const actual = TypedData.createNativeObjects(response.resultSets[0])[0];
                     const expected = new TypedData({
                         data: ['123', '1.23', '-1', '-1.23'],
                     });
+
                     expect(expected).toEqual(actual);
                 });
             });
@@ -174,62 +176,62 @@ describe('Types', () => {
                     TypedValues.decimal('1e+8');
                 }).toThrow();
                 expect(TypedValues.decimal('1.23')).toEqual({
-                    type: {decimalType: {precision: 22, scale: 9}},
+                    type: { decimalType: { precision: 22, scale: 9 } },
                     value: {
                         high_128: Long.fromValue(0),
                         low_128: Long.fromValue('1230000000'),
                     },
                 });
                 expect(TypedValues.decimal('1.23', 3, 2)).toEqual({
-                    type: {decimalType: {precision: 3, scale: 2}},
+                    type: { decimalType: { precision: 3, scale: 2 } },
                     value: {
                         high_128: Long.fromValue(0),
                         low_128: Long.fromValue('123'),
                     },
                 });
                 expect(TypedValues.decimal('-1')).toEqual({
-                    type: {decimalType: {precision: 22, scale: 9}},
+                    type: { decimalType: { precision: 22, scale: 9 } },
                     value: {
-                        high_128: Long.fromValue({low: -1, high: -1, unsigned: false}),
-                        low_128: Long.fromValue({low: -1000000000, high: -1, unsigned: false}),
+                        high_128: Long.fromValue({ low: -1, high: -1, unsigned: false }),
+                        low_128: Long.fromValue({ low: -1_000_000_000, high: -1, unsigned: false }),
                     },
                 });
                 expect(TypedValues.decimal('-1.23')).toEqual({
-                    type: {decimalType: {precision: 22, scale: 9}},
+                    type: { decimalType: { precision: 22, scale: 9 } },
                     value: {
-                        high_128: Long.fromValue({low: -1, high: -1, unsigned: false}),
-                        low_128: Long.fromValue({low: -1230000000, high: -1, unsigned: false}),
+                        high_128: Long.fromValue({ low: -1, high: -1, unsigned: false }),
+                        low_128: Long.fromValue({ low: -1_230_000_000, high: -1, unsigned: false }),
                     },
                 });
             });
 
             it('Optional values', () => {
                 expect(TypedValues.optional(TypedValues.uint32(10))).toEqual({
-                    type: {optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT32}}},
-                    value: {uint32Value: 10},
+                    type: { optionalType: { item: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 } } },
+                    value: { uint32Value: 10 },
                 });
                 expect(TypedValues.optionalNull(Types.UINT32)).toEqual({
-                    type: {optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT32}}},
-                    value: {nullFlagValue: 0},
+                    type: { optionalType: { item: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 } } },
+                    value: { nullFlagValue: 0 },
                 });
                 expect(TypedValues.fromNative(Types.optional(Types.UINT32), 10)).toEqual({
-                    type: {optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT32}}},
-                    value: {uint32Value: 10},
+                    type: { optionalType: { item: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 } } },
+                    value: { uint32Value: 10 },
                 });
                 expect(TypedValues.fromNative(Types.optional(Types.UINT32), null)).toEqual({
-                    type: {optionalType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT32}}},
-                    value: {nullFlagValue: 0},
+                    type: { optionalType: { item: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 } } },
+                    value: { nullFlagValue: 0 },
                 });
             });
 
             it('List value', () => {
                 expect(TypedValues.fromNative(Types.list(Types.UINT32), [1, 2, 3])).toEqual({
-                    type: {listType: {item: {typeId: Ydb.Type.PrimitiveTypeId.UINT32}}},
+                    type: { listType: { item: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 } } },
                     value: {
                         items: [
-                            {uint32Value: 1},
-                            {uint32Value: 2},
-                            {uint32Value: 3},
+                            { uint32Value: 1 },
+                            { uint32Value: 2 },
+                            { uint32Value: 3 },
                         ],
                     },
                 });
@@ -240,11 +242,11 @@ describe('Types', () => {
 
             it('Tuple value', () => {
                 expect(TypedValues.fromNative(Types.tuple(Types.UINT32, Types.BOOL), [3, true])).toEqual({
-                    type: {tupleType: {elements: [{typeId: Ydb.Type.PrimitiveTypeId.UINT32}, {typeId: Ydb.Type.PrimitiveTypeId.BOOL}]}},
+                    type: { tupleType: { elements: [{ typeId: Ydb.Type.PrimitiveTypeId.UINT32 }, { typeId: Ydb.Type.PrimitiveTypeId.BOOL }] } },
                     value: {
                         items: [
-                            {uint32Value: 3},
-                            {boolValue: true},
+                            { uint32Value: 3 },
+                            { boolValue: true },
                         ],
                     },
                 });
@@ -254,25 +256,26 @@ describe('Types', () => {
             });
 
             it('Struct value', () => {
-                const fields = {a: Types.UINT32, b: Types.BOOL};
-                expect(TypedValues.fromNative(Types.struct(fields), {a: 3, b: true})).toEqual({
+                const fields = { a: Types.UINT32, b: Types.BOOL };
+
+                expect(TypedValues.fromNative(Types.struct(fields), { a: 3, b: true })).toEqual({
                     type: {
                         structType: {
                             members: [
-                                {name: 'a', type: {typeId: Ydb.Type.PrimitiveTypeId.UINT32}},
-                                {name: 'b', type: {typeId: Ydb.Type.PrimitiveTypeId.BOOL}},
+                                { name: 'a', type: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 } },
+                                { name: 'b', type: { typeId: Ydb.Type.PrimitiveTypeId.BOOL } },
                             ],
                         },
                     },
                     value: {
                         items: [
-                            {uint32Value: 3},
-                            {boolValue: true},
+                            { uint32Value: 3 },
+                            { boolValue: true },
                         ],
                     },
                 });
-                expect(TypedValues.fromNative(Types.struct(fields), {a: 3, b: true})).toEqual(
-                    TypedValues.struct(fields, {a: 3, b: true}),
+                expect(TypedValues.fromNative(Types.struct(fields), { a: 3, b: true })).toEqual(
+                    TypedValues.struct(fields, { a: 3, b: true }),
                 );
             });
 
@@ -280,28 +283,28 @@ describe('Types', () => {
                 expect(TypedValues.fromNative(Types.dict(Types.UTF8, Types.UINT32), {
                     a: 1,
                     b: 2,
-                    c: 3
+                    c: 3,
                 })).toEqual({
                     type: {
                         dictType: {
-                            key: {typeId: Ydb.Type.PrimitiveTypeId.UTF8},
-                            payload: {typeId: Ydb.Type.PrimitiveTypeId.UINT32},
+                            key: { typeId: Ydb.Type.PrimitiveTypeId.UTF8 },
+                            payload: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 },
                         },
                     },
                     value: {
                         pairs: [
-                            {key: {textValue: 'a'}, payload: {uint32Value: 1}},
-                            {key: {textValue: 'b'}, payload: {uint32Value: 2}},
-                            {key: {textValue: 'c'}, payload: {uint32Value: 3}},
+                            { key: { textValue: 'a' }, payload: { uint32Value: 1 } },
+                            { key: { textValue: 'b' }, payload: { uint32Value: 2 } },
+                            { key: { textValue: 'c' }, payload: { uint32Value: 3 } },
                         ],
                     },
                 });
                 expect(TypedValues.fromNative(Types.dict(Types.UTF8, Types.UINT32), {
                     a: 1,
                     b: 2,
-                    c: 3
+                    c: 3,
                 })).toEqual(
-                    TypedValues.dict(Types.UTF8, Types.UINT32, {a: 1, b: 2, c: 3}),
+                    TypedValues.dict(Types.UTF8, Types.UINT32, { a: 1, b: 2, c: 3 }),
                 );
             });
 
@@ -316,15 +319,15 @@ describe('Types', () => {
                         variantType: {
                             tupleItems: {
                                 elements: [
-                                    {typeId: Ydb.Type.PrimitiveTypeId.UINT32},
-                                    {typeId: Ydb.Type.PrimitiveTypeId.BOOL},
+                                    { typeId: Ydb.Type.PrimitiveTypeId.UINT32 },
+                                    { typeId: Ydb.Type.PrimitiveTypeId.BOOL },
                                 ],
                             },
                         },
                     },
                     value: {
                         variantIndex: 0,
-                        nestedValue: {uint32Value: 3},
+                        nestedValue: { uint32Value: 3 },
                     },
                 });
             });
@@ -332,30 +335,30 @@ describe('Types', () => {
             it('Struct variant value', () => {
                 expect(
                     TypedValues.fromNative(
-                        Types.variant(Types.struct({a: Types.UINT32, b: Types.BOOL})),
-                        {a: 3},
+                        Types.variant(Types.struct({ a: Types.UINT32, b: Types.BOOL })),
+                        { a: 3 },
                     ),
                 ).toEqual({
                     type: {
                         variantType: {
                             structItems: {
                                 members: [
-                                    {name: 'a', type: {typeId: Ydb.Type.PrimitiveTypeId.UINT32}},
-                                    {name: 'b', type: {typeId: Ydb.Type.PrimitiveTypeId.BOOL}},
+                                    { name: 'a', type: { typeId: Ydb.Type.PrimitiveTypeId.UINT32 } },
+                                    { name: 'b', type: { typeId: Ydb.Type.PrimitiveTypeId.BOOL } },
                                 ],
                             },
                         },
                     },
                     value: {
                         variantIndex: 0,
-                        nestedValue: {uint32Value: 3},
+                        nestedValue: { uint32Value: 3 },
                     },
                 });
             });
 
             it('Void value', () => {
                 expect(TypedValues.VOID).toEqual({
-                    type: {voidType: NullValue.NULL_VALUE},
+                    type: { voidType: NullValue.NULL_VALUE },
                     value: {
                         nullFlagValue: NullValue.NULL_VALUE,
                     },
@@ -397,7 +400,7 @@ describe('Types', () => {
                         uint64_long_value: Long.MAX_UNSIGNED_VALUE.sub(2),
                         int64_value: 7,
                         int64_long_value: Long.fromValue(-7),
-                        float_value: -1.100000023841858,
+                        float_value: -1.100_000_023_841_858,
                         double_value: -1.1,
                         dynumber_value: '.1234567890123e10',
                     };
@@ -406,6 +409,7 @@ describe('Types', () => {
 
                     const actual = TypedData.createNativeObjects(response.resultSets[0])[0];
                     const expected = new TypedData(data);
+
                     expect(expected).toEqual(actual);
                 });
             });
@@ -432,13 +436,14 @@ describe('Types', () => {
 
                     const actual = TypedData.createNativeObjects(response.resultSets[0]);
                     const expected = [new TypedData(data)];
+
                     expect(expected).toEqual(actual);
                 });
             });
 
             it('UUID value', async () => {
                 await driver.tableClient.withSession(async (session) => {
-                    const query = `SELECT Uuid("f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb") AS uuid_value;`;
+                    const query = 'SELECT Uuid("f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb") AS uuid_value;';
 
                     const data = {
                         uuid_value: 'f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb',
@@ -448,6 +453,7 @@ describe('Types', () => {
 
                     const actual = TypedData.createNativeObjects(response.resultSets[0]);
                     const expected = [new TypedData(data)];
+
                     expect(expected).toEqual(actual);
                 });
             });
@@ -478,6 +484,7 @@ describe('Types', () => {
 
                     const actual = TypedData.createNativeObjects(response.resultSets[0]);
                     const expected = [new TypedData(data)];
+
                     expect(expected).toEqual(actual);
                 });
             });
@@ -508,6 +515,7 @@ describe('Types', () => {
 
                 const actual = TypedData.createNativeObjects(response.resultSets[0]);
                 const expected = [new TypedData(data)];
+
                 expect(expected).toEqual(actual);
             });
         });
@@ -528,6 +536,7 @@ describe('Types', () => {
 
                 const actual = TypedData.createNativeObjects(response.resultSets[0]);
                 const expected = [new TypedData(data)];
+
                 expect(expected).toEqual(actual);
             });
         });
@@ -545,14 +554,15 @@ describe('Types', () => {
                 const data = {
                     list_value: [1, 2, 3],
                     tuple_value: [1, 2, Buffer.from('3')],
-                    struct_value: {a: 1, b: 2, c: Buffer.from('3')},
-                    dict_value: {a: 1, b: 2, c: 3},
+                    struct_value: { a: 1, b: 2, c: Buffer.from('3') },
+                    dict_value: { a: 1, b: 2, c: 3 },
                 };
 
                 const response = await session.executeQuery(query);
 
                 const actual = TypedData.createNativeObjects(response.resultSets[0]);
                 const expected = [new TypedData(data)];
+
                 expect(expected).toEqual(actual);
             });
         });
@@ -568,6 +578,7 @@ describe('Types', () => {
 
                 const actual = TypedData.createNativeObjects(response.resultSets[0]);
                 const expected = [new TypedData(data)];
+
                 expect(expected).toEqual(actual);
             });
         });
@@ -582,8 +593,8 @@ describe('Types', () => {
                     Variant(-123, "0", $var_type_tuple) as v3,
                     Variant("abcdef", "1", $var_type_tuple) as v4;`;
                 const data = {
-                    v1: {foo: 6},
-                    v2: {bar: false},
+                    v1: { foo: 6 },
+                    v2: { bar: false },
                     v3: [-123, undefined],
                     v4: [undefined, Buffer.from('abcdef')],
                 };
@@ -592,6 +603,7 @@ describe('Types', () => {
 
                 const actual = TypedData.createNativeObjects(response.resultSets[0]);
                 const expected = [new TypedData(data)];
+
                 expect(expected).toEqual(actual);
             });
         });
@@ -608,16 +620,16 @@ describe('Types', () => {
 
                 const sdkValues = {
                     v1: TypedValues.fromNative(
-                        Types.variant(Types.struct({foo: Types.UINT32, bar: Types.TEXT})),
-                        {foo: 12345678},
+                        Types.variant(Types.struct({ foo: Types.UINT32, bar: Types.TEXT })),
+                        { foo: 12_345_678 },
                     ),
                     v2: TypedValues.fromNative(
-                        Types.variant(Types.struct({foo: Types.UINT32, bar: Types.TEXT})),
-                        {bar: 'AbCdEfGh'},
+                        Types.variant(Types.struct({ foo: Types.UINT32, bar: Types.TEXT })),
+                        { bar: 'AbCdEfGh' },
                     ),
                     v3: TypedValues.fromNative(
                         Types.variant(Types.tuple(Types.INT32, Types.BOOL)),
-                        [-12345678, undefined],
+                        [-12_345_678, undefined],
                     ),
                     v4: TypedValues.fromNative(
                         Types.variant(Types.tuple(Types.INT32, Types.BOOL)),
@@ -636,9 +648,9 @@ describe('Types', () => {
 
                 expect(actual).toEqual([
                     {
-                        v1: {foo: 12345678},
-                        v2: {bar: 'AbCdEfGh'},
-                        v3: [-12345678, undefined],
+                        v1: { foo: 12_345_678 },
+                        v2: { bar: 'AbCdEfGh' },
+                        v3: [-12_345_678, undefined],
                         v4: [undefined, false],
                     },
                 ]);
@@ -689,11 +701,12 @@ describe('Types', () => {
                 SELECT
                    Enum("Foo", $enum_type) as e1,
                    Enum("Bar", $enum_type) as e2;`;
-                const data = {e1: {Foo: null}, e2: {Bar: null}};
+                const data = { e1: { Foo: null }, e2: { Bar: null } };
                 const response = await session.executeQuery(query);
 
                 const actual = TypedData.createNativeObjects(response.resultSets[0]);
                 const expected = [new TypedData(data)];
+
                 expect(expected).toEqual(actual);
             });
         });

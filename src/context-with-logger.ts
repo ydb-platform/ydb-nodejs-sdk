@@ -1,5 +1,5 @@
-import {Context, getContext, NOT_A_CONTEXT} from "./utils/context";
-import {Logger} from "./utils/simple-logger";
+import { Context, getContext, NOT_A_CONTEXT } from './utils/context';
+import { Logger } from './utils/simple-logger';
 
 /**
  * Context with reference to the head object - driver.
@@ -33,10 +33,10 @@ export class ContextWithLogger extends Context {
     static get(methodName: string) {
         const ctx = getContext();
 
-        let context = ctx.findContextByClass<ContextWithLogger>(ContextWithLogger);
+        const context = ctx.findContextByClass<ContextWithLogger>(ContextWithLogger);
 
         if (context === NOT_A_CONTEXT) {
-            throw new Error('ContextWithLogger is not in the context chain. Consider using RiverContext.getSafe()')
+            throw new Error('ContextWithLogger is not in the context chain. Consider using RiverContext.getSafe()');
         }
 
         context.trace(methodName);
@@ -53,7 +53,7 @@ export class ContextWithLogger extends Context {
     async doHandleError<T>(callback: () => T): Promise<void> {
         try {
             await super.do(callback);
-        } catch(error) {
+        } catch (error) {
             this.logger.error(error);
         }
     }
@@ -67,7 +67,7 @@ export class ContextWithLogger extends Context {
     doHandleErrorSync<T>(callback: () => T): void {
         try {
             super.doSync(callback);
-        } catch(error) {
+        } catch (error) {
             this.logger.error(error);
         }
     }

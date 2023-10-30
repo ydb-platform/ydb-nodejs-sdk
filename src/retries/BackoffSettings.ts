@@ -1,4 +1,4 @@
-import {sleep} from "../utils";
+import { sleep } from '../utils';
 
 export class BackoffSettings {
     /**
@@ -18,6 +18,7 @@ export class BackoffSettings {
         const slotsCount = 1 << Math.min(retries, this.backoffCeiling);
         const maxDuration = slotsCount * this.backoffSlotDuration;
         const duration = maxDuration * (1 - Math.random() * this.uncertainRatio);
+
         return sleep(duration);
     }
 }

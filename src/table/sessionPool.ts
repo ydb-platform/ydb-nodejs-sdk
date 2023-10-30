@@ -1,22 +1,22 @@
-import EventEmitter from "events";
-import DiscoveryService, {Endpoint} from '../discovery';
-import {Session} from "./session";
-import {IAuthService} from '../credentials';
-import {ISslCredentials} from '../ssl-credentials';
-import _ from "lodash";
-import {ClientOptions} from "../utils";
-import {Logger} from "../utils/simple-logger";
-import {Events, SESSION_KEEPALIVE_PERIOD} from "../constants";
+import EventEmitter from 'events';
+import _ from 'lodash';
+import DiscoveryService, { Endpoint } from '../discovery';
+import { Session } from './session';
+import { IAuthService } from '../credentials';
+import { ISslCredentials } from '../ssl-credentials';
+import { ClientOptions } from '../utils';
+import { Logger } from '../utils/simple-logger';
+import { Events, SESSION_KEEPALIVE_PERIOD } from '../constants';
 
 import {
     SessionPoolEmpty,
     BadSession,
     SessionBusy,
 } from '../errors';
-import {SessionEvent} from "./internal/sessionEvent";
-import {ITableClientSettings} from "./internal/ITableClientSettings";
-import {SessionService} from "./sessionService";
-import {ContextWithLogger} from "../context-with-logger";
+import { SessionEvent } from './internal/sessionEvent';
+import { ITableClientSettings } from './internal/ITableClientSettings';
+import { SessionService } from './sessionService';
+import { ContextWithLogger } from '../context-with-logger';
 
 export class SessionPool extends EventEmitter {
     private readonly database: string;
@@ -48,7 +48,8 @@ export class SessionPool extends EventEmitter {
         this.authService = settings.authService;
         this.sslCredentials = settings.sslCredentials;
         this.clientOptions = settings.clientOptions;
-        const poolSettings = settings.poolSettings;
+        const { poolSettings } = settings;
+
         this.minLimit = poolSettings?.minLimit || SessionPool.SESSION_MIN_LIMIT;
         this.maxLimit = poolSettings?.maxLimit || SessionPool.SESSION_MAX_LIMIT;
         this.sessions = new Set();
@@ -64,7 +65,7 @@ export class SessionPool extends EventEmitter {
     }
 
     public async destroy(): Promise<void> {
-        const ctx = ContextWithLogger.getSafe(this.logger,'ydb_nodejs_sdk.sessionPool.destroy');
+        const ctx = ContextWithLogger.getSafe(this.logger, 'ydb_nodejs_sdk.sessionPool.destroy');
 
         ctx.logger.debug('Destroying pool...');
         clearInterval(this.sessionKeepAliveId);
@@ -76,13 +77,11 @@ export class SessionPool extends EventEmitter {
         const ctx = ContextWithLogger.get('ydb_nodejs_sdk.sessionPool.initListeners');
 
         return setInterval(async () => ctx.doHandleError(() => Promise.all(
-            _.map([...this.sessions], (session: Session) => {
-                return session.keepAlive()
-                    // delete session if error
-                    .catch(() => ctx.do(() => this.deleteSession(session)))
-                    // ignore errors to avoid UnhandledPromiseRejectionWarning
-                    .catch(() => Promise.resolve())
-            })
+            _.map([...this.sessions], (session: Session) => session.keepAlive()
+            // delete session if error
+                .catch(() => ctx.do(() => this.deleteSession(session)))
+            // ignore errors to avoid UnhandledPromiseRejectionWarning
+                .catch(() => {})),
         )), keepAlivePeriod);
     }
 
@@ -96,10 +95,13 @@ export class SessionPool extends EventEmitter {
         const ctx = ContextWithLogger.get('ydb_nodejs_sdk.sessionPool.getSessionCreator');
 
         const endpoint = await ctx.do(() => this.discoveryService.getEndpoint());
+
         if (!this.sessionCreators.has(endpoint)) {
             const sessionService = await ctx.do(() => new SessionService(endpoint, this.database, this.authService, ctx.logger, this.sslCredentials, this.clientOptions));
+
             this.sessionCreators.set(endpoint, sessionService);
         }
+
         return this.sessionCreators.get(endpoint) as SessionService;
     }
 
@@ -108,11 +110,14 @@ export class SessionPool extends EventEmitter {
 
         if (this.waiters.length > 0) {
             const waiter = this.waiters.shift();
-            if (typeof waiter === "function") {
+
+            if (typeof waiter === 'function') {
                 ctx.do(() => waiter(session));
+
                 return true;
             }
         }
+
         return false;
     }
 
@@ -121,17 +126,19 @@ export class SessionPool extends EventEmitter {
 
         const sessionCreator = await this.getSessionCreator();
         const session = await ctx.do(() => sessionCreator.create());
+
         session.on(SessionEvent.SESSION_RELEASE, async () => {
             if (session.isClosing()) {
                 await ctx.do(() => this.deleteSession(session));
             } else {
                 ctx.do(() => this.maybeUseSession(session));
             }
-        })
+        });
         session.on(SessionEvent.SESSION_BROKEN, async () => {
             await this.deleteSession(session);
         });
         ctx.do(() => this.sessions.add(session));
+
         return session;
     }
 
@@ -151,6 +158,7 @@ export class SessionPool extends EventEmitter {
                 }
             });
         }
+
         return session.delete()
             // delete session in any case
             .finally(() => {
@@ -159,7 +167,7 @@ export class SessionPool extends EventEmitter {
             });
     }
 
-    private acquire(timeout: number = 0): Promise<Session> {
+    private acquire(timeout = 0): Promise<Session> {
         const ctx = ContextWithLogger.get('ydb_nodejs_sdk.sessionPool.acquire');
 
         for (const session of this.sessions) {
@@ -170,40 +178,42 @@ export class SessionPool extends EventEmitter {
 
         if (this.sessions.size + this.newSessionsRequested - this.sessionsBeingDeleted <= this.maxLimit) {
             this.newSessionsRequested++;
+
             return ctx.doSync(() => this.createSession()
-                .then((session) => {
-                    return session.acquire();
-                })
+                .then((session) => session.acquire())
                 .finally(() => {
                     this.newSessionsRequested--;
                 }));
-        } else {
-            return new Promise((resolve, reject) => {
-                let timeoutId: NodeJS.Timeout;
-
-                function waiter(session: Session) {
-                    clearTimeout(timeoutId);
-                    resolve(session.acquire());
-                }
-
-                if (timeout) {
-                    timeoutId = setTimeout(() => ctx.doHandleError(() => {
-                        this.waiters.splice(this.waiters.indexOf(waiter), 1);
-                        reject(
-                            new SessionPoolEmpty(`No session became available within timeout of ${timeout} ms`)
-                        );
-                    }), timeout);
-                }
-                this.waiters.push(waiter);
-            });
         }
+
+        return new Promise((resolve, reject) => {
+            let timeoutId: NodeJS.Timeout;
+
+            const waiter = (session: Session) => {
+                clearTimeout(timeoutId);
+                resolve(session.acquire());
+            };
+
+            if (timeout) {
+                timeoutId = setTimeout(() => ctx.doHandleError(() => {
+                    this.waiters.splice(this.waiters.indexOf(waiter), 1);
+                    reject(
+                        new SessionPoolEmpty(`No session became available within timeout of ${timeout} ms`),
+                    );
+                }), timeout);
+            }
+            this.waiters.push(waiter);
+        });
     }
 
     private async _withSession<T>(session: Session, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
         const ctx = ContextWithLogger.get('ydb_nodejs_sdk.sessionPool._withSession');
+
         try {
             const result = await ctx.do(() => callback(session));
+
             await ctx.do(() => session.release());
+
             return result;
         } catch (error) {
             if (error instanceof BadSession || error instanceof SessionBusy) {
@@ -213,6 +223,7 @@ export class SessionPool extends EventEmitter {
                 if (maxRetries > 0) {
                     ctx.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
                     ctx.do(() => session.acquire());
+
                     return this._withSession(session, callback, maxRetries - 1);
                 }
             } else {
@@ -222,15 +233,17 @@ export class SessionPool extends EventEmitter {
         }
     }
 
-    public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
+    public async withSession<T>(callback: SessionCallback<T>, timeout = 0): Promise<T> {
         const ctx = ContextWithLogger.getSafe(this.logger, 'ydb_nodejs_sdk.sessionPool.withSession');
         const session = await ctx.do(() => this.acquire(timeout));
+
         return ctx.do(() => this._withSession(session, callback));
     }
 
-    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
-        const ctx = ContextWithLogger.getSafe(this.logger,'ydb_nodejs_sdk.sessionPool.withSessionRetry');
+    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout = 0, maxRetries = 10): Promise<T> {
+        const ctx = ContextWithLogger.getSafe(this.logger, 'ydb_nodejs_sdk.sessionPool.withSessionRetry');
         const session = await ctx.do(() => this.acquire(timeout));
+
         return ctx.do(() => this._withSession(session, callback, maxRetries));
     }
 }

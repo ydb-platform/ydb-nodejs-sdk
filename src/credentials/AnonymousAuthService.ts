@@ -1,5 +1,5 @@
-import * as grpc from "@grpc/grpc-js";
-import {IAuthService} from "./IAuthService";
+import * as grpc from '@grpc/grpc-js';
+import { IAuthService } from './IAuthService';
 
 export class AnonymousAuthService implements IAuthService {
     constructor() {}
