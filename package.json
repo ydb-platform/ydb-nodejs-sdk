@@ -22,7 +22,6 @@
     "test:coverage": "jest -c config/jest.coverage.ts",
     "lint": "eslint src config",
     "lint:fix": "eslint src config --fix",
-
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rimraf build",
     "prepublish": "npm run clean && npm run build && node ./fixup.js"
@@ -59,6 +58,12 @@
     "@types/uuid": "^8.3.4",
     "@yandex-cloud/nodejs-sdk": "^2.0.0",
     "cross-env": "^7.0.3",
+    "eslint": "^8.52.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-airbnb-typescript": "^16.1.0",
+    "eslint-plugin-import": "^2.25.3",
+    "eslint-plugin-prefer-arrow-functions": "^3.1.4",
+    "eslint-plugin-unicorn": "^49.0.0",
     "husky": "^7.0.4",
     "jest": "^27.1.0",
     "npm-run-all": "^4.1.5",
