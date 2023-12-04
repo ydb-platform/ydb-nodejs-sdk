@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "./src",
+    "./config",
+    "./scripts",
+    "./examples",
+    "./eslint-local-rules/examples"
+  ]
+}

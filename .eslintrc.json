@@ -1,0 +1,60 @@
+{
+  "root": true,
+  "env": {
+    "node": true,
+    "commonjs": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "airbnb-base",
+    "airbnb-typescript/base",
+    "plugin:unicorn/recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "plugins": [
+    "@typescript-eslint",
+    "unicorn",
+    "import",
+    "prefer-arrow-functions",
+    "eslint-plugin-local-rules"
+  ],
+  "parserOptions": {
+    "project": "tsconfig.eslint.json"
+  },
+  "rules": {
+    "unicorn/no-abusive-eslint-disable": "off",
+    "local-rules/context": "off",
+    "@typescript-eslint/lines-between-class-members": "off",
+    "unicorn/no-array-reduce": "off",
+    "no-continue": "off",
+    "no-restricted-syntax": "off",
+    "unicorn/prefer-node-protocol": "off",
+    "class-methods-use-this": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "import/prefer-default-export": "off",
+    "comma-dangle": ["error", "always-multiline"],
+    "indent": "off",
+    "@typescript-eslint/indent": ["error", 4],
+    "max-len": ["error", 140],
+    "@typescript-eslint/ban-ts-comment": "off",
+    "@typescript-eslint/prefer-optional-chain": "error",
+    "prefer-arrow-functions/prefer-arrow-functions": ["error"],
+    "unicorn/prevent-abbreviations": "off",
+    "newline-after-var": "error",
+    "newline-before-return": "error",
+    "no-plusplus": "off",
+    "unicorn/import-style": "off",
+    "@typescript-eslint/no-var-requires": "off",
+    "no-underscore-dangle": ["error", {
+      "allowAfterThis": true,
+      "allowAfterSuper": false
+    }],
+    "unicorn/no-null": "off",
+    "import/no-extraneous-dependencies": ["error", {
+      "devDependencies": true
+    }],
+    "import/no-cycle": "off",
+    "linebreak-style": "off"
+  }
+}

@@ -5,6 +5,7 @@ node_modules
 #temporary
 tmp/
 temp/
+coverage/
 
 # typescript build (next line will be removed by pre-release-branch-update GitHub action to be included in dist branch)
 build/

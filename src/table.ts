@@ -1,3 +1,5 @@
+/* eslint local-rules/context: "error" */
+
 import _ from 'lodash';
 import EventEmitter from 'events';
 import * as grpc from '@grpc/grpc-js';
