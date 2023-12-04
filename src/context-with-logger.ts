@@ -1,6 +1,6 @@
-import { Context, getContext, NOT_A_CONTEXT } from './utils/context';
-import { Logger } from './utils/simple-logger';
-import { getLoggerFromObject } from './utils/get-logger-from-object';
+import { Context, getContext, NOT_A_CONTEXT } from './utils2/context';
+import { Logger } from './utils2/simple-logger';
+import { getLoggerFromObject } from './utils2/get-logger-from-object';
 
 /**
  * Context with reference to the head object - driver.
@@ -36,6 +36,7 @@ export class ContextWithLogger extends Context {
     /**
      * Returns the context of this type.  If there is no such context - throws an error.
      */
+    static get(methodName: string) {
         const ctx = getContext();
 
         const context = ctx.findContextByClass<ContextWithLogger>(ContextWithLogger);
@@ -64,25 +65,13 @@ export class ContextWithLogger extends Context {
     }
 
     /**
-     * Guarantees error logging if the code is called from a thread other than
-     * the main thread, such as setTimeout or setInterval.
-     *
-     * An error is NOT thrown after logging.  And NO result.
-     */
-    doHandleErrorSync<T>(callback: () => T): void {
-        try {
-            super.doSync(callback);
-        } catch (error) {
-            this.logger.error(error);
-        }
-    }
-
-    /**
      * Writes trace to logger and creates span if tracing is enabled.
      */
     private trace(methodName: string) {
-        this.logger.trace(methodName, this); // as parameter goes las ontext in the chain
+        this.logger.trace(methodName, this); // as parameter goes as ontext in the chain
+
         // TODO: name span
+
         return this; // may be helpful for the code compaction
     }
 }

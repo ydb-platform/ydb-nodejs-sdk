@@ -1,9 +1,10 @@
-/* eslint local-rules/context: "error" */
+// /* eslint local-rules/context: "error" */
 
+// eslint-disable-next-line max-classes-per-file
 import _ from 'lodash';
 import EventEmitter from 'events';
 import * as grpc from '@grpc/grpc-js';
-import {google, Ydb} from 'ydb-sdk-proto';
+import { google, Ydb } from 'ydb-sdk-proto';
 import {
     AuthenticatedService,
     ClientOptions,
@@ -13,14 +14,14 @@ import {
     pessimizable,
     AsyncResponse,
 } from './utils';
-import DiscoveryService, {Endpoint} from './discovery';
-import {IPoolSettings} from './driver';
-import {ISslCredentials} from './ssl-credentials';
-import {Events, ResponseMetadataKeys, SESSION_KEEPALIVE_PERIOD} from './constants';
-import {IAuthService} from './credentials';
+import DiscoveryService, { Endpoint } from './discovery';
+import { IPoolSettings } from './driver';
+import { ISslCredentials } from './ssl-credentials';
+import { Events, ResponseMetadataKeys, SESSION_KEEPALIVE_PERIOD } from './constants';
+import { IAuthService } from './credentials';
 // noinspection ES6PreferShortImport
-import {Logger} from './logging';
-import {retryable} from './retries';
+import { Logger } from './logging';
+import { retryable } from './retries';
 import {
     SchemeError,
     SessionPoolEmpty,
@@ -40,32 +41,37 @@ import IType = Ydb.IType;
 import DescribeTableResult = Ydb.Table.DescribeTableResult;
 import PrepareQueryResult = Ydb.Table.PrepareQueryResult;
 import ExecuteQueryResult = Ydb.Table.ExecuteQueryResult;
-import ExplainQueryResult = Ydb.Table.ExplainQueryResult
+import ExplainQueryResult = Ydb.Table.ExplainQueryResult;
 import ITransactionSettings = Ydb.Table.ITransactionSettings;
 import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
 import ITransactionMeta = Ydb.Table.ITransactionMeta;
+// eslint-disable-next-line @typescript-eslint/no-use-before-define
 import AutoPartitioningPolicy = Ydb.Table.PartitioningPolicy.AutoPartitioningPolicy;
 import ITypedValue = Ydb.ITypedValue;
 import FeatureFlag = Ydb.FeatureFlag.Status;
+// eslint-disable-next-line @typescript-eslint/no-use-before-define
 import Compression = Ydb.Table.ColumnFamilyPolicy.Compression;
 import ExecuteScanQueryPartialResult = Ydb.Table.ExecuteScanQueryPartialResult;
 import IKeyRange = Ydb.Table.IKeyRange;
 import TypedValue = Ydb.TypedValue;
 import BulkUpsertResult = Ydb.Table.BulkUpsertResult;
+// eslint-disable-next-line @typescript-eslint/no-use-before-define
 import OperationMode = Ydb.Operations.OperationParams.OperationMode;
 
 interface PartialResponse<T> {
-    status?: (Ydb.StatusIds.StatusCode|null);
-    issues?: (Ydb.Issue.IIssueMessage[]|null);
-    result?: (T|null);
+    status?: (Ydb.StatusIds.StatusCode | null);
+    issues?: (Ydb.Issue.IIssueMessage[] | null);
+    result?: (T | null);
 }
 
 export class SessionService extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 
+    // eslint-disable-next-line max-len
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
+
         super(host, database, 'Ydb.Table.V1.TableService', TableService, authService, sslCredentials, clientOptions);
         this.endpoint = endpoint;
         this.logger = logger;
@@ -76,14 +82,16 @@ export class SessionService extends AuthenticatedService<TableService> {
     async create(): Promise<Session> {
         const response = await this.api.createSession(CreateSessionRequest.create());
         const payload = getOperationPayload(response);
-        const {sessionId} = CreateSessionResult.decode(payload);
+        const { sessionId } = CreateSessionResult.decode(payload);
+
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
         return new Session(this.api, this.endpoint, sessionId, this.logger, this.getResponseMetadata.bind(this));
     }
 }
 
 enum SessionEvent {
     SESSION_RELEASE = 'SESSION_RELEASE',
-    SESSION_BROKEN = 'SESSION_BROKEN'
+    SESSION_BROKEN = 'SESSION_BROKEN',
 }
 
 interface IExistingTransaction {
@@ -96,9 +104,9 @@ interface INewTransaction {
 
 export const AUTO_TX: INewTransaction = {
     beginTx: {
-        serializableReadWrite: {}
+        serializableReadWrite: {},
     },
-    commitTx: true
+    commitTx: true,
 };
 
 interface IQueryParams {
@@ -114,41 +122,49 @@ export class OperationParams implements Ydb.Operations.IOperationParams {
 
     withSyncMode() {
         this.operationMode = OperationMode.SYNC;
+
         return this;
     }
 
     withAsyncMode() {
         this.operationMode = OperationMode.ASYNC;
+
         return this;
     }
 
     withOperationTimeout(duration: google.protobuf.IDuration) {
         this.operationTimeout = duration;
+
         return this;
     }
 
     withOperationTimeoutSeconds(seconds: number) {
-        this.operationTimeout = {seconds};
+        this.operationTimeout = { seconds };
+
         return this;
     }
 
     withCancelAfter(duration: google.protobuf.IDuration) {
         this.cancelAfter = duration;
+
         return this;
     }
 
     withCancelAfterSeconds(seconds: number) {
-        this.cancelAfter = {seconds};
+        this.cancelAfter = { seconds };
+
         return this;
     }
 
-    withLabels(labels: {[k: string]: string}) {
+    withLabels(labels: { [k: string]: string }) {
         this.labels = labels;
+
         return this;
     }
 
     withReportCostInfo() {
         this.reportCostInfo = Ydb.FeatureFlag.Status.ENABLED;
+
         return this;
     }
 }
@@ -158,15 +174,14 @@ export class OperationParamsSettings {
 
     withOperationParams(operationParams: OperationParams) {
         this.operationParams = operationParams;
+
         return this;
     }
 }
 
-export class CreateTableSettings extends OperationParamsSettings {
-}
+export class CreateTableSettings extends OperationParamsSettings {}
 
-export class AlterTableSettings extends OperationParamsSettings {
-}
+export class AlterTableSettings extends OperationParamsSettings {}
 
 interface IDropTableSettings {
     muteNonExistingTableErrors: boolean;
@@ -174,7 +189,7 @@ interface IDropTableSettings {
 export class DropTableSettings extends OperationParamsSettings {
     muteNonExistingTableErrors: boolean;
 
-    constructor({muteNonExistingTableErrors = true} = {} as IDropTableSettings) {
+    constructor({ muteNonExistingTableErrors = true } = {} as IDropTableSettings) {
         super();
         this.muteNonExistingTableErrors = muteNonExistingTableErrors;
     }
@@ -187,56 +202,58 @@ export class DescribeTableSettings extends OperationParamsSettings {
 
     withIncludeShardKeyBounds(includeShardKeyBounds: boolean) {
         this.includeShardKeyBounds = includeShardKeyBounds;
+
         return this;
     }
 
     withIncludeTableStats(includeTableStats: boolean) {
         this.includeTableStats = includeTableStats;
+
         return this;
     }
 
     withIncludePartitionStats(includePartitionStats: boolean) {
         this.includePartitionStats = includePartitionStats;
+
         return this;
     }
 }
 
-export class BeginTransactionSettings extends OperationParamsSettings {
-}
+export class BeginTransactionSettings extends OperationParamsSettings {}
 
 export class CommitTransactionSettings extends OperationParamsSettings {
     collectStats?: Ydb.Table.QueryStatsCollection.Mode;
 
     withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
         this.collectStats = collectStats;
+
         return this;
     }
 }
 
-export class RollbackTransactionSettings extends OperationParamsSettings {
-}
+export class RollbackTransactionSettings extends OperationParamsSettings {}
 
-export class PrepareQuerySettings extends OperationParamsSettings {
-}
+export class PrepareQuerySettings extends OperationParamsSettings {}
 
 export class ExecuteQuerySettings extends OperationParamsSettings {
-    keepInCache: boolean = false;
+    keepInCache = false;
     collectStats?: Ydb.Table.QueryStatsCollection.Mode;
     onResponseMetadata?: (metadata: grpc.Metadata) => void;
 
     withKeepInCache(keepInCache: boolean) {
         this.keepInCache = keepInCache;
+
         return this;
     }
 
     withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
         this.collectStats = collectStats;
+
         return this;
     }
 }
 
-export class BulkUpsertSettings extends OperationParamsSettings {
-}
+export class BulkUpsertSettings extends OperationParamsSettings {}
 
 export class ReadTableSettings {
     columns?: string[];
@@ -246,41 +263,49 @@ export class ReadTableSettings {
 
     withRowLimit(rowLimit: number) {
         this.rowLimit = rowLimit;
+
         return this;
     }
 
     withColumns(...columns: string[]) {
         this.columns = columns;
+
         return this;
     }
 
     withOrdered(ordered: boolean) {
         this.ordered = ordered;
+
         return this;
     }
 
     withKeyRange(keyRange: IKeyRange) {
         this.keyRange = keyRange;
+
         return this;
     }
 
     withKeyGreater(value: ITypedValue) {
         this.getOrInitKeyRange().greater = value;
+
         return this;
     }
 
     withKeyGreaterOrEqual(value: ITypedValue) {
         this.getOrInitKeyRange().greaterOrEqual = value;
+
         return this;
     }
 
     withKeyLess(value: ITypedValue) {
         this.getOrInitKeyRange().less = value;
+
         return this;
     }
 
     withKeyLessOrEqual(value: ITypedValue) {
         this.getOrInitKeyRange().lessOrEqual = value;
+
         return this;
     }
 
@@ -288,6 +313,7 @@ export class ReadTableSettings {
         if (!this.keyRange) {
             this.keyRange = {};
         }
+
         return this.keyRange;
     }
 }
@@ -298,15 +324,18 @@ export class ExecuteScanQuerySettings {
 
     withMode(mode: Ydb.Table.ExecuteScanQueryRequest.Mode) {
         this.mode = mode;
+
         return this;
     }
 
     withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
         this.collectStats = collectStats;
+
         return this;
     }
 }
 
+// eslint-disable-next-line unicorn/prefer-event-target
 export class Session extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
     private free = true;
@@ -317,7 +346,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         public endpoint: Endpoint,
         public sessionId: string,
         private logger: Logger,
-        private getResponseMetadata: (request: object) => grpc.Metadata | undefined
+        private getResponseMetadata: (request: object) => grpc.Metadata | undefined,
     ) {
         super();
     }
@@ -325,6 +354,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     acquire() {
         this.free = false;
         this.logger.debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
+
         return this;
     }
     release() {
@@ -347,17 +377,18 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @pessimizable
     public async delete(): Promise<void> {
         if (this.isDeleted()) {
-            return Promise.resolve();
+            return;
         }
         this.beingDeleted = true;
-        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
+        ensureOperationSucceeded(await this.api.deleteSession({ sessionId: this.sessionId }));
     }
 
     @retryable()
     @pessimizable
     public async keepAlive(): Promise<void> {
-        const request = {sessionId: this.sessionId};
+        const request = { sessionId: this.sessionId };
         const response = await this.api.keepAlive(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
@@ -378,6 +409,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.createTable(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
@@ -386,18 +418,20 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     public async alterTable(
         tablePath: string,
         description: AlterTableDescription,
-        settings?: AlterTableSettings
+        settings?: AlterTableSettings,
     ): Promise<void> {
         const request: Ydb.Table.IAlterTableRequest = {
             ...description,
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
 
         const response = await this.api.alterTable(request);
+
         try {
             ensureOperationSucceeded(this.processResponseMetadata(request, response));
         } catch (error) {
@@ -418,12 +452,15 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
+        // eslint-disable-next-line no-param-reassign
         settings = settings || new DropTableSettings();
         const suppressedErrors = settings?.muteNonExistingTableErrors ? [SchemeError.status] : [];
         const response = await this.api.dropTable(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response), suppressedErrors);
     }
 
@@ -445,6 +482,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
         const response = await this.api.describeTable(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return DescribeTableResult.decode(payload);
     }
 
@@ -459,6 +497,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
         const response = await this.api.describeTableOptions(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return Ydb.Table.DescribeTableOptionsResult.decode(payload);
     }
 
@@ -472,12 +511,14 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             txSettings,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.beginTransaction(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
-        const {txMeta} = BeginTransactionResult.decode(payload);
+        const { txMeta } = BeginTransactionResult.decode(payload);
+
         if (txMeta) {
             return txMeta;
         }
@@ -491,11 +532,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             txId: txControl.txId,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
             request.collectStats = settings.collectStats;
         }
         const response = await this.api.commitTransaction(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
@@ -506,10 +549,12 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             txId: txControl.txId,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.rollbackTransaction(request);
+
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
@@ -520,11 +565,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             sessionId: this.sessionId,
             yqlText: queryText,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.prepareDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return PrepareQueryResult.decode(payload);
     }
 
@@ -539,16 +586,17 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         this.logger.trace('parameters %o', params);
         let queryToExecute: IQuery;
         let keepInCache = false;
+
         if (typeof query === 'string') {
             queryToExecute = {
-                yqlText: query
+                yqlText: query,
             };
             if (settings?.keepInCache !== undefined) {
                 keepInCache = settings.keepInCache;
             }
         } else {
             queryToExecute = {
-                id: query.queryId
+                id: query.queryId,
             };
         }
         const request: Ydb.Table.IExecuteDataQueryRequest = {
@@ -557,31 +605,36 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             parameters: params,
             query: queryToExecute,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
             request.collectStats = settings.collectStats;
         }
         if (keepInCache) {
-            request.queryCachePolicy = {keepInCache};
+            request.queryCachePolicy = { keepInCache };
         }
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response, settings?.onResponseMetadata));
+
         return ExecuteQueryResult.decode(payload);
     }
 
     private processResponseMetadata(
         request: object,
         response: AsyncResponse,
-        onResponseMetadata?: (metadata: grpc.Metadata) => void
+        onResponseMetadata?: (metadata: grpc.Metadata) => void,
     ) {
         const metadata = this.getResponseMetadata(request);
+
         if (metadata) {
             const serverHints = metadata.get(ResponseMetadataKeys.ServerHints) || [];
+
             if (serverHints.includes('session-close')) {
                 this.closing = true;
             }
             onResponseMetadata?.(metadata);
         }
+
         return response;
     }
 
@@ -591,11 +644,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             table: `${this.endpoint.database}/${tablePath}`,
             rows,
         };
+
         if (settings) {
             request.operationParams = settings.operationParams;
         }
         const response = await this.api.bulkUpsert(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return BulkUpsertResult.decode(payload);
     }
 
@@ -603,11 +658,13 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     public async streamReadTable(
         tablePath: string,
         consumer: (result: Ydb.Table.ReadTableResult) => void,
-        settings?: ReadTableSettings): Promise<void> {
+        settings?: ReadTableSettings,
+    ): Promise<void> {
         const request: Ydb.Table.IReadTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
         };
+
         if (settings) {
             request.columns = settings.columns;
             request.ordered = settings.ordered;
@@ -619,7 +676,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request,
             this.api.streamReadTable.bind(this.api),
             Ydb.Table.ReadTableResult.create,
-            consumer);
+            consumer,
+        );
     }
 
     @pessimizable
@@ -627,17 +685,16 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         query: PrepareQueryResult | string,
         consumer: (result: ExecuteScanQueryPartialResult) => void,
         params: IQueryParams = {},
-        settings?: ExecuteScanQuerySettings): Promise<void> {
+        settings?: ExecuteScanQuerySettings,
+    ): Promise<void> {
         let queryToExecute: IQuery;
-        if (typeof query === 'string') {
-            queryToExecute = {
-                yqlText: query
-            };
-        } else {
-            queryToExecute = {
-                id: query.queryId
-            };
-        }
+
+        // eslint-disable-next-line prefer-const
+        queryToExecute = typeof query === 'string' ? {
+            yqlText: query,
+        } : {
+            id: query.queryId,
+        };
 
         const request: Ydb.Table.IExecuteScanQueryRequest = {
             query: queryToExecute,
@@ -653,14 +710,16 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request,
             this.api.streamExecuteScanQuery.bind(this.api),
             ExecuteScanQueryPartialResult.create,
-            consumer);
+            consumer,
+        );
     }
 
     private executeStreamRequest<Req, Resp extends PartialResponse<IRes>, IRes, Res>(
         request: Req,
-        apiStreamMethod: (request: Req, callback: (error: (Error|null), response?: Resp) => void) => void,
+        apiStreamMethod: (request: Req, callback: (error: (Error | null), response?: Resp) => void) => void,
         transformer: (result: IRes) => Res,
-        consumer: (result: Res) => void)
+        consumer: (result: Res) => void,
+    )
         : Promise<void> {
         return new Promise((resolve, reject) => {
             apiStreamMethod(request, (error, response) => {
@@ -676,18 +735,21 @@ export class Session extends EventEmitter implements ICreateSessionResult {
                             status: response.status,
                             issues: response.issues,
                         } as Ydb.Operations.IOperation;
+
                         YdbError.checkStatus(operation);
 
                         if (!response.result) {
                             reject(new MissingValue('Missing result value!'));
+
                             return;
                         }
 
                         const result = transformer(response.result);
+
                         consumer(result);
                     }
-                } catch (e) {
-                    reject(e);
+                } catch (error_) {
+                    reject(error_);
                 }
             });
         });
@@ -697,10 +759,11 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         const request: Ydb.Table.IExplainDataQueryRequest = {
             sessionId: this.sessionId,
             yqlText: query,
-            operationParams
+            operationParams,
         };
         const response = await this.api.explainDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
+
         return ExplainQueryResult.decode(payload);
     }
 }
@@ -717,6 +780,7 @@ interface ITableClientSettings {
     logger: Logger;
 }
 
+// eslint-disable-next-line unicorn/prefer-event-target
 export class SessionPool extends EventEmitter {
     private readonly database: string;
     private readonly authService: IAuthService;
@@ -743,7 +807,8 @@ export class SessionPool extends EventEmitter {
         this.sslCredentials = settings.sslCredentials;
         this.clientOptions = settings.clientOptions;
         this.logger = settings.logger;
-        const poolSettings = settings.poolSettings;
+        const { poolSettings, discoveryService } = settings;
+
         this.minLimit = poolSettings?.minLimit || SessionPool.SESSION_MIN_LIMIT;
         this.maxLimit = poolSettings?.maxLimit || SessionPool.SESSION_MAX_LIMIT;
         this.sessions = new Set();
@@ -751,7 +816,7 @@ export class SessionPool extends EventEmitter {
         this.sessionsBeingDeleted = 0;
         this.sessionKeepAliveId = this.initListeners(poolSettings?.keepAlivePeriod || SESSION_KEEPALIVE_PERIOD);
         this.sessionCreators = new Map();
-        this.discoveryService = settings.discoveryService;
+        this.discoveryService = discoveryService;
         this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
             this.sessionCreators.delete(endpoint);
         });
@@ -767,54 +832,62 @@ export class SessionPool extends EventEmitter {
 
     private initListeners(keepAlivePeriod: number) {
         return setInterval(async () => Promise.all(
-            _.map([...this.sessions], (session: Session) => {
-                return session.keepAlive()
-                    // delete session if error
-                    .catch(() => this.deleteSession(session))
-                    // ignore errors to avoid UnhandledPromiseRejectionWarning
-                    .catch(() => Promise.resolve())
-            })
+            _.map([...this.sessions], (session: Session) => session.keepAlive()
+            // delete session if error
+                .catch(() => this.deleteSession(session))
+            // ignore errors to avoid UnhandledPromiseRejectionWarning
+                .catch(() => {})),
         ), keepAlivePeriod);
     }
 
     private prepopulateSessions() {
+        // eslint-disable-next-line unicorn/no-array-for-each
         _.forEach(_.range(this.minLimit), () => this.createSession());
     }
 
     private async getSessionCreator(): Promise<SessionService> {
         const endpoint = await this.discoveryService.getEndpoint();
+
         if (!this.sessionCreators.has(endpoint)) {
+            // eslint-disable-next-line max-len
             const sessionService = new SessionService(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
+
             this.sessionCreators.set(endpoint, sessionService);
         }
+
         return this.sessionCreators.get(endpoint) as SessionService;
     }
 
     private maybeUseSession(session: Session) {
         if (this.waiters.length > 0) {
             const waiter = this.waiters.shift();
-            if (typeof waiter === "function") {
+
+            if (typeof waiter === 'function') {
                 waiter(session);
+
                 return true;
             }
         }
+
         return false;
     }
 
     private async createSession(): Promise<Session> {
         const sessionCreator = await this.getSessionCreator();
         const session = await sessionCreator.create();
+
         session.on(SessionEvent.SESSION_RELEASE, async () => {
             if (session.isClosing()) {
                 await this.deleteSession(session);
             } else {
                 this.maybeUseSession(session);
             }
-        })
+        });
         session.on(SessionEvent.SESSION_BROKEN, async () => {
             await this.deleteSession(session);
         });
         this.sessions.add(session);
+
         return session;
     }
 
@@ -826,12 +899,14 @@ export class SessionPool extends EventEmitter {
         this.sessionsBeingDeleted++;
         // acquire new session as soon one of existing ones is deleted
         if (this.waiters.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
             this.acquire().then((session) => {
                 if (!this.maybeUseSession(session)) {
                     session.release();
                 }
             });
         }
+
         return session.delete()
             // delete session in any case
             .finally(() => {
@@ -840,7 +915,7 @@ export class SessionPool extends EventEmitter {
             });
     }
 
-    private acquire(timeout: number = 0): Promise<Session> {
+    private acquire(timeout = 0): Promise<Session> {
         for (const session of this.sessions) {
             if (session.isFree()) {
                 return Promise.resolve(session.acquire());
@@ -849,46 +924,51 @@ export class SessionPool extends EventEmitter {
 
         if (this.sessions.size + this.newSessionsRequested - this.sessionsBeingDeleted <= this.maxLimit) {
             this.newSessionsRequested++;
+
             return this.createSession()
-                .then((session) => {
-                    return session.acquire();
-                })
+                .then((session) => session.acquire())
                 .finally(() => {
                     this.newSessionsRequested--;
                 });
-        } else {
-            return new Promise((resolve, reject) => {
-                let timeoutId: NodeJS.Timeout;
-                function waiter(session: Session) {
-                    clearTimeout(timeoutId);
-                    resolve(session.acquire());
-                }
-                if (timeout) {
-                    timeoutId = setTimeout(() => {
-                        this.waiters.splice(this.waiters.indexOf(waiter), 1);
-                        reject(
-                            new SessionPoolEmpty(`No session became available within timeout of ${timeout} ms`)
-                        );
-                    }, timeout);
-                }
-                this.waiters.push(waiter);
-            });
         }
+
+        return new Promise((resolve, reject) => {
+            let timeoutId: NodeJS.Timeout;
+
+            const waiter = (session: Session) => {
+                clearTimeout(timeoutId);
+                resolve(session.acquire());
+            };
+
+            if (timeout) {
+                timeoutId = setTimeout(() => {
+                    this.waiters.splice(this.waiters.indexOf(waiter), 1);
+                    reject(
+                        new SessionPoolEmpty(`No session became available within timeout of ${timeout} ms`),
+                    );
+                }, timeout);
+            }
+            this.waiters.push(waiter);
+        });
     }
 
     private async _withSession<T>(session: Session, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
         try {
             const result = await callback(session);
+
             session.release();
+
             return result;
         } catch (error) {
             if (error instanceof BadSession || error instanceof SessionBusy) {
                 this.logger.debug('Encountered bad or busy session, re-creating the session');
                 session.emit(SessionEvent.SESSION_BROKEN);
+                // eslint-disable-next-line no-param-reassign
                 session = await this.createSession();
                 if (maxRetries > 0) {
                     this.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
                     session.acquire();
+
                     return this._withSession(session, callback, maxRetries - 1);
                 }
             } else {
@@ -898,17 +978,20 @@ export class SessionPool extends EventEmitter {
         }
     }
 
-    public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
+    public async withSession<T>(callback: SessionCallback<T>, timeout = 0): Promise<T> {
         const session = await this.acquire(timeout);
+
         return this._withSession(session, callback);
     }
 
-    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
+    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout = 0, maxRetries = 10): Promise<T> {
         const session = await this.acquire(timeout);
+
         return this._withSession(session, callback, maxRetries);
     }
 }
 
+// eslint-disable-next-line unicorn/prefer-event-target
 export class TableClient extends EventEmitter {
     private pool: SessionPool;
 
@@ -917,11 +1000,11 @@ export class TableClient extends EventEmitter {
         this.pool = new SessionPool(settings);
     }
 
-    public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
+    public async withSession<T>(callback: (session: Session) => Promise<T>, timeout = 0): Promise<T> {
         return this.pool.withSession(callback, timeout);
     }
 
-    public async withSessionRetry<T>(callback: (session: Session) => Promise<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
+    public async withSessionRetry<T>(callback: (session: Session) => Promise<T>, timeout = 0, maxRetries = 10): Promise<T> {
         return this.pool.withSessionRetry(callback, timeout, maxRetries);
     }
 
@@ -947,26 +1030,31 @@ export class ColumnFamilyPolicy implements Ydb.Table.IColumnFamilyPolicy {
 
     withName(name: string) {
         this.name = name;
+
         return this;
     }
 
     withData(data: StorageSettings) {
         this.data = data;
+
         return this;
     }
 
     withExternal(external: StorageSettings) {
         this.external = external;
+
         return this;
     }
 
     withKeepInMemory(keepInMemory: FeatureFlag) {
         this.keepInMemory = keepInMemory;
+
         return this;
     }
 
     withCompression(compression: Compression) {
         this.compression = compression;
+
         return this;
     }
 }
@@ -982,31 +1070,37 @@ export class StoragePolicy implements Ydb.Table.IStoragePolicy {
 
     withPresetName(presetName: string) {
         this.presetName = presetName;
+
         return this;
     }
 
     withSyslog(syslog: StorageSettings) {
         this.syslog = syslog;
+
         return this;
     }
 
     withLog(log: StorageSettings) {
         this.log = log;
+
         return this;
     }
 
     withData(data: StorageSettings) {
         this.data = data;
+
         return this;
     }
 
     withExternal(external: StorageSettings) {
         this.external = external;
+
         return this;
     }
 
     withKeepInMemory(keepInMemory: FeatureFlag) {
         this.keepInMemory = keepInMemory;
+
         return this;
     }
 
@@ -1014,6 +1108,7 @@ export class StoragePolicy implements Ydb.Table.IStoragePolicy {
         for (const policy of columnFamilies) {
             this.columnFamilies.push(policy);
         }
+
         return this;
     }
 }
@@ -1030,21 +1125,25 @@ export class PartitioningPolicy implements Ydb.Table.IPartitioningPolicy {
 
     withPresetName(presetName: string) {
         this.presetName = presetName;
+
         return this;
     }
 
     withUniformPartitions(uniformPartitions: number) {
         this.uniformPartitions = uniformPartitions;
+
         return this;
     }
 
     withAutoPartitioning(autoPartitioning: AutoPartitioningPolicy) {
         this.autoPartitioning = autoPartitioning;
+
         return this;
     }
 
     withExplicitPartitions(explicitPartitions: ExplicitPartitions) {
         this.explicitPartitions = explicitPartitions;
+
         return this;
     }
 }
@@ -1057,21 +1156,25 @@ export class ReplicationPolicy implements Ydb.Table.IReplicationPolicy {
 
     withPresetName(presetName: string) {
         this.presetName = presetName;
+
         return this;
     }
 
     withReplicasCount(replicasCount: number) {
         this.replicasCount = replicasCount;
+
         return this;
     }
 
     withCreatePerAvailabilityZone(createPerAvailabilityZone: FeatureFlag) {
         this.createPerAvailabilityZone = createPerAvailabilityZone;
+
         return this;
     }
 
     withAllowPromotion(allowPromotion: FeatureFlag) {
         this.allowPromotion = allowPromotion;
+
         return this;
     }
 }
@@ -1099,36 +1202,43 @@ export class TableProfile implements Ydb.Table.ITableProfile {
 
     withPresetName(presetName: string) {
         this.presetName = presetName;
+
         return this;
     }
 
     withStoragePolicy(storagePolicy: StoragePolicy) {
         this.storagePolicy = storagePolicy;
+
         return this;
     }
 
     withCompactionPolicy(compactionPolicy: CompactionPolicy) {
         this.compactionPolicy = compactionPolicy;
+
         return this;
     }
 
     withPartitioningPolicy(partitioningPolicy: PartitioningPolicy) {
         this.partitioningPolicy = partitioningPolicy;
+
         return this;
     }
 
     withExecutionPolicy(executionPolicy: ExecutionPolicy) {
         this.executionPolicy = executionPolicy;
+
         return this;
     }
 
     withReplicationPolicy(replicationPolicy: ReplicationPolicy) {
         this.replicationPolicy = replicationPolicy;
+
         return this;
     }
 
     withCachingPolicy(cachingPolicy: CachingPolicy) {
         this.cachingPolicy = cachingPolicy;
+
         return this;
     }
 }
@@ -1136,39 +1246,41 @@ export class TableProfile implements Ydb.Table.ITableProfile {
 export class TableIndex implements Ydb.Table.ITableIndex {
     public indexColumns: string[] = [];
     public dataColumns: string[] | null = null;
-    public globalIndex: Ydb.Table.IGlobalIndex|null = null;
-    public globalAsyncIndex: Ydb.Table.IGlobalAsyncIndex|null = null;
+    public globalIndex: Ydb.Table.IGlobalIndex | null = null;
+    public globalAsyncIndex: Ydb.Table.IGlobalAsyncIndex | null = null;
 
     constructor(public name: string) {}
 
     withIndexColumns(...indexColumns: string[]) {
         this.indexColumns.push(...indexColumns);
+
         return this;
     }
 
     /** Adds [covering index](https://ydb.tech/en/docs/concepts/secondary_indexes#covering) over columns */
     withDataColumns(...dataColumns: string[]) {
-        if(!this.dataColumns) this.dataColumns = []
-        this.dataColumns?.push(...dataColumns)
-        return this
+        if (!this.dataColumns) this.dataColumns = [];
+        this.dataColumns?.push(...dataColumns);
+
+        return this;
     }
 
     withGlobalAsync(isAsync: boolean) {
-        if(isAsync) {
-            this.globalAsyncIndex = new Ydb.Table.GlobalAsyncIndex()
-            this.globalIndex = null
+        if (isAsync) {
+            this.globalAsyncIndex = new Ydb.Table.GlobalAsyncIndex();
+            this.globalIndex = null;
+        } else {
+            this.globalAsyncIndex = null;
+            this.globalIndex = new Ydb.Table.GlobalIndex();
         }
-        else {
-            this.globalAsyncIndex = null
-            this.globalIndex = new Ydb.Table.GlobalIndex()
-        }
-        return this
+
+        return this;
     }
 }
 
 export class TtlSettings implements Ydb.Table.ITtlSettings {
     public dateTypeColumn?: Ydb.Table.IDateTypeColumnModeSettings | null;
-    constructor(columnName: string, expireAfterSeconds: number = 0) {
+    constructor(columnName: string, expireAfterSeconds = 0) {
         this.dateTypeColumn = { columnName, expireAfterSeconds };
     }
 }
@@ -1181,7 +1293,7 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
     public partitioningSettings?: Ydb.Table.IPartitioningSettings;
     public uniformPartitions?: number;
     public columnFamilies?: Ydb.Table.IColumnFamily[];
-    public attributes?: {[k: string]: string};
+    public attributes?: { [k: string]: string };
     public compactionPolicy?: 'default' | 'small_table' | 'log_table';
     public keyBloomFilter?: FeatureFlag;
     public partitionAtKeys?: Ydb.Table.IExplicitPartitions;
@@ -1194,6 +1306,7 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
 
     withColumn(column: Column) {
         this.columns.push(column);
+
         return this;
     }
 
@@ -1201,11 +1314,13 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
         for (const column of columns) {
             this.columns.push(column);
         }
+
         return this;
     }
 
     withPrimaryKey(key: string) {
         this.primaryKey.push(key);
+
         return this;
     }
 
@@ -1213,17 +1328,20 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
         for (const key of keys) {
             this.primaryKey.push(key);
         }
+
         return this;
     }
 
     /** @deprecated use TableDescription options instead */
     withProfile(profile: TableProfile) {
         this.profile = profile;
+
         return this;
     }
 
     withIndex(index: TableIndex) {
         this.indexes.push(index);
+
         return this;
     }
 
@@ -1231,11 +1349,13 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
         for (const index of indexes) {
             this.indexes.push(index);
         }
+
         return this;
     }
 
-    withTtl(columnName: string, expireAfterSeconds: number = 0) {
+    withTtl(columnName: string, expireAfterSeconds = 0) {
         this.ttlSettings = new TtlSettings(columnName, expireAfterSeconds);
+
         return this;
     }
 
@@ -1249,7 +1369,7 @@ export class AlterTableDescription {
     public dropColumns: string[] = [];
     public alterColumns: Column[] = [];
     public setTtlSettings?: TtlSettings;
-    public dropTtlSettings?: {};
+    public dropTtlSettings?: object;
     public addIndexes: TableIndex[] = [];
     public dropIndexes: string[] = [];
     public alterStorageSettings?: Ydb.Table.IStorageSettings;
@@ -1264,30 +1384,36 @@ export class AlterTableDescription {
     public dropChangefeeds?: string[];
     public renameIndexes?: Ydb.Table.IRenameIndexItem[];
 
+    // eslint-disable-next-line @typescript-eslint/no-useless-constructor,@typescript-eslint/no-empty-function
     constructor() {}
 
     withAddColumn(column: Column) {
         this.addColumns.push(column);
+
         return this;
     }
 
     withDropColumn(columnName: string) {
         this.dropColumns.push(columnName);
+
         return this;
     }
 
     withAlterColumn(column: Column) {
         this.alterColumns.push(column);
+
         return this;
     }
 
-    withSetTtl(columnName: string, expireAfterSeconds: number = 0) {
+    withSetTtl(columnName: string, expireAfterSeconds = 0) {
         this.setTtlSettings = new TtlSettings(columnName, expireAfterSeconds);
+
         return this;
     }
 
     withDropTtl() {
         this.dropTtlSettings = {};
+
         return this;
     }
 }

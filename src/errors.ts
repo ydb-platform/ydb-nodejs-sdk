@@ -1,11 +1,12 @@
-import {StatusObject as GrpcStatusObject} from '@grpc/grpc-js';
-import {Ydb} from 'ydb-sdk-proto';
+// eslint-disable-next-line max-classes-per-file
+import { StatusObject as GrpcStatusObject } from '@grpc/grpc-js';
+import { Status as GrpcStatus } from '@grpc/grpc-js/build/src/constants';
+import { Ydb } from 'ydb-sdk-proto';
 import ApiStatusCode = Ydb.StatusIds.StatusCode;
 import IOperation = Ydb.Operations.IOperation;
-import {Status as GrpcStatus} from '@grpc/grpc-js/build/src/constants';
 
-const TRANSPORT_STATUSES_FIRST = 401000;
-const CLIENT_STATUSES_FIRST = 402000;
+const TRANSPORT_STATUSES_FIRST = 401_000;
+const CLIENT_STATUSES_FIRST = 402_000;
 
 export enum StatusCode {
     STATUS_CODE_UNSPECIFIED = ApiStatusCode.STATUS_CODE_UNSPECIFIED,
@@ -47,17 +48,21 @@ export class YdbError extends Error {
 
     static checkStatus(operation: IOperation) {
         if (!operation.status) {
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             throw new MissingStatus('Missing status!');
         }
         const status = operation.status as unknown as StatusCode;
+
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
         if (operation.status && !SUCCESS_CODES.has(status)) {
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             const ErrCls = SERVER_SIDE_ERROR_CODES.get(status);
 
-            if (!ErrCls) {
-                throw new Error(`Unexpected status code ${status}!`);
-            } else {
-                throw new ErrCls(`${ErrCls.name} (code ${status}): ${YdbError.formatIssues(operation.issues)}`, operation.issues);
-            }
+            const error = ErrCls
+                ? new ErrCls(`${ErrCls.name} (code ${status}): ${YdbError.formatIssues(operation.issues)}`, operation.issues)
+                : new Error(`Unexpected status code ${status}!`);
+
+            throw error;
         }
     }
 
@@ -70,90 +75,89 @@ export class YdbError extends Error {
     }
 }
 
-
 export class Unauthenticated extends YdbError {
-    static status = StatusCode.UNAUTHENTICATED
+    static status = StatusCode.UNAUTHENTICATED;
 }
 
 export class SessionPoolEmpty extends YdbError {
-    static status = StatusCode.SESSION_POOL_EMPTY
+    static status = StatusCode.SESSION_POOL_EMPTY;
 }
 
 export class BadRequest extends YdbError {
-    static status = StatusCode.BAD_REQUEST
+    static status = StatusCode.BAD_REQUEST;
 }
 
 export class Unauthorized extends YdbError {
-    static status = StatusCode.UNAUTHORIZED
+    static status = StatusCode.UNAUTHORIZED;
 }
 
 export class InternalError extends YdbError {
-    static status = StatusCode.INTERNAL_ERROR
+    static status = StatusCode.INTERNAL_ERROR;
 }
 
 export class Aborted extends YdbError {
-    static status = StatusCode.ABORTED
+    static status = StatusCode.ABORTED;
 }
 
 export class Unavailable extends YdbError {
-    static status = StatusCode.UNAVAILABLE
+    static status = StatusCode.UNAVAILABLE;
 }
 
 export class Overloaded extends YdbError {
-    static status = StatusCode.OVERLOADED
+    static status = StatusCode.OVERLOADED;
 }
 
 export class SchemeError extends YdbError {
-    static status = StatusCode.SCHEME_ERROR
+    static status = StatusCode.SCHEME_ERROR;
 }
 
 export class GenericError extends YdbError {
-    static status = StatusCode.GENERIC_ERROR
+    static status = StatusCode.GENERIC_ERROR;
 }
 
 export class BadSession extends YdbError {
-    static status = StatusCode.BAD_SESSION
+    static status = StatusCode.BAD_SESSION;
 }
 
 export class Timeout extends YdbError {
-    static status = StatusCode.TIMEOUT
+    static status = StatusCode.TIMEOUT;
 }
 
 export class PreconditionFailed extends YdbError {
-    static status = StatusCode.PRECONDITION_FAILED
+    static status = StatusCode.PRECONDITION_FAILED;
 }
 
 export class NotFound extends YdbError {
-    static status = StatusCode.NOT_FOUND
+    static status = StatusCode.NOT_FOUND;
 }
 
 export class AlreadyExists extends YdbError {
-    static status = StatusCode.ALREADY_EXISTS
+    static status = StatusCode.ALREADY_EXISTS;
 }
 
 export class SessionExpired extends YdbError {
-    static status = StatusCode.SESSION_EXPIRED
+    static status = StatusCode.SESSION_EXPIRED;
 }
 
 export class Cancelled extends YdbError {
-    static status = StatusCode.CANCELLED
+    static status = StatusCode.CANCELLED;
 }
 
 export class Undetermined extends YdbError {
-    static status = StatusCode.UNDETERMINED
+    static status = StatusCode.UNDETERMINED;
 }
 
 export class Unsupported extends YdbError {
-    static status = StatusCode.UNSUPPORTED
+    static status = StatusCode.UNSUPPORTED;
 }
 
 export class SessionBusy extends YdbError {
-    static status = StatusCode.SESSION_BUSY
+    static status = StatusCode.SESSION_BUSY;
 }
 
 const SUCCESS_CODES = new Set([
     StatusCode.STATUS_CODE_UNSPECIFIED,
-    StatusCode.SUCCESS
+    StatusCode.SUCCESS,
 ]);
 
 const SERVER_SIDE_ERROR_CODES = new Map([
@@ -184,19 +188,20 @@ export class TransportError extends YdbError {
     }
 
     static convertToYdbError(e: Error & GrpcStatusObject): YdbError {
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
         const ErrCls = TRANSPORT_ERROR_CODES.get(e.code);
 
-        if (!ErrCls) {
-            let errStr = `Can't convert grpc error to string`;
-            try {
-                errStr = JSON.stringify(e);
-            } catch (error) {}
-            throw new Error(`Unexpected transport error code ${e.code}! Error itself: ${errStr}`);
-        } else {
+        if (ErrCls) {
             return new ErrCls(
                 `${ErrCls.name} (code ${ErrCls.status}): ${e.name}: ${e.message}. ${e.details}`,
             );
         }
+        let errStr = 'Can\'t convert grpc error to string';
+
+        try {
+            errStr = JSON.stringify(e);
+        } catch { /* empty */ }
+        throw new Error(`Unexpected transport error code ${e.code}! Error itself: ${errStr}`);
     }
 }
 
@@ -215,7 +220,7 @@ export class ClientResourceExhausted extends TransportError {
 const TRANSPORT_ERROR_CODES = new Map([
     [GrpcStatus.UNAVAILABLE, TransportUnavailable],
     [GrpcStatus.DEADLINE_EXCEEDED, ClientDeadlineExceeded],
-    [GrpcStatus.RESOURCE_EXHAUSTED, ClientResourceExhausted]
+    [GrpcStatus.RESOURCE_EXHAUSTED, ClientResourceExhausted],
 ]);
 
 export class MissingOperation extends YdbError {}

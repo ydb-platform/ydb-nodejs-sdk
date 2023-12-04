@@ -21,7 +21,7 @@ describe('Alter table', () => {
         TABLE_NAME = getTableName();
     });
 
-    afterAll(async () => await destroyDriver(driver));
+    afterAll(async () => destroyDriver(driver));
 
     it('Create table', async () => {
         await driver.tableClient.withSession(async (session) => {
@@ -30,7 +30,7 @@ describe('Alter table', () => {
                 new TableDescription()
                     .withColumn(new Column('id', Types.optional(Types.UINT64)))
                     .withColumn(new Column('title', Types.optional(Types.UTF8)))
-                    .withPrimaryKey('id')
+                    .withPrimaryKey('id'),
             );
 
             const createdTableDescription = await session.describeTable(TABLE_NAME);
@@ -40,7 +40,7 @@ describe('Alter table', () => {
                 JSON.stringify([
                     { name: 'id', type: { optionalType: { item: { typeId: 'UINT64' } } } },
                     { name: 'title', type: { optionalType: { item: { typeId: 'UTF8' } } } },
-                ])
+                ]),
             );
         });
     });
@@ -48,6 +48,7 @@ describe('Alter table', () => {
     it('Alter table - add columns', async () => {
         await driver.tableClient.withSession(async (session) => {
             const alterTableDescription = new AlterTableDescription();
+
             alterTableDescription.addColumns = [
                 new Column('testBool', Types.optional(Types.BOOL)),
                 new Column('testDate', Types.optional(Types.DATE)),
@@ -62,7 +63,7 @@ describe('Alter table', () => {
                     { name: 'title', type: { optionalType: { item: { typeId: 'UTF8' } } } },
                     { name: 'testBool', type: { optionalType: { item: { typeId: 'BOOL' } } } },
                     { name: 'testDate', type: { optionalType: { item: { typeId: 'DATE' } } } },
-                ])
+                ]),
             );
         });
     });
@@ -75,12 +76,13 @@ describe('Alter table', () => {
                 .withIndexColumns('testDate', 'title')
                 .withDataColumns('testBool')
                 .withGlobalAsync(false);
+
             alterTableDescription.addIndexes = [idxOverTestBool];
 
             await session.alterTable(
                 TABLE_NAME,
                 alterTableDescription,
-                new AlterTableSettings().withOperationParams(new OperationParams().withSyncMode())
+                new AlterTableSettings().withOperationParams(new OperationParams().withSyncMode()),
             );
             const alteredTableDescription = await session.describeTable(TABLE_NAME);
 
@@ -93,7 +95,7 @@ describe('Alter table', () => {
                         status: 'STATUS_READY',
                         dataColumns: ['testBool'],
                     },
-                ])
+                ]),
             );
         });
     });
@@ -107,7 +109,7 @@ describe('Alter table', () => {
             await session.alterTable(
                 TABLE_NAME,
                 alterTableDescription,
-                new AlterTableSettings().withOperationParams(new OperationParams().withSyncMode())
+                new AlterTableSettings().withOperationParams(new OperationParams().withSyncMode()),
             );
             const alteredTableDescription = await session.describeTable(TABLE_NAME);
 
@@ -123,6 +125,7 @@ describe('Alter table', () => {
                 .withIndexColumns('testDate', 'title')
                 .withDataColumns('testBool')
                 .withGlobalAsync(false);
+
             alterTableDescription.addIndexes = [idxOverTestBool];
 
             await session.alterTable(TABLE_NAME, alterTableDescription);
@@ -138,7 +141,7 @@ describe('Alter table', () => {
                         status: 'STATUS_READY',
                         dataColumns: ['testBool'],
                     },
-                ])
+                ]),
             );
         });
     });

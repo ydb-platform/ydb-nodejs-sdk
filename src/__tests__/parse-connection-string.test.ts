@@ -1,4 +1,4 @@
-import {parseConnectionString} from '../parse-connection-string';
+import { parseConnectionString } from '../parse-connection-string';
 
 describe('Parse connection string', () => {
     it('test parseConnectionString', () => {
@@ -19,15 +19,16 @@ describe('Parse connection string', () => {
                 database: '/ru/home/service/db',
             },
             {
-                connectionString: "grpcs://ydb.serverless.yandexcloud.net:2135/?database=/ru-central1/b1g8skpblkos03malf3s/etn03nohfn502cpa0cfe",
-                endpoint: "grpcs://ydb.serverless.yandexcloud.net:2135",
-                database: "/ru-central1/b1g8skpblkos03malf3s/etn03nohfn502cpa0cfe"
-            }
+                connectionString: 'grpcs://ydb.serverless.yandexcloud.net:2135/?database=/ru-central1/b1g8skpblkos03malf3s/etn03nohfn502cpa0cfe',
+                endpoint: 'grpcs://ydb.serverless.yandexcloud.net:2135',
+                database: '/ru-central1/b1g8skpblkos03malf3s/etn03nohfn502cpa0cfe',
+            },
         ];
 
-        tests.forEach((test) => {
+        for (const test of tests) {
             const parsedString = parseConnectionString(test.connectionString);
-            expect(parsedString).toEqual({endpoint: test.endpoint, database: test.database});
-        });
+
+            expect(parsedString).toEqual({ endpoint: test.endpoint, database: test.database });
+        }
     });
 });

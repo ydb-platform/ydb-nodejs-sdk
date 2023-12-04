@@ -20,8 +20,8 @@
     "test:all": "run-p test:unit test:integration:production",
     "test": "npm run test:unit",
     "test:coverage": "jest -c config/jest.coverage.ts",
-    "lint": "eslint src config",
-    "lint:fix": "eslint src config --fix",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rimraf build",
     "prepublish": "npm run clean && npm run build && node ./fixup.js"
@@ -43,6 +43,7 @@
     "lodash": "^4.17.21",
     "long": "^4.0.0",
     "luxon": "^3.2.1",
+    "protobufjs": "^7.2.5",
     "reflect-metadata": "^0.1.13",
     "uuid": "^8.3.2",
     "ydb-sdk-proto": "^1.1.0"

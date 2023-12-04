@@ -5,22 +5,25 @@ export interface ParsedConnectionString {
     database: string;
 }
 
-export function parseConnectionString(connectionString: string): ParsedConnectionString {
+export const parseConnectionString = (connectionString: string): ParsedConnectionString => {
     let cs = connectionString;
-    if (!cs.startsWith('grpc://') && !cs.startsWith('grpcs://') ){
-        cs = 'grpcs://' + cs;
+
+    if (!cs.startsWith('grpc://') && !cs.startsWith('grpcs://')) {
+        cs = `grpcs://${cs}`;
     }
 
-    let parsedUrl = url.parse(cs, true);
-    let databaseParam = parsedUrl.query['database'];
+    const parsedUrl = url.parse(cs, true);
+    const databaseParam = parsedUrl.query.database;
 
     let database;
+
     if (databaseParam === undefined) {
         throw new Error('unknown database');
     } else if (Array.isArray(databaseParam)) {
         if (databaseParam.length === 0) {
             throw new Error('unknown database');
         }
+        // eslint-disable-next-line prefer-destructuring
         database = databaseParam[0];
     } else {
         database = databaseParam;
@@ -32,4 +35,4 @@ export function parseConnectionString(connectionString: string): ParsedConnectio
         endpoint: `${parsedUrl.protocol}//${host}`,
         database,
     };
-}
+};

@@ -1,18 +1,19 @@
+// eslint-disable-next-line max-classes-per-file
 import * as grpc from '@grpc/grpc-js';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
-import {Ydb} from 'ydb-sdk-proto';
+import { Ydb } from 'ydb-sdk-proto';
 import Long from 'long';
-import {MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, YdbError} from "./errors";
+import {
+    MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, YdbError,
+} from './errors';
 
-import {Endpoint} from './discovery';
-import {IAuthService} from './credentials';
-import {getVersionHeader} from './version';
-import {ISslCredentials} from './ssl-credentials';
+import { Endpoint } from './discovery';
+import { IAuthService } from './credentials';
+import { getVersionHeader } from './version';
+import { ISslCredentials } from './ssl-credentials';
 
-function getDatabaseHeader(database: string): [string, string] {
-    return ['x-ydb-database', database];
-}
+const getDatabaseHeader = (database: string): [string, string] => ['x-ydb-database', database];
 
 export interface Pessimizable {
     endpoint: Endpoint;
@@ -22,23 +23,26 @@ type ServiceFactory<T> = {
     create(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean): T
 };
 
-function removeProtocol(endpoint: string) {
+const removeProtocol = (endpoint: string) => {
     const re = /^(grpc:\/\/|grpcs:\/\/)?(.+)/;
     const match = re.exec(endpoint) as string[];
-    return match[2];
-}
 
-export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    return match[2];
+};
+
+export const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
     let timeoutId: NodeJS.Timeout;
+    // eslint-disable-next-line @typescript-eslint/no-shadow
     const timedRejection: Promise<never> = new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
             reject(new TimeoutExpired(`Timeout of ${timeoutMs}ms has expired`));
         }, timeoutMs);
     });
+
     return Promise.race([promise.finally(() => {
         clearTimeout(timeoutId);
     }), timedRejection]);
-}
+};
 
 export class StreamEnd extends Error {}
 
@@ -50,18 +54,22 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
     }
 
     protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
-        const client = sslCredentials ?
-            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientPrivateKey, sslCredentials.clientCertChain)) :
-            new grpc.Client(host, grpc.credentials.createInsecure());
+        const client = sslCredentials
+            // eslint-disable-next-line max-len
+            ? new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientPrivateKey, sslCredentials.clientCertChain))
+            : new grpc.Client(host, grpc.credentials.createInsecure());
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
-            if(null===method && requestData === null && callback === null) {
+            if (method === null && requestData === null && callback === null) {
                 // signal `end` from protobuf service
-                client.close()
-                return
+                client.close();
+
+                return;
             }
             const path = `/${this.name}/${method.name}`;
+
             client.makeUnaryRequest(path, _.identity, _.identity, requestData, callback);
         };
+
         return this.apiCtor.create(rpcImpl);
     }
 }
@@ -77,11 +85,11 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
 
     private readonly headers: MetadataHeaders;
 
-    static isServiceAsyncMethod(target: object, prop: string|number|symbol, receiver: any) {
+    static isServiceAsyncMethod(target: object, prop: string | number | symbol, receiver: any) {
         return (
-            Reflect.has(target, prop) &&
-            typeof Reflect.get(target, prop, receiver) === 'function' &&
-            prop !== 'create'
+            Reflect.has(target, prop)
+            && typeof Reflect.get(target, prop, receiver) === 'function'
+            && prop !== 'create'
         );
     }
 
@@ -106,15 +114,16 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);
-                    return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
-                        async (...args: any[]) => {
-                            if (!['emit', 'rpcCall', 'rpcImpl'].includes(String(prop))) {
-                                if (args.length) {
-                                    this.lastRequest = args[0];
-                                }
+
+                    return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver)
+                        ? async (...args: any[]) => {
+                            if (!['emit', 'rpcCall', 'rpcImpl'].includes(String(prop)) && args.length > 0) {
+                                // eslint-disable-next-line prefer-destructuring
+                                this.lastRequest = args[0];
                             }
 
                             this.metadata = await this.authService.getAuthMetadata();
+                            // eslint-disable-next-line @typescript-eslint/no-shadow
                             for (const [name, value] of this.headers) {
                                 if (value) {
                                     this.metadata.add(name, value);
@@ -122,19 +131,21 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
                             }
 
                             return property.call(receiver, ...args);
-                        } :
-                        property;
-                }
-            }
+                        }
+                        : property;
+                },
+            },
         );
     }
 
     protected getClient(host: string, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
-        const client = sslCredentials ?
-            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions) :
-            new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
+        const client = sslCredentials
+            // eslint-disable-next-line max-len
+            ? new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions)
+            : new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
+
             if (method.name.startsWith('Stream')) {
                 client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata)
                     .on('data', (data) => callback(null, data))
@@ -142,14 +153,17 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
                     .on('error', (error) => callback(error, null));
             } else {
                 const req = client.makeUnaryRequest(path, _.identity, _.identity, requestData, this.metadata, callback);
-                const lastRequest = this.lastRequest;
-                req.on('status', ({metadata}: grpc.StatusObject) => {
+                const { lastRequest } = this;
+
+                req.on('status', ({ metadata }: grpc.StatusObject) => {
                     if (lastRequest) {
+                        // eslint-disable-next-line unicorn/consistent-destructuring
                         this.responseMetadata.set(lastRequest, metadata);
                     }
                 });
             }
         };
+
         return this.apiCtor.create(rpcImpl);
     }
 }
@@ -158,27 +172,29 @@ export interface AsyncResponse {
     operation?: Ydb.Operations.IOperation | null
 }
 
-export function getOperationPayload(response: AsyncResponse): Uint8Array {
-    const {operation} = response;
+export const getOperationPayload = (response: AsyncResponse): Uint8Array => {
+    const { operation } = response;
 
     if (operation) {
         YdbError.checkStatus(operation);
         const value = operation?.result?.value;
+
         if (!value) {
             throw new MissingValue('Missing operation result value!');
         }
-        return value;
-    } else {
-        throw new MissingOperation('No operation in response!');
-    }
-}
 
-export function ensureOperationSucceeded(response: AsyncResponse, suppressedErrors: StatusCode[] = []): void {
+        return value;
+    }
+    throw new MissingOperation('No operation in response!');
+};
+
+export const ensureOperationSucceeded = (response: AsyncResponse, suppressedErrors: StatusCode[] = []): void => {
     try {
         getOperationPayload(response);
     } catch (error) {
         const e = error as any;
-        if (suppressedErrors.indexOf(e.constructor.status) > -1) {
+
+        if (suppressedErrors.includes(e.constructor.status)) {
             return;
         }
 
@@ -186,13 +202,15 @@ export function ensureOperationSucceeded(response: AsyncResponse, suppressedErro
             throw e;
         }
     }
-}
+};
 
 export function pessimizable(_target: Pessimizable, _propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
-    descriptor.value = async function (this: Pessimizable, ...args: any) {
+
+    // eslint-disable-next-line no-param-reassign
+    descriptor.value = function (this: Pessimizable, ...args: any) {
         try {
-            return await originalMethod.call(this, ...args);
+            return originalMethod.call(this, ...args);
         } catch (error) {
             if (!(error instanceof NotFound)) {
                 this.endpoint.pessimize();
@@ -200,16 +218,18 @@ export function pessimizable(_target: Pessimizable, _propertyKey: string, descri
             throw error;
         }
     };
+
     return descriptor;
 }
 
-export async function sleep(milliseconds: number) {
-    await new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
+export const sleep = async (milliseconds: number) => {
+    await new Promise((resolve) => { setTimeout(resolve, milliseconds); });
+};
 
-export function toLong(value: Long | number): Long {
+export const toLong = (value: Long | number): Long => {
     if (typeof value === 'number') {
         return Long.fromNumber(value);
     }
+
     return value;
-}
+};

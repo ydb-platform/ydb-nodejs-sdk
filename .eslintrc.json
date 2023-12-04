@@ -23,6 +23,7 @@
     "project": "tsconfig.eslint.json"
   },
   "rules": {
+    "unicorn/text-encoding-identifier-case": "off",
     "unicorn/no-abusive-eslint-disable": "off",
     "local-rules/context": "off",
     "@typescript-eslint/lines-between-class-members": "off",

@@ -1,20 +1,25 @@
+// eslint-disable-next-line max-classes-per-file
 import * as grpc from '@grpc/grpc-js';
 import jwt from 'jsonwebtoken';
-import {DateTime} from 'luxon';
-import {getOperationPayload, GrpcService, sleep, withTimeout} from './utils';
-import {yandex, Ydb} from 'ydb-sdk-proto';
-import {ISslCredentials, makeDefaultSslCredentials} from './ssl-credentials';
+import { DateTime } from 'luxon';
+import { yandex, Ydb } from 'ydb-sdk-proto';
+import type { MetadataTokenService } from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
+import {
+    getOperationPayload, GrpcService, sleep, withTimeout,
+} from './utils';
+import { ISslCredentials, makeDefaultSslCredentials } from './ssl-credentials';
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import AuthServiceResult = Ydb.Auth.LoginResult;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
-import type {MetadataTokenService} from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
-import {retryable} from './retries';
+import { retryable } from './retries';
 
-function makeCredentialsMetadata(token: string): grpc.Metadata {
+const makeCredentialsMetadata = (token: string): grpc.Metadata => {
     const metadata = new grpc.Metadata();
+
     metadata.add('x-ydb-auth-ticket', token);
+
     return metadata;
-}
+};
 
 export interface IIamCredentials {
     serviceAccountId: string,
@@ -37,7 +42,6 @@ export interface IAuthService {
 }
 
 export class AnonymousAuthService implements IAuthService {
-    constructor() {}
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         return new grpc.Metadata();
     }
@@ -46,7 +50,7 @@ export class AnonymousAuthService implements IAuthService {
 interface StaticCredentialsAuthOptions {
     /** Custom ssl sertificates. If you use it in driver, you must use it here too */
     sslCredentials?: ISslCredentials;
-    /** 
+    /**
      * Timeout for token request in milliseconds
      * @default 10 * 1000
      */
@@ -76,7 +80,7 @@ export class StaticCredentialsAuthService implements IAuthService {
     private readonly tokenRequestTimeout = 10 * 1000;
     private readonly tokenExpirationTimeout = 6 * 60 * 60 * 1000;
     private tokenTimestamp: DateTime | null;
-    private token: string = '';
+    private token = '';
     private tokenUpdatePromise: Promise<any> | null = null;
     private user: string;
     private password: string;
@@ -87,7 +91,7 @@ export class StaticCredentialsAuthService implements IAuthService {
         user: string,
         password: string,
         endpoint: string,
-        options?: StaticCredentialsAuthOptions
+        options?: StaticCredentialsAuthOptions,
     ) {
         this.tokenTimestamp = null;
         this.user = user;
@@ -105,7 +109,7 @@ export class StaticCredentialsAuthService implements IAuthService {
     }
 
     private async sendTokenRequest(): Promise<AuthServiceResult> {
-        let runtimeAuthService = new StaticCredentialsGrpcService(
+        const runtimeAuthService = new StaticCredentialsGrpcService(
             this.endpoint,
             this.sslCredentials,
         );
@@ -115,12 +119,15 @@ export class StaticCredentialsAuthService implements IAuthService {
         });
         const response = await withTimeout(tokenPromise, this.tokenRequestTimeout);
         const result = AuthServiceResult.decode(getOperationPayload(response));
+
         runtimeAuthService.destroy();
+
         return result;
     }
 
     private async updateToken() {
         const { token } = await this.sendTokenRequest();
+
         if (token) {
             this.token = token;
             this.tokenTimestamp = DateTime.utc();
@@ -137,6 +144,7 @@ export class StaticCredentialsAuthService implements IAuthService {
             await this.tokenUpdatePromise;
             this.tokenUpdatePromise = null;
         }
+
         return makeCredentialsMetadata(this.token);
     }
 }
@@ -173,31 +181,32 @@ export class IamAuthService implements IAuthService {
     private jwtExpirationTimeout = 3600 * 1000;
     private tokenExpirationTimeout = 120 * 1000;
     private tokenRequestTimeout = 10 * 1000;
-    private token: string = '';
+    private token = '';
     private tokenTimestamp: DateTime | null;
-    private tokenUpdateInProgress: Boolean = false;
+    private tokenUpdateInProgress = false;
     private readonly iamCredentials: IIamCredentials;
     private readonly sslCredentials: ISslCredentials;
 
     constructor(iamCredentials: IIamCredentials, sslCredentials?: ISslCredentials) {
         this.iamCredentials = iamCredentials;
-        this.sslCredentials = sslCredentials || makeDefaultSslCredentials()
+        this.sslCredentials = sslCredentials || makeDefaultSslCredentials();
         this.tokenTimestamp = null;
     }
 
     getJwtRequest() {
         const now = DateTime.utc();
-        const expires = now.plus({milliseconds: this.jwtExpirationTimeout});
+        const expires = now.plus({ milliseconds: this.jwtExpirationTimeout });
         const payload = {
-            "iss": this.iamCredentials.serviceAccountId,
-            "aud": "https://iam.api.cloud.yandex.net/iam/v1/tokens",
-            "iat": Math.round(now.toSeconds()),
-            "exp": Math.round(expires.toSeconds())
+            iss: this.iamCredentials.serviceAccountId,
+            aud: 'https://iam.api.cloud.yandex.net/iam/v1/tokens',
+            iat: Math.round(now.toSeconds()),
+            exp: Math.round(expires.toSeconds()),
         };
         const options: jwt.SignOptions = {
-            algorithm: "PS256",
-            keyid: this.iamCredentials.accessKeyId
+            algorithm: 'PS256',
+            keyid: this.iamCredentials.accessKeyId,
         };
+
         return jwt.sign(payload, this.iamCredentials.privateKey, options);
     }
 
@@ -208,43 +217,46 @@ export class IamAuthService implements IAuthService {
     }
 
     private async sendTokenRequest(): Promise<ICreateIamTokenResponse> {
-        let runtimeIamAuthService = new IamTokenGrpcService(
+        const runtimeIamAuthService = new IamTokenGrpcService(
             this.iamCredentials,
             this.sslCredentials,
         );
-        const tokenPromise = runtimeIamAuthService.create({jwt: this.getJwtRequest()});
+        const tokenPromise = runtimeIamAuthService.create({ jwt: this.getJwtRequest() });
         const result = await withTimeout<ICreateIamTokenResponse>(
             tokenPromise,
             this.tokenRequestTimeout,
         );
+
         runtimeIamAuthService.destroy();
+
         return result;
     }
 
     private async updateToken() {
-        this.tokenUpdateInProgress = true
-        const {iamToken} = await this.sendTokenRequest();
+        this.tokenUpdateInProgress = true;
+        const { iamToken } = await this.sendTokenRequest();
+
         if (iamToken) {
             this.token = iamToken;
             this.tokenTimestamp = DateTime.utc();
-            this.tokenUpdateInProgress = false
+            this.tokenUpdateInProgress = false;
         } else {
-            this.tokenUpdateInProgress = false
+            this.tokenUpdateInProgress = false;
             throw new Error('Received empty token from IAM!');
         }
     }
 
     private async waitUntilTokenUpdated() {
-        while (this.tokenUpdateInProgress) { await sleep(1) }
-        return
+        // eslint-disable-next-line no-await-in-loop
+        while (this.tokenUpdateInProgress) { await sleep(1); }
     }
 
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         if (this.expired) {
             // block updateToken calls while token updating
-            if(this.tokenUpdateInProgress) await this.waitUntilTokenUpdated()
-            else await this.updateToken();
+            await (this.tokenUpdateInProgress ? this.waitUntilTokenUpdated() : this.updateToken());
         }
+
         return makeCredentialsMetadata(this.token);
     }
 }
@@ -263,9 +275,10 @@ export class MetadataAuthService implements IAuthService {
      */
     private async createMetadata(): Promise<void> {
         if (!this.tokenService) {
-            const {MetadataTokenService} = await import(
+            const { MetadataTokenService } = await import(
                 '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service'
             );
+
             this.MetadataTokenServiceClass = MetadataTokenService;
             this.tokenService = new MetadataTokenService();
         }
@@ -274,14 +287,15 @@ export class MetadataAuthService implements IAuthService {
     public async getAuthMetadata(): Promise<grpc.Metadata> {
         await this.createMetadata();
         if (
-            this.MetadataTokenServiceClass &&
-            this.tokenService instanceof this.MetadataTokenServiceClass
+            this.MetadataTokenServiceClass
+            && this.tokenService instanceof this.MetadataTokenServiceClass
         ) {
             const token = await this.tokenService.getToken();
+
             return makeCredentialsMetadata(token);
-        } else {
-            return this.getAuthMetadataCompat();
         }
+
+        return this.getAuthMetadataCompat();
     }
 
     // Compatibility method for working with TokenService defined in yandex-cloud@1.x
@@ -289,12 +303,15 @@ export class MetadataAuthService implements IAuthService {
         const MAX_TRIES = 5;
         const tokenService = this.tokenService as ITokenServiceCompat;
         let token = tokenService.getToken();
+
         if (!token && typeof tokenService.initialize === 'function') {
             await tokenService.initialize();
             token = tokenService.getToken();
         }
         let tries = 0;
+
         while (!token && tries < MAX_TRIES) {
+            // eslint-disable-next-line no-await-in-loop
             await sleep(2000);
             tries++;
             token = tokenService.getToken();

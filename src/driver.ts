@@ -1,14 +1,13 @@
 import DiscoveryService from './discovery';
-import {TableClient} from './table';
-import SchemeService from './scheme';
-import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
-import {IAuthService} from './credentials';
-import {TimeoutExpired} from './errors';
-import {getLogger, Logger} from './logging';
+import { TableClient } from './table';
+import { ENDPOINT_DISCOVERY_PERIOD } from './constants';
+import { IAuthService } from './credentials';
+import { TimeoutExpired } from './errors';
+import { getLogger, Logger } from './logging';
+import { ClientOptions } from './utils';
+import { parseConnectionString } from './parse-connection-string';
+import { makeSslCredentials, ISslCredentials } from './ssl-credentials';
 import SchemeClient from './scheme';
-import {ClientOptions} from './utils';
-import {parseConnectionString} from './parse-connection-string';
-import {makeSslCredentials, ISslCredentials} from './ssl-credentials';
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -38,22 +37,23 @@ export default class Driver {
     private discoveryService: DiscoveryService;
 
     public tableClient: TableClient;
-    public schemeClient: SchemeService;
+    public schemeClient: SchemeClient;
 
     constructor(settings: IDriverSettings) {
         this.logger = settings.logger || getLogger();
 
         if (settings.connectionString) {
-            const {endpoint, database} = parseConnectionString(settings.connectionString);
+            const { endpoint, database } = parseConnectionString(settings.connectionString);
+
             this.endpoint = endpoint;
             this.database = database;
         } else if (!settings.endpoint) {
             throw new Error('The "endpoint" is a required field in driver settings');
-        } else if (!settings.database) {
-            throw new Error('The "database" is a required field in driver settings');
-        } else {
+        } else if (settings.database) {
             this.endpoint = settings.endpoint;
             this.database = settings.database;
+        } else {
+            throw new Error('The "database" is a required field in driver settings');
         }
 
         this.sslCredentials = makeSslCredentials(this.endpoint, this.logger, settings.sslCredentials);
@@ -93,13 +93,13 @@ export default class Driver {
         try {
             await this.discoveryService.ready(timeout);
             this.logger.debug('Driver is ready!');
+
             return true;
-        } catch (e) {
-            if (e instanceof TimeoutExpired) {
+        } catch (error) {
+            if (error instanceof TimeoutExpired) {
                 return false;
-            } else {
-                throw e;
             }
+            throw error;
         }
     }
 
