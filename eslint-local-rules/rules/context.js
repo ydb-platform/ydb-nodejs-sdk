@@ -57,7 +57,7 @@ module.exports = {
         let state = {
             type: 'root', // class, ctxDo, call
             ignore: IGNORE_GLOBALS,
-            methodName: null,
+            traceName: null,
         };
 
         let rootFuncState;
@@ -70,9 +70,9 @@ module.exports = {
             state = {
                 ...opts,
                 type,
-                methodName: state.methodName === null
+                methodName: state.traceName === null
                     ? `${TRACKING_PREFIX}${folderPrefix.length > 0 ? `${folderPrefix}.` : ''}${name}`
-                    : `${state.methodName}${TRACKING_DELIMITER}${name}`,
+                    : `${state.traceName}${TRACKING_DELIMITER}${name}`,
                 prevIgnore: state.ignore || state.prevIgnore,
                 // hasCtx: false, // true - at least one line with ctx.do...
                 // ctxNode: undefined, // line with CONTEXT_CLASS.get or CONTEXT_CLASS.safeGet
@@ -92,8 +92,6 @@ module.exports = {
             if (state.hasCtx) anyContextInFile = true;
             state = stack.pop();
         }
-
-        const isDecorator = (node) => context.getCommentsBefore(node).indexOf('@decorator');
 
         let anonymouseIndex = 0;
 
@@ -194,14 +192,27 @@ module.exports = {
             // classes
             'ArrowFunctionExpression'(node) {
                 debug('ArrowFunctionExpression');
+
+                // check, is it @decorator
+                const decorator = (() => {
+                    if (node.parent.type === 'VariableDeclarator') {
+                        const comments = context.sourceCode.getCommentsBefore(node.parent.parent);
+                        if (debug.enabled) {
+                            console.info(500, 'comments', comments);
+                        }
+                        return comments.some(v => /(^|\W)@decorator(\W|$)/.test(v.value));
+                    }
+                    return false;
+                })();
+
                 pushToStack(STATE_FUNC,
                     node.parent.type === 'VariableDeclarator'
                         ? node.parent.id.name
                         : `${filenameParsed.name}_${(++anonymouseIndex).toString().padStart(3, '0')}`,
                     {
                         exported: 'exportKind' in node.parent?.parent?.parent,
+                        decorator: decorator,
                     });
-
             },
             'ArrowFunctionExpression:exit'(node) {
                 debug('ArrowFunctionExpression:exit');
@@ -210,12 +221,26 @@ module.exports = {
             },
             'FunctionExpression'(node) {
                 debug('FunctionExpression');
+
+                // check, is it @decorator
+                // const decorator = (() => {
+                //     if (node.parent.type === 'VariableDeclarator') {
+                //         const comments = context.sourceCode.getCommentsBefore(node.parent.parent);
+                //         if (debug.enabled) {
+                //             console.info(510, 'comments', comments);
+                //         }
+                //         return comments.some(v => /(^|\W)@decorator(\W|$)/.test(v.value));
+                //     }
+                //     return false;
+                // })();
+
                 pushToStack(STATE_FUNC,
                     node.id
                         ? node.id.name
                         : `${filenameParsed.name}_${(++anonymouseIndex).toString().padStart(3, '0')}`,
                     {
                         exported: 'exportKind' in node.parent,
+                        // decorator,
                     });
             },
             'FunctionExpression:exit'(node) {
@@ -227,6 +252,7 @@ module.exports = {
             'ThisExpression'(node) {
                 // this.logger -> ctx.logger
                 if (node.parent.type === 'MemberExpression' && node.parent.property.name === 'logger') {
+                    if (node.parent.parent.type === 'AssignmentExpression' && node.parent.parent.left === node.parent) return; // skip 'this.logger ='
                     rootFuncState.hasCtx = true;
                     if (debug.enabled) {
                         console.info(400, 'fix', context.sourceCode.getText(node.parent));
@@ -246,9 +272,9 @@ module.exports = {
             if (rootFuncState !== state) return;
 
             anyContextInFile |= rootFuncState.exported || rootFuncState.hasCtx;
-            const getCtx = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${rootFuncState.exported
-                ? `${CONTEXT_CLASS}.getSafe('${state.methodName}', this)`
-                : `${CONTEXT_CLASS}.get('${state.methodName}')`}`;
+            const getCtx = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${rootFuncState.type === STATE_METHOD
+                ? `${CONTEXT_CLASS}.getSafe('${state.traceName}', this)`
+                : `${CONTEXT_CLASS}.get('${state.traceName}')`}`;
 
             if (debug.enabled) {
                 console.info(300, 'getCtx', getCtx);
@@ -372,10 +398,10 @@ module.exports = {
                 console.info(100, 'node', context.sourceCode.getText(node));
                 console.info(110, 'wrappedExpression', wrappedExpression ? context.sourceCode.getText(wrappedExpression) : false);
                 console.info(120, 'objOrFunctionName', objOrFunctionName);
-                console.info(130, 'state.async', rootFuncState.async);
+                console.info(130, 'state.async', rootFuncState?.async);
             }
 
-            if ((state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
+            if (!rootFuncState.async ||  (state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
                 if (wrappedExpression) {
                     if (debug.enabled) {
                         console.info(160, 'fix', context.sourceCode.getText(wrappedExpression));
@@ -501,7 +527,6 @@ module.exports = {
         }
 
         function getLeftmostName(node) {
-            console.info(1000, node)
             if (node.type === 'Identifier') return node.name;
             if (node.type === 'MemberExpression') return getLeftmostName(node.object);
         }
