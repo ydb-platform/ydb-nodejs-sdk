@@ -12,6 +12,6 @@ const Retryable = () => {
 /**
  * @decorator
  */
-export function A() {
+export /* @decorator */ function A() {
 
 }
