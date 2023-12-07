@@ -1,6 +1,8 @@
 const path = require('path');
 const debug = require('debug')('rule:context');
 
+// TODO: Would optimize an result, if we will trace that object being created from IGNORED package
+
 const TRACE_ANONYMOUSE = false;
 
 const STATE_CLASS = 'class';
@@ -68,6 +70,7 @@ module.exports = {
 
         const pushToStack = (type, name, opts) => {
             stack.push(state);
+            delete opts.decorator; // This value was considered before, and is removed to do not cause any confusion
             const anonymouse = !name;
             if (!name && TRACE_ANONYMOUSE) name = `${filenameParsed.name}_${(++anonymouseIndex).toString()}`;
             state = {
@@ -82,8 +85,6 @@ module.exports = {
             };
             if (anonymouse) state.anonymouse = true;
 
-            console.info(4000, !rootFuncState, [STATE_FUNC, STATE_METHOD].findIndex(v => v === state.type), opts.root)
-
             if ((!rootFuncState && ~[STATE_FUNC, STATE_METHOD].findIndex(v => v === state.type)) || opts.root) {
                 rootFuncState = state;
                 state.root = true;
@@ -92,9 +93,12 @@ module.exports = {
 
         const popFromStack = () => {
             if (state.type === 'root') throw new Error('Already in the root');
-            if (rootFuncState === state) rootFuncState = undefined;
-            if (state.hasCtx) anyContextInFile = true;
-            state = stack.pop();
+            if (rootFuncState === state) {
+                state = stack.pop();
+                rootFuncState = stack.findLast(v => v.root);
+            } else {
+                state = stack.pop();
+            }
         }
 
         let anonymouseIndex = 0;
@@ -151,20 +155,18 @@ module.exports = {
                     let line = node;
                     if (line.parent.type === 'VariableDeclarator') line = line.parent;
                     if (line.parent.type === 'VariableDeclaration') line = line.parent;
-                    rootFuncState.ctxNode = line;
+                    state.ctxNode = line;
                     return;
                 }
-
-                // skip ctx.do...
-                // if (node.callee.name === 'ctx' || node.callee.object?.name === 'ctx') return;
 
                 if (~['setTimeout', 'setInterval'].findIndex(v => v === node.callee.name)) {
                     // wrap setTimeout, setInterval
                     // fixSetTimeoutAndSetInterval(node); // TODO: Fix
-                } else {
-                    // wrap other calls
-                    fixCtxDo(node);
+                    return;
                 }
+
+                // wrap other calls
+                fixCtxDo(node);
             },
 
             // classes
@@ -181,9 +183,10 @@ module.exports = {
             'ArrowFunctionExpression'(node) {
                 debug('ArrowFunctionExpression');
                 const opts = {async: node.async};
+                getAnnotations(node, opts);
                 if (node.parent.type === 'PropertyDefinition') {
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility;
-                    pushToStack(node.parent.static ? STATE_FUNC : STATE_METHOD, node.parent.key.name, opts);
+                    pushToStack(node.parent.static && !opts.decorator ? STATE_FUNC : STATE_METHOD, node.parent.key.name, opts);
                 } else if (node.parent.type === 'VariableDeclarator' && node.parent.parent.type === 'VariableDeclaration' && node.parent.parent.kind === 'const') {
                     // const А = () => ... is a name method, but with let or def will be considered as anonymouse
                     pushToStack(STATE_FUNC, node.parent.id.name, opts);
@@ -200,9 +203,9 @@ module.exports = {
                 popFromStack();
             },
             'FunctionDeclaration'(node) {
-                pushToStack(STATE_FUNC,
-                    node.id.name,
-                    {async: node.async});
+                const opts = {async: node.async};
+                getAnnotations(node, opts);
+                pushToStack(STATE_FUNC, node.id.name, opts);
                 if (debug.enabled) {
                     console.info(640, state);
                 }
@@ -210,13 +213,14 @@ module.exports = {
             'FunctionExpression'(node) {
                 debug('FunctionExpression');
                 const opts = {async: node.async};
+                getAnnotations(node, opts);
                 if (node.parent.type === 'MethodDefinition') { // method of a class
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility;
-                    pushToStack(node.parent.static ? STATE_FUNC : STATE_METHOD, node.parent.key.name, opts);
-                } else if (node.parent.type === 'Property' && ~['get', 'set'].indexOf(node.parent.key.name) &&
-                    node.parent.parent.type === 'ObjectExpression' && node.parent.parent.parent.type === 'PropertyDefinition') { // getter or setter of a class property
-                    if ('accessibility' in node.parent.parent.parent) opts.accessibility = node.parent.parent.parent.accessibility;
-                    pushToStack(node.parent.parent.parent.static ? STATE_FUNC : STATE_METHOD, `${node.parent.parent.parent.key.name}${TRACKING_DELIMITER}${node.parent.key.name}`, opts);
+                    pushToStack(node.parent.static && !opts.decorator ? STATE_FUNC : STATE_METHOD,
+                        ~['get', 'set'].indexOf(node.parent.kind)
+                            ? `${node.parent.kind}${TRACKING_DELIMITER}${node.parent.key.name}`
+                            : node.parent.key.name,
+                        opts);
                 } else { // stand along function
                     pushToStack(STATE_FUNC, node.id?.name, opts);
                 }
@@ -238,42 +242,51 @@ module.exports = {
 
         function fixGetContext(node) {
 
-            if (rootFuncState !== state) return;
+            if (rootFuncState !== state) { // this level is not suppose to has ctx declaration
+                if (state.ctxNode) {
+                    return {
+                        node,
+                        message: 'Remove ctx declaration',
+                        fix: (fixer) => fixer.removeRange([rootFuncState.ctxNode.range[0], rootFuncState.ctxNode.range[1] + 1]),
+                    }
+                }
+                return;
+            }
 
-            anyContextInFile |= rootFuncState.hasCtx;
+            anyContextInFile = true; // TODO: Add span/noSpan annotation
             const getCtx = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${rootFuncState.type === STATE_METHOD
                 ? `${CONTEXT_CLASS}.getSafe('${state.traceName}', this)`
                 : `${CONTEXT_CLASS}.get('${state.traceName}')`}`;
 
-            // if (debug.enabled) {
-            //     console.info(300, 'getCtx', getCtx);
-            //     console.info(310, 'rootFuncState.ctxNode', !!rootFuncState.ctxNode);
-            // }
+            if (debug.enabled) {
+                console.info(300, 'getCtx', getCtx);
+                console.info(310, 'rootFuncState.ctxNode', !!rootFuncState.ctxNode);
+            }
 
             const openingBracketToken = context.sourceCode.getFirstToken(node.body || node.value?.body);
             const tokenBeforeCtxNode = rootFuncState.ctxNode ? context.sourceCode.getTokenBefore(rootFuncState.ctxNode) : undefined;
 
-            let ctxText = context.sourceCode.getText(rootFuncState.ctxNode);
-            if (ctxText.endsWith(';')) ctxText = ctxText.substring(0, ctxText.length - 1);
-            if (openingBracketToken === tokenBeforeCtxNode && ctxText === getCtx) return; // it's already right
-
             if (rootFuncState.ctxNode) {
-                // if (debug.enabled) {
-                //     console.info(370, 'fix', context.sourceCode.getText(rootFuncState.ctxNode));
-                //     console.info(380, 'to', getCtx);
-                // }
+                let ctxText = context.sourceCode.getText(rootFuncState.ctxNode);
+                if (ctxText.endsWith(';')) ctxText = ctxText.substring(0, ctxText.length - 1);
+                if (openingBracketToken === tokenBeforeCtxNode && ctxText === getCtx) return; // it's already right
+                if (debug.enabled) {
+                    console.info(370, 'fix', context.sourceCode.getText(rootFuncState.ctxNode));
+                    console.info(380, 'to', getCtx);
+                }
                 context.report({
                     node: rootFuncState.ctxNode,
-                    message: 'Fix',
+                    message: 'Fix to "{{ getCtx }}"',
+                    data: {getCtx},
                     fix: (fixer) => [
-                        fixer.insertTextAfter(openingBracketToken, `${getCtx}`),
                         fixer.removeRange([rootFuncState.ctxNode.range[0], rootFuncState.ctxNode.range[1] + 1]),
+                        fixer.insertTextAfter(openingBracketToken, `${getCtx}`),
                     ],
                 });
             } else {
-                // if (debug.enabled) {
-                //     console.info(390, 'add', getCtx);
-                // }
+                if (debug.enabled) {
+                    console.info(390, 'add', getCtx);
+                }
                 context.report({
                     node: node,
                     message: 'Add "{{ getCtx }}"',
@@ -363,15 +376,14 @@ module.exports = {
                 return;
             }
 
-            // const objOrFunctionName = node.callee.name || node.callee.object?.name;
             const objOrFunctionName = getLeftmostName(node.callee);
 
-            // if (debug.enabled) {
-            //     console.info(100, 'node', context.sourceCode.getText(node));
-            //     console.info(110, 'wrappedExpression', wrappedExpression ? context.sourceCode.getText(wrappedExpression) : false);
-            //     console.info(120, 'objOrFunctionName', objOrFunctionName);
-            //     console.info(130, 'state.async', rootFuncState?.async);
-            // }
+            if (debug.enabled) {
+                console.info(100, 'node', context.sourceCode.getText(node));
+                console.info(110, 'wrappedExpression', wrappedExpression ? context.sourceCode.getText(wrappedExpression) : false);
+                console.info(120, 'objOrFunctionName', objOrFunctionName);
+                console.info(130, 'state.async', rootFuncState?.async);
+            }
 
             if (!rootFuncState?.async || (state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
                 if (wrappedExpression) {
@@ -390,7 +402,6 @@ module.exports = {
             } else {
                 rootFuncState.hasCtx = true;
 
-                // const before = `${rootFuncState.async ? 'await ' : ''}ctx.${rootFuncState.async ? 'do' : 'doSync'}(() => `; // TODO: Fix later
                 const hasAwait = wrappedExpression?.type === 'AwaitExpression';
                 const before = `${hasAwait ? 'await ' : ''}ctx.${hasAwait ? 'do' : 'doSync'}(() => `;
                 const after = `)`;
@@ -432,6 +443,11 @@ module.exports = {
                 .replace(/\\/g, '/');
 
             const importContext = `import { ${CONTEXT_CLASS} } from '${classPath}'`;
+
+            if (debug.enabled) {
+                console.info(700, 'anyContextInFile', anyContextInFile)
+                console.info(710, 'importContext', importContext)
+            }
 
             if (importContextNode) {
                 // remove import
@@ -476,12 +492,13 @@ module.exports = {
             // this.logger -> ctx.logger
             if (node.parent.type === 'MemberExpression' && node.parent.property.name === 'logger') {
                 if (node.parent.parent.type === 'AssignmentExpression' && node.parent.parent.left === node.parent) return; // skip 'this.logger ='
+                console.info(9000, rootFuncState)
                 rootFuncState.hasCtx = true;
-                // if (debug.enabled) {
-                //     console.info(400, 'fix', context.sourceCode.getText(node.parent));
-                //     console.info(410, 'to', `ctx.${context.sourceCode.getText(node.parent)
-                //         .substring('this.'.length)}`);
-                // }
+                if (debug.enabled) {
+                    console.info(400, 'fix', context.sourceCode.getText(node.parent));
+                    console.info(410, 'to', `ctx.${context.sourceCode.getText(node.parent)
+                        .substring('this.'.length)}`);
+                }
                 context.report({
                     node,
                     message: 'Change to ctx.logger',
@@ -525,15 +542,12 @@ module.exports = {
             if (node.type === 'MemberExpression') return getLeftmostName(node.object);
         }
 
-        function isDecorator(node) {
-            if (node.parent.type === 'VariableDeclarator') {
-                const comments = context.sourceCode.getCommentsBefore(node.parent.parent);
-                // if (debug.enabled) {
-                //     console.info(500, 'comments', comments);
-                // }
-                return comments.some(v => /(^|\W)@decorator(\W|$)/.test(v.value));
-            }
-            return false;
+        function getAnnotations(node, opts) {
+            const comments = context.sourceCode.getCommentsInside(node.parent);
+            const decorator = comments.some(v => /(^|\W)@ctxDecorator(\W|$)/.test(v.value));
+            const root = comments.some(v => /(^|\W)@ctxRoot(\W|$)/.test(v.value));
+            if (decorator) opts.decorator = true;
+            if (root) opts.root = true;
         }
     },
 };

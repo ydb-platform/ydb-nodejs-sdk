@@ -1,3 +1,4 @@
+import { ContextWithLogger } from '../../src/context-with-logger';
 /* eslint local-rules/context: "error" */
 
 class A {
@@ -9,53 +10,51 @@ class A {
     //     // this.logger.info(123)
     // }
 
-    // async asyncMethod() {
-    //     // this.logger.info(123)
-    // }
+    async asyncMethod() {
+        ContextWithLogger.getSafe('ydb-sdk:...eslint-local-rules.examples.A.asyncMethod', this);
+
+        ctx.logger.info(123);
+    }
 
     // protected static syncMethodAsField = () => {
     //
     // }
 
     // asyncMethodAsField = async () => {
-    //
+    //     // @ctxDecorator
     // }
 
-    // prop = {
-    //     get() {
+    // static get V() {
+    //     return 12;
+    // }
     //
-    //         let A = () => {};
-    //
-    //     },
-    //     set() {
-    //
-    //     },
+    // protected set V() {
+    //     return 12;
     // }
 }
 
 // function syncFunction() {
+//     // @ctxDecorator
 //
 // }
-//
+
+/* @ctxDecorator */
 // async function asyncFunction() {
+//     /* @ctxDecorator */
 //
 // }
 
-/* no name */
-(function () {
+// /* no name */
+// (function () {
+//
+// })()
 
-})()
+// const syncAsVar = () => {
+// }
 
-const syncAsVar = () => {
-    // /* decorator */
-    // return () => {
-    //
-    // }
-}
-
-const asyncAsVar = async () => {
-    /* decorator */
-    return () => {
-
-    }
-}
+// const asyncAsVar = async () =>
+//     /* @ctxRoot */
+//     /* @ctxDecorator */
+//     () => {
+//         ContextWithLogger.get('ydb-sdk:...eslint-local-rules.examples.asyncAsVar');
+//     };
