@@ -1,13 +1,13 @@
 module.exports = {
     globals: {
         'ts-jest': {
-            tsconfig: 'tsconfig-cjs.json',
-        },
+            tsconfig: 'tsconfig-cjs.json'
+        }
     },
-    roots: ['<rootDir>/../src'],
+    roots: ['<rootDir>/eslint-local-rules'],
     transform: {
         '^.+\\.tsx?$': 'ts-jest',
     },
-    testRegex: '/__tests__/integration/(.*/)*.*\.(spec|test).(j|t)sx?$',
+    testRegex: '(/rules/.*|(\\.|/)(test|spec))\\.tsx?$',
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-};
+}
