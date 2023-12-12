@@ -5,6 +5,7 @@
     "./config",
     "./scripts",
     "./examples",
-    "./eslint-local-rules/examples"
+    "./eslint-local-rules/examples",
+    "./eslint-local-rules/check"
   ]
 }

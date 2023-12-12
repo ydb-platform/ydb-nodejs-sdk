@@ -1,7 +1,7 @@
 // import {RuleTester} from 'eslint';
 // import * as Context from './context';
 const {RuleTester} = require('@typescript-eslint/rule-tester');
-const Context = require('./context');
+const Context = require('./rules/context');
 
 const ruleTester = new RuleTester;
 
