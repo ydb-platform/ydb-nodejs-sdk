@@ -111,7 +111,7 @@ exports.variantsGenerator = (function* buildVariants(_config, codeRenderer, id, 
     ],
     (opts) => { // code renderer
         try {
-            return `${opts.wrapCode.before} ${opts.call} ${opts.wrapCode.after}`;
+            return `${opts.wrapCode.before}\n${opts.call}\n${opts.wrapCode.after}`;
         } catch (error) {
             console.info(`v: ${JSON.stringify(opts)}`);
             error.message = `Fialed on render (variantID: ${opts.variantID}): ${error.message}`;
