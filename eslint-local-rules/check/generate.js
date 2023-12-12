@@ -8,25 +8,26 @@ const FILTER_VARIANTID = null;
  */
 // eslint-disable-next-line unicorn/prefer-module
 exports.variantsGenerator = (function* buildVariants(_config, codeRenderer, id, _opts) {
-    const opts = { ..._opts };
+    const opts = {..._opts};
 
     if (_config.length > 0) {
         // the first value of config level is the key in which the values
         // from the second parameter of the config record will be enumerated in the context
         const level = _config[0];
-        let config = _config.slice(1);
+        const configRest = _config.slice(1);
         // the second value of config level is an array of possible values, or a function returning
         // an array or a generator function
         let valuesList = level[1];
         const verionKey = level[0];
         let cnt = 0;
+        let config = configRest;
 
         if (typeof valuesList === 'function') valuesList = valuesList(opts);
         for (const value of valuesList) {
             opts[verionKey] = value;
             // A configuration tree can have conditional branching if you specify a function that
             // returns an array as the tail of the config depending on the context
-            if (typeof level[2] === 'function') config = level[2](opts);
+            if (typeof level[2] === 'function') config = [...level[2](opts), ...configRest];
             yield* buildVariants(config, codeRenderer, (id || '') + String.fromCodePoint(97 + cnt++), opts);
         }
     } else {
@@ -63,12 +64,19 @@ exports.variantsGenerator = (function* buildVariants(_config, codeRenderer, id, 
     }
 }(
     [ // config
-        ['call', [
-            ['V();', 'ctx.doSync(() => V());'],
-            ['await V();', 'await ctx.do(() => V());'],
-            ['ctx.doSync(() => V());', 'ctx.doSync(() => V());'],
-            ['await ctx.do(() => V());', 'await ctx.do(() => V());'],
-            ['await ctx.doAsync(() => V());', 'await ctx.do(() => V());'], // wrong to right
+        ['async', [true, false], () => [ // sync
+            ['call', [
+                [{ text: 'V()' }, { text: 'V()' }],
+                [{ text: 'ctx.do(() => V())' }, { text: 'V()' }],
+                [{ text: 'ctx.doSync(() => V())' }, { text: 'V()' }],
+            ]],
+        ], [ // async
+            ['call', [
+                [{ text: 'await V()' }, { text: 'await ctx.do(() => V())' }],
+                [{ text: 'V()' }, { text: 'V()' }],
+                [{ text: 'await ctx.do(() => V())' }, { text: 'await ctx.do(() => V())' }],
+                [{ text: 'await ctx.doSync(() => V())' }, { text: 'await ctx.do(() => V())' }],
+            ]],
         ]],
         ['class', [true, false], (v) => (v.class
             ? [ // class
@@ -78,40 +86,51 @@ exports.variantsGenerator = (function* buildVariants(_config, codeRenderer, id, 
                     {
                         before: `${opts.accessibility}${opts.static}F() {`,
                         after: '}',
+                        trace: 'A.F',
                     },
                     {
                         before: `${opts.accessibility}${opts.static}F = () => {`,
                         after: '}',
+                        trace: 'A.F',
                     },
                     {
                         before: `${opts.accessibility}${opts.static}F = () => `,
                         after: '',
+                        trace: 'A.F',
                     },
                 ].map((t) => ({
                     before: `class A { ${t.before}`,
                     after: `${t.after} }`,
+                    trace: t.trace,
                 }))],
             ]
             : [ // function
                 ['wrapCode', [
                     {
-                        before: 'function() {',
+                        before: 'function Q() {',
                         after: '};',
+                        trace: 'Q',
                     },
                     {
-                        before: '() => {',
+                        before: 'const Q = () => {',
                         after: '};',
+                        trace: 'Q',
                     },
                     {
-                        before: '() => ',
+                        before: 'const Q = () => ',
                         after: ';',
+                        trace: 'Q',
                     },
                 ]],
             ])],
     ],
     (opts) => { // code renderer
         try {
-            return `${opts.wrapCode.before}\n${opts.call}\n${opts.wrapCode.after}`;
+            const imprt = 'import { ContextWithLogger } from \'../../../src/context-with-logger\';\n';
+            // eslint-disable-next-line max-len
+            const ctx = `${opts.call.ctx ? 'const ctx = ' : ''} ContextWithLogger.getSafe('ydb-sdk:...eslint-local-rules.check.tmp.${opts.wrapCode.trace}', this)\n`;
+
+            return `${imprt}${opts.wrapCode.before}\n${ctx}${opts.async ? 'async ' : ''}${opts.call.text}\n${opts.wrapCode.after}`;
         } catch (error) {
             console.info(`v: ${JSON.stringify(opts)}`);
             error.message = `Fialed on render (variantID: ${opts.variantID}): ${error.message}`;
