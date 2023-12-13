@@ -31,8 +31,6 @@ const testCode = `
     const results = await eslint.lintFiles('C:\\work\\ydb-nodejs-sdk-331\\eslint-local-rules\\examples\\ex20.ts');
     // await eslint.lintFiles('C:\\work\\ydb-nodejs-sdk-331\\eslint-local-rules\\examples\\ex20.ts');
 
-    console.info(100, results)
-
     // 3. Format the results.
     const formatter = await eslint.loadFormatter("stylish");
     const resultText = formatter.format(results);

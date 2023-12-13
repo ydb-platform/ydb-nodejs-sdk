@@ -60,6 +60,7 @@ module.exports = {
             // root: false, // it's level of function there ctx, suppose to be declared
             // hasCtx: false, // true - at least one line with ctx.do...
             // ctxNode: undefined, // line with CONTEXT_CLASS.get or CONTEXT_CLASS.safeGet
+            // stripped: // no paranthesis in arraow function
         };
 
         let rootFuncState;
@@ -183,6 +184,9 @@ module.exports = {
             'ArrowFunctionExpression'(node) {
                 debug('ArrowFunctionExpression');
                 const opts = {async: node.async};
+                if (node.body.type !== 'BlockStatement') {
+                    opts.stripped = true;
+                }
                 getAnnotations(node, opts);
                 if (node.parent.type === 'PropertyDefinition') {
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility;
@@ -193,9 +197,9 @@ module.exports = {
                 } else {
                     pushToStack(STATE_FUNC, null, opts);
                 }
-                if (debug.enabled) {
-                    console.info(600, state);
-                }
+                // if (debug.enabled) {
+                //     console.info(600, state);
+                // }
             },
             'ArrowFunctionExpression:exit'(node) {
                 debug('ArrowFunctionExpression:exit');
@@ -206,9 +210,9 @@ module.exports = {
                 const opts = {async: node.async};
                 getAnnotations(node, opts);
                 pushToStack(STATE_FUNC, node.id.name, opts);
-                if (debug.enabled) {
-                    console.info(640, state);
-                }
+                // if (debug.enabled) {
+                //     console.info(640, state);
+                // }
             },
             'FunctionExpression'(node) {
                 debug('FunctionExpression');
@@ -224,9 +228,9 @@ module.exports = {
                 } else { // stand along function
                     pushToStack(STATE_FUNC, node.id?.name, opts);
                 }
-                if (debug.enabled) {
-                    console.info(680, state);
-                }
+                // if (debug.enabled) {
+                //     console.info(680, state);
+                // }
             },
             'FunctionExpression:exit'(node) {
                 debug('FunctionExpression:exit');
@@ -258,10 +262,10 @@ module.exports = {
                 ? `${CONTEXT_CLASS}.getSafe('${state.traceName}', this)`
                 : `${CONTEXT_CLASS}.get('${state.traceName}')`}`;
 
-            if (debug.enabled) {
-                console.info(300, 'getCtx', getCtx);
-                console.info(310, 'rootFuncState.ctxNode', !!rootFuncState.ctxNode);
-            }
+            // if (debug.enabled) {
+            //     console.info(300, 'getCtx', getCtx);
+            //     console.info(310, 'rootFuncState.ctxNode', !!rootFuncState.ctxNode);
+            // }
 
             const openingBracketToken = context.sourceCode.getFirstToken(node.body || node.value?.body);
             const tokenBeforeCtxNode = rootFuncState.ctxNode ? context.sourceCode.getTokenBefore(rootFuncState.ctxNode) : undefined;
@@ -270,10 +274,10 @@ module.exports = {
                 let ctxText = context.sourceCode.getText(rootFuncState.ctxNode);
                 if (ctxText.endsWith(';')) ctxText = ctxText.substring(0, ctxText.length - 1);
                 if (openingBracketToken === tokenBeforeCtxNode && ctxText === getCtx) return; // it's already right
-                if (debug.enabled) {
-                    console.info(370, 'fix', context.sourceCode.getText(rootFuncState.ctxNode));
-                    console.info(380, 'to', getCtx);
-                }
+                // if (debug.enabled) {
+                //     console.info(370, 'fix', context.sourceCode.getText(rootFuncState.ctxNode));
+                //     console.info(380, 'to', getCtx);
+                // }
                 context.report({
                     node: rootFuncState.ctxNode,
                     message: 'Fix to "{{ getCtx }}"',
@@ -287,11 +291,16 @@ module.exports = {
                 if (debug.enabled) {
                     console.info(390, 'add', getCtx);
                 }
+                console.info(3000, openingBracketToken)
+                console.info(3100, context.sourceCode.getText(node.body))
+                console.info(3200, openingBracketToken.value === '{')
                 context.report({
                     node: node,
                     message: 'Add "{{ getCtx }}"',
                     data: {getCtx},
-                    fix: (fixer) => fixer.insertTextAfter(openingBracketToken, getCtx),
+                    fix: (fixer) => openingBracketToken.value === '{'
+                        ? fixer.insertTextAfter(openingBracketToken, getCtx)
+                        : fixer.replaceText(node.body, `{ ${getCtx}\nreturn ${context.sourceCode.getText(node.body)} }`)
                 });
             }
         }
@@ -369,10 +378,14 @@ module.exports = {
                 }
             })();
 
+            if ((wrappedExpression || node.parent).type === 'AwaitExpression') {
+                state.async = true;
+            }
+
             if (wrappedExpression === true) { // it's already wrapped into ctx.doHandleError
-                // if (debug.enabled) {
-                //     console.info(105, 'do not touch');
-                // }
+                if (debug.enabled) {
+                    console.info(105, 'do not touch');
+                }
                 return;
             }
 
@@ -383,6 +396,7 @@ module.exports = {
                 console.info(110, 'wrappedExpression', wrappedExpression ? context.sourceCode.getText(wrappedExpression) : false);
                 console.info(120, 'objOrFunctionName', objOrFunctionName);
                 console.info(130, 'state.async', rootFuncState?.async);
+                console.info(135, 'state.stripped', rootFuncState?.stripped);
             }
 
             if (!rootFuncState?.async || (state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
@@ -444,10 +458,10 @@ module.exports = {
 
             const importContext = `import { ${CONTEXT_CLASS} } from '${classPath}'`;
 
-            if (debug.enabled) {
-                console.info(700, 'anyContextInFile', anyContextInFile)
-                console.info(710, 'importContext', importContext)
-            }
+            // if (debug.enabled) {
+            //     console.info(700, 'anyContextInFile', anyContextInFile)
+            //     console.info(710, 'importContext', importContext)
+            // }
 
             if (importContextNode) {
                 // remove import
@@ -492,13 +506,12 @@ module.exports = {
             // this.logger -> ctx.logger
             if (node.parent.type === 'MemberExpression' && node.parent.property.name === 'logger') {
                 if (node.parent.parent.type === 'AssignmentExpression' && node.parent.parent.left === node.parent) return; // skip 'this.logger ='
-                console.info(9000, rootFuncState)
                 rootFuncState.hasCtx = true;
-                if (debug.enabled) {
-                    console.info(400, 'fix', context.sourceCode.getText(node.parent));
-                    console.info(410, 'to', `ctx.${context.sourceCode.getText(node.parent)
-                        .substring('this.'.length)}`);
-                }
+                // if (debug.enabled) {
+                //     console.info(400, 'fix', context.sourceCode.getText(node.parent));
+                //     console.info(410, 'to', `ctx.${context.sourceCode.getText(node.parent)
+                //         .substring('this.'.length)}`);
+                // }
                 context.report({
                     node,
                     message: 'Change to ctx.logger',

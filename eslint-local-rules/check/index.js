@@ -3,8 +3,10 @@ const {
     writeFile,
     unlink,
 } = require('fs').promises; // eslint-disable-line unicorn/prefer-module
-const {variantsGenerator} = require('./generate'); // eslint-disable-line unicorn/prefer-module
+const Diff = require('diff');
 const {ESLint} = require('eslint'); // eslint-disable-line unicorn/prefer-module
+const variantsGenerator = require('./variants-generator'); // eslint-disable-line unicorn/prefer-module
+const fixOutCode = require('./fix-out-code'); // eslint-disable-line unicorn/prefer-module
 
 const eslint = new ESLint({
     fix: true,
@@ -24,8 +26,8 @@ const eslint = new ESLint({
     // eslint-disable-next-line no-unreachable-loop
     for (const v of variantsGenerator) {
 
-        const fromSource = `/* eslint local-rules/context: "error" */\n${v.from.code}`;
-        const expectedSource = v.to.code;
+        const fromSource = `/* eslint local-rules/context: "error", unicorn/no-static-only-class: "off" */\n${v.from.code}`;
+        const expectedSource = `/* eslint unicorn/no-static-only-class: "off" */\n${v.to.code}`;
         // const toSource = `/* eslint local-rules/force-formatting: "error" */\n${v.expected.code}`;
 
         // eslint-disable-next-line no-await-in-loop
@@ -45,8 +47,11 @@ const eslint = new ESLint({
             eslint.lintFiles(expectedFilename), // eslint-disable-line unicorn/prefer-module
         ]);
 
-        const to = (fromOut.output || fromOut.source).replaceAll(/\/\* eslint local.* \*\/\n/g, '');
-        const expected = (expectedOut.output || expectedOut.source).replaceAll(/\/\* eslint local.* \*\/\n/g, '');
+        const to = fixOutCode(fromOut.output || fromOut.source);
+        const expected = fixOutCode(expectedOut.output || expectedOut.source);
+
+        console.info(1000, to)
+        console.info(1100, expected)
 
         // eslint-disable-next-line no-await-in-loop
         await writeFile(toFilename, `/** Expected:\n\n${expected}\n*/\n${to}`); // eslint-disable-line unicorn/prefer-module
@@ -56,6 +61,6 @@ const eslint = new ESLint({
             break;
         }
 
-        break;
+        // break;
     }
 })();
