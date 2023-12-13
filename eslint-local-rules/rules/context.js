@@ -284,12 +284,9 @@ module.exports = {
                     ],
                 });
             } else {
-                if (debug.enabled) {
-                    console.info(390, 'add', getCtx);
-                }
-                console.info(3000, openingBracketToken)
-                console.info(3100, context.sourceCode.getText(node.body))
-                console.info(3200, openingBracketToken.value === '{')
+                // if (debug.enabled) {
+                //     console.info(390, 'add', getCtx);
+                // }
                 context.report({
                     node: node,
                     message: 'Add "{{ getCtx }}"',
@@ -379,21 +376,21 @@ module.exports = {
             }
 
             if (wrappedExpression === true) { // it's already wrapped into ctx.doHandleError
-                if (debug.enabled) {
-                    console.info(105, 'do not touch');
-                }
+                // if (debug.enabled) {
+                //     console.info(105, 'do not touch');
+                // }
                 return;
             }
 
             const objOrFunctionName = getLeftmostName(node.callee);
 
-            if (debug.enabled) {
-                console.info(100, 'node', context.sourceCode.getText(node));
-                console.info(110, 'wrappedExpression', wrappedExpression ? context.sourceCode.getText(wrappedExpression) : false);
-                console.info(120, 'objOrFunctionName', objOrFunctionName);
-                console.info(130, 'state.async', rootFuncState?.async);
-                console.info(135, 'state.stripped', rootFuncState?.stripped);
-            }
+            // if (debug.enabled) {
+            //     console.info(100, 'node', context.sourceCode.getText(node));
+            //     console.info(110, 'wrappedExpression', wrappedExpression ? context.sourceCode.getText(wrappedExpression) : false);
+            //     console.info(120, 'objOrFunctionName', objOrFunctionName);
+            //     console.info(130, 'state.async', rootFuncState?.async);
+            //     console.info(135, 'state.stripped', rootFuncState?.stripped);
+            // }
 
             if (!rootFuncState?.async || (state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
                 if (wrappedExpression) {
@@ -413,10 +410,10 @@ module.exports = {
                 rootFuncState.hasCtx = true;
 
                 const hasAwait = wrappedExpression?.type === 'AwaitExpression';
-                const before = `${hasAwait ? 'await ' : ''}ctx.${hasAwait ? 'do' : 'doSync'}(() => `;
-                const after = `)`;
+                const before = !state.async ? '' : `${hasAwait ? 'await ' : ''}ctx.${hasAwait ? 'do' : 'doSync'}(() => `;
+                const after = !state.async ? '' : `)`;
 
-                if (wrappedExpression) {
+                 if (wrappedExpression) {
                     let exp = context.sourceCode.getText(wrappedExpression);
                     if (exp.endsWith(';')) exp = exp.substring(0, exp.length - 1); // remove trailing semicolon
                     if (exp.startsWith(before) && exp.endsWith(after)) return; // already properly wrapped
@@ -454,11 +451,11 @@ module.exports = {
 
             const importContext = `import { ${CONTEXT_CLASS} } from '${classPath}'`;
 
-            if (debug.enabled) {
-                console.info(700, 'anyContextInFile', anyContextInFile)
-                console.info(710, 'importContext', importContext)
-                console.info(720, 'importContextNode', !!importContextNode)
-            }
+            // if (debug.enabled) {
+            //     console.info(700, 'anyContextInFile', anyContextInFile)
+            //     console.info(710, 'importContext', importContext)
+            //     console.info(720, 'importContextNode', !!importContextNode)
+            // }
 
             if (importContextNode) {
                 // remove import

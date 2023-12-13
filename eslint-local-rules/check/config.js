@@ -4,10 +4,19 @@ module.exports = [ // config
         (opts) => opts.async
             ? [ // async
                 ['call', [
-                    [{text: 'await V()'}, {text: 'await ctx.do(() => V())', ctx: true }],
-                    [{text: 'V()'}, {text: 'V()'}],
-                    [{text: 'await ctx.do(() => V())'}, {text: 'await ctx.do(() => V())', ctx: true}],
-                    [{text: 'await ctx.doSync(() => V())'}, {text: 'await ctx.do(() => V())', ctx: true}],
+                    [{text: 'V()'}, {text: 'ctx.doSync(() => V())', ctx: true}],
+                    [{text: 'await V()'}, {
+                        text: 'await ctx.do(() => V())',
+                        ctx: true,
+                    }],
+                    [{text: 'await ctx.do(() => V())'}, {
+                        text: 'await ctx.do(() => V())',
+                        ctx: true,
+                    }],
+                    [{text: 'await ctx.doSync(() => V())'}, {
+                        text: 'await ctx.do(() => V())',
+                        ctx: true,
+                    }],
                 ]]]
             : [ // sync
                 ['call', [
