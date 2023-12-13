@@ -60,7 +60,6 @@ module.exports = {
             // root: false, // it's level of function there ctx, suppose to be declared
             // hasCtx: false, // true - at least one line with ctx.do...
             // ctxNode: undefined, // line with CONTEXT_CLASS.get or CONTEXT_CLASS.safeGet
-            // stripped: // no paranthesis in arraow function
         };
 
         let rootFuncState;
@@ -184,9 +183,6 @@ module.exports = {
             'ArrowFunctionExpression'(node) {
                 debug('ArrowFunctionExpression');
                 const opts = {async: node.async};
-                if (node.body.type !== 'BlockStatement') {
-                    opts.stripped = true;
-                }
                 getAnnotations(node, opts);
                 if (node.parent.type === 'PropertyDefinition') {
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility;
@@ -458,10 +454,11 @@ module.exports = {
 
             const importContext = `import { ${CONTEXT_CLASS} } from '${classPath}'`;
 
-            // if (debug.enabled) {
-            //     console.info(700, 'anyContextInFile', anyContextInFile)
-            //     console.info(710, 'importContext', importContext)
-            // }
+            if (debug.enabled) {
+                console.info(700, 'anyContextInFile', anyContextInFile)
+                console.info(710, 'importContext', importContext)
+                console.info(720, 'importContextNode', !!importContextNode)
+            }
 
             if (importContextNode) {
                 // remove import
@@ -493,11 +490,14 @@ module.exports = {
                     fix: fixer => fixer.insertTextAfter(lastImportDeclarationNode, `\n${importContext}`),
                 });
             } else if (anyContextInFile) { // add as first import
+                const topComments = context.sourceCode.getCommentsAfter({range: [0, 0]});
                 context.report({
                     node: programNode,
                     message: 'Add "{{ importContext }}"',
                     data: {importContext},
-                    fix: fixer => fixer.insertTextBeforeRange([0, 0], `${importContext}\n`),
+                    fix: fixer => topComments.length > 0
+                        ? fixer.insertTextAfterRange(topComments[topComments.length - 1].range, `\n${importContext}\n`)
+                        : fixer.insertTextBeforeRange(topComments.length >  [0, 0], `${importContext}\n`)
                 });
             }
         }

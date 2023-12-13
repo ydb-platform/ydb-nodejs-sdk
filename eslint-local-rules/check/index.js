@@ -50,9 +50,6 @@ const eslint = new ESLint({
         const to = fixOutCode(fromOut.output || fromOut.source);
         const expected = fixOutCode(expectedOut.output || expectedOut.source);
 
-        console.info(1000, to)
-        console.info(1100, expected)
-
         // eslint-disable-next-line no-await-in-loop
         await writeFile(toFilename, `/** Expected:\n\n${expected}\n*/\n${to}`); // eslint-disable-line unicorn/prefer-module
 
