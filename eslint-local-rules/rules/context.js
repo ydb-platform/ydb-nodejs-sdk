@@ -1,3 +1,6 @@
+// TODO: Ensure it's after 'super()'
+
+
 const path = require('path');
 const debug = require('debug')('rule:context');
 
@@ -114,6 +117,7 @@ module.exports = {
         return {
             'Program'(node) {
                 debug('Program');
+                console.info(5000, context.sourceCode.getCommentsBefore(node))
                 programNode = node;
             },
             'Program:exit'(node) {
@@ -176,6 +180,7 @@ module.exports = {
             },
             'ClassDeclaration:exit'(node) {
                 debug('ClassDeclaration:exit');
+                // TODO: getAnnotations(node, opts);
                 popFromStack();
             },
 
@@ -204,16 +209,23 @@ module.exports = {
             },
             'FunctionDeclaration'(node) {
                 const opts = {async: node.async};
-                getAnnotations(node, opts);
+                console.info(9100, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
+                // getAnnotations(node, opts);
+
                 pushToStack(STATE_FUNC, node.id.name, opts);
+
+                // node.body // BlockStatement
+
                 // if (debug.enabled) {
                 //     console.info(640, state);
                 // }
             },
             'FunctionExpression'(node) {
                 debug('FunctionExpression');
-                const opts = {async: node.async};
+                const opts = {async: node.async}; // TODO: Derive from class, manager root right
+                console.info(9200, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
                 getAnnotations(node, opts);
+                console.info(1000, opts)
                 if (node.parent.type === 'MethodDefinition') { // method of a class
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility;
                     pushToStack(node.parent.static && !opts.decorator ? STATE_FUNC : STATE_METHOD,
@@ -426,6 +438,8 @@ module.exports = {
                 //     console.info(190, 'by', `${before}${context.sourceCode.getText(node)}${after}`);
                 // }
 
+                // TODO: Ensure it's after 'super()'
+
                 context.report({
                     node: wrappedExpression || node,
                     message: wrappedExpression ? 'Fix' : `Add {{before}}...{{after}}`,
@@ -553,11 +567,24 @@ module.exports = {
         }
 
         function getAnnotations(node, opts) {
-            const comments = context.sourceCode.getCommentsInside(node.parent);
-            const decorator = comments.some(v => /(^|\W)@ctxDecorator(\W|$)/.test(v.value));
-            const root = comments.some(v => /(^|\W)@ctxRoot(\W|$)/.test(v.value));
-            if (decorator) opts.decorator = true;
-            if (root) opts.root = true;
+            const comments = context.sourceCode.getCommentsInside(node);
+            for (const comment of comments) {
+                const r =  /^\s*local-rules\/context:(.*)$/gm.exec(comment.value);
+                if (r) {
+                    for (const attr of r[1].split(',').map(v => v.trim())) {
+                        const itsNo = attr.startsWith('no-');
+                        const val = itsNo ? attr.substring(3) : attr
+                        if (!~['trace', 'root', 'span', 'decorator'].indexOf(val)) {
+                            context.report({
+                                node,
+                                message: `Unexpected flag ${attr}`,
+                            })
+                        }
+                        // console.info(3000, attr, val)
+                        opts[val] = !itsNo;
+                    }
+                }
+            }
         }
     },
 };

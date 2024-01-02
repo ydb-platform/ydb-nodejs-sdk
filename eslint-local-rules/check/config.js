@@ -32,6 +32,16 @@ module.exports = [ // config
                 ['accessibility', ['', 'public ', 'protected ', 'private ']],
                 ['static', ['', 'static ']],
                 ['method', (opts) => [
+                   {
+                        before: `${opts.accessibility}${opts.static}${opts.async}constructor() { super();`,
+                        after: '}',
+                        trace: 'A.F',
+                    },
+                   {
+                        before: `${opts.accessibility}${opts.static}${opts.async}F() {`,
+                        after: '}',
+                        trace: 'A.F',
+                    },
                     {
                         before: `${opts.accessibility}${opts.static}${opts.async}F() {`,
                         after: '}',
