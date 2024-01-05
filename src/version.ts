@@ -1,13 +1,7 @@
-import pkgInfo from "./../package.json";
+import pkgInfo from '../package.json';
 
-function getVersion() {
-    return pkgInfo.version;
-}
+const getVersion = () => pkgInfo.version;
 
-function getLibraryName() {
-    return `ydb-nodejs-sdk/${getVersion()}`;
-}
+const getLibraryName = () => `ydb-nodejs-sdk/${getVersion()}`;
 
-export function getVersionHeader(): [string, string] {
-    return ['x-ydb-sdk-build-info', getLibraryName()];
-}
+export const getVersionHeader = (): [string, string] => ['x-ydb-sdk-build-info', getLibraryName()];
