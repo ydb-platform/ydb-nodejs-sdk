@@ -1,40 +1,43 @@
 /* eslint local-rules/context: "error" */
 
-// local-rules/context: trace, no-root
+// local -rules/context: trace, no-root
 
 class A {
-
     // local-rules/context: trace
 
-    b = async () => {
-        // local-rules/context: no-trace, no-root
+    //     b = async () => {
+    //         F();
+    //         // aaa
+    //     };
+
+    // t = () =>
+    //     // local-rules/context: trace, no-root, anonym-trace, aaaa
+    //     12;
+
+    constructor() {
+        // local-rules/context: no-trace, anonym-trace
+        console.info('test');
+        super();
+
+        const ctx = ContextWithLogger.getSafe('ydb-nodejs-sdk:...eslint-local-rules.examples.A.constructor', ctx.logger);
+
+        //     // local-rules/context: no-root, no-trace
+        //
+        // };
+
         F();
-        // aaa
     }
 
-    t = () =>
-        // local-rules/context: trace, no-root, anonym-trace, aaaa
-        12;
+    // n() {
+    //     // local-rules/context: no-trace, root1
+    //     // local-rules/context: no-trace, root2
+    //     this.logger.info(123);
+    //     // local-rules/context: no-trace, root3
+    //     function Q() {
+    //         // local-rules/context: no-trace, root4
+    //     }
+    // }
 
-//     constructor() {
-//         // local-rules/context: trace, anonym-trace, aaaa, no-root
-//         super(); // ctx must go only after
-//         this.logger = function() {
-//             // local-rules/context: root, no-trace
-//
-//         }
-//     }
-//
-//     // n() {
-//     //     // local-rules/context: no-trace, root1
-//     //     // local-rules/context: no-trace, root2
-//     //     this.logger.info(123);
-//     //     // local-rules/context: no-trace, root3
-//     //     function Q() {
-//     //         // local-rules/context: no-trace, root4
-//     //     }
-//     // }
-//
 //     // q: () => // TODO: not supported
 //     //     // local-rules/context: no-trace, root1
 //     //     12;
@@ -44,14 +47,14 @@ class A {
 //     // }
 }
 
-// async function a() {
-//     // local-rules/context: no-trace, no-root
-//     F();
+// const a = async () => {
+//     // local-rules/context: trace, root
+//     await Q();
 //     // aaa
-// }
+// };
 
 // const b = async () => {
-// // local-rules/context: trace, root
+//     // local-rules/context: trace, root
 //     F();
 //     // aaa
 // }
