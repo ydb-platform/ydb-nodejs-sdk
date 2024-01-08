@@ -1,13 +1,13 @@
 // TODO: Ensure it's after 'super()'
-
+// TODO: Would optimize an result, if we will trace that object being created from IGNORED package
+// TODO: do not wrap .bind()
 
 const path = require('path');
+const _ = require('lodash');
 const debug = require('debug')('rule:context');
 
-// TODO: Would optimize an result, if we will trace that object being created from IGNORED package
-
-const TRACE_ANONYMOUSE = false;
-
+const STATE_ROOT = 'root';
+const STATE_PROGRAM = 'program';
 const STATE_CLASS = 'class';
 const STATE_FUNC = 'func';
 const STATE_METHOD = 'method';
@@ -15,10 +15,10 @@ const STATE_METHOD = 'method';
 const SRC_PATH = '/src';
 const CONTEXT_CLASS = 'ContextWithLogger';
 const CONTEXT_CLASS_PATH = '/context-with-logger';
-const TRACKING_PREFIX = 'ydb-sdk:';
+const TRACKING_PREFIX = 'ydb-nodejs-sdk:';
 const TRACKING_DELIMITER = '.';
 
-let itCount = 0;
+const OPTS_KEYS = ['trace', 'anonymTrace', 'root', 'span', 'decorator'];
 
 /**
  * List of global classes and global instances and libs that not suppose toi be wrapped by context.
@@ -33,6 +33,8 @@ const IGNORE_NPMS = [
     // NodeJS packages
     'fs', 'path',
 ].reduce((o, v) => (o[v] = true, o), Object.create(null));
+
+let itCount = 0;
 
 // eslint-disable-next-line unicorn/prefer-module
 module.exports = {
@@ -55,9 +57,11 @@ module.exports = {
         const stack = [];
 
         let state = {
-            type: 'root', // class, method, func
+            type: STATE_ROOT, // class, method, func
             ignore: IGNORE_GLOBALS, // variables and objects to be considered as global, so there is no sense to wrap them in ctx.do...
             traceName: null, // hierarchical name of function to be used as tracing unique name
+            trace: true,
+            anonymTrace: false,
             // async: false, // true, function has async flag
             // decorator: false, // returned function is a wrapper for a class method
             // root: false, // it's level of function there ctx, suppose to be declared
@@ -72,10 +76,11 @@ module.exports = {
             .replace(/[\\/]/g, '.');
 
         const pushToStack = (type, name, opts) => {
+            const prevState = state;
             stack.push(state);
             delete opts.decorator; // This value was considered before, and is removed to do not cause any confusion
             const anonymouse = !name;
-            if (!name && TRACE_ANONYMOUSE) name = `${filenameParsed.name}_${(++anonymouseIndex).toString()}`;
+            if (!name && state.anonymTrace) name = `${filenameParsed.name}_${(++anonymouseIndex).toString()}`;
             state = {
                 ...opts,
                 type,
@@ -87,21 +92,30 @@ module.exports = {
                 prevIgnore: state.ignore || state.prevIgnore,
             };
             if (anonymouse) state.anonymouse = true;
+            for (const key of OPTS_KEYS) // derive all opts from parent if they was not specified on this level
+                if (prevState.hasOwnProperty(key) && !state.hasOwnProperty(key)) state[key] = prevState[key];
+            const isFunc = !!~[STATE_METHOD, STATE_FUNC].findIndex(v => v === state.type);
 
-            if ((!rootFuncState && ~[STATE_FUNC, STATE_METHOD].findIndex(v => v === state.type)) || opts.root) {
-                rootFuncState = state;
-                state.root = true;
+            if (isFunc) {
+                if (!~[STATE_METHOD, STATE_FUNC].findIndex(v => v === prevState.type) && !opts.hasOwnProperty('root')) {
+                    rootFuncState = state;
+                    anonymouseIndex = 0; // start anonymouse count on every root
+                    state.root = true; // if root flag is not specified in annotations
+                }
+            } else {
+                delete state.root; // root is only applicable for functions
+            }
+
+            if (state.type === STATE_PROGRAM) {
+                delete state.anonymouse;
             }
         };
 
         const popFromStack = () => {
-            if (state.type === 'root') throw new Error('Already in the root');
-            if (rootFuncState === state) {
-                state = stack.pop();
-                rootFuncState = stack.findLast(v => v.root);
-            } else {
-                state = stack.pop();
-            }
+            if (state.type === STATE_ROOT) throw new Error('Already in the root');
+            const prevState = state;
+            state = stack.pop();
+            if (rootFuncState === prevState) rootFuncState = stack.findLast(v => v.root);
         }
 
         let anonymouseIndex = 0;
@@ -117,8 +131,11 @@ module.exports = {
         return {
             'Program'(node) {
                 debug('Program');
-                console.info(5000, context.sourceCode.getCommentsBefore(node))
                 programNode = node;
+                const opts = {};
+                // console.info(5000, context.sourceCode.getCommentsBefore(node))
+                getAnnotations(node, opts, context.sourceCode.getCommentsBefore(node));
+                pushToStack(STATE_PROGRAM, null, opts);
             },
             'Program:exit'(node) {
                 debug('Program:exit');
@@ -176,11 +193,12 @@ module.exports = {
             // classes
             'ClassDeclaration'(node) {
                 debug('ClassDeclaration');
+                const opts = {};
+                getAnnotations(node, opts, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* ClassBody */)));
                 pushToStack(STATE_CLASS, node.id.name, {});
             },
             'ClassDeclaration:exit'(node) {
                 debug('ClassDeclaration:exit');
-                // TODO: getAnnotations(node, opts);
                 popFromStack();
             },
 
@@ -188,9 +206,17 @@ module.exports = {
             'ArrowFunctionExpression'(node) {
                 debug('ArrowFunctionExpression');
                 const opts = {async: node.async};
-                getAnnotations(node, opts);
+                opts.block = node.body.type === 'BlockStatement';
+
+                console.info(7000, opts.block
+                    ? context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */) /* opening bracket */)
+                    : context.sourceCode.getCommentsBefore(node.body /* Literal, BinaryExpression, CallExpression ... */));
+
+                getAnnotations(node, opts, opts.block
+                    ? context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */))
+                    : context.sourceCode.getCommentsBefore(node.body /* Literal, BinaryExpression, CallExpression ... */));
                 if (node.parent.type === 'PropertyDefinition') {
-                    if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility;
+                    if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility; // TODO: Convert to key opts
                     pushToStack(node.parent.static && !opts.decorator ? STATE_FUNC : STATE_METHOD, node.parent.key.name, opts);
                 } else if (node.parent.type === 'VariableDeclarator' && node.parent.parent.type === 'VariableDeclaration' && node.parent.parent.kind === 'const') {
                     // const А = () => ... is a name method, but with let or def will be considered as anonymouse
@@ -201,6 +227,7 @@ module.exports = {
                 // if (debug.enabled) {
                 //     console.info(600, state);
                 // }
+                console.info(2000, state)
             },
             'ArrowFunctionExpression:exit'(node) {
                 debug('ArrowFunctionExpression:exit');
@@ -208,24 +235,24 @@ module.exports = {
                 popFromStack();
             },
             'FunctionDeclaration'(node) {
+                debug('FunctionDeclaration');
                 const opts = {async: node.async};
-                console.info(9100, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
-                // getAnnotations(node, opts);
-
+                // console.info(9100, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
+                getAnnotations(node, opts, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
                 pushToStack(STATE_FUNC, node.id.name, opts);
-
-                // node.body // BlockStatement
-
+                console.info(1000, state)
                 // if (debug.enabled) {
                 //     console.info(640, state);
                 // }
             },
+            'FunctionDeclaration:exit'(node) {
+                debug('FunctionDeclaration:exit');
+              // TODO
+            },
             'FunctionExpression'(node) {
                 debug('FunctionExpression');
-                const opts = {async: node.async}; // TODO: Derive from class, manager root right
-                console.info(9200, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
-                getAnnotations(node, opts);
-                console.info(1000, opts)
+                const opts = {async: node.async};
+                getAnnotations(node, opts, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
                 if (node.parent.type === 'MethodDefinition') { // method of a class
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility;
                     pushToStack(node.parent.static && !opts.decorator ? STATE_FUNC : STATE_METHOD,
@@ -236,6 +263,7 @@ module.exports = {
                 } else { // stand along function
                     pushToStack(STATE_FUNC, node.id?.name, opts);
                 }
+                console.info(1100, state)
                 // if (debug.enabled) {
                 //     console.info(680, state);
                 // }
@@ -566,21 +594,23 @@ module.exports = {
             if (node.type === 'MemberExpression') return getLeftmostName(node.object);
         }
 
-        function getAnnotations(node, opts) {
-            const comments = context.sourceCode.getCommentsInside(node);
+        function getAnnotations(node, opts, comments) {
             for (const comment of comments) {
                 const r =  /^\s*local-rules\/context:(.*)$/gm.exec(comment.value);
                 if (r) {
-                    for (const attr of r[1].split(',').map(v => v.trim())) {
+                    for (const attr of [...r[1]
+                        .matchAll(/[\s,]*([\w\-_]*)/g)]
+                        .reduce((a, v) => { if (v[1]) a.push(v[1]); return a; }, [])) {
+
                         const itsNo = attr.startsWith('no-');
-                        const val = itsNo ? attr.substring(3) : attr
-                        if (!~['trace', 'root', 'span', 'decorator'].indexOf(val)) {
+                        const val = _.camelCase(_.kebabCase(itsNo ? attr.substring(3) : attr));
+                        if (!~OPTS_KEYS.indexOf(val)) {
                             context.report({
                                 node,
-                                message: `Unexpected flag ${attr}`,
-                            })
+                                message: `Unexpected flag: ${attr}`,
+                            });
+                            continue;
                         }
-                        // console.info(3000, attr, val)
                         opts[val] = !itsNo;
                     }
                 }
