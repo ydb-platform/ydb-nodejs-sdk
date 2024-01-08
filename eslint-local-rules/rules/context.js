@@ -83,7 +83,7 @@ module.exports = {
             stack.push(state);
             delete opts.decorator; // This value was considered before, and is removed to do not cause any confusion
             const anonymouse = !name;
-            if (!name && state.anonymTrace) name = `${filenameParsed.name}_${(++anonymouseIndex).toString()}`;
+            if (!name && state.anonymTrace) name = `anon_${(++anonymouseIndex).toString().padStart(3, '0')}`;
             state = {
                 ...opts,
                 type,
@@ -101,8 +101,8 @@ module.exports = {
 
             if (isFunc) {
                 if (name === 'constructor') state.ctor = true;
-                if (!~[STATE_METHOD, STATE_FUNC].findIndex(v => v === prevState.type) && !opts.hasOwnProperty('root'))
-                    state.root = true; // if root flag is not specified in directives
+                if (!opts.hasOwnProperty('root')) // if root flag is not specified in directives
+                    state.root = !~[STATE_METHOD, STATE_FUNC].findIndex(v => v === prevState.type);
                 if (!rootFuncState || state.root) {
                     rootFuncState = state;
                     anonymouseIndex = 0; // start anonymouse count on every root
@@ -128,7 +128,7 @@ module.exports = {
             if (state.type === STATE_ROOT) throw new Error('Already in the root');
             const prevState = state;
             state = stack.pop();
-            if (rootFuncState === prevState) rootFuncState = stack.findLast(v => v.root);
+            if (rootFuncState === prevState) rootFuncState = state.root ? state : stack.findLast(v => v.root);
         }
 
         let anonymouseIndex = 0;
@@ -248,23 +248,19 @@ module.exports = {
             },
             'ArrowFunctionExpression:exit'(node) {
                 debug('ArrowFunctionExpression:exit');
-                if (state.root) fixGetContext(node);
+                fixGetContext(node);
                 popFromStack();
             },
             'FunctionDeclaration'(node) {
                 debug('FunctionDeclaration');
                 const opts = {async: node.async};
-                // console.info(9100, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
                 getAnnotations(node, opts, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
                 pushToStack(STATE_FUNC, node.id.name, opts);
-                console.info(1000, state)
-                // if (debug.enabled) {
-                //     console.info(640, state);
-                // }
             },
             'FunctionDeclaration:exit'(node) {
                 debug('FunctionDeclaration:exit');
-              // TODO
+                fixGetContext(node);
+                popFromStack();
             },
             'FunctionExpression'(node) {
                 debug('FunctionExpression');
@@ -286,7 +282,7 @@ module.exports = {
             },
             'FunctionExpression:exit'(node) {
                 debug('FunctionExpression:exit');
-                if (state.root) fixGetContext(node);
+                fixGetContext(node);
                 popFromStack();
             },
 
@@ -320,14 +316,6 @@ module.exports = {
             const objOrFunctionName = getLeftmostName(node.callee);
             const hasAwait = (wrappedExpression || node.parent).type === 'AwaitExpression';
 
-            // if (debug.enabled) {
-            //     console.info(100, 'node', context.sourceCode.getText(node));
-            //     console.info(110, 'wrappedExpression', wrappedExpression ? context.sourceCode.getText(wrappedExpression) : false);
-            //     console.info(120, 'objOrFunctionName', objOrFunctionName);
-            //     console.info(130, 'state.async', rootFuncState?.async);
-            //     console.info(135, 'state.block', rootFuncState?.block);
-            // }
-
             if (debug.enabled) debug('name: %s, hasAwait: %s, async: %s, trace: %s, ignore: %s',
                 objOrFunctionName,
                 hasAwait,
@@ -335,20 +323,12 @@ module.exports = {
                 !!state.trace,
                 !!(state.ignore || state.prevIgnore)[objOrFunctionName]);
 
-            // console.info(2000, state)
-            // console.info(2100, rootFuncState)
-
             if (!state.trace || /* !rootFuncState?.async || */ (state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
                 if (wrappedExpression) {
-                    if (debug.enabled) {
-                        console.info(160, 'fix', context.sourceCode.getText(wrappedExpression));
-                        console.info(170, 'by', context.sourceCode.getText(node));
-                    }
-
                     context.report({
                         node: wrappedExpression,
                         message: `ctx.{{method}} is redundant`,
-                        data: {method: node.parent.parent.callee.object.property},
+                        data: {method: node.parent.parent.callee.property?.name},
                         fix: fixer => fixer.replaceText(wrappedExpression, context.sourceCode.getText(node)),
                     });
 
@@ -372,13 +352,7 @@ module.exports = {
 
                 const nodeToChange = node.parent === 'AwaitExpression' ? node.parent : node;
 
-                if (debug.enabled) {
-                    console.info(180, 'fix', context.sourceCode.getText(wrappedExpression || node));
-                    console.info(190, 'by', `${before}${context.sourceCode.getText(node)}${after}`);
-                }
-
                 debug('return: fix');
-
                 context.report({
                     node: wrappedExpression || node,
                     message: wrappedExpression ? 'Fix' : `Add {{before}}...{{after}}`,
@@ -391,19 +365,18 @@ module.exports = {
             }
         }
 
-
         function fixGetContext(node) {
             debug('fixGetContext()');
-
-            if (rootFuncState !== state || state.trace === false) { // this level is not suppose to has ctx declaration
+            console.info(1000, rootFuncState !== state, !state.trace, state)
+            if (rootFuncState !== state || !state.trace) { // this level is not suppose to has ctx declaration
                 if (state.ctxNode) {
-                    return {
+                    context.report({
                         node,
                         message: 'Remove ctx declaration',
                         fix: (fixer) => [
-                            fixer.removeRange([rootFuncState.ctxNode.range[0], rootFuncState.ctxNode.range[1] + 1]),
+                            fixer.removeRange([state.ctxNode.range[0], state.ctxNode.range[1] + 1]),
                         ],
-                    }
+                    });
                 }
                 return;
             }
@@ -415,11 +388,6 @@ module.exports = {
                 ? `${CONTEXT_CLASS}.getSafe('${state.traceName}',`
                 : `${CONTEXT_CLASS}.get('${state.traceName}'`}`;
             const getCtxAfter = ')';
-
-            // if (debug.enabled) {
-            //     console.info(300, 'getCtx', getCtx);
-            //     console.info(310, 'rootFuncState.ctxNode', !!rootFuncState.ctxNode);
-            // }
 
             const openingBracketToken = context.sourceCode.getFirstToken(node.body || node.value?.body);
             const tokenBeforeCtxNode = rootFuncState.ctxNode ? context.sourceCode.getTokenBefore(rootFuncState.ctxNode) : undefined;
@@ -434,31 +402,20 @@ module.exports = {
 
                 if (ctxText.endsWith(';')) ctxText = ctxText.substring(0, ctxText.length - 1);
                 if (openingBracketToken === tokenBeforeCtxNode && ctxText === getCtx) return; // it's already right
-                // if (debug.enabled) {
-                //     console.info(370, 'fix', context.sourceCode.getText(rootFuncState.ctxNode));
-                //     console.info(380, 'to', getCtx);
-                // }
 
                 context.report({
                     node: rootFuncState.ctxNode,
                     message: 'Fix to "{{ getCtx }}"',
                     data: {getCtx},
                     fix: (fixer) => [
-                        fixer.replaceTextRange(rootFuncState.ctxNode.range, getCtx), // keep line where statement was located
+                        fixer.replaceTextRange(state.ctxNode.range, getCtx), // keep line where statement was located
                     ],
                 });
             } else {
 
                 const getCtx = `${getCtxBefore}${!isGetSafe ? '' : (state.ctor ? '\'<logger>\'' : 'this')}${getCtxAfter}`; // keep original pointer to logger
 
-                // if (debug.enabled) {
-                //     console.info(390, 'add', getCtx);
-                // }
-
                 const fixedGetCtx = `\n${getCtx}`;
-
-                // console.info(1000, state.ctor)
-                console.info(1100, fixedGetCtx)
 
                 context.report({
                     node: node,

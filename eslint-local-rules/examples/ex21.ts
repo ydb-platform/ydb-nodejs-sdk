@@ -15,17 +15,28 @@ class A {
     //     12;
 
     constructor() {
-        // local-rules/context: no-trace, anonym-trace
-        console.info('test');
-        super();
+        // local-rules/context: trace anonym-trace
 
-        const ctx = ContextWithLogger.getSafe('ydb-nodejs-sdk:...eslint-local-rules.examples.A.constructor', ctx.logger);
+        // console.info('test');
+        // super();
+        const ctx = ContextWithLogger.getSafe('ydb-nodejs-sdk:...eslint-local-rules.examples.A.constructor', '<logger>');
+
+        console.info(2000, await (() => {
+            F();
+        })());
+
+        // const WW = () => {
+        //     // local-rules/context: root trace
+        //     const ctx = ContextWithLogger.get('ydb-nodejs-sdk:...eslint-local-rules.examples.A.constructor.WW');
+        //
+        //     ctx.doSync(() => t());
+        // };
 
         //     // local-rules/context: no-root, no-trace
         //
         // };
 
-        F();
+        // ctx.doSync(() => F());
     }
 
     // n() {

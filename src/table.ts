@@ -1,4 +1,4 @@
-// /* eslint local-rules/context: "error" */
+// eslint local-rules/context: "error"
 
 // eslint-disable-next-line max-classes-per-file
 import _ from 'lodash';
@@ -114,6 +114,8 @@ interface IQueryParams {
 }
 
 export class OperationParams implements Ydb.Operations.IOperationParams {
+    // local-rules/context: no-trace
+
     operationMode?: OperationMode;
     operationTimeout?: google.protobuf.IDuration;
     cancelAfter?: google.protobuf.IDuration;
@@ -170,6 +172,8 @@ export class OperationParams implements Ydb.Operations.IOperationParams {
 }
 
 export class OperationParamsSettings {
+    // local-rules/context: no-trace
+
     operationParams?: OperationParams;
 
     withOperationParams(operationParams: OperationParams) {
@@ -196,6 +200,8 @@ export class DropTableSettings extends OperationParamsSettings {
 }
 
 export class DescribeTableSettings extends OperationParamsSettings {
+    // local-rules/context: no-trace
+
     includeShardKeyBounds?: boolean;
     includeTableStats?: boolean;
     includePartitionStats?: boolean;
@@ -222,6 +228,8 @@ export class DescribeTableSettings extends OperationParamsSettings {
 export class BeginTransactionSettings extends OperationParamsSettings {}
 
 export class CommitTransactionSettings extends OperationParamsSettings {
+    // local-rules/context: no-trace
+
     collectStats?: Ydb.Table.QueryStatsCollection.Mode;
 
     withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
@@ -236,6 +244,8 @@ export class RollbackTransactionSettings extends OperationParamsSettings {}
 export class PrepareQuerySettings extends OperationParamsSettings {}
 
 export class ExecuteQuerySettings extends OperationParamsSettings {
+    // local-rules/context: no-trace
+
     keepInCache = false;
     collectStats?: Ydb.Table.QueryStatsCollection.Mode;
     onResponseMetadata?: (metadata: grpc.Metadata) => void;
@@ -256,6 +266,8 @@ export class ExecuteQuerySettings extends OperationParamsSettings {
 export class BulkUpsertSettings extends OperationParamsSettings {}
 
 export class ReadTableSettings {
+    // local-rules/context: no-trace
+
     columns?: string[];
     ordered?: boolean;
     rowLimit?: number;
@@ -319,6 +331,8 @@ export class ReadTableSettings {
 }
 
 export class ExecuteScanQuerySettings {
+    // local-rules/context: no-trace
+
     mode?: Ydb.Table.ExecuteScanQueryRequest.Mode;
     collectStats?: Ydb.Table.QueryStatsCollection.Mode;
 
@@ -993,6 +1007,8 @@ export class SessionPool extends EventEmitter {
 
 // eslint-disable-next-line unicorn/prefer-event-target
 export class TableClient extends EventEmitter {
+    // local-rules/context: no-trace
+
     private pool: SessionPool;
 
     constructor(settings: ITableClientSettings) {
@@ -1022,6 +1038,8 @@ export class StorageSettings implements Ydb.Table.IStoragePool {
 }
 
 export class ColumnFamilyPolicy implements Ydb.Table.IColumnFamilyPolicy {
+    // local-rules/context: no-trace
+
     public name?: string;
     public data?: StorageSettings;
     public external?: StorageSettings;
@@ -1060,6 +1078,8 @@ export class ColumnFamilyPolicy implements Ydb.Table.IColumnFamilyPolicy {
 }
 
 export class StoragePolicy implements Ydb.Table.IStoragePolicy {
+    // local-rules/context: no-trace
+
     public presetName?: string;
     public syslog?: StorageSettings;
     public log?: StorageSettings;
@@ -1118,6 +1138,8 @@ export class ExplicitPartitions implements Ydb.Table.IExplicitPartitions {
 }
 
 export class PartitioningPolicy implements Ydb.Table.IPartitioningPolicy {
+    // local-rules/context: no-trace
+
     public presetName?: string;
     public autoPartitioning?: AutoPartitioningPolicy;
     public uniformPartitions?: number;
@@ -1149,6 +1171,8 @@ export class PartitioningPolicy implements Ydb.Table.IPartitioningPolicy {
 }
 
 export class ReplicationPolicy implements Ydb.Table.IReplicationPolicy {
+    // local-rules/context: no-trace
+
     presetName?: string;
     replicasCount?: number;
     createPerAvailabilityZone?: FeatureFlag;
@@ -1192,6 +1216,8 @@ export class CachingPolicy implements Ydb.Table.ICachingPolicy {
 }
 
 export class TableProfile implements Ydb.Table.ITableProfile {
+    // local-rules/context: no-trace
+
     public presetName?: string;
     public storagePolicy?: StoragePolicy;
     public compactionPolicy?: CompactionPolicy;
@@ -1244,6 +1270,8 @@ export class TableProfile implements Ydb.Table.ITableProfile {
 }
 
 export class TableIndex implements Ydb.Table.ITableIndex {
+    // local-rules/context: no-trace
+
     public indexColumns: string[] = [];
     public dataColumns: string[] | null = null;
     public globalIndex: Ydb.Table.IGlobalIndex | null = null;
@@ -1279,6 +1307,8 @@ export class TableIndex implements Ydb.Table.ITableIndex {
 }
 
 export class TtlSettings implements Ydb.Table.ITtlSettings {
+    // local-rules/context: no-trace
+
     public dateTypeColumn?: Ydb.Table.IDateTypeColumnModeSettings | null;
     constructor(columnName: string, expireAfterSeconds = 0) {
         this.dateTypeColumn = { columnName, expireAfterSeconds };
@@ -1286,6 +1316,8 @@ export class TtlSettings implements Ydb.Table.ITtlSettings {
 }
 
 export class TableDescription implements Ydb.Table.ICreateTableRequest {
+    // local-rules/context: no-trace
+
     /** @deprecated use TableDescription options instead */
     public profile?: TableProfile;
     public indexes: TableIndex[] = [];
@@ -1365,6 +1397,8 @@ export class TableDescription implements Ydb.Table.ICreateTableRequest {
 }
 
 export class AlterTableDescription {
+    // local-rules/context: no-trace
+
     public addColumns: Column[] = [];
     public dropColumns: string[] = [];
     public alterColumns: Column[] = [];
