@@ -1,6 +1,8 @@
-// TODO: Ensure it's after 'super()'
 // TODO: Would optimize an result, if we will trace that object being created from IGNORED package
 // TODO: do not wrap .bind()
+// TODO: wrap whole body of sync func
+// TODO: span directives
+// TODO: wrapper for async func should have async
 
 const path = require('path');
 const _ = require('lodash');
@@ -147,12 +149,13 @@ module.exports = {
                 programNode = node;
                 const opts = {};
                 // console.info(5000, context.sourceCode.getCommentsBefore(node))
-                getAnnotations(node, opts, context.sourceCode.getCommentsBefore(node));
+                getAnnotations(node, opts, node, false);
                 pushToStack(STATE_PROGRAM, null, opts);
             },
             'Program:exit'(node) {
                 debug('Program:exit');
-                // fixImportContext(context, node);
+                fixImportContext(context, node);
+                popFromStack();
             },
             'ImportDeclaration'(node) {
                 debug('ImportDeclaration');
@@ -190,7 +193,6 @@ module.exports = {
                 // insert const ctx = ... only after super(), since it's not allowed use this.before
                 if (CTX_AFTER_SUPER && node.callee.type === 'Super') {
                     state.ctxInsertPoint = node.range[1];
-                    return;
                 }
 
                 // context initialization
@@ -216,8 +218,8 @@ module.exports = {
             'ClassDeclaration'(node) {
                 debug('ClassDeclaration');
                 const opts = {};
-                getAnnotations(node, opts, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* ClassBody */)));
-                pushToStack(STATE_CLASS, node.id.name, {});
+                getAnnotations(node, opts, context.sourceCode.getFirstToken(node.body /* ClassBody */), true);
+                pushToStack(STATE_CLASS, node.id.name, opts);
             },
             'ClassDeclaration:exit'(node) {
                 debug('ClassDeclaration:exit');
@@ -228,15 +230,16 @@ module.exports = {
             'ArrowFunctionExpression'(node) {
                 debug('ArrowFunctionExpression');
 
-                if (node.parent.type === 'CallExpression' && node.parent.callee.object?.name === 'ctx') return; // it's arrow function in ctx.do(() => ...)
-
                 const opts = {async: node.async};
                 opts.block = node.body.type === 'BlockStatement';
 
                 getAnnotations(node, opts, opts.block
-                    ? context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */))
-                    : context.sourceCode.getCommentsBefore(node.body /* Literal, BinaryExpression, CallExpression ... */));
-                if (node.parent.type === 'PropertyDefinition') {
+                    ? context.sourceCode.getFirstToken(node.body /* BlockStatement */)
+                    : node.body /* Literal, BinaryExpression, CallExpression ... */, opts.block);
+
+                if (node.parent.type === 'CallExpression' && node.parent.callee.object?.name === 'ctx') {
+                    pushToStack(STATE_FUNC, null, {...opts, skip: true}); // it's arrow function in ctx.do(() => ...)
+                } else if (node.parent.type === 'PropertyDefinition') {
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility; // TODO: Convert to key opts
                     pushToStack(node.parent.static && !opts.decorator ? STATE_FUNC : STATE_METHOD, node.parent.key.name, opts);
                 } else if (node.parent.type === 'VariableDeclarator' && node.parent.parent.type === 'VariableDeclaration' && node.parent.parent.kind === 'const') {
@@ -248,13 +251,13 @@ module.exports = {
             },
             'ArrowFunctionExpression:exit'(node) {
                 debug('ArrowFunctionExpression:exit');
-                fixGetContext(node);
+                if (!state.skip) fixGetContext(node);
                 popFromStack();
             },
             'FunctionDeclaration'(node) {
                 debug('FunctionDeclaration');
                 const opts = {async: node.async};
-                getAnnotations(node, opts, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
+                getAnnotations(node, opts, context.sourceCode.getFirstToken(node.body /* BlockStatement */), true);
                 pushToStack(STATE_FUNC, node.id.name, opts);
             },
             'FunctionDeclaration:exit'(node) {
@@ -265,7 +268,7 @@ module.exports = {
             'FunctionExpression'(node) {
                 debug('FunctionExpression');
                 const opts = {async: node.async};
-                getAnnotations(node, opts, context.sourceCode.getCommentsAfter(context.sourceCode.getFirstToken(node.body /* BlockStatement */)));
+                getAnnotations(node, opts, context.sourceCode.getFirstToken(node.body /* BlockStatement */), true);
                 if (node.parent.type === 'MethodDefinition') { // method of a class
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility;
                     pushToStack(node.parent.static && !opts.decorator ? STATE_FUNC : STATE_METHOD,
@@ -367,7 +370,6 @@ module.exports = {
 
         function fixGetContext(node) {
             debug('fixGetContext()');
-            console.info(1000, rootFuncState !== state, !state.trace, state)
             if (rootFuncState !== state || !state.trace) { // this level is not suppose to has ctx declaration
                 if (state.ctxNode) {
                     context.report({
@@ -428,65 +430,6 @@ module.exports = {
             }
         }
 
-        function fixSetTimeoutAndSetInterval(node) {
-            debug('fixSetTimeoutAndSetInterval()');
-            const fnOrAwaitNode = node.arguments[0];
-
-            rootFuncState.hasCtx = true;
-
-            const fnNode = fnOrAwaitNode.type === 'AwaitExpression' ? fnOrAwaitNode.argument : fnOrAwaitNode;
-
-            const isAlreadyWrapped = fnNode.type === 'CallExpression'
-                && (fnNode.callee.name === 'ctx' || fnNode.callee.object?.name === 'ctx');
-
-            const wrappedArgumentNode = isAlreadyWrapped ? fnNode.arguments[0] : undefined;
-
-            const callWithoutWrapInParentheses = !!(wrappedArgumentNode
-                || fnNode.type === 'Identifier'
-                || fnOrAwaitNode.type === 'CallExpression');
-
-            const before = wrappedArgumentNode
-                ? 'ctx.doHandleError('
-                : callWithoutWrapInParentheses
-                    ? 'ctx.doHandleError(() => '
-                    : 'ctx.doHandleError(() => (';
-            const after = wrappedArgumentNode ? ')' : callWithoutWrapInParentheses ? '())' : ')())';
-
-            // if (debug.enabled) {
-            //     console.info(200, 'fnOrAwaitNode', context.sourceCode.getText(fnOrAwaitNode))
-            //     console.info(210, 'fnNode', context.sourceCode.getText(fnNode))
-            //     console.info(220, 'isAlreadyWrapped', isAlreadyWrapped)
-            //     console.info(230, 'wrappedArgumentNode', wrappedArgumentNode ? context.sourceCode.getText(wrappedArgumentNode) : false)
-            //     console.info(240, 'callWithoutWrapInParentheses', callWithoutWrapInParentheses)
-            //     console.info(250, 'before', before)
-            //     console.info(260, 'after', after)
-            // }
-
-            let fnText = context.sourceCode.getText(fnOrAwaitNode);
-            if (fnText.endsWith(';')) fnText = fnText.substring(0, fnText.length - 1);
-            if (fnText.startsWith(before) && fnText.endsWith(after)) return; // already correctly wrapped
-
-            // if (debug.enabled) {
-            //     console.info(280, 'fix', context.sourceCode.getText(fnOrAwaitNode));
-            //     console.info(290, 'by', `${before}${wrappedArgumentNode
-            //         ? context.sourceCode.getText(wrappedArgumentNode)
-            //         : context.sourceCode.getText(fnOrAwaitNode)}${after}`);
-            // }
-
-            context.report({
-                node: fnOrAwaitNode,
-                message: wrappedArgumentNode ? 'Fix' : `Add {{before}}...{{after}}`,
-                data: {
-                    before,
-                    after,
-                },
-                fix: (fixer) => fixer.replaceText(fnOrAwaitNode,
-                    `${before}${wrappedArgumentNode
-                        ? context.sourceCode.getText(wrappedArgumentNode)
-                        : context.sourceCode.getText(fnOrAwaitNode)}${after}`),
-            });
-        }
-
         /**
          * Adds, removes or updates import CONTEXT_CLASS from 'CONTEXT_CLASS_PATH'; depending on anyContextInFile variable.
          */
@@ -502,11 +445,7 @@ module.exports = {
 
             const importContext = `import { ${CONTEXT_CLASS} } from '${classPath}'`;
 
-            // if (debug.enabled) {
-            //     console.info(700, 'anyContextInFile', anyContextInFile)
-            //     console.info(710, 'importContext', importContext)
-            //     console.info(720, 'importContextNode', !!importContextNode)
-            // }
+            debug('importContextNode: %s, anyContextInFile: %s', !!importContextNode, !!anyContextInFile);
 
             if (importContextNode) {
                 // remove import
@@ -548,6 +487,48 @@ module.exports = {
                         : fixer.insertTextBeforeRange(topComments.length >  [0, 0], `${importContext}\n`)
                 });
             }
+        }
+
+        function fixSetTimeoutAndSetInterval(node) {
+            debug('fixSetTimeoutAndSetInterval()');
+            const fnOrAwaitNode = node.arguments[0];
+
+            rootFuncState.hasCtx = true;
+
+            const fnNode = fnOrAwaitNode.type === 'AwaitExpression' ? fnOrAwaitNode.argument : fnOrAwaitNode;
+
+            const isAlreadyWrapped = fnNode.type === 'CallExpression'
+                && (fnNode.callee.name === 'ctx' || fnNode.callee.object?.name === 'ctx');
+
+            const wrappedArgumentNode = isAlreadyWrapped ? fnNode.arguments[0] : undefined;
+
+            const callWithoutWrapInParentheses = !!(wrappedArgumentNode
+                || fnNode.type === 'Identifier'
+                || fnOrAwaitNode.type === 'CallExpression');
+
+            const before = wrappedArgumentNode
+                ? 'ctx.doHandleError('
+                : callWithoutWrapInParentheses
+                    ? 'ctx.doHandleError(() => '
+                    : 'ctx.doHandleError(() => (';
+            const after = wrappedArgumentNode ? ')' : callWithoutWrapInParentheses ? '())' : ')())';
+
+            let fnText = context.sourceCode.getText(fnOrAwaitNode);
+            if (fnText.endsWith(';')) fnText = fnText.substring(0, fnText.length - 1);
+            if (fnText.startsWith(before) && fnText.endsWith(after)) return; // already correctly wrapped
+
+            context.report({
+                node: fnOrAwaitNode,
+                message: wrappedArgumentNode ? 'Fix' : `Add {{before}}...{{after}}`,
+                data: {
+                    before,
+                    after,
+                },
+                fix: (fixer) => fixer.replaceText(fnOrAwaitNode,
+                    `${before}${wrappedArgumentNode
+                        ? context.sourceCode.getText(wrappedArgumentNode)
+                        : context.sourceCode.getText(fnOrAwaitNode)}${after}`),
+            });
         }
 
         function fixThisLogger(node) {
@@ -607,16 +588,17 @@ module.exports = {
             if (node.type === 'MemberExpression') return getLeftmostName(node.object);
         }
 
-        function getAnnotations(node, opts, comments) {
+        function getAnnotations(node, opts, commentsNode, commentsAfter) {
+            const comments = context[commentsAfter ? 'getCommentsAfter' : 'getCommentsBefore'](commentsNode);
             for (const comment of comments) {
                 const r =  /^\s*local-rules\/context:(.*)$/gm.exec(comment.value);
                 if (r) {
-                    for (const attr of [...r[1]
-                        .matchAll(/[\s,]*([\w\-_]*)/g)]
+                    for (const attr of [...r[1].matchAll(/[\s,]*([\w\-_]*)/g)]
                         .reduce((a, v) => { if (v[1]) a.push(v[1]); return a; }, [])) {
 
                         const itsNo = attr.startsWith('no-');
                         const val = _.camelCase(_.kebabCase(itsNo ? attr.substring(3) : attr));
+
                         if (!~OPTS_KEYS.indexOf(val)) {
                             context.report({
                                 node,
@@ -629,7 +611,7 @@ module.exports = {
                 }
             }
 
-            opts.ctxInsertPoint = (comments.length > 0 ? comments[comments.length - 1] : node).range[1];
+            opts.ctxInsertPoint = (comments.length > 0 ? comments[comments.length - 1] : commentsNode).range[1];
         }
     },
 };

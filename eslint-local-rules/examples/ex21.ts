@@ -1,6 +1,7 @@
 /* eslint local-rules/context: "error" */
 
 // local -rules/context: trace, no-root
+import { ContextWithLogger } from '../../src/context-with-logger';
 
 class A {
     // local-rules/context: trace
@@ -21,9 +22,9 @@ class A {
         // super();
         const ctx = ContextWithLogger.getSafe('ydb-nodejs-sdk:...eslint-local-rules.examples.A.constructor', '<logger>');
 
-        console.info(2000, await (() => {
+        console.info(2000, ctx.doSync(() => await(() => {
             F();
-        })());
+        }))());
 
         // const WW = () => {
         //     // local-rules/context: root trace
