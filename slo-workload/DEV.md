@@ -1,5 +1,7 @@
 # SLO development guid
 
+## Local testing
+
 ### Start local environment
 
 In the [slo-tests](https://github.com/ydb-platform/slo-tests) project in the _playground_ folder
@@ -17,7 +19,7 @@ In the browser, open
 ### Configure local console to run SLO tests
 
 In the [ydb-nodejs-sdk](https://github.com/ydb-platform/ydb-nodejs-sdk) project
-in the slo-workload folder
+in the _slo-workload_ folder
 
   `npm i`
 
@@ -34,6 +36,7 @@ in the slo-workload folder
   `npx ts-node src/index.ts run grpcs://localhost:2135 local`
 
 ### Clean the baseClean the base
+
   `npx ts-node src/index.ts clear grpcs://localhost:2135 local`
 
 ### What to do in case of test problems
