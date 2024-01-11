@@ -1,20 +1,21 @@
-# SLO development guid
+# SLO development guide
 
 ## Local testing
 
 ### Start local environment
 
-In the [slo-tests](https://github.com/ydb-platform/slo-tests) project in the _playground_ folder
+In the [slo-tests](https://github.com/ydb-platform/slo-tests) project
+in the _playground_ folder
 
-  `run docker compose up -d`
+  `docker compose up -d`
 
-### Check everything in the browserCheck everything in the browser
+### Check everything in the browser
 
 In the browser, open
 
 * [Grafana](http://localhost:3000/)
 
-* [YDB](http://localhost:8765/)
+* [YDB](http://localhost:8765/) (Check SLO dashboard)
 
 ### Configure local console to run SLO tests
 
@@ -25,9 +26,9 @@ in the _slo-workload_ folder
 
   `set YDB_ANONYMOUS_CREDENTIALS=1`
 
-  `set YDB_SSL_ROOT_CERTIFICATES_FILE=../[slo-tests](https://github.com/ydb-platform/slo-tests)/playground/data/ydb_certs/ca.pem`
+  `set YDB_SSL_ROOT_CERTIFICATES_FILE=../../slo-tests/playground/data/ydb_certs/ca.pem`
 
-### Create a test base
+### Create the test database
 
   `npx ts-node src/index.ts create grpcs://localhost:2135 local`
 
@@ -37,9 +38,9 @@ in the _slo-workload_ folder
 
 ### Clean the baseClean the base
 
-  `npx ts-node src/index.ts clear grpcs://localhost:2135 local`
+  `npx ts-node src/index.ts cleanup grpcs://localhost:2135 local`
 
-### What to do in case of test problems
+### What to do in case of problems
 
 * Restart the environment
 
@@ -47,4 +48,5 @@ in the _slo-workload_ folder
 
   `docker compose up -d`
 
-* Repeat the tests several times. There are floating errors because the tests are integration tests. So the picture may vary from one run to another
+* Repeat the tests several times. There are floating errors because the tests
+  are integration tests. So the picture may vary from one run to another
