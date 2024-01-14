@@ -196,7 +196,7 @@ module.exports = {
                 }
 
                 // context initialization
-                if (node.callee.object?.name === CONTEXT_CLASS && ~['get', 'getSafe'].findIndex(v => v === node.callee.property.name)) {
+                if (node.callee.object?.name === CONTEXT_CLASS && ~['get', 'getNoSpan'].findIndex(v => v === node.callee.property.name)) {
                     let line = node;
                     if (line.parent.type === 'VariableDeclarator') line = line.parent;
                     if (line.parent.type === 'VariableDeclaration') line = line.parent;
@@ -387,7 +387,7 @@ module.exports = {
 
             anyContextInFile = true; // TODO: Add span/noSpan annotation
             const getCtxBefore = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${isGetSafe
-                ? `${CONTEXT_CLASS}.getSafe('${state.traceName}',`
+                ? `${CONTEXT_CLASS}.getnoSpan('${state.traceName}',` // TODO: Support
                 : `${CONTEXT_CLASS}.get('${state.traceName}'`}`;
             const getCtxAfter = ')';
 
@@ -397,7 +397,7 @@ module.exports = {
             if (rootFuncState.ctxNode) {
                 let ctxText = context.sourceCode.getText(rootFuncState.ctxNode);
 
-                const r = ctxText.match(/\.getSafe\((.*,)*(.*)\)/);
+                const r = ctxText.match(/\.get(NoSpan)?\((.*,)*(.*)\)/);
                 const logger = r ? r[2] : state.ctor ? '\'<logger>\'' : 'this';
 
                 const getCtx = `${getCtxBefore}${logger}${getCtxAfter}`; // keep original pointer to logger

@@ -1,6 +1,7 @@
-import { Context, getContext, NOT_A_CONTEXT } from './utils2/context';
-import { Logger } from './utils2/simple-logger';
-import { getLoggerFromObject } from './utils2/get-logger-from-object';
+import {Context, getContext, NOT_A_CONTEXT} from './utils2/context';
+import {Logger, SimpleLogger} from './utils2/simple-logger';
+
+let defaultLogger: Logger;
 
 /**
  * Context with reference to the head object - driver.
@@ -14,38 +15,34 @@ export class ContextWithLogger extends Context {
      * This method should be called in methods that can be called by a client code - if this type of context
      * does not already exist, it will be created.  It is important to have access to Logger object to build new context.
      */
-    static getSafe(methodName: string, loggerOrObject: Logger | any) {
+    static get(traceName: string, loggerOrObject?: Logger | any) {
         const ctx = getContext();
 
         let context = ctx.findContextByClass<ContextWithLogger>(ContextWithLogger);
 
         if (context === NOT_A_CONTEXT) {
-            context = new ContextWithLogger(
-                ctx,
-                typeof loggerOrObject.error === 'function'
-                    ? loggerOrObject
-                    : getLoggerFromObject(loggerOrObject),
-            );
+            let logger;
+
+            if (loggerOrObject) {
+                if (typeof loggerOrObject.info === 'function') { // it's logger itself
+                    logger = loggerOrObject;
+                } else if (
+                    typeof loggerOrObject.logger === 'object'
+                    && loggerOrObject.logger !== null
+                    && 'error' in loggerOrObject.logger) { // it's an object with property logger with logger in it
+                    logger = loggerOrObject.logger as Logger;
+                }
+            }
+
+            if (!logger) {
+                logger = defaultLogger ?? (defaultLogger = new SimpleLogger());
+                logger.warn((new Error('Missing logger:')).stack!.slice('Error: '.length));
+            }
+
+            context = new ContextWithLogger(ctx, logger);
         }
 
-        context.trace(methodName);
-
-        return context;
-    }
-
-    /**
-     * Returns the context of this type.  If there is no such context - throws an error.
-     */
-    static get(methodName: string) {
-        const ctx = getContext();
-
-        const context = ctx.findContextByClass<ContextWithLogger>(ContextWithLogger);
-
-        if (context === NOT_A_CONTEXT) {
-            throw new Error('ContextWithLogger is not in the context chain. Consider using RiverContext.getSafe()');
-        }
-
-        context.trace(methodName);
+        context.trace(traceName);
 
         return context;
     }

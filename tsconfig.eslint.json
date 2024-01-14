@@ -2,6 +2,7 @@
   "extends": "./tsconfig.json",
   "include": [
     "./src",
+    "./src/slo-workload",
     "./config",
     "./scripts",
     "./examples",

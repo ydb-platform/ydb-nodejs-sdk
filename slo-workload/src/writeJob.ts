@@ -1,32 +1,38 @@
-import { WRITE_RPS } from './utils/defaults'
-import RateLimiter from './utils/RateLimiter'
-import { DataGenerator } from './utils/DataGenerator'
-import Executor from './utils/Executor'
+/* eslint local-rules/context: "error" */
 
-export async function writeJob(executor: Executor, rps?: number) {
-  if (!rps) rps = WRITE_RPS
+import { WRITE_RPS } from './utils/defaults';
+import RateLimiter from './utils/RateLimiter';
+import { DataGenerator } from './utils/DataGenerator';
+import Executor from './utils/Executor';
+import { ContextWithLogger } from './context-with-logger';
 
-  const rateLimiter = new RateLimiter('write', rps)
+export const writeJob = async (executor: Executor, rps?: number) => {
+    const ctx = ContextWithLogger.get('ydb-nodejs-sdk:writeJob');
 
-  let counter = 0
-  const withSession = executor.withSession('write')
-  while (new Date().valueOf() < executor.stopTime) {
-    counter++
-    await rateLimiter.nextTick()
+    if (!rps) rps = WRITE_RPS;
 
-    withSession(async (session) => {
-      await session.executeQuery(
-        executor.qb.writeQuery,
-        { ...DataGenerator.getUpsertData() },
-        { commitTx: true, beginTx: { serializableReadWrite: {} } },
-        executor.qb.writeExecuteQuerySettings
-      )
-    })
+    const rateLimiter = new RateLimiter('write', rps);
 
-    // add to metrics real rps each 100s call
-    if (counter % 500 === 0) {
-      console.log('write x500', DataGenerator.getMaxId())
-      executor.realRPS.set({ jobName: 'write' }, rateLimiter.getRealRPS('write'))
+    let counter = 0;
+    const withSession = ctx.doSync(() => executor.withSession('write'));
+
+    while (Date.now() < executor.stopTime) {
+        counter++;
+        await ctx.do(() => rateLimiter.nextTick());
+
+        ctx.doSync(() => withSession(async (session) => {
+            await session.executeQuery(
+                executor.qb.writeQuery,
+                { ...DataGenerator.getUpsertData() },
+                { commitTx: true, beginTx: { serializableReadWrite: {} } },
+                executor.qb.writeExecuteQuerySettings,
+            );
+        }));
+
+        // add to metrics real rps each 100s call
+        if (counter % 500 === 0) {
+            console.log('write x500', ctx.doSync(() => DataGenerator.getMaxId()));
+            ctx.doSync(() => executor.realRPS.set({ jobName: 'write' }, rateLimiter.getRealRPS('write')));
+        }
     }
-  }
-}
+};
