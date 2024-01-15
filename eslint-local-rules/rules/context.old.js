@@ -155,7 +155,7 @@ module.exports = {
                 if (node.parent.type === 'Decorator') return;
 
                 // context initialization
-                if (node.callee.object?.name === CONTEXT_CLASS && ~['get', 'getSafe'].findIndex(v => v === node.callee.property.name)) {
+                if (node.callee.object?.name === CONTEXT_CLASS && ~['get', 'get'].findIndex(v => v === node.callee.property.name)) {
                     let line = node;
                     if (line.parent.type === 'VariableDeclarator') line = line.parent;
                     if (line.parent.type === 'VariableDeclaration') line = line.parent;
@@ -267,7 +267,7 @@ module.exports = {
 
             anyContextInFile = true; // TODO: Add span/noSpan annotation
             const getCtx = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${rootFuncState.type === STATE_METHOD
-                ? `${CONTEXT_CLASS}.getSafe('${state.traceName}', this)`
+                ? `${CONTEXT_CLASS}.get('${state.traceName}', this)`
                 : `${CONTEXT_CLASS}.get('${state.traceName}')`}`;
 
             // if (debug.enabled) {

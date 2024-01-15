@@ -21,7 +21,7 @@ const CONTEXT_CLASS_PATH = '/context-with-logger';
 const TRACKING_PREFIX = 'ydb-nodejs-sdk:';
 const TRACKING_DELIMITER = '.';
 
-const OPTS_KEYS = ['trace', 'anonymTrace', 'root', 'span', 'decorator'];
+const OPTS_KEYS = ['trace', 'root', 'span', 'decorator'];
 
 /**
  * List of global classes and global instances and libs that not suppose toi be wrapped by context.
@@ -39,6 +39,7 @@ const IGNORE_NPMS = [
 
 let itCount = 0;
 let keepThisLogger = false;
+let insideActiveFixCtxDo = 0;
 
 // eslint-disable-next-line unicorn/prefer-module
 module.exports = {
@@ -53,9 +54,9 @@ module.exports = {
         schema: [], // TODO: add context name, traking-prefix
     },
     create: (context) => {
-        debug('create(context) {} [iteration %d]', itCount++);
+        debug('create(context) {} [iteration %d]', ++itCount);
 
-        if (itCount >= 2) return {}
+        // if (itCount > 1) return {}
 
         /**
          * Nesting levels
@@ -67,7 +68,6 @@ module.exports = {
             ignore: IGNORE_GLOBALS, // variables and objects to be considered as global, so there is no sense to wrap them in ctx.do...
             traceName: null, // hierarchical name of function to be used as tracing unique name
             trace: true,
-            anonymTrace: false,
             // async: false, // true, function has async flag
             // decorator: false, // returned function is a wrapper for a class method
             // root: false, // it's level of function there ctx, suppose to be declared
@@ -86,7 +86,10 @@ module.exports = {
             stack.push(state);
             delete opts.decorator; // This value was considered before, and is removed to do not cause any confusion
             const anonymouse = !name;
-            if (!name && state.anonymTrace) name = `anon_${(++anonymouseIndex).toString().padStart(3, '0')}`;
+            if (!name && ~[STATE_FUNC, STATE_METHOD, STATE_CLASS].findIndex(v=> v === type)) {
+                name = `anon_${(++anonymouseIndex).toString()
+                    .padStart(3, '0')}`;
+            }
             state = {
                 ...opts,
                 type,
@@ -119,10 +122,12 @@ module.exports = {
             }
 
             if (debug.enabled) {
-                readableState = Object.keys(state).sort().reduce((a, k) => {
-                    if (!~['ignore', 'prevIgnore'].findIndex(v => v === k)) a[k] = state[k];
-                    return a;
-                }, []);
+                readableState = Object.keys(state)
+                    .sort()
+                    .reduce((a, k) => {
+                        if (!~['ignore', 'prevIgnore'].findIndex(v => v === k)) a[k] = state[k];
+                        return a;
+                    }, []);
                 debug('state: %o', readableState);
             }
         };
@@ -149,7 +154,6 @@ module.exports = {
                 debug('Program');
                 programNode = node;
                 const opts = {};
-                // console.info(5000, context.sourceCode.getCommentsBefore(node))
                 getAnnotations(node, opts, node, false);
                 pushToStack(STATE_PROGRAM, null, opts);
             },
@@ -203,11 +207,13 @@ module.exports = {
                     if (line.parent.type === 'VariableDeclaration') line = line.parent;
                     state.ctxNode = line;
                     keepThisLogger = true;
-                    return;q
+                    return;
                 }
 
                 if (node.callee.object?.name === 'ctx'
-                    && ~['do', 'doSync', 'doHandleError'].findIndex(v => v === node.callee.property.name)) return; // skip ctx.do...()
+                    && ~['do', 'doSync', 'doHandleError'].findIndex(v => v === node.callee.property.name)) {
+                    return;
+                } // skip ctx.do...()
 
                 if (~['setTimeout', 'setInterval'].findIndex(v => v === node.callee.name)) {
                     // wrap setTimeout, setInterval
@@ -216,11 +222,14 @@ module.exports = {
                 }
 
                 // wrap other calls
-                fixCtxDo(node);
+                if (node.parent.type === 'ChainExpression') node = node.parent; // takes a?.b()
+
+                if (!insideActiveFixCtxDo && fixCtxDo(node)) insideActiveFixCtxDo++;
             },
             'CallExpression:exit'(node) {
                 debug('CallExpression:exit');
                 keepThisLogger = false;
+                if (insideActiveFixCtxDo) insideActiveFixCtxDo--;
             },
 
             // classes
@@ -247,7 +256,10 @@ module.exports = {
                     : node.body /* Literal, BinaryExpression, CallExpression ... */, opts.block);
 
                 if (node.parent.type === 'CallExpression' && node.parent.callee.object?.name === 'ctx') {
-                    pushToStack(STATE_FUNC, null, {...opts, skip: true}); // it's arrow function in ctx.do(() => ...)
+                    pushToStack(STATE_FUNC, null, {
+                        ...opts,
+                        skip: true,
+                    }); // it's arrow function in ctx.do(() => ...)
                 } else if (node.parent.type === 'PropertyDefinition') {
                     if ('accessibility' in node.parent) opts.accessibility = node.parent.accessibility; // TODO: Convert to key opts
                     pushToStack(node.parent.static && !opts.decorator ? STATE_FUNC : STATE_METHOD, node.parent.key.name, opts);
@@ -329,20 +341,27 @@ module.exports = {
                 return;
             }
 
-            const objOrFunctionName = getLeftmostName(node.callee);
+            const objOrFunctionName = getLeftmostName(node.callee || node);
             const hasAwait = (wrappedExpression || node.parent).type === 'AwaitExpression';
 
-            if (debug.enabled) debug('name: %s, hasAwait: %s, async: %s, trace: %s, ignore: %s',
-                objOrFunctionName,
-                hasAwait,
-                !!rootFuncState?.async,
-                !!state.trace,
-                !!(state.ignore || state.prevIgnore)[objOrFunctionName]);
+            if (debug.enabled) {
+                debug('name: %s, hasAwait: %s, async: %s, trace: %s, ignore: %s',
+                    objOrFunctionName,
+                    hasAwait,
+                    !!rootFuncState?.async,
+                    !!state.trace,
+                    !!(state.ignore || state.prevIgnore)[objOrFunctionName]);
+            }
 
             let forceCtx;
 
-            for (const comment of context.getCommentsBefore(wrappedExpression || node))
-                for (group of comment.value.matchAll(/(^|\s)ctx-(off|on)(\s|$)/gm))
+            const commentedNode =
+                (wrappedExpression || node).parent.type === 'UnaryExpression'
+                    ? (wrappedExpression || node).parent // <!~>ctx.do...(() => ...)
+                    : (wrappedExpression || node);
+
+            for (const comment of context.getCommentsBefore(commentedNode)) {
+                for (group of comment.value.matchAll(/(^|\s)ctx-(off|on)(\s|$)/gm)) {
                     switch (group[2]) {
                         case 'on': {
                             forceCtx = true;
@@ -353,8 +372,8 @@ module.exports = {
                             break;
                         }
                     }
-
-            // console.info(2000, context.getCommentsBefore(wrappedExpression || node));
+                }
+            }
 
             if (forceCtx === false || !state.trace || (state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
                 if (wrappedExpression) {
@@ -364,13 +383,14 @@ module.exports = {
                         data: {method: node.parent.parent.callee.property?.name},
                         fix: fixer => fixer.replaceText(wrappedExpression, context.sourceCode.getText(node)),
                     });
-
                     debug('return: add');
+                    return true;
                 }
                 debug('return: not wrapped and not supoose to be')
             } else { // wrap it right
                 rootFuncState.hasCtx = true;
 
+                // const before = `${hasAwait ? 'await ' : ''}ctx.${hasAwait ? 'do' : 'doSync'}(${node.type === 'AwaitExpression' ? 'async ' : ''}() => `;
                 const before = `${hasAwait ? 'await ' : ''}ctx.${hasAwait ? 'do' : 'doSync'}(() => `;
                 const after = `)`;
 
@@ -395,6 +415,7 @@ module.exports = {
                     },
                     fix: fixer => fixer.replaceText(wrappedExpression || nodeToChange, `${before}${context.sourceCode.getText(node)}${after}`),
                 });
+                return true;
             }
         }
 
@@ -415,8 +436,8 @@ module.exports = {
 
             const isGetWithLogger = state.type === STATE_METHOD || state.decorator;
 
-            anyContextInFile = true; // TODO: Add span/noSpan annotation
-            let getCtxBefore = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${CONTEXT_CLASS}.get('${state.traceName}'${isGetWithLogger ? ',' : ''}`
+            anyContextInFile = true;
+            let getCtxBefore = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${CONTEXT_CLASS}.get(\'${state.traceName}\'${isGetWithLogger ? ',' : ''}`
             const getCtxAfter = ')';
 
             const openingBracketToken = context.sourceCode.getFirstToken(node.body || node.value?.body);
@@ -427,7 +448,7 @@ module.exports = {
 
                 const r = ctxText.match(/\.get(NoSpan)?\((.*,)*(.*)\)/);
                 if (r[1] === 'NoSpan') getCtxBefore = getCtxBefore.replace(/\.get\(/, '.getNoSpan(');
-                const logger = r ? r[3] : state.ctor ? '\'<logger>\'' : 'this';
+                const logger = !isGetWithLogger ? '' : (r && r[2] ? r[3] : (state.ctor ? '\'<logger>\'' : 'this'));
 
                 const getCtx = `${getCtxBefore}${logger}${getCtxAfter}`;
 
@@ -511,7 +532,7 @@ module.exports = {
                     data: {importContext},
                     fix: fixer => topComments.length > 0
                         ? fixer.insertTextAfterRange(topComments[topComments.length - 1].range, `\n${importContext}\n`)
-                        : fixer.insertTextBeforeRange(topComments.length >  [0, 0], `${importContext}\n`)
+                        : fixer.insertTextBeforeRange(topComments.length > [0, 0], `${importContext}\n`),
                 });
             }
         }
@@ -567,11 +588,6 @@ module.exports = {
             if (node.parent.type === 'MemberExpression' && node.parent.property.name === 'logger') {
                 if (node.parent.parent.type === 'AssignmentExpression' && node.parent.parent.left === node.parent) return; // skip 'this.logger ='
                 rootFuncState.hasCtx = true;
-                // if (debug.enabled) {
-                //     console.info(400, 'fix', context.sourceCode.getText(node.parent));
-                //     console.info(410, 'to', `ctx.${context.sourceCode.getText(node.parent)
-                //         .substring('this.'.length)}`);
-                // }
                 context.report({
                     node,
                     message: 'Change to ctx.logger',
@@ -615,15 +631,19 @@ module.exports = {
         function getLeftmostName(node) {
             if (node.type === 'Identifier') return node.name;
             if (node.type === 'MemberExpression') return getLeftmostName(node.object);
+            if (node.type === 'ChainExpression') return getLeftmostName(node.expression);
         }
 
         function getAnnotations(node, opts, commentsNode, commentsAfter) {
             const comments = context[commentsAfter ? 'getCommentsAfter' : 'getCommentsBefore'](commentsNode);
             for (const comment of comments) {
-                const r =  /^\s*local-rules\/context:(.*)$/gm.exec(comment.value);
+                const r = /^\s*local-rules\/context:(.*)$/gm.exec(comment.value);
                 if (r) {
                     for (const attr of [...r[1].matchAll(/[\s,]*([\w\-_]*)/g)]
-                        .reduce((a, v) => { if (v[1]) a.push(v[1]); return a; }, [])) {
+                        .reduce((a, v) => {
+                            if (v[1]) a.push(v[1]);
+                            return a;
+                        }, [])) {
 
                         const itsNo = attr.startsWith('no-');
                         const val = _.camelCase(_.kebabCase(itsNo ? attr.substring(3) : attr));

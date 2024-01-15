@@ -10,7 +10,7 @@ const Retriable = () => {
 export class C {
     @Retriable
     public async M() {
-        ContextWithLogger.getSafe('ydb-sdk:...eslint-local-rules.examples.C.M', this);
+        ContextWithLogger.get('ydb-sdk:...eslint-local-rules.examples.C.M', this);
 
         ctx.logger.info('test');
 

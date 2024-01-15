@@ -3,7 +3,7 @@ import Driver from '../../driver';
 import { buildTestLogger } from '../../utils2/tests/test-logger';
 
 describe('ContextWithLogger', () => {
-    it('getSafe', async () => {
+    it('get', async () => {
         const { testLogger, testLoggerFn } = buildTestLogger();
         const ctx1 = ContextWithLogger.get('method1', testLogger);
 

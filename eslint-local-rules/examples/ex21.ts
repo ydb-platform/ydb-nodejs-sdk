@@ -20,7 +20,7 @@ class A {
 
         // console.info('test');
         // super();
-        const ctx = ContextWithLogger.getSafe('ydb-nodejs-sdk:...eslint-local-rules.examples.A.constructor', '<logger>');
+        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:...eslint-local-rules.examples.A.constructor', '<logger>');
 
         console.info(2000, ctx.doSync(() => await(() => {
             F();

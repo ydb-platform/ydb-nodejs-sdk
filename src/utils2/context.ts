@@ -1,5 +1,3 @@
-// TODO: Add constructor with new id, to chain contexts into few sub spans
-
 /**
  * Context object allows to pass a currentContext-chain (number of contexts, linked by "parent" field) through function calls stack.
  *
@@ -22,28 +20,37 @@ export class Context {
      * A non-required method that is called after the function, and allows you to collect the method
      * run time and close spans for tracing.
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     protected done?: (error?: any) => void;
 
-    constructor(parent?: Context) {
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        if (parent && parent !== NOT_A_CONTEXT) {
-            if (parent.id !== undefined) {
-                this.id = parent.id;
-            }
-            if (parent.chain) {
-                (this.chain = parent.chain).unshift(parent);
-            } else {
-                // @ts-ignore
-                this.chain = [this, parent];
-            }
-        } else {
-            // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            const id = newId();
+    constructor(idOrParent?: Context | any) {
+        if (idOrParent !== undefined) {
+            if (idOrParent instanceof Context) {
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                if (idOrParent !== NOT_A_CONTEXT) {
+                    if (idOrParent.id !== undefined) {
+                        this.id = idOrParent.id;
+                    }
+                    if (idOrParent.chain) {
+                        (this.chain = idOrParent.chain).unshift(idOrParent);
+                    } else {
+                        // @ts-ignore
+                        this.chain = [this, idOrParent];
+                    }
 
-            if (id !== undefined) {
-                this.id = id;
+                    return;
+                }
+            } else {
+                this.id = idOrParent;
+
+                return;
             }
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        const id = newId();
+
+        if (id !== undefined) {
+            this.id = id;
         }
     }
 

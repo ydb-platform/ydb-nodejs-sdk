@@ -11,7 +11,7 @@ class A {
     // }
 
     async asyncMethod() {
-        ContextWithLogger.getSafe('ydb-sdk:...eslint-local-rules.examples.A.asyncMethod', this);
+        ContextWithLogger.get('ydb-sdk:...eslint-local-rules.examples.A.asyncMethod', this);
 
         ctx.logger.info(123);
     }

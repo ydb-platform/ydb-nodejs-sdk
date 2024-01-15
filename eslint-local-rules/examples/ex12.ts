@@ -3,18 +3,18 @@ import { ContextWithLogger } from '../../src/context-with-logger';
 /* eslint local-rules/context: "error" */
 
 export const F = async () => {
-    const ctx = ContextWithLogger.getSafe('ydb-sdk:F', this);
+    const ctx = ContextWithLogger.get('ydb-sdk:F', this);
 
     console.info(100);
 
     ctx.doSync(() => T());
 };
 
-export const T = () => { ContextWithLogger.getSafe('ydb-sdk:T', this); };
+export const T = () => { ContextWithLogger.get('ydb-sdk:T', this); };
 
 export class C {
     public async M() {
-        const ctx = ContextWithLogger.getSafe('ydb-sdk:C.M', this);
+        const ctx = ContextWithLogger.get('ydb-sdk:C.M', this);
 
         // /** */
         //
@@ -27,7 +27,7 @@ export class C {
     }
 
     private async Q() {
-        const ctx = ContextWithLogger.getSafe('ydb-sdk:C.Q', this);
+        const ctx = ContextWithLogger.get('ydb-sdk:C.Q', this);
 
         await ctx.do(() => F());
     }

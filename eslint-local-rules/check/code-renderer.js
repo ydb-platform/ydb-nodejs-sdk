@@ -8,7 +8,7 @@ module.exports = (opts) => { // code renderer
             : ''} ContextWithLogger.${(opts.static || opts.func)
             ? 'get'
             // eslint-disable-next-line max-len
-            : 'getSafe'}('ydb-sdk:...eslint-local-rules.check.tmp.${(opts.method || opts.func).trace}'${(opts.static || opts.func) ? '' : ', this'})\n`;
+            : 'get'}('ydb-sdk:...eslint-local-rules.check.tmp.${(opts.method || opts.func).trace}'${(opts.static || opts.func) ? '' : ', this'})\n`;
         const imprt = 'import { ContextWithLogger } from \'../../../src/context-with-logger\';\n'; // TODO: Add logic later
 
         return opts.class
