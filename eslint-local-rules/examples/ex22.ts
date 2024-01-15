@@ -1,4 +1,5 @@
 /* eslint local-rules/context: "error" */
+import { ContextWithLogger } from '../../src/context-with-logger';
 
 export class SessionService extends AuthenticatedService<TableService> {
     // public endpoint: Endpoint;
@@ -6,8 +7,12 @@ export class SessionService extends AuthenticatedService<TableService> {
 
     // eslint-disable-next-line max-len
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
-        const ctx = ContextWithLogger.getSafe('ydb-nodejs-sdk:SessionService.constructor', logger);
-        const host = ctx.doSync(() => endpoint.toString());
+        // local-rules/context: trace
+        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:...eslint-local-rules.examples.SessionService.constructor', '<logger>');
+        const host = /* ctx-on */ ctx.doSync(() => endpoint.toString1());
+        const host = /* ctx-off */ endpoint.toString2();
+        const host = ctx.doSync(() => endpoint.toString3());
+        const host = ctx.doSync(() => endpoint.toString3());
         //
         // super(host, database, 'Ydb.Table.V1.TableService', TableService, authService, sslCredentials, clientOptions);
         // this.endpoint = endpoint;

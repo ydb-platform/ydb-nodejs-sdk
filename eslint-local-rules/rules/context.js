@@ -38,6 +38,7 @@ const IGNORE_NPMS = [
 ].reduce((o, v) => (o[v] = true, o), Object.create(null));
 
 let itCount = 0;
+let keepThisLogger = false;
 
 // eslint-disable-next-line unicorn/prefer-module
 module.exports = {
@@ -201,8 +202,12 @@ module.exports = {
                     if (line.parent.type === 'VariableDeclarator') line = line.parent;
                     if (line.parent.type === 'VariableDeclaration') line = line.parent;
                     state.ctxNode = line;
-                    return;
+                    keepThisLogger = true;
+                    return;q
                 }
+
+                if (node.callee.object?.name === 'ctx'
+                    && ~['do', 'doSync', 'doHandleError'].findIndex(v => v === node.callee.property.name)) return; // skip ctx.do...()
 
                 if (~['setTimeout', 'setInterval'].findIndex(v => v === node.callee.name)) {
                     // wrap setTimeout, setInterval
@@ -212,6 +217,10 @@ module.exports = {
 
                 // wrap other calls
                 fixCtxDo(node);
+            },
+            'CallExpression:exit'(node) {
+                debug('CallExpression:exit');
+                keepThisLogger = false;
             },
 
             // classes
@@ -291,8 +300,12 @@ module.exports = {
 
             // this.logger fix
             'ThisExpression'(node) {
+                debug('ThisExpression');
                 fixThisLogger(node);
             },
+            // 'ThisExpression:exit'(node) {
+            //     debug('ThisExpression:exit');
+            // },
         };
 
         function fixCtxDo(node) {
@@ -326,7 +339,24 @@ module.exports = {
                 !!state.trace,
                 !!(state.ignore || state.prevIgnore)[objOrFunctionName]);
 
-            if (!state.trace || /* !rootFuncState?.async || */ (state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
+            let forceCtx;
+
+            for (const comment of context.getCommentsBefore(wrappedExpression || node))
+                for (group of comment.value.matchAll(/(^|\s)ctx-(off|on)(\s|$)/gm))
+                    switch (group[2]) {
+                        case 'on': {
+                            forceCtx = true;
+                            break;
+                        }
+                        case 'off': {
+                            forceCtx = false;
+                            break;
+                        }
+                    }
+
+            // console.info(2000, context.getCommentsBefore(wrappedExpression || node));
+
+            if (forceCtx === false || !state.trace || (state.ignore || state.prevIgnore)[objOrFunctionName]) { // not suppose to be wrapped
                 if (wrappedExpression) {
                     context.report({
                         node: wrappedExpression,
@@ -338,7 +368,7 @@ module.exports = {
                     debug('return: add');
                 }
                 debug('return: not wrapped and not supoose to be')
-            } else {
+            } else { // wrap it right
                 rootFuncState.hasCtx = true;
 
                 const before = `${hasAwait ? 'await ' : ''}ctx.${hasAwait ? 'do' : 'doSync'}(() => `;
@@ -383,26 +413,26 @@ module.exports = {
                 return;
             }
 
-            const isGetSafe = state.type === STATE_METHOD || state.decorator;
+            const isGetWithLogger = state.type === STATE_METHOD || state.decorator;
 
             anyContextInFile = true; // TODO: Add span/noSpan annotation
-            const getCtxBefore = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${isGetSafe
-                ? `${CONTEXT_CLASS}.getnoSpan('${state.traceName}',` // TODO: Support
-                : `${CONTEXT_CLASS}.get('${state.traceName}'`}`;
+            let getCtxBefore = `${rootFuncState.hasCtx ? 'const ctx = ' : ''}${CONTEXT_CLASS}.get('${state.traceName}'${isGetWithLogger ? ',' : ''}`
             const getCtxAfter = ')';
 
             const openingBracketToken = context.sourceCode.getFirstToken(node.body || node.value?.body);
             const tokenBeforeCtxNode = rootFuncState.ctxNode ? context.sourceCode.getTokenBefore(rootFuncState.ctxNode) : undefined;
 
-            if (rootFuncState.ctxNode) {
+            if (rootFuncState.ctxNode) { // check and replace exsisting ctx.get...
                 let ctxText = context.sourceCode.getText(rootFuncState.ctxNode);
 
                 const r = ctxText.match(/\.get(NoSpan)?\((.*,)*(.*)\)/);
-                const logger = r ? r[2] : state.ctor ? '\'<logger>\'' : 'this';
+                if (r[1] === 'NoSpan') getCtxBefore = getCtxBefore.replace(/\.get\(/, '.getNoSpan(');
+                const logger = r ? r[3] : state.ctor ? '\'<logger>\'' : 'this';
 
-                const getCtx = `${getCtxBefore}${logger}${getCtxAfter}`; // keep original pointer to logger
+                const getCtx = `${getCtxBefore}${logger}${getCtxAfter}`;
 
                 if (ctxText.endsWith(';')) ctxText = ctxText.substring(0, ctxText.length - 1);
+
                 if (openingBracketToken === tokenBeforeCtxNode && ctxText === getCtx) return; // it's already right
 
                 context.report({
@@ -413,18 +443,15 @@ module.exports = {
                         fixer.replaceTextRange(state.ctxNode.range, getCtx), // keep line where statement was located
                     ],
                 });
-            } else {
-
-                const getCtx = `${getCtxBefore}${!isGetSafe ? '' : (state.ctor ? '\'<logger>\'' : 'this')}${getCtxAfter}`; // keep original pointer to logger
-
-                const fixedGetCtx = `\n${getCtx}`;
+            } else { // add new ctx.get...
+                const getCtx = `${getCtxBefore}${!isGetWithLogger ? '' : (state.ctor ? '\'<logger>\'' : 'this')}${getCtxAfter}`; // keep original pointer to logger
 
                 context.report({
                     node: node,
                     message: 'Add "{{ getCtx }}"',
                     data: {getCtx},
                     fix: (fixer) => [
-                        fixer.insertTextAfterRange([-1, state.ctxInsertPoint], fixedGetCtx), // starts with \n
+                        fixer.insertTextAfterRange([-1, state.ctxInsertPoint], `\n${getCtx}`),
                     ],
                 });
             }
@@ -533,6 +560,8 @@ module.exports = {
 
         function fixThisLogger(node) {
             debug('fixThisLogger()');
+
+            if (keepThisLogger) return;
 
             // this.logger -> ctx.logger
             if (node.parent.type === 'MemberExpression' && node.parent.property.name === 'logger') {
