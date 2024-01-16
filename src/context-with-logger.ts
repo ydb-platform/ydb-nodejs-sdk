@@ -1,7 +1,10 @@
 import {Context, getContext, NOT_A_CONTEXT} from './utils2/context';
 import {Logger, SimpleLogger} from './utils2/simple-logger';
 
+let testModeWarnCB: () => void;
 let defaultLogger: Logger;
+
+export const setTestModeWarnCB = (v: () => void) => { testModeWarnCB = v; };
 
 /**
  * Context with reference to the head object - driver.
@@ -36,7 +39,11 @@ export class ContextWithLogger extends Context {
 
             if (!logger) {
                 logger = defaultLogger ?? (defaultLogger = new SimpleLogger());
-                logger.warn((new Error('Missing logger:')).stack!.slice('Error: '.length));
+                if (testModeWarnCB) {
+                    testModeWarnCB();
+                } else {
+                    logger.warn((new Error('Missing logger:')).stack!.slice('Error: '.length));
+                }
             }
 
             context = new ContextWithLogger(ctx, logger);

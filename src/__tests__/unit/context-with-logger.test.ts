@@ -1,4 +1,4 @@
-import { ContextWithLogger } from '../../context-with-logger';
+import { ContextWithLogger, setTestModeWarnCB } from '../../context-with-logger';
 import Driver from '../../driver';
 import { buildTestLogger } from '../../utils2/tests/test-logger';
 
@@ -31,6 +31,11 @@ describe('ContextWithLogger', () => {
     });
 
     it('get - error', async () => {
-        expect(() => ContextWithLogger.get('method')).toThrow();
+        let cnt = 0;
+        setTestModeWarnCB(() => { cnt++ });
+        expect(() => ContextWithLogger.get('method')).not.toThrow();
+        expect(cnt).toBe(1);
     });
+
+    // TODO: After switch to chain and taking ID as a constructor parameter, more tests are required
 });

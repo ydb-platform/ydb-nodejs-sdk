@@ -64,7 +64,8 @@ interface PartialResponse<T> {
 
 export class SessionService extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;
-    // private readonly logger: Logger;
+    // @ts-ignore
+    private readonly logger: Logger;
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:SessionService.constructor', logger);
@@ -72,7 +73,7 @@ export class SessionService extends AuthenticatedService<TableService> {
 
         super(host, database, 'Ydb.Table.V1.TableService', TableService, authService, sslCredentials, clientOptions);
         this.endpoint = endpoint;
-        // this.logger = logger;
+        this.logger = logger;
     }
 
     @retryable()
@@ -840,7 +841,8 @@ export class SessionPool extends EventEmitter {
     private newSessionsRequested: number;
     private sessionsBeingDeleted: number;
     private readonly sessionKeepAliveId: NodeJS.Timeout;
-    // private readonly logger: Logger;
+    // @ts-ignore
+    private readonly logger: Logger;
     private readonly waiters: ((session: Session) => void)[] = [];
 
     private static SESSION_MIN_LIMIT = 5;
@@ -854,7 +856,7 @@ export class SessionPool extends EventEmitter {
         this.authService = settings.authService;
         this.sslCredentials = settings.sslCredentials;
         this.clientOptions = settings.clientOptions;
-        // this.logger = settings.logger;
+        this.logger = settings.logger;
         const { poolSettings } = settings;
 
         this.minLimit = poolSettings?.minLimit || SessionPool.SESSION_MIN_LIMIT;
@@ -1055,11 +1057,14 @@ export class SessionPool extends EventEmitter {
 
 export class TableClient extends EventEmitter {
     private pool: SessionPool;
+    // @ts-ignore
+    private logger: Logger;
 
     constructor(settings: ITableClientSettings) {
         ContextWithLogger.get('ydb-nodejs-sdk:TableClient.constructor', settings.logger);
         super();
         this.pool = new SessionPool(settings);
+        this.logger = settings.logger;
     }
 
     public async withSession<T>(callback: (session: Session) => Promise<T>, timeout = 0): Promise<T> {
