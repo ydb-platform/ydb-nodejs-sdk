@@ -14,7 +14,7 @@ _Introductions:_
 _Rules:_
 
 - Like in any good API, rules for checking parameters and default values to be used should be
-  formulated and implemented in code.
+  formulated and implemented in code (consider [Zod](https://zod.dev/)).
 
 - A session must not allow a transaction to be created if the transaction is already open.
 
