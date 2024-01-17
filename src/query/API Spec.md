@@ -16,7 +16,13 @@ _Rules:_
 - Like in any good API, rules for checking parameters and default values to be used should be
   formulated and implemented in code.
 
-- A session should not allow a transaction to be created if the transaction is already open.
+- A session must not allow a transaction to be created if the transaction is already open.
+
+_Query API on other languages:_
+
+- [.Net](https://github.com/ydb-platform/ydb-dotnet-sdk/tree/main/src/Ydb.Sdk/src/Services/Query)
+
+- [Go (draft)](https://github.com/ydb-platform/ydb-go-sdk/tree/query-client-interface/query)
 
 _Features:_
 
@@ -36,16 +42,24 @@ _Features:_
 
 - Specify trace id for end-to-end trace collection.
 
-- Optionally, specify a repeat policy for what to execute in an internal YDB session.
-  Сan optimize execution time with loss of information for balancing. Can be useful
+- Optionally, have a repeat policy that tells to execute in an internal YDB session (no session id passing to YDB).
+  Сan optimize execution time with loss of information for the balancing. Can be useful
   for _serverless functions_ where query execution time is critical.
 
 _Technical details:_
 
-- User code, should be passed as a lambda function to ensure transactions and
-  sessions are closed at the end of it's execution.  And tracing span data was collected.
+- User code must be passed as a lambda function:
 
-- A common session pool code with table service must be used.
+  - This ensures that transactions and sessions are closed at the end of its execution.
+
+  - Allow the operation to be re-executed in case of an error.
+
+  - It makes possible to measure time for tracing.
+
+  - Universally log errors that occur.
+
+- A common session pool code with table service must be used. But for the time of API development it is OK to have
+  a duplicate of the session pool interfaces in the query folder.
 
 _Important:_
 
