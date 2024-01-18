@@ -17,4 +17,12 @@ _Check other APIs:_
 
 - [MS SQL](https://www.npmjs.com/package/mssql)
 
-  - [Tedious](https://www.npmjs.com/package/tedious)
+  - [Tedious](http://tediousjs.github.io/tedious/)
+
+_How to publish Beta versions_
+
+Add tag to GitHub publish action call
+
+__Helpfull:__
+
+- [npm publish patch for earlier major version](https://stackoverflow.com/questions/24691314/npm-publish-patch-for-earlier-major-version)
