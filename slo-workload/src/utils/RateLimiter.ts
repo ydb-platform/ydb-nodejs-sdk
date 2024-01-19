@@ -3,7 +3,7 @@ import NanoTimer from 'nanotimer'
 export default class RateLimiter {
   private delayMicroSec: number
   private count: number = 0
-  private realRPSObserverId: NodeJS.Timer
+  private realRPSObserverId: NodeJS.Timeout
   private returnerTimer: NanoTimer
   private real: number = 0
   private returner = () => {}
