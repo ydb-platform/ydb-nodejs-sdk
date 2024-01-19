@@ -9,6 +9,7 @@ You can take a look at our Roadmap for the near future [here](ROADMAP.md).
 Dummy change 1
 Dummy change 2
 Dummy change 3
+Dummy change 4
 
 # How to use
 ## Install package from NPM
