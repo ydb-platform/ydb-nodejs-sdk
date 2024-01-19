@@ -6,6 +6,8 @@ There are no useful changes in it.
 # Roadmap
 You can take a look at our Roadmap for the near future [here](ROADMAP.md).
 
+Dummy change 1
+
 # How to use
 ## Install package from NPM
 ```bash
