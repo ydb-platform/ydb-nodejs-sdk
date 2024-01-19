@@ -7,6 +7,7 @@ There are no useful changes in it.
 You can take a look at our Roadmap for the near future [here](ROADMAP.md).
 
 Dummy change 1
+Dummy change 2
 
 # How to use
 ## Install package from NPM
