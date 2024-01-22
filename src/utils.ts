@@ -24,6 +24,8 @@ type ServiceFactory<T> = {
 };
 
 const removeProtocol = (endpoint: string) => {
+    // local-rules/context: no-trace
+
     const re = /^(grpc:\/\/|grpcs:\/\/)?(.+)/;
     const match = re.exec(endpoint) as string[];
 
@@ -31,6 +33,8 @@ const removeProtocol = (endpoint: string) => {
 };
 
 export const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+    // local-rules/context: no-trace
+
     let timeoutId: NodeJS.Timeout;
     // eslint-disable-next-line @typescript-eslint/no-shadow
     const timedRejection: Promise<never> = new Promise((_, reject) => {
@@ -54,6 +58,8 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
     }
 
     protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
+        // local-rules/context: no-trace
+
         const client = sslCredentials
             // eslint-disable-next-line max-len
             ? new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientPrivateKey, sslCredentials.clientCertChain))
@@ -78,6 +84,8 @@ export type MetadataHeaders = Map<string, string>;
 export type ClientOptions = Record<string, any>;
 
 export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
+    // local-rules/context: no-trace
+
     protected api: Api;
     private metadata: grpc.Metadata;
     private responseMetadata: WeakMap<object, grpc.Metadata>;
@@ -173,6 +181,8 @@ export interface AsyncResponse {
 }
 
 export const getOperationPayload = (response: AsyncResponse): Uint8Array => {
+    // local-rules/context: no-trace
+
     const { operation } = response;
 
     if (operation) {
@@ -189,6 +199,8 @@ export const getOperationPayload = (response: AsyncResponse): Uint8Array => {
 };
 
 export const ensureOperationSucceeded = (response: AsyncResponse, suppressedErrors: StatusCode[] = []): void => {
+    // local-rules/context: no-trace
+
     try {
         getOperationPayload(response);
     } catch (error) {
@@ -205,6 +217,8 @@ export const ensureOperationSucceeded = (response: AsyncResponse, suppressedErro
 };
 
 export function pessimizable(_target: Pessimizable, _propertyKey: string, descriptor: PropertyDescriptor) {
+    // local-rules/context: no-trace
+
     const originalMethod = descriptor.value;
 
     // eslint-disable-next-line no-param-reassign
@@ -223,10 +237,14 @@ export function pessimizable(_target: Pessimizable, _propertyKey: string, descri
 }
 
 export const sleep = async (milliseconds: number) => {
+    // local-rules/context: no-trace
+
     await new Promise((resolve) => { setTimeout(resolve, milliseconds); });
 };
 
 export const toLong = (value: Long | number): Long => {
+    // local-rules/context: no-trace
+
     if (typeof value === 'number') {
         return Long.fromNumber(value);
     }

@@ -210,10 +210,10 @@ module.exports = {
                     return;
                 }
 
-                if (node.callee.object?.name === 'ctx'
-                    && ~['do', 'doSync', 'doHandleError'].findIndex(v => v === node.callee.property.name)) {
+                if (getLeftmostName(node) === 'ctx') {
+                    rootFuncState.hasCtx = true;
                     return;
-                } // skip ctx.do...()
+                } // skip ctx....()
 
                 if (~['setTimeout', 'setInterval'].findIndex(v => v === node.callee.name)) {
                     // wrap setTimeout, setInterval
@@ -356,9 +356,9 @@ module.exports = {
             let forceCtx;
 
             const commentedNode =
-                (wrappedExpression || node).parent.type === 'UnaryExpression'
-                    ? (wrappedExpression || node).parent // <!~>ctx.do...(() => ...)
-                    : (wrappedExpression || node);
+                (wrappedExpression || (hasAwait ? node.parent : node)).parent.type === 'UnaryExpression'
+                    ? (wrappedExpression || (hasAwait ? node.parent : node)).parent // <!~>ctx.do...(() => ...)
+                    : (wrappedExpression || (hasAwait ? node.parent : node));
 
             for (const comment of context.getCommentsBefore(commentedNode)) {
                 for (group of comment.value.matchAll(/(^|\s)ctx-(off|on)(\s|$)/gm)) {
@@ -381,7 +381,7 @@ module.exports = {
                         node: wrappedExpression,
                         message: `ctx.{{method}} is redundant`,
                         data: {method: node.parent.parent.callee.property?.name},
-                        fix: fixer => fixer.replaceText(wrappedExpression, context.sourceCode.getText(node)),
+                        fix: fixer => fixer.replaceText(wrappedExpression, `${hasAwait ? 'await ' : ''}${context.sourceCode.getText(node)}`),
                     });
                     debug('return: add');
                     return true;
@@ -454,7 +454,7 @@ module.exports = {
 
                 if (ctxText.endsWith(';')) ctxText = ctxText.substring(0, ctxText.length - 1);
 
-                if (openingBracketToken === tokenBeforeCtxNode && ctxText === getCtx) return; // it's already right
+                if (ctxText === getCtx) return; // it's already right
 
                 context.report({
                     node: rootFuncState.ctxNode,
@@ -586,6 +586,11 @@ module.exports = {
 
             // this.logger -> ctx.logger
             if (node.parent.type === 'MemberExpression' && node.parent.property.name === 'logger') {
+                if (node.parent.object?.name === 'ctx') { // keep for ctx.logger
+                    rootFuncState.hasCtx = true;
+                    return;
+                }
+                if (node.parent.object?.type !== 'ThisExpression') return; // looking for this.logger
                 if (node.parent.parent.type === 'AssignmentExpression' && node.parent.parent.left === node.parent) return; // skip 'this.logger ='
                 rootFuncState.hasCtx = true;
                 context.report({
@@ -632,6 +637,7 @@ module.exports = {
             if (node.type === 'Identifier') return node.name;
             if (node.type === 'MemberExpression') return getLeftmostName(node.object);
             if (node.type === 'ChainExpression') return getLeftmostName(node.expression);
+            if (node.type === 'CallExpression') return getLeftmostName(node.callee);
         }
 
         function getAnnotations(node, opts, commentsNode, commentsAfter) {

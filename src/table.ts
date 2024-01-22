@@ -80,11 +80,13 @@ export class SessionService extends AuthenticatedService<TableService> {
     @pessimizable
     async create(): Promise<Session> {
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:SessionService.create', this);
-        const response = await ctx.do(() => this.api.createSession(ctx.doSync(() => CreateSessionRequest.create())));
-        const payload = ctx.doSync(() => getOperationPayload(response));
-        const { sessionId } = ctx.doSync(() => CreateSessionResult.decode(payload));
+        const response = /* ctx-off */ await this.api.createSession(/* ctx-off */ CreateSessionRequest.create());
 
-        return new Session(this.api, this.endpoint, sessionId, ctx.logger, ctx.doSync(() => this.getResponseMetadata.bind(this)));
+        ctx.doSync(() => this.api.createSession(/* ctx-off */ CreateSessionRequest.create()));
+        const payload = /* ctx-off */ getOperationPayload(response);
+        const { sessionId } = /* ctx-off */ CreateSessionResult.decode(payload);
+
+        return new Session(this.api, this.endpoint, sessionId, ctx.logger, /* ctx-off */ this.getResponseMetadata.bind(this));
     }
 }
 
@@ -370,7 +372,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.acquire', this);
 
         this.free = false;
-        ctx.logger.debug(`Acquired session ${this.sessionId} on endpoint ${ctx.doSync(() => this.endpoint.toString())}.`);
+        ctx.logger.debug(`Acquired session ${this.sessionId} on endpoint ${/* ctx-off */ this.endpoint.toString()}.`);
 
         return this;
     }
@@ -378,8 +380,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.release', this);
 
         this.free = true;
-        ctx.logger.debug(`Released session ${this.sessionId} on endpoint ${ctx.doSync(() => this.endpoint.toString())}.`);
-        ctx.doSync(() => this.emit(SessionEvent.SESSION_RELEASE, this));
+        ctx.logger.debug(`Released session ${this.sessionId} on endpoint ${/* ctx-off */ this.endpoint.toString()}.`);
+        /* ctx-off */ this.emit(SessionEvent.SESSION_RELEASE, this);
     }
 
     public isFree() {
@@ -401,15 +403,15 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async delete(): Promise<void> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.delete', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.delete', this);
 
-        if (ctx.doSync(() => this.isDeleted())) {
+        if (/* ctx-off */ this.isDeleted()) {
             return;
         }
         const request = { sessionId: this.sessionId };
-        const response = await ctx.do(() => this.api.deleteSession(request));
+        const response = /* ctx-off */ await this.api.deleteSession(request);
 
-        ctx.doSync(() => ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response)));
+        /* ctx-off */ ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response));
 
         this.beingDeleted = true;
     }
@@ -417,11 +419,11 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async keepAlive(): Promise<void> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.keepAlive', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.keepAlive', this);
         const request = { sessionId: this.sessionId };
-        const response = await ctx.do(() => this.api.keepAlive(request));
+        const response = /* ctx-off */ await this.api.keepAlive(request);
 
-        ctx.doSync(() => ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response)));
+        /* ctx-off */ ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response));
     }
 
     @retryable()
@@ -431,7 +433,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         description: TableDescription,
         settings?: CreateTableSettings,
     ): Promise<void> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.createTable', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.createTable', this);
         const request: Ydb.Table.ICreateTableRequest = {
             ...description,
             sessionId: this.sessionId,
@@ -441,9 +443,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        const response = await ctx.do(() => this.api.createTable(request));
+        const response = /* ctx-off */ await this.api.createTable(request);
 
-        ctx.doSync(() => ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response)));
+        /* ctx-off */ ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response));
     }
 
     @retryable()
@@ -453,7 +455,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         description: AlterTableDescription,
         settings?: AlterTableSettings,
     ): Promise<void> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.alterTable', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.alterTable', this);
         const request: Ydb.Table.IAlterTableRequest = {
             ...description,
             sessionId: this.sessionId,
@@ -464,10 +466,10 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
         }
 
-        const response = await ctx.do(() => this.api.alterTable(request));
+        const response = /* ctx-off */ await this.api.alterTable(request);
 
         try {
-            ctx.doSync(() => ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response)));
+            /* ctx-off */ ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response));
         } catch (error) {
             // !! does not returns response status if async operation mode
             if (request.operationParams?.operationMode !== OperationMode.SYNC && error instanceof MissingStatus) return;
@@ -482,7 +484,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async dropTable(tablePath: string, settings?: DropTableSettings): Promise<void> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.dropTable', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.dropTable', this);
         const request: Ydb.Table.IDropTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
@@ -493,15 +495,15 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         }
         settings = settings || new DropTableSettings();
         const suppressedErrors = settings?.muteNonExistingTableErrors ? [SchemeError.status] : [];
-        const response = await ctx.do(() => this.api.dropTable(request));
+        const response = /* ctx-off */ await this.api.dropTable(request);
 
-        ctx.doSync(() => ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response), suppressedErrors));
+        /* ctx-off */ ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response), suppressedErrors);
     }
 
     @retryable()
     @pessimizable
     public async describeTable(tablePath: string, settings?: DescribeTableSettings): Promise<DescribeTableResult> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.describeTable', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.describeTable', this);
         const request: Ydb.Table.IDescribeTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
@@ -515,10 +517,10 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
         }
 
-        const response = await ctx.do(() => this.api.describeTable(request));
-        const payload = ctx.doSync(() => getOperationPayload(ctx.doSync(() => this.processResponseMetadata(request, response))));
+        const response = /* ctx-off */ await this.api.describeTable(request);
+        const payload = /* ctx-off */ getOperationPayload(/* ctx-off */ this.processResponseMetadata(request, response));
 
-        return ctx.doSync(() => DescribeTableResult.decode(payload));
+        return /* ctx-off */ DescribeTableResult.decode(payload);
     }
 
     @retryable()
@@ -526,15 +528,15 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     public async describeTableOptions(
         settings?: DescribeTableSettings,
     ): Promise<Ydb.Table.DescribeTableOptionsResult> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.describeTableOptions', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.describeTableOptions', this);
         const request: Ydb.Table.IDescribeTableOptionsRequest = {
             operationParams: settings?.operationParams,
         };
 
-        const response = await ctx.do(() => this.api.describeTableOptions(request));
-        const payload = ctx.doSync(() => getOperationPayload(ctx.doSync(() => this.processResponseMetadata(request, response))));
+        const response = /* ctx-off */ await this.api.describeTableOptions(request);
+        const payload = /* ctx-off */ getOperationPayload(/* ctx-off */ this.processResponseMetadata(request, response));
 
-        return ctx.doSync(() => Ydb.Table.DescribeTableOptionsResult.decode(payload));
+        return /* ctx-off */ Ydb.Table.DescribeTableOptionsResult.decode(payload);
     }
 
     @retryable()
@@ -543,7 +545,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         txSettings: ITransactionSettings,
         settings?: BeginTransactionSettings,
     ): Promise<ITransactionMeta> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.beginTransaction', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.beginTransaction', this);
         const request: Ydb.Table.IBeginTransactionRequest = {
             sessionId: this.sessionId,
             txSettings,
@@ -552,9 +554,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        const response = await ctx.do(() => this.api.beginTransaction(request));
-        const payload = ctx.doSync(() => getOperationPayload(ctx.doSync(() => this.processResponseMetadata(request, response))));
-        const { txMeta } = ctx.doSync(() => BeginTransactionResult.decode(payload));
+        const response = /* ctx-off */ await this.api.beginTransaction(request);
+        const payload = /* ctx-off */ getOperationPayload(/* ctx-off */ this.processResponseMetadata(request, response));
+        const { txMeta } = /* ctx-off */ BeginTransactionResult.decode(payload);
 
         if (txMeta) {
             return txMeta;
@@ -565,7 +567,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async commitTransaction(txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.commitTransaction', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.commitTransaction', this);
         const request: Ydb.Table.ICommitTransactionRequest = {
             sessionId: this.sessionId,
             txId: txControl.txId,
@@ -575,9 +577,9 @@ export class Session extends EventEmitter implements ICreateSessionResult {
             request.operationParams = settings.operationParams;
             request.collectStats = settings.collectStats;
         }
-        const response = await ctx.do(() => this.api.commitTransaction(request));
+        const response = /* ctx-off */ await this.api.commitTransaction(request);
 
-        ctx.doSync(() => ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response)));
+        /* ctx-off */ ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response));
     }
 
     @retryable()
@@ -592,7 +594,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        const response = await ctx.do(() => this.api.rollbackTransaction(request));
+        const response = /* ctx-off */ await this.api.rollbackTransaction(request);
 
         ctx.doSync(() => ensureOperationSucceeded(/* ctx-off */ this.processResponseMetadata(request, response)));
     }
@@ -600,7 +602,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async prepareQuery(queryText: string, settings?: PrepareQuerySettings): Promise<PrepareQueryResult> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.prepareQuery', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.prepareQuery', this);
         const request: Ydb.Table.IPrepareDataQueryRequest = {
             sessionId: this.sessionId,
             yqlText: queryText,
@@ -609,10 +611,10 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        const response = await ctx.do(() => this.api.prepareDataQuery(request));
-        const payload = ctx.doSync(() => getOperationPayload(ctx.doSync(() => this.processResponseMetadata(request, response))));
+        const response = /* ctx-off */ await this.api.prepareDataQuery(request);
+        const payload = /* ctx-off */ getOperationPayload(/* ctx-off */ this.processResponseMetadata(request, response));
 
-        return ctx.doSync(() => PrepareQueryResult.decode(payload));
+        return /* ctx-off */ PrepareQueryResult.decode(payload);
     }
 
     @pessimizable
@@ -655,10 +657,10 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (keepInCache) {
             request.queryCachePolicy = { keepInCache };
         }
-        const response = await ctx.do(() => this.api.executeDataQuery(request));
-        const payload = ctx.doSync(() => getOperationPayload(/* ctx-off */ this.processResponseMetadata(request, response, settings?.onResponseMetadata)));
+        const response = /* ctx-off */ await this.api.executeDataQuery(request);
+        const payload = /* ctx-off */ getOperationPayload(/* ctx-off */ this.processResponseMetadata(request, response, settings?.onResponseMetadata));
 
-        return ctx.doSync(() => ExecuteQueryResult.decode(payload));
+        return /* ctx-off */ ExecuteQueryResult.decode(payload);
     }
 
     private processResponseMetadata(
@@ -666,16 +668,17 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         response: AsyncResponse,
         onResponseMetadata?: (metadata: grpc.Metadata) => void,
     ) {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.processResponseMetadata', this);
-        const metadata = ctx.doSync(() => this.getResponseMetadata(request));
+        // local-rules/context: no-trace
+
+        const metadata = /* ctx-off */ this.getResponseMetadata(request);
 
         if (metadata) {
-            const serverHints = ctx.doSync(() => metadata.get(ResponseMetadataKeys.ServerHints)) || [];
+            const serverHints = /* ctx-off */ metadata.get(ResponseMetadataKeys.ServerHints) || [];
 
-            if (ctx.doSync(() => serverHints.includes('session-close'))) {
+            if (/* ctx-off */ serverHints.includes('session-close')) {
                 this.closing = true;
             }
-            ctx.doSync(() => onResponseMetadata?.(metadata));
+            onResponseMetadata?.(metadata);
         }
 
         return response;
@@ -683,7 +686,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
     @pessimizable
     public async bulkUpsert(tablePath: string, rows: TypedValue, settings?: BulkUpsertSettings) {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.bulkUpsert', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.bulkUpsert', this);
         const request: Ydb.Table.IBulkUpsertRequest = {
             table: `${this.endpoint.database}/${tablePath}`,
             rows,
@@ -692,10 +695,10 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         if (settings) {
             request.operationParams = settings.operationParams;
         }
-        const response = await ctx.do(() => this.api.bulkUpsert(request));
-        const payload = ctx.doSync(() => getOperationPayload(ctx.doSync(() => this.processResponseMetadata(request, response))));
+        const response = /* ctx-off */ await this.api.bulkUpsert(request);
+        const payload = /* ctx-off */ getOperationPayload(/* ctx-off */ this.processResponseMetadata(request, response));
 
-        return ctx.doSync(() => BulkUpsertResult.decode(payload));
+        return /* ctx-off */ BulkUpsertResult.decode(payload);
     }
 
     @pessimizable
@@ -719,7 +722,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
         return ctx.doSync(() => this.executeStreamRequest(
             request,
-            ctx.doSync(() => this.api.streamReadTable.bind(this.api)),
+            /* ctx-off */ this.api.streamReadTable.bind(this.api),
             Ydb.Table.ReadTableResult.create,
             consumer,
         ));
@@ -753,7 +756,7 @@ export class Session extends EventEmitter implements ICreateSessionResult {
 
         return ctx.doSync(() => this.executeStreamRequest(
             request,
-            ctx.doSync(() => this.api.streamExecuteScanQuery.bind(this.api)),
+            /* ctx-off */ this.api.streamExecuteScanQuery.bind(this.api),
             ExecuteScanQueryPartialResult.create,
             consumer,
         ));
@@ -766,6 +769,8 @@ export class Session extends EventEmitter implements ICreateSessionResult {
         consumer: (result: Res) => void,
     )
         : Promise<void> {
+        // local-rules/context: trace
+
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.executeStreamRequest', this);
 
         return new Promise((resolve, reject) => {
@@ -803,16 +808,16 @@ export class Session extends EventEmitter implements ICreateSessionResult {
     }
 
     public async explainQuery(query: string, operationParams?: Ydb.Operations.IOperationParams): Promise<ExplainQueryResult> {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:Session.explainQuery', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:Session.explainQuery', this);
         const request: Ydb.Table.IExplainDataQueryRequest = {
             sessionId: this.sessionId,
             yqlText: query,
             operationParams,
         };
-        const response = await ctx.do(() => this.api.explainDataQuery(request));
-        const payload = ctx.doSync(() => getOperationPayload(ctx.doSync(() => this.processResponseMetadata(request, response))));
+        const response = /* ctx-off */ await this.api.explainDataQuery(request);
+        const payload = /* ctx-off */ getOperationPayload(/* ctx-off */ this.processResponseMetadata(request, response));
 
-        return ctx.doSync(() => ExplainQueryResult.decode(payload));
+        return /* ctx-off */ ExplainQueryResult.decode(payload);
     }
 }
 
@@ -867,9 +872,9 @@ export class SessionPool extends EventEmitter {
         this.sessionKeepAliveId = ctx.doSync(() => this.initListeners(poolSettings?.keepAlivePeriod || SESSION_KEEPALIVE_PERIOD));
         this.sessionCreators = new Map();
         this.discoveryService = settings.discoveryService;
-        ctx.doSync(() => this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
+        /* ctx-off */ this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
             ctx.doSync(() => this.sessionCreators.delete(endpoint));
-        }));
+        });
         ctx.doSync(() => this.prepopulateSessions());
     }
 
@@ -877,8 +882,8 @@ export class SessionPool extends EventEmitter {
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:SessionPool.destroy', this);
 
         ctx.logger.debug('Destroying pool...');
-        ctx.doSync(() => clearInterval(this.sessionKeepAliveId));
-        await Promise.all(ctx.doSync(() => _.map([...this.sessions], (session: Session) => ctx.doSync(() => this.deleteSession(session)))));
+        /* ctx-off */ clearInterval(this.sessionKeepAliveId);
+        await Promise.all(/* ctx-off */ _.map([...this.sessions], (session: Session) => ctx.doSync(() => this.deleteSession(session))));
         ctx.logger.debug('Pool has been destroyed.');
     }
 
@@ -897,27 +902,32 @@ export class SessionPool extends EventEmitter {
     private prepopulateSessions() {
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:SessionPool.prepopulateSessions', this);
 
-        ctx.doSync(() => _.forEach(ctx.doSync(() => _.range(this.minLimit)), () => ctx.doSync(() => this.createSession())));
+        /* ctx-off */ _.forEach(/* ctx-off */ _.range(this.minLimit), () => ctx.doSync(() => this.createSession()));
     }
 
     private async getSessionCreator(): Promise<SessionService> {
+        // TODO: Check for ctx
+
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:SessionPool.getSessionCreator', this);
+
+        // TODO: Cover discovery by ctx
+
         const endpoint = await ctx.do(() => this.discoveryService.getEndpoint());
 
-        if (!ctx.doSync(() => this.sessionCreators.has(endpoint))) {
+        if (/* ctx-off */ !this.sessionCreators.has(endpoint)) {
             const sessionService = new SessionService(endpoint, this.database, this.authService, ctx.logger, this.sslCredentials, this.clientOptions);
 
-            ctx.doSync(() => this.sessionCreators.set(endpoint, sessionService));
+            /* ctx-off */ this.sessionCreators.set(endpoint, sessionService);
         }
 
-        return ctx.doSync(() => this.sessionCreators.get(endpoint)) as SessionService;
+        return /* ctx-off */ this.sessionCreators.get(endpoint) as SessionService;
     }
 
     private maybeUseSession(session: Session) {
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:SessionPool.maybeUseSession', this);
 
         if (this.waiters.length > 0) {
-            const waiter = ctx.doSync(() => this.waiters.shift());
+            const waiter = /* ctx-off */ this.waiters.shift();
 
             if (typeof waiter === 'function') {
                 ctx.doSync(() => waiter(session));
@@ -934,17 +944,17 @@ export class SessionPool extends EventEmitter {
         const sessionCreator = await ctx.do(() => this.getSessionCreator());
         const session = await ctx.do(() => sessionCreator.create());
 
-        ctx.doSync(() => session.on(SessionEvent.SESSION_RELEASE, async () => {
-            if (ctx.doSync(() => session.isClosing())) {
+        /* ctx-off */ session.on(SessionEvent.SESSION_RELEASE, async () => {
+            if (/* ctx-off */ session.isClosing()) {
                 await ctx.do(() => this.deleteSession(session));
             } else {
                 ctx.doSync(() => this.maybeUseSession(session));
             }
-        }));
-        ctx.doSync(() => session.on(SessionEvent.SESSION_BROKEN, async () => {
+        });
+        /* ctx-off */ session.on(SessionEvent.SESSION_BROKEN, async () => {
             await ctx.do(() => this.deleteSession(session));
-        }));
-        ctx.doSync(() => this.sessions.add(session));
+        });
+        /* ctx-off */ this.sessions.add(session);
 
         return session;
     }
@@ -952,7 +962,7 @@ export class SessionPool extends EventEmitter {
     private deleteSession(session: Session): Promise<void> {
         const ctx = ContextWithLogger.get('ydb-nodejs-sdk:SessionPool.deleteSession', this);
 
-        if (ctx.doSync(() => session.isDeleted())) {
+        if (/* ctx-off */ session.isDeleted()) {
             return Promise.resolve();
         }
 
@@ -1009,7 +1019,7 @@ export class SessionPool extends EventEmitter {
                     );
                 }, timeout);
             }
-            ctx.doSync(() => this.waiters.push(waiter));
+            /* ctx-off */ this.waiters.push(waiter);
         });
     }
 
@@ -1025,7 +1035,7 @@ export class SessionPool extends EventEmitter {
         } catch (error) {
             if (error instanceof BadSession || error instanceof SessionBusy) {
                 ctx.logger.debug('Encountered bad or busy session, re-creating the session');
-                ctx.doSync(() => session.emit(SessionEvent.SESSION_BROKEN));
+                /* ctx-off */ session.emit(SessionEvent.SESSION_BROKEN);
                 session = await ctx.do(() => this.createSession());
                 if (maxRetries > 0) {
                     ctx.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
@@ -1489,25 +1499,25 @@ export class AlterTableDescription {
     }
 
     withAddColumn(column: Column) {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:AlterTableDescription.withAddColumn', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:AlterTableDescription.withAddColumn', this);
 
-        ctx.doSync(() => this.addColumns.push(column));
+        /* ctx-off */ this.addColumns.push(column);
 
         return this;
     }
 
     withDropColumn(columnName: string) {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:AlterTableDescription.withDropColumn', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:AlterTableDescription.withDropColumn', this);
 
-        ctx.doSync(() => this.dropColumns.push(columnName));
+        /* ctx-off */ this.dropColumns.push(columnName);
 
         return this;
     }
 
     withAlterColumn(column: Column) {
-        const ctx = ContextWithLogger.get('ydb-nodejs-sdk:AlterTableDescription.withAlterColumn', this);
+        ContextWithLogger.get('ydb-nodejs-sdk:AlterTableDescription.withAlterColumn', this);
 
-        ctx.doSync(() => this.alterColumns.push(column));
+        /* ctx-off */ this.alterColumns.push(column);
 
         return this;
     }
