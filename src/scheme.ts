@@ -12,7 +12,6 @@ import {Logger} from './logging';
 import DiscoveryService, {Endpoint} from './discovery';
 import {retryable} from "./retries";
 import {ISslCredentials} from './ssl-credentials';
-import {OperationParamsSettings} from './table';
 
 import SchemeServiceAPI = Ydb.Scheme.V1.SchemeService;
 import ListDirectoryResult = Ydb.Scheme.ListDirectoryResult;
@@ -22,6 +21,7 @@ import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
 import {util} from "protobufjs";
 import EventEmitter = util.EventEmitter;
+import {OperationParamsSettings} from "./table/session";
 
 
 function preparePermissions(action?: IPermissions | null) {

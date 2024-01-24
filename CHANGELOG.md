@@ -286,7 +286,7 @@ All notable changes to this project will be documented in this file. See [standa
     - decimal value is present as string instead of bigint
       (it wasn't working for float values before)
     - fix uuid and tz-date types conversion (it wasn't working before)
-* signatures of most methods in Session are changed:
+* signatures of most methods in TableSession are changed:
     - executeQuery
       Before: `(query, params, txControl, operationParams?, settings?, collectStats?)`
       After: `(query, params, txControl, settings?)`
@@ -336,7 +336,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 * drop support of old environment variables ([963819a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/963819af9209a45749f5118077f1da4bdb390fa6))
 * reorganize signature of SchemeClient's methods ([734d57a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/734d57a2dd7c655cf727b96df415212504339cf8))
-* reorganize signatures of Session's methods ([431f149](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/431f1491bf880f3ba9541d9455d8dd2f2b7849e6))
+* reorganize signatures of TableSession's methods ([431f149](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/431f1491bf880f3ba9541d9455d8dd2f2b7849e6))
 * use identity names conversion in TypedData ([275598a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/275598aa444e1e977386a3dadd02bbc9ba01f38e))
 
 ### [2.9.2](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.9.1...v2.9.2) (2022-02-09)
@@ -431,7 +431,7 @@ All notable changes to this project will be documented in this file. See [standa
 * and many other changes in protobufs.
 
 ### 1.10.0
-* Add `alterTable` method to Session class
+* Add `alterTable` method to TableSession class
 * Put compiled protobufs to a separate 'ydb-sdk' namespace
 
 ### 1.9.0

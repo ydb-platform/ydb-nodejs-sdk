@@ -1,5 +1,5 @@
 import DiscoveryService from './discovery';
-import {TableClient} from './table';
+import {TableClient} from './table/table-client';
 import SchemeService from './scheme';
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {IAuthService} from './credentials';

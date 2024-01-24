@@ -7,10 +7,10 @@ import {
     Row,
     TABLE
 } from '../test-utils';
-import {ReadTableSettings, Session} from '../table';
+import {ReadTableSettings, TableSession} from '../table/table-client';
 import {TypedValues, TypedData} from '../types';
 
-async function readTable(session: Session, settings: ReadTableSettings): Promise<TypedData[]> {
+async function readTable(session: TableSession, settings: ReadTableSettings): Promise<TypedData[]> {
     const rows: TypedData[] = [];
 
     await session.streamReadTable(TABLE, (result) => {
