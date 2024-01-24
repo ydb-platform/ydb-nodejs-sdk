@@ -12,17 +12,20 @@ async function Main() {
         // sslCredentials: ...,
         // clientOptions: ...,
         // logger: ...,
+        // tracing settings
+        // timeout
     });
 
     ydb.query.do<R>({ // R sample of DataType
+        traceId: ...,
         txControl: ...,
         syntax: ...,
         retryPolicy: ..., // ???
-        statement: ???, // Is it
-        op: ... // session handler
+        statement: ???, // Is it. It's likely
+        handler: ... // session handler
     })
 
-    // TODO: Support dataType to conver
+    // TODO: Support dataType to convert?
 
 
 
