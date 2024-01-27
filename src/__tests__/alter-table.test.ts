@@ -4,11 +4,11 @@ import {
     AlterTableDescription,
     AlterTableSettings,
     Column,
+    OperationParams,
     TableDescription,
     TableIndex,
-} from '../table/table-session';
+} from '../table';
 import { Types } from '../types';
-import {OperationParams} from "../table/session";
 
 const getTableName = () => `table_alter_${Math.trunc(1000 * Math.random())}`;
 

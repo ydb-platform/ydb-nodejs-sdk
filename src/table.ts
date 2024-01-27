@@ -1,24 +1,47 @@
+import _ from 'lodash';
+import EventEmitter from 'events';
 import * as grpc from '@grpc/grpc-js';
 import {google, Ydb} from 'ydb-sdk-proto';
-import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
-import ITransactionSettings = Ydb.Table.ITransactionSettings;
-import ITransactionMeta = Ydb.Table.ITransactionMeta;
-import {ensureOperationSucceeded, getOperationPayload, pessimizable,} from '../utils';
-import {Endpoint} from '../discovery';
-import {Logger} from '../logging';
-import {retryable} from '../retries';
-import {MissingStatus, SchemeError} from '../errors';
 import {
-    OperationMode,
-    Session
-} from "./session";
+    AuthenticatedService,
+    ClientOptions,
+    StreamEnd,
+    ensureOperationSucceeded,
+    getOperationPayload,
+    pessimizable,
+    AsyncResponse,
+} from './utils';
+import DiscoveryService, {Endpoint} from './discovery';
+import {IPoolSettings} from './driver';
+import {ISslCredentials} from './ssl-credentials';
+import {Events, ResponseMetadataKeys, SESSION_KEEPALIVE_PERIOD} from './constants';
+import {IAuthService} from './credentials';
+// noinspection ES6PreferShortImport
+import {Logger} from './logging';
+import {retryable} from './retries';
+import {
+    SchemeError,
+    SessionPoolEmpty,
+    BadSession,
+    SessionBusy,
+    MissingValue,
+    YdbError,
+    MissingStatus,
+} from './errors';
+
 import TableService = Ydb.Table.V1.TableService;
+import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
+import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
+import CreateSessionResult = Ydb.Table.CreateSessionResult;
 import IQuery = Ydb.Table.IQuery;
 import IType = Ydb.IType;
 import DescribeTableResult = Ydb.Table.DescribeTableResult;
 import PrepareQueryResult = Ydb.Table.PrepareQueryResult;
 import ExecuteQueryResult = Ydb.Table.ExecuteQueryResult;
-import ExplainQueryResult = Ydb.Table.ExplainQueryResult;
+import ExplainQueryResult = Ydb.Table.ExplainQueryResult
+import ITransactionSettings = Ydb.Table.ITransactionSettings;
+import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
+import ITransactionMeta = Ydb.Table.ITransactionMeta;
 import AutoPartitioningPolicy = Ydb.Table.PartitioningPolicy.AutoPartitioningPolicy;
 import ITypedValue = Ydb.ITypedValue;
 import FeatureFlag = Ydb.FeatureFlag.Status;
@@ -27,12 +50,44 @@ import ExecuteScanQueryPartialResult = Ydb.Table.ExecuteScanQueryPartialResult;
 import IKeyRange = Ydb.Table.IKeyRange;
 import TypedValue = Ydb.TypedValue;
 import BulkUpsertResult = Ydb.Table.BulkUpsertResult;
+import OperationMode = Ydb.Operations.OperationParams.OperationMode;
 
-export interface IExistingTransaction {
-    txId: string
+interface PartialResponse<T> {
+    status?: (Ydb.StatusIds.StatusCode|null);
+    issues?: (Ydb.Issue.IIssueMessage[]|null);
+    result?: (T|null);
 }
 
-export interface INewTransaction {
+export class SessionService extends AuthenticatedService<TableService> {
+    public endpoint: Endpoint;
+    private readonly logger: Logger;
+
+    constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
+        const host = endpoint.toString();
+        super(host, database, 'Ydb.Table.V1.TableService', TableService, authService, sslCredentials, clientOptions);
+        this.endpoint = endpoint;
+        this.logger = logger;
+    }
+
+    @retryable()
+    @pessimizable
+    async create(): Promise<Session> {
+        const response = await this.api.createSession(CreateSessionRequest.create());
+        const payload = getOperationPayload(response);
+        const {sessionId} = CreateSessionResult.decode(payload);
+        return new Session(this.api, this.endpoint, sessionId, this.logger, this.getResponseMetadata.bind(this));
+    }
+}
+
+enum SessionEvent {
+    SESSION_RELEASE = 'SESSION_RELEASE',
+    SESSION_BROKEN = 'SESSION_BROKEN'
+}
+
+interface IExistingTransaction {
+    txId: string
+}
+interface INewTransaction {
     beginTx: ITransactionSettings,
     commitTx: boolean
 }
@@ -43,6 +98,10 @@ export const AUTO_TX: INewTransaction = {
     },
     commitTx: true
 };
+
+interface IQueryParams {
+    [k: string]: Ydb.ITypedValue
+}
 
 export class OperationParams implements Ydb.Operations.IOperationParams {
     operationMode?: OperationMode;
@@ -81,7 +140,7 @@ export class OperationParams implements Ydb.Operations.IOperationParams {
         return this;
     }
 
-    withLabels(labels: { [k: string]: string }) {
+    withLabels(labels: {[k: string]: string}) {
         this.labels = labels;
         return this;
     }
@@ -101,25 +160,6 @@ export class OperationParamsSettings {
     }
 }
 
-export class BeginTransactionSettings extends OperationParamsSettings {
-}
-
-export class CommitTransactionSettings extends OperationParamsSettings {
-    collectStats?: Ydb.Table.QueryStatsCollection.Mode;
-
-    withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
-        this.collectStats = collectStats;
-        return this;
-    }
-}
-
-export class RollbackTransactionSettings extends OperationParamsSettings {
-}
-
-interface IQueryParams {
-    [k: string]: Ydb.ITypedValue
-}
-
 export class CreateTableSettings extends OperationParamsSettings {
 }
 
@@ -129,7 +169,6 @@ export class AlterTableSettings extends OperationParamsSettings {
 interface IDropTableSettings {
     muteNonExistingTableErrors: boolean;
 }
-
 export class DropTableSettings extends OperationParamsSettings {
     muteNonExistingTableErrors: boolean;
 
@@ -158,6 +197,21 @@ export class DescribeTableSettings extends OperationParamsSettings {
         this.includePartitionStats = includePartitionStats;
         return this;
     }
+}
+
+export class BeginTransactionSettings extends OperationParamsSettings {
+}
+
+export class CommitTransactionSettings extends OperationParamsSettings {
+    collectStats?: Ydb.Table.QueryStatsCollection.Mode;
+
+    withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
+        this.collectStats = collectStats;
+        return this;
+    }
+}
+
+export class RollbackTransactionSettings extends OperationParamsSettings {
 }
 
 export class PrepareQuerySettings extends OperationParamsSettings {
@@ -251,16 +305,58 @@ export class ExecuteScanQuerySettings {
     }
 }
 
-export class TableSession extends Session<any> {
+export class Session extends EventEmitter implements ICreateSessionResult {
+    private beingDeleted = false;
+    private free = true;
+    private closing = false;
 
     constructor(
-        api: TableService,
-        endpoint: Endpoint,
-        sessionId: string,
-        logger: Logger,
-        getResponseMetadata: (request: object) => grpc.Metadata | undefined
+        private api: TableService,
+        public endpoint: Endpoint,
+        public sessionId: string,
+        private logger: Logger,
+        private getResponseMetadata: (request: object) => grpc.Metadata | undefined
     ) {
-        super(api, endpoint, sessionId, logger, getResponseMetadata);
+        super();
+    }
+
+    acquire() {
+        this.free = false;
+        this.logger.debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
+        return this;
+    }
+    release() {
+        this.free = true;
+        this.logger.debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
+        this.emit(SessionEvent.SESSION_RELEASE, this);
+    }
+
+    public isFree() {
+        return this.free && !this.isDeleted();
+    }
+    public isClosing() {
+        return this.closing;
+    }
+    public isDeleted() {
+        return this.beingDeleted;
+    }
+
+    @retryable()
+    @pessimizable
+    public async delete(): Promise<void> {
+        if (this.isDeleted()) {
+            return Promise.resolve();
+        }
+        this.beingDeleted = true;
+        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
+    }
+
+    @retryable()
+    @pessimizable
+    public async keepAlive(): Promise<void> {
+        const request = {sessionId: this.sessionId};
+        const response = await this.api.keepAlive(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
     @retryable()
@@ -366,6 +462,57 @@ export class TableSession extends Session<any> {
 
     @retryable()
     @pessimizable
+    public async beginTransaction(
+        txSettings: ITransactionSettings,
+        settings?: BeginTransactionSettings,
+    ): Promise<ITransactionMeta> {
+        const request: Ydb.Table.IBeginTransactionRequest = {
+            sessionId: this.sessionId,
+            txSettings,
+        };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
+        const response = await this.api.beginTransaction(request);
+        const payload = getOperationPayload(this.processResponseMetadata(request, response));
+        const {txMeta} = BeginTransactionResult.decode(payload);
+        if (txMeta) {
+            return txMeta;
+        }
+        throw new Error('Could not begin new transaction, txMeta is empty!');
+    }
+
+    @retryable()
+    @pessimizable
+    public async commitTransaction(txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void> {
+        const request: Ydb.Table.ICommitTransactionRequest = {
+            sessionId: this.sessionId,
+            txId: txControl.txId,
+        };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+            request.collectStats = settings.collectStats;
+        }
+        const response = await this.api.commitTransaction(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response));
+    }
+
+    @retryable()
+    @pessimizable
+    public async rollbackTransaction(txControl: IExistingTransaction, settings?: RollbackTransactionSettings): Promise<void> {
+        const request: Ydb.Table.IRollbackTransactionRequest = {
+            sessionId: this.sessionId,
+            txId: txControl.txId,
+        };
+        if (settings) {
+            request.operationParams = settings.operationParams;
+        }
+        const response = await this.api.rollbackTransaction(request);
+        ensureOperationSucceeded(this.processResponseMetadata(request, response));
+    }
+
+    @retryable()
+    @pessimizable
     public async prepareQuery(queryText: string, settings?: PrepareQuerySettings): Promise<PrepareQueryResult> {
         const request: Ydb.Table.IPrepareDataQueryRequest = {
             sessionId: this.sessionId,
@@ -418,6 +565,22 @@ export class TableSession extends Session<any> {
         const response = await this.api.executeDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response, settings?.onResponseMetadata));
         return ExecuteQueryResult.decode(payload);
+    }
+
+    private processResponseMetadata(
+        request: object,
+        response: AsyncResponse,
+        onResponseMetadata?: (metadata: grpc.Metadata) => void
+    ) {
+        const metadata = this.getResponseMetadata(request);
+        if (metadata) {
+            const serverHints = metadata.get(ResponseMetadataKeys.ServerHints) || [];
+            if (serverHints.includes('session-close')) {
+                this.closing = true;
+            }
+            onResponseMetadata?.(metadata);
+        }
+        return response;
     }
 
     @pessimizable
@@ -491,6 +654,43 @@ export class TableSession extends Session<any> {
             consumer);
     }
 
+    private executeStreamRequest<Req, Resp extends PartialResponse<IRes>, IRes, Res>(
+        request: Req,
+        apiStreamMethod: (request: Req, callback: (error: (Error|null), response?: Resp) => void) => void,
+        transformer: (result: IRes) => Res,
+        consumer: (result: Res) => void)
+        : Promise<void> {
+        return new Promise((resolve, reject) => {
+            apiStreamMethod(request, (error, response) => {
+                try {
+                    if (error) {
+                        if (error instanceof StreamEnd) {
+                            resolve();
+                        } else {
+                            reject(error);
+                        }
+                    } else if (response) {
+                        const operation = {
+                            status: response.status,
+                            issues: response.issues,
+                        } as Ydb.Operations.IOperation;
+                        YdbError.checkStatus(operation);
+
+                        if (!response.result) {
+                            reject(new MissingValue('Missing result value!'));
+                            return;
+                        }
+
+                        const result = transformer(response.result);
+                        consumer(result);
+                    }
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+    }
+
     public async explainQuery(query: string, operationParams?: Ydb.Operations.IOperationParams): Promise<ExplainQueryResult> {
         const request: Ydb.Table.IExplainDataQueryRequest = {
             sessionId: this.sessionId,
@@ -501,67 +701,230 @@ export class TableSession extends Session<any> {
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
         return ExplainQueryResult.decode(payload);
     }
+}
 
-    @retryable()
-    @pessimizable
-    public async beginTransaction(
-        txSettings: ITransactionSettings,
-        settings?: BeginTransactionSettings,
-    ): Promise<ITransactionMeta> {
-        const request: Ydb.Table.IBeginTransactionRequest = {
-            sessionId: this.sessionId,
-            txSettings,
-        };
-        if (settings) {
-            request.operationParams = settings.operationParams;
-        }
-        const response = await this.api.beginTransaction(request);
-        const payload = getOperationPayload(this.processResponseMetadata(request, response));
-        const {txMeta} = BeginTransactionResult.decode(payload);
-        if (txMeta) {
-            return txMeta;
-        }
-        throw new Error('Could not begin new transaction, txMeta is empty!');
+type SessionCallback<T> = (session: Session) => Promise<T>;
+
+interface ITableClientSettings {
+    database: string;
+    authService: IAuthService;
+    sslCredentials?: ISslCredentials;
+    poolSettings?: IPoolSettings;
+    clientOptions?: ClientOptions;
+    discoveryService: DiscoveryService;
+    logger: Logger;
+}
+
+export class SessionPool extends EventEmitter {
+    private readonly database: string;
+    private readonly authService: IAuthService;
+    private readonly sslCredentials?: ISslCredentials;
+    private readonly clientOptions?: ClientOptions;
+    private readonly minLimit: number;
+    private readonly maxLimit: number;
+    private readonly sessions: Set<Session>;
+    private readonly sessionCreators: Map<Endpoint, SessionService>;
+    private readonly discoveryService: DiscoveryService;
+    private newSessionsRequested: number;
+    private sessionsBeingDeleted: number;
+    private readonly sessionKeepAliveId: NodeJS.Timeout;
+    private readonly logger: Logger;
+    private readonly waiters: ((session: Session) => void)[] = [];
+
+    private static SESSION_MIN_LIMIT = 5;
+    private static SESSION_MAX_LIMIT = 20;
+
+    constructor(settings: ITableClientSettings) {
+        super();
+        this.database = settings.database;
+        this.authService = settings.authService;
+        this.sslCredentials = settings.sslCredentials;
+        this.clientOptions = settings.clientOptions;
+        this.logger = settings.logger;
+        const poolSettings = settings.poolSettings;
+        this.minLimit = poolSettings?.minLimit || SessionPool.SESSION_MIN_LIMIT;
+        this.maxLimit = poolSettings?.maxLimit || SessionPool.SESSION_MAX_LIMIT;
+        this.sessions = new Set();
+        this.newSessionsRequested = 0;
+        this.sessionsBeingDeleted = 0;
+        this.sessionKeepAliveId = this.initListeners(poolSettings?.keepAlivePeriod || SESSION_KEEPALIVE_PERIOD);
+        this.sessionCreators = new Map();
+        this.discoveryService = settings.discoveryService;
+        this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
+            this.sessionCreators.delete(endpoint);
+        });
+        this.prepopulateSessions();
     }
 
-    @retryable()
-    @pessimizable
-    public async commitTransaction(txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void> {
-        const request: Ydb.Table.ICommitTransactionRequest = {
-            sessionId: this.sessionId,
-            txId: txControl.txId,
-        };
-        if (settings) {
-            request.operationParams = settings.operationParams;
-            request.collectStats = settings.collectStats;
-        }
-        const response = await this.api.commitTransaction(request);
-        ensureOperationSucceeded(this.processResponseMetadata(request, response));
+    public async destroy(): Promise<void> {
+        this.logger.debug('Destroying pool...');
+        clearInterval(this.sessionKeepAliveId);
+        await Promise.all(_.map([...this.sessions], (session: Session) => this.deleteSession(session)));
+        this.logger.debug('Pool has been destroyed.');
     }
 
-    @retryable()
-    @pessimizable
-    public async rollbackTransaction(txControl: IExistingTransaction, settings?: RollbackTransactionSettings): Promise<void> {
-        const request: Ydb.Table.IRollbackTransactionRequest = {
-            sessionId: this.sessionId,
-            txId: txControl.txId,
-        };
-        if (settings) {
-            request.operationParams = settings.operationParams;
-        }
-        const response = await this.api.rollbackTransaction(request);
-        ensureOperationSucceeded(this.processResponseMetadata(request, response));
+    private initListeners(keepAlivePeriod: number) {
+        return setInterval(async () => Promise.all(
+            _.map([...this.sessions], (session: Session) => {
+                return session.keepAlive()
+                    // delete session if error
+                    .catch(() => this.deleteSession(session))
+                    // ignore errors to avoid UnhandledPromiseRejectionWarning
+                    .catch(() => Promise.resolve())
+            })
+        ), keepAlivePeriod);
     }
 
-    @retryable()
-    @pessimizable
-    public async keepAlive(): Promise<void> {
-        if (typeof this.api.keepAlive !== 'function') {
-            throw new Error('This service does not support keep alive method');
+    private prepopulateSessions() {
+        _.forEach(_.range(this.minLimit), () => this.createSession());
+    }
+
+    private async getSessionCreator(): Promise<SessionService> {
+        const endpoint = await this.discoveryService.getEndpoint();
+        if (!this.sessionCreators.has(endpoint)) {
+            const sessionService = new SessionService(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
+            this.sessionCreators.set(endpoint, sessionService);
         }
-        const request = {sessionId: this.sessionId};
-        const response = await this.api.keepAlive(request);
-        ensureOperationSucceeded(this.processResponseMetadata(request, response));
+        return this.sessionCreators.get(endpoint) as SessionService;
+    }
+
+    private maybeUseSession(session: Session) {
+        if (this.waiters.length > 0) {
+            const waiter = this.waiters.shift();
+            if (typeof waiter === "function") {
+                waiter(session);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private async createSession(): Promise<Session> {
+        const sessionCreator = await this.getSessionCreator();
+        const session = await sessionCreator.create();
+        session.on(SessionEvent.SESSION_RELEASE, async () => {
+            if (session.isClosing()) {
+                await this.deleteSession(session);
+            } else {
+                this.maybeUseSession(session);
+            }
+        })
+        session.on(SessionEvent.SESSION_BROKEN, async () => {
+            await this.deleteSession(session);
+        });
+        this.sessions.add(session);
+        return session;
+    }
+
+    private deleteSession(session: Session): Promise<void> {
+        if (session.isDeleted()) {
+            return Promise.resolve();
+        }
+
+        this.sessionsBeingDeleted++;
+        // acquire new session as soon one of existing ones is deleted
+        if (this.waiters.length > 0) {
+            this.acquire().then((session) => {
+                if (!this.maybeUseSession(session)) {
+                    session.release();
+                }
+            });
+        }
+        return session.delete()
+            // delete session in any case
+            .finally(() => {
+                this.sessions.delete(session);
+                this.sessionsBeingDeleted--;
+            });
+    }
+
+    private acquire(timeout: number = 0): Promise<Session> {
+        for (const session of this.sessions) {
+            if (session.isFree()) {
+                return Promise.resolve(session.acquire());
+            }
+        }
+
+        if (this.sessions.size + this.newSessionsRequested - this.sessionsBeingDeleted <= this.maxLimit) {
+            this.newSessionsRequested++;
+            return this.createSession()
+                .then((session) => {
+                    return session.acquire();
+                })
+                .finally(() => {
+                    this.newSessionsRequested--;
+                });
+        } else {
+            return new Promise((resolve, reject) => {
+                let timeoutId: NodeJS.Timeout;
+                function waiter(session: Session) {
+                    clearTimeout(timeoutId);
+                    resolve(session.acquire());
+                }
+                if (timeout) {
+                    timeoutId = setTimeout(() => {
+                        this.waiters.splice(this.waiters.indexOf(waiter), 1);
+                        reject(
+                            new SessionPoolEmpty(`No session became available within timeout of ${timeout} ms`)
+                        );
+                    }, timeout);
+                }
+                this.waiters.push(waiter);
+            });
+        }
+    }
+
+    private async _withSession<T>(session: Session, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
+        try {
+            const result = await callback(session);
+            session.release();
+            return result;
+        } catch (error) {
+            if (error instanceof BadSession || error instanceof SessionBusy) {
+                this.logger.debug('Encountered bad or busy session, re-creating the session');
+                session.emit(SessionEvent.SESSION_BROKEN);
+                session = await this.createSession();
+                if (maxRetries > 0) {
+                    this.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
+                    session.acquire();
+                    return this._withSession(session, callback, maxRetries - 1);
+                }
+            } else {
+                session.release();
+            }
+            throw error;
+        }
+    }
+
+    public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
+        const session = await this.acquire(timeout);
+        return this._withSession(session, callback);
+    }
+
+    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
+        const session = await this.acquire(timeout);
+        return this._withSession(session, callback, maxRetries);
+    }
+}
+
+export class TableClient extends EventEmitter {
+    private pool: SessionPool;
+
+    constructor(settings: ITableClientSettings) {
+        super();
+        this.pool = new SessionPool(settings);
+    }
+
+    public async withSession<T>(callback: (session: Session) => Promise<T>, timeout: number = 0): Promise<T> {
+        return this.pool.withSession(callback, timeout);
+    }
+
+    public async withSessionRetry<T>(callback: (session: Session) => Promise<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
+        return this.pool.withSessionRetry(callback, timeout, maxRetries);
+    }
+
+    public async destroy() {
+        await this.pool.destroy();
     }
 }
 

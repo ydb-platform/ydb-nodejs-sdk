@@ -1,6 +1,6 @@
 import Driver from '../driver';
 import {destroyDriver, initDriver} from '../test-utils';
-import {Column, DescribeTableSettings, TableDescription} from '../table/table-session';
+import {Column, DescribeTableSettings, TableDescription} from '../table';
 import {TypedValues, Types} from '../types';
 import Long from 'long';
 import {Ydb} from 'ydb-sdk-proto';

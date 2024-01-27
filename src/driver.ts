@@ -1,14 +1,14 @@
 import DiscoveryService from './discovery';
-import {SchemeClient} from './scheme';
-// import {QueryClient} from './query/query-client';
+import {TableClient} from './table';
+import SchemeService from './scheme';
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {IAuthService} from './credentials';
 import {TimeoutExpired} from './errors';
 import {getLogger, Logger} from './logging';
+import SchemeClient from './scheme';
 import {ClientOptions} from './utils';
 import {parseConnectionString} from './parse-connection-string';
 import {makeSslCredentials, ISslCredentials} from './ssl-credentials';
-import {TableClient} from "./table/table-client";
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -38,8 +38,7 @@ export default class Driver {
     private discoveryService: DiscoveryService;
 
     public tableClient: TableClient;
-    public schemeClient: SchemeClient;
-    // public queryClient: QueryClient;
+    public schemeClient: SchemeService;
 
     constructor(settings: IDriverSettings) {
         this.logger = settings.logger || getLogger();
@@ -80,15 +79,6 @@ export default class Driver {
             discoveryService: this.discoveryService,
             logger: this.logger,
         });
-        // this.queryClient = new QueryClient({
-        //     database: this.database,
-        //     authService: this.authService,
-        //     sslCredentials: this.sslCredentials,
-        //     poolSettings: this.poolSettings,
-        //     clientOptions: this.clientOptions,
-        //     discoveryService: this.discoveryService,
-        //     logger: this.logger,
-        // });
         this.schemeClient = new SchemeClient({
             database: this.database,
             authService: this.authService,

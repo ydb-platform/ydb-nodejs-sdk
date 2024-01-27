@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import Driver, {IDriverSettings} from "./driver";
 import {declareType, TypedData, Types} from "./types";
-import {Column, TableSession, TableDescription} from "./table/table-session";
+import {Column, Session, TableDescription} from "./table";
 import {withRetries} from "./retries";
 import {AnonymousAuthService} from "./credentials";
 
@@ -55,7 +55,7 @@ export async function destroyDriver(driver: Driver): Promise<void> {
     }
 }
 
-export async function createTable(session: TableSession) {
+export async function createTable(session: Session) {
     await session.dropTable(TABLE);
     await session.createTable(
         TABLE,
@@ -72,7 +72,7 @@ export async function createTable(session: TableSession) {
     );
 }
 
-export async function fillTableWithData(session: TableSession, rows: Row[]) {
+export async function fillTableWithData(session: Session, rows: Row[]) {
     const query = `
 DECLARE $data AS List<Struct<id: Uint64, title: Utf8>>;
 

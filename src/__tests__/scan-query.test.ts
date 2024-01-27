@@ -7,10 +7,10 @@ import {
     initDriver,
     Row,
 } from '../test-utils';
-import {TableSession} from '../table/table-session';
+import {Session} from '../table';
 import {TypedData} from '../types';
 
-async function executeScanQuery(session: TableSession): Promise<TypedData[]> {
+async function executeScanQuery(session: Session): Promise<TypedData[]> {
     const query = `SELECT * FROM ${TABLE};`;
 
     const rows: TypedData[] = [];

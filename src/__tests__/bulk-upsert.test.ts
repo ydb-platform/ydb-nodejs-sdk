@@ -7,10 +7,10 @@ import {
     Row,
     TABLE
 } from '../test-utils';
-import {TableSession} from '../table/table-session';
+import {Session} from '../table';
 import {Ydb} from 'ydb-sdk-proto';
 
-async function readTable(session: TableSession): Promise<Row[]> {
+async function readTable(session: Session): Promise<Row[]> {
     const rows: Row[] = [];
 
     await session.streamReadTable(TABLE, (result) => {

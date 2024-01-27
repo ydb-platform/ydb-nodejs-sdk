@@ -26,10 +26,14 @@ export {
     StringFunction,
 } from './types';
 export {
-    TableSession,
+    SessionPool,
+    Session,
     CreateTableSettings,
     AlterTableSettings,
     DropTableSettings,
+    BeginTransactionSettings,
+    CommitTransactionSettings,
+    RollbackTransactionSettings,
     DescribeTableSettings,
     PrepareQuerySettings,
     ExecuteQuerySettings,
@@ -50,8 +54,9 @@ export {
     CompactionPolicy,
     ExecutionPolicy,
     CachingPolicy,
-
-} from './table/table-session';
+    OperationParams,
+    AUTO_TX,
+} from './table';
 export {
     MakeDirectorySettings,
     RemoveDirectorySettings,
@@ -73,9 +78,3 @@ export {
 export {ISslCredentials} from './ssl-credentials';
 export {withRetries, RetryParameters} from './retries';
 export {YdbError, StatusCode} from './errors';
-export {SessionPool} from "./table/session-pool";
-export {RollbackTransactionSettings} from "./table/session";
-export {CommitTransactionSettings} from "./table/session";
-export {BeginTransactionSettings} from "./table/session";
-export {OperationParams} from "./table/session";
-export {AUTO_TX} from "./table/session";
