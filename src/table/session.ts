@@ -1,7 +1,4 @@
-import {google, Ydb} from "ydb-sdk-proto";
-import ITransactionSettings = Ydb.Table.ITransactionSettings;
-import BeginTransactionResult = Ydb.Table.BeginTransactionResult;
-import ITransactionMeta = Ydb.Table.ITransactionMeta;
+import {Ydb} from "ydb-sdk-proto";
 export import OperationMode = Ydb.Operations.OperationParams.OperationMode;
 import EventEmitter from "events";
 import {Endpoint} from "../discovery";
@@ -9,25 +6,10 @@ import {Logger} from "../logging";
 import * as grpc from "@grpc/grpc-js";
 import {SessionEvent} from "./session-pool";
 import {retryable} from "../retries";
-import {AsyncResponse, ensureOperationSucceeded, getOperationPayload, pessimizable, StreamEnd} from "../utils";
+import {AsyncResponse, ensureOperationSucceeded, pessimizable, StreamEnd} from "../utils";
 import {ResponseMetadataKeys} from "../constants";
 import {MissingValue, YdbError} from "../errors";
-
-export interface IExistingTransaction {
-    txId: string
-}
-
-export interface INewTransaction {
-    beginTx: ITransactionSettings,
-    commitTx: boolean
-}
-
-export const AUTO_TX: INewTransaction = {
-    beginTx: {
-        serializableReadWrite: {}
-    },
-    commitTx: true
-};
+import * as $protobuf from "protobufjs";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode|null);
@@ -35,93 +17,18 @@ interface PartialResponse<T> {
     result?: (T|null);
 }
 
-export class OperationParams implements Ydb.Operations.IOperationParams {
-    operationMode?: OperationMode;
-    operationTimeout?: google.protobuf.IDuration;
-    cancelAfter?: google.protobuf.IDuration;
-    labels?: { [k: string]: string };
-    reportCostInfo?: Ydb.FeatureFlag.Status;
 
-    withSyncMode() {
-        this.operationMode = OperationMode.SYNC;
-        return this;
-    }
-
-    withAsyncMode() {
-        this.operationMode = OperationMode.ASYNC;
-        return this;
-    }
-
-    withOperationTimeout(duration: google.protobuf.IDuration) {
-        this.operationTimeout = duration;
-        return this;
-    }
-
-    withOperationTimeoutSeconds(seconds: number) {
-        this.operationTimeout = {seconds};
-        return this;
-    }
-
-    withCancelAfter(duration: google.protobuf.IDuration) {
-        this.cancelAfter = duration;
-        return this;
-    }
-
-    withCancelAfterSeconds(seconds: number) {
-        this.cancelAfter = {seconds};
-        return this;
-    }
-
-    withLabels(labels: { [k: string]: string }) {
-        this.labels = labels;
-        return this;
-    }
-
-    withReportCostInfo() {
-        this.reportCostInfo = Ydb.FeatureFlag.Status.ENABLED;
-        return this;
-    }
-}
-
-export class OperationParamsSettings {
-    operationParams?: OperationParams;
-
-    withOperationParams(operationParams: OperationParams) {
-        this.operationParams = operationParams;
-        return this;
-    }
-}
-
-export class BeginTransactionSettings extends OperationParamsSettings {
-}
-
-export class CommitTransactionSettings extends OperationParamsSettings {
-    collectStats?: Ydb.Table.QueryStatsCollection.Mode;
-
-    withCollectStats(collectStats: Ydb.Table.QueryStatsCollection.Mode) {
-        this.collectStats = collectStats;
-        return this;
-    }
-}
-
-export class RollbackTransactionSettings extends OperationParamsSettings {
-}
-
-export interface ServiceWithSessionsAndTransactions extends EventEmitter {
+export interface ServiceWithSessions<SericeType extends $protobuf.rpc.Service> extends EventEmitter {
     createSession(request: Ydb.Table.ICreateSessionRequest): Promise<Ydb.Table.CreateSessionResponse>;
     deleteSession(request: Ydb.Table.IDeleteSessionRequest): Promise<Ydb.Table.DeleteSessionResponse>;
-    keepAlive?(request: Ydb.Table.IKeepAliveRequest): Promise<Ydb.Table.KeepAliveResponse>;
-
-    beginTransaction(request: Ydb.Table.IBeginTransactionRequest): Promise<Ydb.Table.BeginTransactionResponse>;
-    commitTransaction(request: Ydb.Table.ICommitTransactionRequest): Promise<Ydb.Table.CommitTransactionResponse>;
-    rollbackTransaction(request: Ydb.Table.IRollbackTransactionRequest): Promise<Ydb.Table.RollbackTransactionResponse>;
+    Alive?(request: Ydb.Table.IKeepAliveRequest): Promise<Ydb.Table.KeepAliveResponse>;
 }
 
 export interface SessionCreator<SessionType extends Session<any>> {
     create(): Promise<SessionType>;
 }
 
-export class Session<ServiceType extends ServiceWithSessionsAndTransactions> extends EventEmitter implements Ydb.Table.ICreateSessionResult {
+export abstract class Session<ServiceType extends ServiceWithSessions> extends EventEmitter implements Ydb.Table.ICreateSessionResult {
     private beingDeleted = false;
     private free = true;
     private closing = false;
@@ -162,68 +69,6 @@ export class Session<ServiceType extends ServiceWithSessionsAndTransactions> ext
         }
         this.beingDeleted = true;
         ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
-    }
-
-    @retryable()
-    @pessimizable
-    public async keepAlive(): Promise<void> {
-        if (typeof this.api.keepAlive !== 'function') {
-            throw new Error('This service does not support keep alive method');
-        }
-        const request = {sessionId: this.sessionId};
-        const response = await this.api.keepAlive(request);
-        ensureOperationSucceeded(this.processResponseMetadata(request, response));
-    }
-
-    @retryable()
-    @pessimizable
-    public async beginTransaction(
-        txSettings: ITransactionSettings,
-        settings?: BeginTransactionSettings,
-    ): Promise<ITransactionMeta> {
-        const request: Ydb.Table.IBeginTransactionRequest = {
-            sessionId: this.sessionId,
-            txSettings,
-        };
-        if (settings) {
-            request.operationParams = settings.operationParams;
-        }
-        const response = await this.api.beginTransaction(request);
-        const payload = getOperationPayload(this.processResponseMetadata(request, response));
-        const {txMeta} = BeginTransactionResult.decode(payload);
-        if (txMeta) {
-            return txMeta;
-        }
-        throw new Error('Could not begin new transaction, txMeta is empty!');
-    }
-
-    @retryable()
-    @pessimizable
-    public async commitTransaction(txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void> {
-        const request: Ydb.Table.ICommitTransactionRequest = {
-            sessionId: this.sessionId,
-            txId: txControl.txId,
-        };
-        if (settings) {
-            request.operationParams = settings.operationParams;
-            request.collectStats = settings.collectStats;
-        }
-        const response = await this.api.commitTransaction(request);
-        ensureOperationSucceeded(this.processResponseMetadata(request, response));
-    }
-
-    @retryable()
-    @pessimizable
-    public async rollbackTransaction(txControl: IExistingTransaction, settings?: RollbackTransactionSettings): Promise<void> {
-        const request: Ydb.Table.IRollbackTransactionRequest = {
-            sessionId: this.sessionId,
-            txId: txControl.txId,
-        };
-        if (settings) {
-            request.operationParams = settings.operationParams;
-        }
-        const response = await this.api.rollbackTransaction(request);
-        ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
     protected processResponseMetadata(

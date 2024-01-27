@@ -70,7 +70,7 @@ interface ISchemeClientSettings {
     logger: Logger;
 }
 
-export default class SchemeClient extends EventEmitter {
+export class SchemeClient extends EventEmitter {
     private schemeServices: Map<Endpoint, SchemeService>;
 
     constructor(private settings: ISchemeClientSettings) {

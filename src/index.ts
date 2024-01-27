@@ -51,7 +51,7 @@ export {
     ExecutionPolicy,
     CachingPolicy,
 
-} from './table/table-client';
+} from './table/table-session';
 export {
     MakeDirectorySettings,
     RemoveDirectorySettings,

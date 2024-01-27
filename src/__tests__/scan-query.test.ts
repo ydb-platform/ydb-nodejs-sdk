@@ -7,7 +7,7 @@ import {
     initDriver,
     Row,
 } from '../test-utils';
-import {TableSession} from '../table/table-client';
+import {TableSession} from '../table/table-session';
 import {TypedData} from '../types';
 
 async function executeScanQuery(session: TableSession): Promise<TypedData[]> {

@@ -7,7 +7,7 @@ import {
     Row,
     TABLE
 } from '../test-utils';
-import {ReadTableSettings, TableSession} from '../table/table-client';
+import {ReadTableSettings, TableSession} from '../table/table-session';
 import {TypedValues, TypedData} from '../types';
 
 async function readTable(session: TableSession, settings: ReadTableSettings): Promise<TypedData[]> {

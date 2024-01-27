@@ -7,7 +7,7 @@ import {
     Row,
     TABLE
 } from '../test-utils';
-import {TableSession} from '../table/table-client';
+import {TableSession} from '../table/table-session';
 import {Ydb} from 'ydb-sdk-proto';
 
 async function readTable(session: TableSession): Promise<Row[]> {

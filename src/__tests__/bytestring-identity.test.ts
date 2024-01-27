@@ -1,6 +1,6 @@
 import Driver from '../driver';
 import {destroyDriver, initDriver, TABLE} from '../test-utils';
-import {Column, TableSession, TableDescription} from '../table/table-client';
+import {Column, TableSession, TableDescription} from '../table/table-session';
 import {declareType, TypedData, Types} from '../types';
 import {withRetries} from '../retries';
 

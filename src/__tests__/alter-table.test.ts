@@ -6,7 +6,7 @@ import {
     Column,
     TableDescription,
     TableIndex,
-} from '../table/table-client';
+} from '../table/table-session';
 import { Types } from '../types';
 import {OperationParams} from "../table/session";
 
