@@ -12,7 +12,7 @@ import {Logger} from './logging';
 import DiscoveryService, {Endpoint} from './discovery';
 import {retryable} from "./retries";
 import {ISslCredentials} from './ssl-credentials';
-import {OperationParamsSettings} from './table';
+import {OperationParamsSettings} from './table/table-session';
 
 import SchemeServiceAPI = Ydb.Scheme.V1.SchemeService;
 import ListDirectoryResult = Ydb.Scheme.ListDirectoryResult;

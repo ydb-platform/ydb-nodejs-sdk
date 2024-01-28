@@ -1,10 +1,10 @@
 import Driver from '../driver';
 import {destroyDriver, initDriver, TABLE} from '../test-utils';
-import {Column, Session, TableDescription} from '../table';
+import {Column, TableSession, TableDescription} from '../table/table-session';
 import {declareType, TypedData, Types} from '../types';
 import {withRetries} from '../retries';
 
-async function createTable(session: Session) {
+async function createTable(session: TableSession) {
     await session.dropTable(TABLE);
     await session.createTable(
         TABLE,
@@ -46,7 +46,7 @@ class Row extends TypedData {
     }
 }
 
-export async function fillTableWithData(session: Session, rows: Row[]) {
+export async function fillTableWithData(session: TableSession, rows: Row[]) {
     const query = `
 DECLARE $data AS List<Struct<id: Uint64, field1: Text, field2: String, field3: Yson>>;
 

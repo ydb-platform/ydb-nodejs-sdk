@@ -148,8 +148,8 @@ describe('Types mutual conversions', () => {
             },
         );
         // now only simple types allowed
-        // for example, can't use Types.tuple(Types.UINT64, Types.TEXT) as key
-        // for example, can't use Long as key
+        // for example, can'table use Types.tuple(Types.UINT64, Types.TEXT) as key
+        // for example, can'table use Long as key
         testType('Types.dict(Types.UINT32, Types.TEXT)', Types.dict(Types.UINT32, Types.TEXT), {
             [1844674407370955]: 'qwerASDF',
             [1844674407370954]: 'qwerASDF',

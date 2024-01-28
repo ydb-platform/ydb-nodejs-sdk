@@ -1,5 +1,4 @@
 import DiscoveryService from './discovery';
-import {TableClient} from './table';
 import SchemeService from './scheme';
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {IAuthService} from './credentials';
@@ -9,6 +8,7 @@ import SchemeClient from './scheme';
 import {ClientOptions} from './utils';
 import {parseConnectionString} from './parse-connection-string';
 import {makeSslCredentials, ISslCredentials} from './ssl-credentials';
+import {TableClient} from "./table";
 
 export interface IPoolSettings {
     minLimit?: number;

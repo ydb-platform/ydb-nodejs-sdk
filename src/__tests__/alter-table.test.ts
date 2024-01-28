@@ -7,7 +7,7 @@ import {
     OperationParams,
     TableDescription,
     TableIndex,
-} from '../table';
+} from '../table/table-session';
 import { Types } from '../types';
 
 const getTableName = () => `table_alter_${Math.trunc(1000 * Math.random())}`;
