@@ -1,8 +1,8 @@
-import Driver from '../driver';
-import {destroyDriver, initDriver, TABLE} from '../test-utils';
-import {Column, TableSession, TableDescription} from '../table/table-session';
-import {declareType, TypedData, Types} from '../types';
-import {withRetries} from '../retries';
+import Driver from '../../../driver';
+import {destroyDriver, initDriver, TABLE} from '../../../test-utils';
+import {Column, TableSession, TableDescription} from '../../../table';
+import {declareType, TypedData, Types} from '../../../types';
+import {withRetries} from '../../../retries';
 
 async function createTable(session: TableSession) {
     await session.dropTable(TABLE);

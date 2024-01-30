@@ -1,5 +1,5 @@
-import Driver from '../driver';
-import { destroyDriver, initDriver } from '../test-utils';
+import Driver from '../../../driver';
+import { destroyDriver, initDriver } from '../../../test-utils';
 import {
     AlterTableDescription,
     AlterTableSettings,
@@ -7,8 +7,8 @@ import {
     OperationParams,
     TableDescription,
     TableIndex,
-} from '../table/table-session';
-import { Types } from '../types';
+} from '../../../table';
+import { Types } from '../../../types';
 
 const getTableName = () => `table_alter_${Math.trunc(1000 * Math.random())}`;
 

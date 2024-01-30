@@ -1,4 +1,4 @@
-import Driver from '../driver';
+import Driver from '../../../driver';
 import {
     TABLE,
     createTable,
@@ -6,9 +6,9 @@ import {
     fillTableWithData,
     initDriver,
     Row,
-} from '../test-utils';
-import {TableSession} from '../table/table-session';
-import {TypedData} from '../types';
+} from '../../../test-utils';
+import {TableSession} from '../../../table';
+import {TypedData} from '../../../types';
 
 async function executeScanQuery(session: TableSession): Promise<TypedData[]> {
     const query = `SELECT * FROM ${TABLE};`;

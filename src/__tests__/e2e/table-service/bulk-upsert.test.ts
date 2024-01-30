@@ -1,4 +1,4 @@
-import Driver from '../driver';
+import Driver from '../../../driver';
 import {
     createTable,
     destroyDriver,
@@ -6,8 +6,8 @@ import {
     initDriver,
     Row,
     TABLE
-} from '../test-utils';
-import {TableSession} from '../table/table-session';
+} from '../../../test-utils';
+import {TableSession} from '../../../table';
 import {Ydb} from 'ydb-sdk-proto';
 
 async function readTable(session: TableSession): Promise<Row[]> {

@@ -1,7 +1,7 @@
 import EventEmitter from 'events';
 import * as grpc from '@grpc/grpc-js';
 import {google, Ydb} from 'ydb-sdk-proto';
-import {AsyncResponse, ensureOperationSucceeded, getOperationPayload, pessimizable, StreamEnd,} from '../utils';
+import {pessimizable, StreamEnd} from '../utils';
 import {Endpoint} from '../discovery';
 import {ResponseMetadataKeys} from '../constants';
 import {Logger} from '../logging';
@@ -28,6 +28,7 @@ import TypedValue = Ydb.TypedValue;
 import BulkUpsertResult = Ydb.Table.BulkUpsertResult;
 import OperationMode = Ydb.Operations.OperationParams.OperationMode;
 import {SessionEvent} from "./session-event";
+import {ensureOperationSucceeded, getOperationPayload, TableAsyncResponse} from "./table-utils";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode|null);
@@ -257,6 +258,7 @@ export class ExecuteScanQuerySettings {
 }
 
 export class TableSession extends EventEmitter implements ICreateSessionResult {
+    // TODO: Allocate common functionality with querySession to a sessionBase class. It's likely that commo sessionsPool code will work both Table and Query
     private beingDeleted = false;
     private free = true;
     private closing = false;
@@ -299,7 +301,7 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
             return Promise.resolve();
         }
         this.beingDeleted = true;
-        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId})); // TODO: Should not session delete has retry?
+        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId})); // TODO: Shouldn't session delete has retry?
     }
 
     @retryable()
@@ -520,7 +522,7 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
 
     private processResponseMetadata(
         request: object,
-        response: AsyncResponse,
+        response: TableAsyncResponse,
         onResponseMetadata?: (metadata: grpc.Metadata) => void
     ) {
         const metadata = this.getResponseMetadata(request);

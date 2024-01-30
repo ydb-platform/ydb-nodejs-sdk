@@ -1,4 +1,4 @@
-import Driver from '../driver';
+import Driver from '../../../driver';
 import {
     createTable,
     destroyDriver,
@@ -6,9 +6,9 @@ import {
     initDriver,
     Row,
     TABLE
-} from '../test-utils';
-import {ReadTableSettings, TableSession} from '../table/table-session';
-import {TypedValues, TypedData} from '../types';
+} from '../../../test-utils';
+import {ReadTableSettings, TableSession} from '../../../table';
+import {TypedValues, TypedData} from '../../../types';
 
 async function readTable(session: TableSession, settings: ReadTableSettings): Promise<TypedData[]> {
     const rows: TypedData[] = [];

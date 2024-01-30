@@ -1,7 +1,7 @@
 import http from 'http';
-import Driver from "../driver";
-import {destroyDriver, initDriver} from "../test-utils";
-import {sleep} from "../utils";
+import Driver from "../../../driver";
+import {destroyDriver, initDriver} from "../../../test-utils";
+import {sleep} from "../../../utils";
 
 const SHUTDOWN_URL = process.env.YDB_SHUTDOWN_URL || 'http://localhost:8765/actors/kqp_proxy?force_shutdown=all';
 

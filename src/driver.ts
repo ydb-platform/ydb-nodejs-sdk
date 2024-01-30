@@ -9,6 +9,7 @@ import {ClientOptions} from './utils';
 import {parseConnectionString} from './parse-connection-string';
 import {makeSslCredentials, ISslCredentials} from './ssl-credentials';
 import {TableClient} from "./table";
+import {QueryClient} from "./query/query-sessions-pool";
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -38,6 +39,7 @@ export default class Driver {
     private discoveryService: DiscoveryService;
 
     public tableClient: TableClient;
+    public queryClient: QueryClient;
     public schemeClient: SchemeService;
 
     constructor(settings: IDriverSettings) {
@@ -71,6 +73,15 @@ export default class Driver {
             logger: this.logger,
         });
         this.tableClient = new TableClient({
+            database: this.database,
+            authService: this.authService,
+            sslCredentials: this.sslCredentials,
+            poolSettings: this.poolSettings,
+            clientOptions: this.clientOptions,
+            discoveryService: this.discoveryService,
+            logger: this.logger,
+        });
+        this.queryClient = new QueryClient({
             database: this.database,
             authService: this.authService,
             sslCredentials: this.sslCredentials,

@@ -1,9 +1,8 @@
 import * as grpc from '@grpc/grpc-js';
 import * as $protobuf from 'protobufjs';
 import _ from 'lodash';
-import {Ydb} from 'ydb-sdk-proto';
 import Long from 'long';
-import {MissingOperation, MissingValue, NotFound, StatusCode, TimeoutExpired, YdbError} from "./errors";
+import {NotFound, TimeoutExpired} from "./errors";
 
 import {Endpoint} from './discovery';
 import {IAuthService} from './credentials';
@@ -151,40 +150,6 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
             }
         };
         return this.apiCtor.create(rpcImpl);
-    }
-}
-
-export interface AsyncResponse {
-    operation?: Ydb.Operations.IOperation | null
-}
-
-export function getOperationPayload(response: AsyncResponse): Uint8Array {
-    const {operation} = response;
-
-    if (operation) {
-        YdbError.checkStatus(operation);
-        const value = operation?.result?.value;
-        if (!value) {
-            throw new MissingValue('Missing operation result value!');
-        }
-        return value;
-    } else {
-        throw new MissingOperation('No operation in response!');
-    }
-}
-
-export function ensureOperationSucceeded(response: AsyncResponse, suppressedErrors: StatusCode[] = []): void {
-    try {
-        getOperationPayload(response);
-    } catch (error) {
-        const e = error as any;
-        if (suppressedErrors.indexOf(e.constructor.status) > -1) {
-            return;
-        }
-
-        if (!(e instanceof MissingValue)) {
-            throw e;
-        }
     }
 }
 

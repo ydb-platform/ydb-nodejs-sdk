@@ -1,8 +1,6 @@
 import {Ydb} from "ydb-sdk-proto";
 import {
     AuthenticatedService,
-    getOperationPayload,
-    ensureOperationSucceeded,
     pessimizable,
     ClientOptions
 } from "./utils";
@@ -22,6 +20,7 @@ import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
 import {util} from "protobufjs";
 import EventEmitter = util.EventEmitter;
+import {ensureOperationSucceeded, getOperationPayload} from "./table/table-utils";
 
 
 function preparePermissions(action?: IPermissions | null) {
