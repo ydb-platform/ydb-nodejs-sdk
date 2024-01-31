@@ -1,20 +1,20 @@
 import {Ydb} from 'ydb-sdk-proto';
 import {IAuthService} from "../credentials";
 import {ISslCredentials} from "../ssl-credentials";
-import {IPoolSettings} from "../driver";
 import {AuthenticatedService, ClientOptions, pessimizable} from "../utils";
 import DiscoveryService, {Endpoint} from "../discovery";
 import {Logger} from "../logging";
 import EventEmitter from "events";
 import {Events} from "../constants";
 import _ from "lodash";
-import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
+import {SessionPoolEmpty} from "../errors";
 import {retryable} from "../retries";
 import {QuerySession} from "./query-session";
 import {SessionEvent} from "../table/session-event";
+import {ensureOperationSucceeded} from "./query-utils";
+import {IQueryClientSettings} from "./query-client";
 import QueryService = Ydb.Query.V1.QueryService;
 import CreateSessionRequest = Ydb.Query.CreateSessionRequest;
-import {ensureOperationSucceeded} from "./query-utils";
 
 export class QuerySessionCreator extends AuthenticatedService<QueryService> {
     public endpoint: Endpoint;
@@ -38,18 +38,6 @@ export class QuerySessionCreator extends AuthenticatedService<QueryService> {
         await session.attach();
         return session;
     }
-}
-
-type SessionCallback<T> = (session: QuerySession) => Promise<T>;
-
-interface IQueryClientSettings {
-    database: string;
-    authService: IAuthService;
-    sslCredentials?: ISslCredentials;
-    poolSettings?: IPoolSettings;
-    clientOptions?: ClientOptions;
-    discoveryService: DiscoveryService;
-    logger: Logger;
 }
 
 export class QuerySessionsPool extends EventEmitter {
@@ -198,83 +186,5 @@ export class QuerySessionsPool extends EventEmitter {
             });
         }
     }
-
-    public async do<T>(session: QuerySession, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
-        try {
-            const result = await callback(session);
-            session.release();
-            return result;
-        } catch (error) {
-            // TODO: Change the repetition strategy to one with different delays
-            // TODO: Remove repetitions on methods (@Retry) within session
-            // TODO: Add idempotency sign and do method with named parameters
-            // TODO: Мark _withSession as deprecated. Consider all operationj NOT idempotent
-            if (error instanceof BadSession || error instanceof SessionBusy) {
-                this.logger.debug('Encountered bad or busy session, re-creating the session');
-                session.emit(SessionEvent.SESSION_BROKEN);
-                session = await this.createSession();
-                if (maxRetries > 0) {
-                    this.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
-                    session.acquire();
-                    return this._withSession(session, callback, maxRetries - 1);
-                }
-            } else {
-                session.release();
-            }
-            throw error;
-        }
-    }
-
-    public async do<T>(options: {
-        cb: SessionCallback<T>,
-        timeout: number | undefined,
-        // TODO: Make all parameters
-        // txControl
-        // parameters
-        // transaction
-        // retries - // TODO: Should that to be Random strategy
-    }): T {
-        const session = await this.acquire(options.timeout);
-        // TODO: Start transaction
-        return this._withSession(session, options.cb);
-    }
-
-    /*
-        public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
-            const session = await this.acquire(timeout);
-            return this._withSession(session, callback);
-        }
-
-        public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
-            const session = await this.acquire(timeout);
-            return this._withSession(session, callback, maxRetries);
-        }
-    */
 }
 
-export class QueryClient extends EventEmitter {
-    private pool: QuerySessionsPool;
-
-    constructor(settings: IQueryClientSettings) {
-        super();
-        this.pool = new QuerySessionsPool(settings);
-    }
-
-    private async do<T>(callback: (session: QuerySession) => Promise<T>, timeout: number = 0): Promise<T> {
-        return this.pool.withSession(callback, timeout);
-    }
-
-/*
-    private async withSession<T>(callback: (session: QuerySession) => Promise<T>, timeout: number = 0): Promise<T> {
-        return this.pool.withSession(callback, timeout);
-    }
-
-    private async withSessionRetry<T>(callback: (session: QuerySession) => Promise<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
-        return this.pool.withSessionRetry(callback, timeout, maxRetries);
-    }
-*/
-
-    public async destroy() {
-        await this.pool.destroy();
-    }
-}

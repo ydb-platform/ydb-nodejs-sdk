@@ -159,9 +159,9 @@ export class TableSessionsPool extends EventEmitter {
         this.sessionsBeingDeleted++;
         // acquire new session as soon one of existing ones is deleted
         if (this.waiters.length > 0) {
-            this.acquire().then((session) => {
-                if (!this.maybeUseSession(session)) {
-                    session.release();
+            this.acquire().then((newSession) => {
+                if (!this.maybeUseSession(newSession)) {
+                    newSession.release();
                 }
             });
         }

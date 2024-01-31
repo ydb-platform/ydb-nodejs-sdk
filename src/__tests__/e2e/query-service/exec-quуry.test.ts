@@ -49,7 +49,7 @@ describe('Query service', () => {
 
             const res = await driver.queryClient.exec({
                 query: 'SELECT * FROM ${TABLE}',
-                // Is callback a good name?
+                // Is cb a good name?
                 callback: (session: QuerySession) => {
                     // session.beginTransaction(),
                     // TODO: query -> array

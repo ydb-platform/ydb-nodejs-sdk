@@ -427,6 +427,7 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
         txSettings: ITransactionSettings,
         settings?: BeginTransactionSettings,
     ): Promise<ITransactionMeta> {
+        // TODO: Cosider keep txId in the session (one transaction in a time in a session policy) as i n query service
         const request: Ydb.Table.IBeginTransactionRequest = {
             sessionId: this.sessionId,
             txSettings,

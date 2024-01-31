@@ -12,11 +12,16 @@ import ITransactionSettings = Ydb.Query.ITransactionSettings;
 import {SessionEvent} from "../table";
 import {ensureOperationSucceeded} from "./query-utils";
 
+interface IExistingTransaction {
+    txId: string
+}
+
 export class QuerySession extends EventEmitter implements ICreateSessionResponse {
     // TODO: Allocate common functionality with querySession to a sessionBase class. It's likely that commo sessionsPool code will work both Query and Query
     private beingDeleted = false;
     private free = true;
     private closing = false;
+    private txId?: string;
 
     constructor(
         private api: QueryService,
@@ -79,38 +84,38 @@ export class QuerySession extends EventEmitter implements ICreateSessionResponse
     public async beginTransaction(
         txSettings: ITransactionSettings,
     )/*: Promise<ITransactionMeta>*/ {
-        // TODO: Add transactions pairs lock. How to handle errors?
+        if (this.txId) throw new Error('There is already opened transaction');
         const request: Ydb.Query.IBeginTransactionRequest = {
             sessionId: this.sessionId,
             txSettings,
         };
         const response = ensureOperationSucceeded(await this.api.beginTransaction(request));
         const {txMeta} = response;
-        if (txMeta) {
-            return txMeta;
-        }
-        throw new Error('Could not begin new transaction, txMeta is empty!');
+        if (!txMeta?.id) throw new Error('Could not begin new transaction, txMeta.id is empty!');
+        this.txId = txMeta!.id!;
     }
 
-    // @retryable()
-    // @pessimizable
-    // public async commitTransaction(txControl: IExistingTransaction): Promise<void> {
-    //     const request: Ydb.Query.ICommitTransactionRequest = {
-    //         sessionId: this.sessionId,
-    //         txId: txControl.txId,
-    //     };
-    //     const response = await this.api.commitTransaction(request);
-    //     ensureOperationSucceeded(this.processResponseMetadata(request, response));
-    // }
+    @retryable()
+    @pessimizable
+    public async commitTransaction(): Promise<void> {
+        if (!this.txId) throw new Error('There is no an open transaction');
+        const request: Ydb.Query.ICommitTransactionRequest = {
+            sessionId: this.sessionId,
+            txId: this.txId,
+        };
+        delete this.txId;
+        ensureOperationSucceeded(await this.api.commitTransaction(request));
+    }
 
-    // @retryable()
-    // @pessimizable
-    // public async rollbackTransaction(txControl: IExistingTransaction): Promise<void> {
-    //     const request: Ydb.Query.IRollbackTransactionRequest = {
-    //         sessionId: this.sessionId,
-    //         txId: txControl.txId,
-    //     };
-    //     const response = await this.api.rollbackTransaction(request);
-    //     ensureOperationSucceeded(this.processResponseMetadata(request, response));
-    // }
+    @retryable()
+    @pessimizable
+    public async rollbackTransaction(): Promise<void> {
+        if (!this.txId) throw new Error('There is no an open transaction');
+        const request: Ydb.Query.IRollbackTransactionRequest = {
+            sessionId: this.sessionId,
+            txId: this.txId,
+        };
+        delete this.txId;
+        await this.api.rollbackTransaction(request);
+    }
 }
