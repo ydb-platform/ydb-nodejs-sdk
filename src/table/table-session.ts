@@ -259,6 +259,14 @@ export class ExecuteScanQuerySettings {
 
 export class TableSession extends EventEmitter implements ICreateSessionResult {
     // TODO: Allocate common functionality with querySession to a sessionBase class. It's likely that commo sessionsPool code will work both Table and Query
+
+    // TODO: Methos that are specified in GRPC and not implemented yet:
+    // CopyTable
+    // CopyTables
+    // RenameTables
+    // ExecuteSchemeQuery
+    // ReadRows
+
     private beingDeleted = false;
     private free = true;
     private closing = false;

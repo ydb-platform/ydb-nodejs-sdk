@@ -22,7 +22,9 @@ export class QuerySessionCreator extends AuthenticatedService<QueryService> {
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
-        super(host, database, 'Ydb.Query.V1.QueryService', QueryService, authService, sslCredentials, clientOptions);
+        super(host, database, 'Ydb.Query.V1.QueryService', QueryService, authService, sslCredentials, clientOptions, [
+            'AttachSession', 'ExecuteQuery' // methods that return Stream
+        ]);
         this.endpoint = endpoint;
         this.logger = logger;
     }
@@ -159,7 +161,7 @@ export class QuerySessionsPool extends EventEmitter {
             });
     }
 
-    private acquire(timeout: number = 0): Promise<QuerySession> {
+    public acquire(timeout: number = 0): Promise<QuerySession> {
         for (const session of this.sessions) {
             if (session.isFree()) {
                 return Promise.resolve(session.acquire());
@@ -197,7 +199,7 @@ export class QuerySessionsPool extends EventEmitter {
         }
     }
 
-    private async _withSession<T>(session: QuerySession, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
+    public async do<T>(session: QuerySession, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
         try {
             const result = await callback(session);
             session.release();
@@ -230,10 +232,11 @@ export class QuerySessionsPool extends EventEmitter {
         // txControl
         // parameters
         // transaction
+        // retries - // TODO: Should that to be Random strategy
     }): T {
         const session = await this.acquire(options.timeout);
         // TODO: Start transaction
-        return this._withSession(session, cb);
+        return this._withSession(session, options.cb);
     }
 
     /*

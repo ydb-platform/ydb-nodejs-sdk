@@ -237,6 +237,7 @@ export class TableSessionsPool extends EventEmitter {
         }
     }
 
+    // TODO: Deprecate withSession on pool
     public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
         const session = await this.acquire(timeout);
         return this._withSession(session, callback);
@@ -256,6 +257,7 @@ export class TableClient extends EventEmitter {
         this.pool = new TableSessionsPool(settings);
     }
 
+    // TODO: Deprecate withSession() in favor do(), when it will be ready
     public async withSession<T>(callback: (session: TableSession) => Promise<T>, timeout: number = 0): Promise<T> {
         return this.pool.withSession(callback, timeout);
     }

@@ -12,13 +12,13 @@ It has 3 commands:
 
 _Don't forget to set auth env variables_
 create:
-`node dist/src/index.js create `
+`node dist/src/index.ts create `
 
 cleanup:
-`node dist/src/index.js cleanup`
+`node dist/src/index.ts cleanup`
 
 run:
-`node dist/src/index.js run grpcs://ydb.cool.example.com:2135 /some/folder --time 20 --shutdown-time 20 --read-rps 1000 --write-rps 100`
+`node dist/src/index.ts run grpcs://ydb.cool.example.com:2135 /some/folder --time 20 --shutdown-time 20 --read-rps 1000 --write-rps 100`
 
 ## Arguments for commands:
 
@@ -77,7 +77,7 @@ At first MaxID is configured to limit IDs in tasks.
 - `writeJob` generates and inserts rows with identifiers exceeding the `maxId` (the batch size will be used later in the `run` command, now inserts rows only one at a time)
 - `metricsJob` periodically sends metrics to Prometheus
 
-Table have these fields: 
+Table have these fields:
 - `objectIdKey` (`UINT32`)
 - `objectId` (`UINT32`)
 - `timestamp` (`UINT64`)

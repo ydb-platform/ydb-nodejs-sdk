@@ -27,6 +27,7 @@ export enum StatusCode {
     UNDETERMINED = ApiStatusCode.UNDETERMINED,
     UNSUPPORTED = ApiStatusCode.UNSUPPORTED,
     SESSION_BUSY = ApiStatusCode.SESSION_BUSY,
+    EXTERNAL_ERROR = ApiStatusCode.EXTERNAL_ERROR, // TODO: Add proper support of EXTERNAL_ERROR
 
     // Client statuses
     /** Cannot connect or unrecoverable network error. (map from gRPC UNAVAILABLE) */

@@ -88,6 +88,19 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         return this.responseMetadata.get(request);
     }
 
+    /**
+     *
+     * @param host
+     * @param database
+     * @param name
+     * @param apiCtor
+     * @param authService
+     * @param sslCredentials
+     * @param clientOptions
+     * @param stremMethods In query service API unlike table service API methods that return stream
+     *                     are not labeled with the word Stream in the name.  So they must be listed explicitly
+     * @protected
+     */
     protected constructor(
         host: string,
         database: string,
@@ -96,6 +109,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         private authService: IAuthService,
         private sslCredentials?: ISslCredentials,
         clientOptions?: ClientOptions,
+        private stremMethods?: string[],
     ) {
         this.headers = new Map([getVersionHeader(), getDatabaseHeader(database)]);
         this.metadata = new grpc.Metadata();
@@ -134,7 +148,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
             new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
-            if (method.name.startsWith('Stream')) {
+            if (method.name.startsWith('Stream') || this.stremMethods?.findIndex((v) => v === method.name)) {
                 client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata)
                     .on('data', (data) => callback(null, data))
                     .on('end', () => callback(new StreamEnd(), null))
