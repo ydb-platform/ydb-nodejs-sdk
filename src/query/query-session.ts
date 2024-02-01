@@ -12,6 +12,7 @@ import ITransactionSettings = Ydb.Query.ITransactionSettings;
 import {SessionEvent} from "../table";
 import {ensureOperationSucceeded} from "./query-utils";
 
+// TODO: Add context to session
 export class QuerySession extends EventEmitter implements ICreateSessionResponse {
     // TODO: Allocate common functionality with querySession to a sessionBase class. It's likely that commo sessionsPool code will work both Query and Query
     private beingDeleted = false;

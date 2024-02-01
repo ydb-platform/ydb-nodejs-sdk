@@ -2,9 +2,9 @@ import Driver from '../../../driver';
 import {
     createTable,
     destroyDriver,
-    fillTableWithData,
+    // fillTableWithData,
     initDriver,
-    Row,
+    // Row,
     // TABLE
 } from '../../../test-utils';
 // import {ReadTableSettings} from '../../../table';
@@ -34,10 +34,10 @@ describe('Query service', () => {
 
     it('Test', async () => {
         await driver.tableClient.withSession(async (session) => {
-            const expectedRows = [
-                new Row({id: 1, title: 'one'}),
-                new Row({id: 2, title: 'two'}),
-            ];
+            // const expectedRows = [
+            //     new Row({id: 1, title: 'one'}),
+            //     new Row({id: 2, title: 'two'}),
+            // ];
 
             await createTable(session);
 
@@ -45,11 +45,11 @@ describe('Query service', () => {
 
             // TODO: Make quries with few datasets
 
-            await fillTableWithData(session, expectedRows);
+            // await fillTableWithData(session, expectedRows);
 
-            const res = await driver.queryClient.do({
+            /*const res =*/ await driver.queryClient.do({
                 cb: async (session: QuerySession) => {
-                    console.info(1000);
+                    console.info(1000, session);
                     // session.beginTransaction(),
                     // TODO: query -> array
                     return '';
