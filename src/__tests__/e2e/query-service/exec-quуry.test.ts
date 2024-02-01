@@ -5,10 +5,10 @@ import {
     fillTableWithData,
     initDriver,
     Row,
-    TABLE
+    // TABLE
 } from '../../../test-utils';
-import {ReadTableSettings} from '../../../table';
-import {TypedValues, TypedData} from '../../../types';
+// import {ReadTableSettings} from '../../../table';
+// import {TypedValues, TypedData} from '../../../types';
 import {QuerySession} from "../../../query/query-session";
 
 // async function execQuery(session: QuerySession): Promise<TypedData[]> {
@@ -47,16 +47,14 @@ describe('Query service', () => {
 
             await fillTableWithData(session, expectedRows);
 
-            const res = await driver.queryClient.exec({
-                query: 'SELECT * FROM ${TABLE}',
-                // Is cb a good name?
-                callback: (session: QuerySession) => {
+            const res = await driver.queryClient.do({
+                cb: async (session: QuerySession) => {
+                    console.info(1000);
                     // session.beginTransaction(),
                     // TODO: query -> array
-                    // return;
+                    return '';
                 },
             });
-
 
 
             // {

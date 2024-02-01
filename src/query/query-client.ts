@@ -36,14 +36,16 @@ export class QueryClient extends EventEmitter {
 
     public async do<T>(options: {
         cb: SessionCallback<T>,
-        tx: TransactionSettings,
-        // timeout: number | undefined,
+        tx?: TransactionSettings,
+        // timeout: number | undefined, // TODO: Ask
+        // idempotent: true / false, // TODO: Impl
     }): Promise<T> {
         if (!(typeof options.cb === 'function')) throw new Error(`Invalid options.cb: ${options.cb}`);
         // if (!(options.timeout === undefined || options.timeout > 0)) throw new Error(`Invalid options.timeout: ${options.timeout}`);
 
         const {cb, tx/*, timeout*/} = options;
 
+        // TODO Ask - is there a value havin one session call, without retries
         return await withRetries(async () => {
             const session = await this.pool.acquire(); // TODO: Shouldn't be a separated session acquire timeout
             try {
