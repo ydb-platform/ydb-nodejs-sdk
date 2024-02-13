@@ -2,7 +2,6 @@ import _ from 'lodash';
 import EventEmitter from 'events';
 import {DateTime} from 'luxon';
 import {Ydb} from "ydb-sdk-proto";
-import {AuthenticatedService, withTimeout} from "./utils";
 import {IAuthService} from "./credentials";
 import {retryable} from "./retries";
 // noinspection ES6PreferShortImport
@@ -11,7 +10,9 @@ import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 import {Events} from "./constants";
 import {ISslCredentials} from './ssl-credentials';
-import {getOperationPayload} from "./table/table-utils";
+import {TableAuthenticatedService} from "./table/table-authenticated-service";
+import {withTimeout} from "./utils/with-timeout";
+import {getOperationPayload} from "./table/utils/get-operation-payload";
 
 
 type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
@@ -81,7 +82,7 @@ interface IDiscoverySettings {
     sslCredentials?: ISslCredentials,
 }
 
-export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
+export default class DiscoveryService extends TableAuthenticatedService<DiscoveryServiceAPI> {
     private readonly database: string;
     private readonly discoveryPeriod: number;
     private readonly endpointsPromise: Promise<void>;

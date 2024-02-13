@@ -22,7 +22,8 @@ import {
 import {FallbackLogger} from '../../../logging';
 import {RetryParameters, retryable} from '../../../retries';
 import {destroyDriver, initDriver} from '../../../test-utils';
-import {pessimizable} from '../../../utils';
+
+import {pessimizable} from "../../../utils";
 
 const logger = new FallbackLogger({level: 'error'});
 class ErrorThrower {

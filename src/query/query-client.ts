@@ -6,12 +6,13 @@ import {QuerySession} from "./query-session";
 import {IAuthService} from "../credentials";
 import {ISslCredentials} from "../ssl-credentials";
 import {IPoolSettings} from "../driver";
-import {ClientOptions} from "../utils";
 import DiscoveryService from "../discovery";
 import {Logger} from "../logging";
 import {QuerySessionsPool} from "./query-sessions-pool";
 import {Ydb} from "ydb-sdk-proto";
 import TransactionSettings = Ydb.Query.TransactionSettings;
+
+import {ClientOptions} from "../utils/client-options";
 
 type SessionCallback<T> = (session: QuerySession) => Promise<T>;
 export interface IQueryClientSettings {

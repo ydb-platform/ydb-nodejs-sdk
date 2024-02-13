@@ -1,7 +1,6 @@
 import EventEmitter from 'events';
 import * as grpc from '@grpc/grpc-js';
 import {google, Ydb} from 'ydb-sdk-proto';
-import {pessimizable, StreamEnd} from '../utils';
 import {Endpoint} from '../discovery';
 import {ResponseMetadataKeys} from '../constants';
 import {Logger} from '../logging';
@@ -27,8 +26,12 @@ import IKeyRange = Ydb.Table.IKeyRange;
 import TypedValue = Ydb.TypedValue;
 import BulkUpsertResult = Ydb.Table.BulkUpsertResult;
 import OperationMode = Ydb.Operations.OperationParams.OperationMode;
-import {SessionEvent} from "./session-event";
-import {ensureOperationSucceeded, getOperationPayload, TableAsyncResponse} from "./table-utils";
+import {SessionEvent} from "../utils/session-event";
+import {pessimizable} from "../utils/pessimizable";
+import {StreamEnd} from "./utils/stream-end";
+import {TableAsyncResponse} from "./utils/table-async-response";
+import {getOperationPayload} from "./utils/get-operation-payload";
+import {ensureOperationSucceeded} from "./utils/ensure-operation-succeeded";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode|null);

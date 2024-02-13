@@ -56,7 +56,6 @@ describe('Query service', () => {
                 },
             });
 
-
             // {
             //     const rows = await execQuery(session, new ReadTableSettings());
             //     expect(rows).toEqual(expectedRows);

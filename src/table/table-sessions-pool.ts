@@ -2,7 +2,6 @@ import {Ydb} from 'ydb-sdk-proto';
 import {IAuthService} from "../credentials";
 import {ISslCredentials} from "../ssl-credentials";
 import {IPoolSettings} from "../driver";
-import {AuthenticatedService, ClientOptions, pessimizable} from "../utils";
 import DiscoveryService, {Endpoint} from "../discovery";
 import {Logger} from "../logging";
 import EventEmitter from "events";
@@ -11,13 +10,16 @@ import _ from "lodash";
 import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
 import {retryable} from "../retries";
 import {TableSession} from "./table-session";
-import {SessionEvent} from "./session-event";
+import {SessionEvent} from "../utils/session-event";
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
 import CreateSessionResult = Ydb.Table.CreateSessionResult;
-import {getOperationPayload} from "./table-utils";
+import {TableAuthenticatedService} from "./table-authenticated-service";
+import {pessimizable} from "../utils/pessimizable";
+import {getOperationPayload} from "./utils/get-operation-payload";
+import {ClientOptions} from "../utils/client-options";
 
-export class TableSessionBuilder extends AuthenticatedService<TableService> {
+export class TableSessionBuilder extends TableAuthenticatedService<TableService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 

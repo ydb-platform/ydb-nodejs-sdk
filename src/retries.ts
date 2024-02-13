@@ -1,7 +1,8 @@
 import {YdbError, TransportError} from './errors';
 import {getLogger, Logger} from './logging';
 import * as errors from './errors';
-import {sleep} from './utils';
+
+import {sleep} from "./utils/sleep";
 
 export class BackoffSettings {
     /**

@@ -1,74 +1,17 @@
-import * as grpc from '@grpc/grpc-js';
-import * as $protobuf from 'protobufjs';
-import _ from 'lodash';
-import Long from 'long';
-import {NotFound, TimeoutExpired} from "./errors";
+import * as $protobuf from "protobufjs";
+import {ISslCredentials} from "../ssl-credentials";
+import * as grpc from "@grpc/grpc-js";
+import _ from "lodash";
+import {IAuthService} from "../credentials";
+import {getVersionHeader} from "../version";
+import {removeProtocol} from "../utils/remove-protocol";
+import {StreamEnd} from "./utils/stream-end";
+import {ServiceFactory} from "../utils/service-factory";
+import {MetadataHeaders} from "../utils/metadata-headers";
+import {ClientOptions} from "../utils/client-options";
+import {getDatabaseHeader} from "../utils/get-database-header";
 
-import {Endpoint} from './discovery';
-import {IAuthService} from './credentials';
-import {getVersionHeader} from './version';
-import {ISslCredentials} from './ssl-credentials';
-
-function getDatabaseHeader(database: string): [string, string] {
-    return ['x-ydb-database', database];
-}
-
-export interface Pessimizable {
-    endpoint: Endpoint;
-}
-
-type ServiceFactory<T> = {
-    create(rpcImpl: $protobuf.RPCImpl, requestDelimited?: boolean, responseDelimited?: boolean): T
-};
-
-function removeProtocol(endpoint: string) {
-    const re = /^(grpc:\/\/|grpcs:\/\/)?(.+)/;
-    const match = re.exec(endpoint) as string[];
-    return match[2];
-}
-
-export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-    let timeoutId: NodeJS.Timeout;
-    const timedRejection: Promise<never> = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => {
-            reject(new TimeoutExpired(`Timeout of ${timeoutMs}ms has expired`));
-        }, timeoutMs);
-    });
-    return Promise.race([promise.finally(() => {
-        clearTimeout(timeoutId);
-    }), timedRejection]);
-}
-
-export class StreamEnd extends Error {}
-
-export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
-    protected api: Api;
-
-    protected constructor(host: string, private name: string, private apiCtor: ServiceFactory<Api>, sslCredentials?: ISslCredentials) {
-        this.api = this.getClient(removeProtocol(host), sslCredentials);
-    }
-
-    protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
-        const client = sslCredentials ?
-            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientPrivateKey, sslCredentials.clientCertChain)) :
-            new grpc.Client(host, grpc.credentials.createInsecure());
-        const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
-            if(null===method && requestData === null && callback === null) {
-                // signal `end` from protobuf service
-                client.close()
-                return
-            }
-            const path = `/${this.name}/${method.name}`;
-            client.makeUnaryRequest(path, _.identity, _.identity, requestData, callback);
-        };
-        return this.apiCtor.create(rpcImpl);
-    }
-}
-
-export type MetadataHeaders = Map<string, string>;
-export type ClientOptions = Record<string, any>;
-
-export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
+export abstract class TableAuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
     private metadata: grpc.Metadata;
     private responseMetadata: WeakMap<object, grpc.Metadata>;
@@ -76,7 +19,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
 
     private readonly headers: MetadataHeaders;
 
-    static isServiceAsyncMethod(target: object, prop: string|number|symbol, receiver: any) {
+    static isServiceAsyncMethod(target: object, prop: string | number | symbol, receiver: any) {
         return (
             Reflect.has(target, prop) &&
             typeof Reflect.get(target, prop, receiver) === 'function' &&
@@ -119,7 +62,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);
-                    return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
+                    return TableAuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
                         async (...args: any[]) => {
                             if (!['emit', 'rpcCall', 'rpcImpl'].includes(String(prop))) {
                                 if (args.length) {
@@ -128,11 +71,13 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
                             }
 
                             this.metadata = await this.authService.getAuthMetadata();
+                            // console.info(100, this.metadata)
                             for (const [name, value] of this.headers) {
                                 if (value) {
                                     this.metadata.add(name, value);
                                 }
                             }
+                            // console.info(200, this.metadata)
 
                             return property.call(receiver, ...args);
                         } :
@@ -148,6 +93,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
             new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
+            // console.info(300, path)
             if (method.name.startsWith('Stream') || this.stremMethods?.findIndex((v) => v === method.name)) {
                 client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata)
                     .on('data', (data) => callback(null, data))
@@ -165,30 +111,4 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         };
         return this.apiCtor.create(rpcImpl);
     }
-}
-
-export function pessimizable(_target: Pessimizable, _propertyKey: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
-    descriptor.value = async function (this: Pessimizable, ...args: any) {
-        try {
-            return await originalMethod.call(this, ...args);
-        } catch (error) {
-            if (!(error instanceof NotFound)) {
-                this.endpoint.pessimize();
-            }
-            throw error;
-        }
-    };
-    return descriptor;
-}
-
-export async function sleep(milliseconds: number) {
-    await new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-export function toLong(value: Long | number): Long {
-    if (typeof value === 'number') {
-        return Long.fromNumber(value);
-    }
-    return value;
 }

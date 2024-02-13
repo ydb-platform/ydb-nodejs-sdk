@@ -2,7 +2,6 @@
 import EventEmitter from 'events';
 // import * as grpc from '@grpc/grpc-js';
 import {Ydb} from 'ydb-sdk-proto';
-import {pessimizable} from '../utils';
 import {Endpoint} from '../discovery';
 import {Logger} from '../logging';
 import {retryable} from '../retries';
@@ -11,6 +10,7 @@ import ICreateSessionResponse = Ydb.Query.ICreateSessionResponse;
 import ITransactionSettings = Ydb.Query.ITransactionSettings;
 import {SessionEvent} from "../table";
 import {ensureOperationSucceeded} from "./query-utils";
+import {pessimizable} from "../utils";
 
 // TODO: Add context to session
 export class QuerySession extends EventEmitter implements ICreateSessionResponse {
@@ -31,17 +31,19 @@ export class QuerySession extends EventEmitter implements ICreateSessionResponse
     }
 
     async attach() {
+        // TODO: Rewrite
+
        // promisify(this.api.attachSession)()
-      const state = new Promise<Ydb.Query.SessionState | undefined>((resolve, reject) => {
-          this.api.attachSession({sessionId: this.sessionId}, (error, response) => {
-              console.info(1000, 'sessionId', this.sessionId, error, response);
-              if (error) reject(error);
-              resolve(response);
-          });
-      });
-      if (state) {
-          console.info(1100, 'state', state);
-      }
+      // const state = new Promise<Ydb.Query.SessionState | undefined>((resolve, reject) => {
+      //     this.api.attachSession({sessionId: this.sessionId}, (error, response) => {
+      //         console.info(1000, 'sessionId', this.sessionId, error, response);
+      //         if (error) reject(error);
+      //         resolve(response);
+      //     });
+      // });
+      // if (state) {
+      //     console.info(1100, 'state', state);
+      // }
     }
 
     acquire() {
@@ -73,7 +75,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResponse
             return Promise.resolve();
         }
         this.beingDeleted = true;
-        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId})); // TODO: Shouldn't session delete has retry?
+        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
     }
 
     @retryable()

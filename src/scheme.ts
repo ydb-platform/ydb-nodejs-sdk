@@ -1,9 +1,4 @@
 import {Ydb} from "ydb-sdk-proto";
-import {
-    AuthenticatedService,
-    pessimizable,
-    ClientOptions
-} from "./utils";
 import {IAuthService} from "./credentials";
 // noinspection ES6PreferShortImport
 import {Logger} from './logging';
@@ -20,7 +15,11 @@ import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
 import {util} from "protobufjs";
 import EventEmitter = util.EventEmitter;
-import {ensureOperationSucceeded, getOperationPayload} from "./table/table-utils";
+import {TableAuthenticatedService} from "./table/table-authenticated-service";
+import {pessimizable} from "./utils/pessimizable";
+import {getOperationPayload} from "./table/utils/get-operation-payload";
+import {ensureOperationSucceeded} from "./table/utils/ensure-operation-succeeded";
+import {ClientOptions} from "./utils/client-options";
 
 
 function preparePermissions(action?: IPermissions | null) {
@@ -117,7 +116,7 @@ export default class SchemeClient extends EventEmitter {
     }
 }
 
-class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
+class SchemeService extends TableAuthenticatedService<SchemeServiceAPI> {
     private logger: Logger;
     private readonly database: string;
     public endpoint: Endpoint;
