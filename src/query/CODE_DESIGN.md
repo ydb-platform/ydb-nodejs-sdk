@@ -1,6 +1,10 @@
+# Code Design concepts
+
 ## The rules by which the query service code built and works:
 
 - Unlike table-service, a grpc connection is created per endpoint only once, and is reused for all sessions with that endpoint
+
+- Important: Do not start using the session until the first packet arrives in attach-stream
 
 - When a new session is created, a grpc stream is created with the attach() command
 
@@ -27,6 +31,8 @@
 - If the session endpoint was removed from discover-service, such a session should not be terminated
   but also not be returned to the session-pool - this required for graceful shutdown.  And other sessions
   for this endpoint, if they are not used, should also be removed from the pool
+
+- Verify that a new session pool is created using RR endpoint enum
 
 ## Issues:
 
