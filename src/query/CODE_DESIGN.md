@@ -1,4 +1,4 @@
-The rules by which the query service code works:
+## The rules by which the query service code built and works:
 
 - Unlike table-service, a grpc connection is created per endpoint only once, and is reused for all sessions with that endpoint
 
@@ -21,3 +21,18 @@ The rules by which the query service code works:
 
 - Data output is impleted via async iterator. Important: Make sure that in all error scenarios, all
   Promises that have gotten out and have not yet completed will return reject
+
+## Check
+
+- If the session endpoint was removed from discover-service, such a session should not be terminated
+  but also not be returned to the session-pool - this required for graceful shutdown.  And other sessions
+  for this endpoint, if they are not used, should also be removed from the pool
+
+## Issues:
+
+- Test buffering in grpc-stream, if blocking completion on("data" ...), whether server will stop
+  sending a new data to the client
+
+## Phase 2:
+
+- A context to the session should be passed through the session itself, not through intermediate user code
