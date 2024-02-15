@@ -21,7 +21,7 @@
 
 - It still may be worth to make an experimental mixed mode, since we will have to compare performance anyway
 
-- Maximize the use of session pool management logic and error handling logic from table-service
+- Maximize the use of session pool management logic, error handling logic and retriers from table-service
 
 - Data output is impleted via async iterator. Important: Make sure that in all error scenarios, all
   Promises that have gotten out and have not yet completed will return reject
@@ -33,6 +33,8 @@
   for this endpoint, if they are not used, should also be removed from the pool
 
 - Verify that a new session pool is created using RR endpoint enum
+
+- When endpoint dies, all sesssions reletaed to it are also dye
 
 ## Issues:
 
