@@ -11,7 +11,7 @@ import {MetadataHeaders} from "../utils/metadata-headers";
 import {ClientOptions} from "../utils/client-options";
 import {getDatabaseHeader} from "../utils/get-database-header";
 
-export abstract class TableAuthenticatedService<Api extends $protobuf.rpc.Service> {
+export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
     private metadata: grpc.Metadata;
     private responseMetadata: WeakMap<object, grpc.Metadata>;
@@ -40,7 +40,7 @@ export abstract class TableAuthenticatedService<Api extends $protobuf.rpc.Servic
      * @param authService
      * @param sslCredentials
      * @param clientOptions
-     * @param stremMethods In query service API unlike table service API methods that return stream
+     * @param streamMethods In query service API unlike table service API methods that return stream
      *                     are not labeled with the word Stream in the name.  So they must be listed explicitly
      * @protected
      */
@@ -52,7 +52,7 @@ export abstract class TableAuthenticatedService<Api extends $protobuf.rpc.Servic
         private authService: IAuthService,
         private sslCredentials?: ISslCredentials,
         clientOptions?: ClientOptions,
-        private stremMethods?: string[],
+        private streamMethods?: string[],
     ) {
         this.headers = new Map([getVersionHeader(), getDatabaseHeader(database)]);
         this.metadata = new grpc.Metadata();
@@ -62,23 +62,19 @@ export abstract class TableAuthenticatedService<Api extends $protobuf.rpc.Servic
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);
-                    return TableAuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
+                    return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
                         async (...args: any[]) => {
                             if (!['emit', 'rpcCall', 'rpcImpl'].includes(String(prop))) {
                                 if (args.length) {
                                     this.lastRequest = args[0];
                                 }
                             }
-
                             this.metadata = await this.authService.getAuthMetadata();
-                            // console.info(100, this.metadata)
                             for (const [name, value] of this.headers) {
                                 if (value) {
                                     this.metadata.add(name, value);
                                 }
                             }
-                            // console.info(200, this.metadata)
-
                             return property.call(receiver, ...args);
                         } :
                         property;
@@ -94,7 +90,7 @@ export abstract class TableAuthenticatedService<Api extends $protobuf.rpc.Servic
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
             // console.info(300, path)
-            if (method.name.startsWith('Stream') || this.stremMethods?.findIndex((v) => v === method.name)) {
+            if (method.name.startsWith('Stream') || this.streamMethods?.findIndex((v) => v === method.name)) {
                 client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata)
                     .on('data', (data) => callback(null, data))
                     .on('end', () => callback(new StreamEnd(), null))

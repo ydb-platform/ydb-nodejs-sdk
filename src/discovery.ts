@@ -10,7 +10,7 @@ import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 import {Events} from "./constants";
 import {ISslCredentials} from './ssl-credentials';
-import {TableAuthenticatedService} from "./table/table-authenticated-service";
+import {AuthenticatedService} from "./table/authenticated-service";
 import {withTimeout} from "./utils/with-timeout";
 import {getOperationPayload} from "./table/utils/get-operation-payload";
 
@@ -23,6 +23,8 @@ const noOp = () => {};
 export class Endpoint extends Ydb.Discovery.EndpointInfo {
     static HOST_RE = /^([^:]+):?(\d)*$/;
     static PESSIMIZATION_WEAR_OFF_PERIOD = 60 * 1000;
+
+    // TODO: Add GRPC-client factory per Endpoint
 
     private pessimizedAt: DateTime | null;
 
@@ -82,7 +84,7 @@ interface IDiscoverySettings {
     sslCredentials?: ISslCredentials,
 }
 
-export default class DiscoveryService extends TableAuthenticatedService<DiscoveryServiceAPI> {
+export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
     private readonly database: string;
     private readonly discoveryPeriod: number;
     private readonly endpointsPromise: Promise<void>;

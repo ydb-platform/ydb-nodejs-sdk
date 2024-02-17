@@ -1,10 +1,3 @@
-// same options as for table client, incluiding log
-// header + auth metadata
-// prefix
-// paramters - method, args, res
-// output stream
-// connected to endpoint
-
 import {IAuthService} from "../../credentials";
 import {Logger} from "../../logging";
 import {ISslCredentials} from "../../ssl-credentials";
@@ -111,6 +104,11 @@ export class GrpcClient {
         });
         return {metadata: respMetadata, response};
     };
+
+    // makeUnaryRequest
+    // makeClientStreamRequest
+    // makeServerStreamRequest
+    // makeBidiStreamRequest
 
     // callStreamOut(method, request); // event emitter
     //

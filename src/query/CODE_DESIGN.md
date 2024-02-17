@@ -34,7 +34,7 @@
 
 - Verify that a new session pool is created using RR endpoint enum
 
-- When endpoint dies, all sesssions reletaed to it are also dye
+- When endpoint dies, all sessions reletaed to it are also dye
 
 ## Issues:
 
