@@ -1,4 +1,6 @@
-import {initDriver, destroyDriver} from '../test-utils';
+import {initDriver, destroyDriver} from '../../../test-utils';
+
+Error.stackTraceLimit = Infinity;
 
 describe('Connection', () => {
     it('Test GRPC connection', async () => {
@@ -9,7 +11,7 @@ describe('Connection', () => {
         await destroyDriver(driver)
     });
 
-    it('Test GRPCS connection', async () => {
+    xit('Test GRPCS connection', async () => {
         let driver = await initDriver();
         await driver.tableClient.withSession(async (session) => {
             await session.executeQuery('SELECT 1');

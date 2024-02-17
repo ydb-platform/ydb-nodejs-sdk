@@ -1,5 +1,5 @@
 import {BackoffSettings} from '../../retries';
-import * as utils from '../../utils';
+import * as utils from '../../utils/sleep';
 
 function runTest(backoff: BackoffSettings, retries: number, min: number, max: number) {
     it(`have correct value for ${retries} retries`, () => {

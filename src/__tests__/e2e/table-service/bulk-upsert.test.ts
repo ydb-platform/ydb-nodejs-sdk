@@ -1,4 +1,4 @@
-import Driver from '../driver';
+import Driver from '../../../driver';
 import {
     createTable,
     destroyDriver,
@@ -6,11 +6,11 @@ import {
     initDriver,
     Row,
     TABLE
-} from '../test-utils';
-import {Session} from '../table';
+} from '../../../test-utils';
+import {TableSession} from '../../../table';
 import {Ydb} from 'ydb-sdk-proto';
 
-async function readTable(session: Session): Promise<Row[]> {
+async function readTable(session: TableSession): Promise<Row[]> {
     const rows: Row[] = [];
 
     await session.streamReadTable(TABLE, (result) => {

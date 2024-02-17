@@ -1,18 +1,11 @@
 import {Ydb} from "ydb-sdk-proto";
-import {
-    AuthenticatedService,
-    getOperationPayload,
-    ensureOperationSucceeded,
-    pessimizable,
-    ClientOptions
-} from "./utils";
 import {IAuthService} from "./credentials";
 // noinspection ES6PreferShortImport
 import {Logger} from './logging';
 import DiscoveryService, {Endpoint} from './discovery';
 import {retryable} from "./retries";
 import {ISslCredentials} from './ssl-credentials';
-import {OperationParamsSettings} from './table';
+import {OperationParamsSettings} from './table/table-session';
 
 import SchemeServiceAPI = Ydb.Scheme.V1.SchemeService;
 import ListDirectoryResult = Ydb.Scheme.ListDirectoryResult;
@@ -22,6 +15,11 @@ import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
 import {util} from "protobufjs";
 import EventEmitter = util.EventEmitter;
+import {AuthenticatedServiceBuilder} from "./table/authenticated-service-builder";
+import {pessimizable} from "./utils/pessimizable";
+import {getOperationPayload} from "./table/utils/get-operation-payload";
+import {ensureOperationSucceeded} from "./table/utils/ensure-operation-succeeded";
+import {ClientOptions} from "./utils/client-options";
 
 
 function preparePermissions(action?: IPermissions | null) {
@@ -118,7 +116,7 @@ export default class SchemeClient extends EventEmitter {
     }
 }
 
-class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
+class SchemeService extends AuthenticatedServiceBuilder<SchemeServiceAPI> {
     private logger: Logger;
     private readonly database: string;
     public endpoint: Endpoint;

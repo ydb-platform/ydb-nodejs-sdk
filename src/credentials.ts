@@ -1,7 +1,6 @@
 import * as grpc from '@grpc/grpc-js';
 import jwt from 'jsonwebtoken';
 import {DateTime} from 'luxon';
-import {getOperationPayload, GrpcService, sleep, withTimeout} from './utils';
 import {yandex, Ydb} from 'ydb-sdk-proto';
 import {ISslCredentials, makeDefaultSslCredentials} from './ssl-credentials';
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
@@ -9,6 +8,10 @@ import AuthServiceResult = Ydb.Auth.LoginResult;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 import type {MetadataTokenService} from '@yandex-cloud/nodejs-sdk/dist/token-service/metadata-token-service';
 import {retryable} from './retries';
+import {sleep} from "./utils/sleep";
+import {withTimeout} from "./utils/with-timeout";
+import {GrpcService} from "./utils/grpc-service";
+import {getOperationPayload} from "./table/utils/get-operation-payload";
 
 function makeCredentialsMetadata(token: string): grpc.Metadata {
     const metadata = new grpc.Metadata();
@@ -46,7 +49,7 @@ export class AnonymousAuthService implements IAuthService {
 interface StaticCredentialsAuthOptions {
     /** Custom ssl sertificates. If you use it in driver, you must use it here too */
     sslCredentials?: ISslCredentials;
-    /** 
+    /**
      * Timeout for token request in milliseconds
      * @default 10 * 1000
      */

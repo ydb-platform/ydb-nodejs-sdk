@@ -89,7 +89,7 @@ export class Types {
     /**
      * A real number with the specified precision, up to 35 decimal digits
      * @param precision Total number of decimal places (up to 35, inclusive).
-     * @param scale Number of places after the decimal point (out of the total number, meaning it can't be larger than the previous argument)
+     * @param scale Number of places after the decimal point (out of the total number, meaning it can'table be larger than the previous argument)
      */
     static decimal(precision: number, scale: number): IType {
         return {decimalType: {precision, scale}};
@@ -566,7 +566,7 @@ function typeToValue(type: IType | null | undefined, value: any): IValue {
             const variantIndex = members.findIndex((a) => variantKey === a.name);
 
             if (variantKey === undefined)
-                throw new Error("Variant type doesn't have not null fields");
+                throw new Error("Variant type doesn'table have not null fields");
 
             return {
                 nestedValue: typeToValue(members[variantIndex].type, value[variantKey]),

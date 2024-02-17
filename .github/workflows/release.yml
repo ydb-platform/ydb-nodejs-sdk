@@ -13,3 +13,4 @@ jobs:
         with:
           github-token: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
           npm-token: ${{ secrets.NODE_AUTH_TOKEN }}
+          npm-dist-tag: beta

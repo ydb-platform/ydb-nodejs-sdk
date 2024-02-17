@@ -38,7 +38,7 @@ function main() {
 
   // create
   defaultArgs(program.command('create'))
-    .option('-t --table-name <tableName>', 'table name to create')
+    .option('-table --table-name <tableName>', 'table name to create')
     .option('--min-partitions-count <minPartitionsCount>', 'minimum amount of partitions in table')
     .option('--max-partitions-count <maxPartitionsCount>', 'maximum amount of partitions in table')
     .option('--partition-size <partitionSize>', 'partition size in mb')
@@ -74,14 +74,14 @@ function main() {
     )
 
   defaultArgs(program.command('cleanup'))
-    .option('-t --table-name <tableName>', 'table name to create')
+    .option('-table --table-name <tableName>', 'table name to create')
     .action(async (endpoint, db, { tableName }) => {
       console.log('Run cleanup over', endpoint, db, { tableName })
       await cleanup(await createDriver(endpoint, db), db, tableName)
     })
 
   defaultArgs(program.command('run'))
-    .option('-t --table-name <tableName>', 'table name to read from')
+    .option('-table --table-name <tableName>', 'table name to read from')
     .option('--prom-pgw <promPgw>', 'prometheus push gateway')
     .option('--read-rps <readRps>', 'read RPS')
     .option('--read-timeout <readTimeout>', 'read timeout milliseconds')

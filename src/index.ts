@@ -26,8 +26,7 @@ export {
     StringFunction,
 } from './types';
 export {
-    SessionPool,
-    Session,
+    TableSession,
     CreateTableSettings,
     AlterTableSettings,
     DropTableSettings,
@@ -56,7 +55,7 @@ export {
     CachingPolicy,
     OperationParams,
     AUTO_TX,
-} from './table';
+} from './table/table-session';
 export {
     MakeDirectorySettings,
     RemoveDirectorySettings,
@@ -78,3 +77,4 @@ export {
 export {ISslCredentials} from './ssl-credentials';
 export {withRetries, RetryParameters} from './retries';
 export {YdbError, StatusCode} from './errors';
+export {TableSessionsPool} from "./table";
