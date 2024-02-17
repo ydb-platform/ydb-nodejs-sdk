@@ -6,7 +6,7 @@ import {IAuthService} from "../credentials";
 import {getVersionHeader} from "../version";
 import {StreamEnd} from "../table/utils";
 import {ClientOptions, getDatabaseHeader, MetadataHeaders, removeProtocol, ServiceFactory} from "../utils";
-import {AuthenticatedService} from "../table/authenticated-service";
+import {AuthenticatedServiceBuilder} from "../table/authenticated-service-builder";
 
 export abstract class QueryAuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api; // TODO: Consider remove
@@ -59,7 +59,7 @@ export abstract class QueryAuthenticatedService<Api extends $protobuf.rpc.Servic
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);
-                    return AuthenticatedService.isServiceAsyncMethod(target, prop, receiver) ?
+                    return AuthenticatedServiceBuilder.isServiceAsyncMethod(target, prop, receiver) ?
                         async (...args: any[]) => {
                             if (!['emit', 'rpcCall', 'rpcImpl'].includes(String(prop))) {
                                 if (args.length) {

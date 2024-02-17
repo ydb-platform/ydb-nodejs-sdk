@@ -10,7 +10,7 @@ import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 import {Events} from "./constants";
 import {ISslCredentials} from './ssl-credentials';
-import {AuthenticatedService} from "./table/authenticated-service";
+import {AuthenticatedServiceBuilder} from "./table/authenticated-service-builder";
 import {withTimeout} from "./utils/with-timeout";
 import {getOperationPayload} from "./table/utils/get-operation-payload";
 
@@ -84,7 +84,7 @@ interface IDiscoverySettings {
     sslCredentials?: ISslCredentials,
 }
 
-export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
+export default class DiscoveryService extends AuthenticatedServiceBuilder<DiscoveryServiceAPI> {
     private readonly database: string;
     private readonly discoveryPeriod: number;
     private readonly endpointsPromise: Promise<void>;

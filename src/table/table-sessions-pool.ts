@@ -14,25 +14,12 @@ import {SessionEvent} from "../utils/session-event";
 import TableService = Ydb.Table.V1.TableService;
 import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
 import CreateSessionResult = Ydb.Table.CreateSessionResult;
-import {AuthenticatedService} from "./authenticated-service";
+import {AuthenticatedServiceBuilder} from "./authenticated-service-builder";
 import {pessimizable} from "../utils/pessimizable";
 import {getOperationPayload} from "./utils/get-operation-payload";
 import {ClientOptions} from "../utils/client-options";
 
-/**
- * Base class, for Ydb grpc services with authentication.
- *
- * This.api is the protobufs service interface, where the connection to a server
- * is made through the grpc-js client, which is provided to the protobufs through an implementation of rpcImpl.
- *
- * The limitation is that protobufs solves the issue of serializing and deserializing requests and responses
- * into binary form. But it has nothing for streams.  So services with streams are tricky to implement.  There is some
- * tricky solution for output steram - thru multiple call of result calllback in protobufs api.
- *
- * Instead of this class, it is recommended to use AuthenticatedClient, which returned by Endpoint class.
- */
-// TODO: Make a use one grpc client per endpoint.  Right now new grpc client is generated for every instance of the service
-export class TableSessionBuilder extends AuthenticatedService<TableService> {
+export class TableSessionBuilder extends AuthenticatedServiceBuilder<TableService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 

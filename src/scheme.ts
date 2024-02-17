@@ -15,7 +15,7 @@ import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
 import {util} from "protobufjs";
 import EventEmitter = util.EventEmitter;
-import {AuthenticatedService} from "./table/authenticated-service";
+import {AuthenticatedServiceBuilder} from "./table/authenticated-service-builder";
 import {pessimizable} from "./utils/pessimizable";
 import {getOperationPayload} from "./table/utils/get-operation-payload";
 import {ensureOperationSucceeded} from "./table/utils/ensure-operation-succeeded";
@@ -116,7 +116,7 @@ export default class SchemeClient extends EventEmitter {
     }
 }
 
-class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
+class SchemeService extends AuthenticatedServiceBuilder<SchemeServiceAPI> {
     private logger: Logger;
     private readonly database: string;
     public endpoint: Endpoint;
