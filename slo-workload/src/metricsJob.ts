@@ -1,7 +1,7 @@
 import Executor from './utils/Executor'
 
 export class MetricsJob {
-  private intervalId: NodeJS.Timer | undefined
+  private intervalId: NodeJS.Timeout | undefined
   private endTime: number
   private promise: Promise<void>
 
