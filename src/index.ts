@@ -1,4 +1,5 @@
 export {Ydb} from 'ydb-sdk-proto';
+
 export {
     getLogger,
     setupLogger,
@@ -8,7 +9,9 @@ export {
     FallbackLogger,
     getFallbackLogFunction,
 } from './logging';
+
 export {default as Driver, IDriverSettings, IPoolSettings} from './driver';
+
 export {
     declareType,
     StructFields,
@@ -25,56 +28,57 @@ export {
     getNameConverter,
     StringFunction,
 } from './types';
-export {
-    SessionPool,
-    Session,
-    CreateTableSettings,
-    AlterTableSettings,
-    DropTableSettings,
-    BeginTransactionSettings,
-    CommitTransactionSettings,
-    RollbackTransactionSettings,
-    DescribeTableSettings,
-    PrepareQuerySettings,
-    ExecuteQuerySettings,
-    ExecuteScanQuerySettings,
-    ReadTableSettings,
-    BulkUpsertSettings,
-    TableDescription,
-    AlterTableDescription,
-    Column,
-    TableProfile,
-    TableIndex,
-    StorageSettings,
-    ColumnFamilyPolicy,
-    StoragePolicy,
-    ExplicitPartitions,
-    PartitioningPolicy,
-    ReplicationPolicy,
-    CompactionPolicy,
-    ExecutionPolicy,
-    CachingPolicy,
-    OperationParams,
-    AUTO_TX,
-} from './table';
-export {
-    MakeDirectorySettings,
-    RemoveDirectorySettings,
-    ListDirectorySettings,
-    DescribePathSettings,
-    ModifyPermissionsSettings,
-} from './scheme';
-export {getCredentialsFromEnv, getSACredentialsFromJson} from './parse-env-vars';
-export {parseConnectionString, ParsedConnectionString} from './parse-connection-string';
-export {
-    IAuthService,
-    ITokenService,
-    AnonymousAuthService,
-    IamAuthService,
-    TokenAuthService,
-    MetadataAuthService,
-    StaticCredentialsAuthService,
-} from './credentials';
-export {ISslCredentials} from './ssl-credentials';
+
+export {getCredentialsFromEnv, getSACredentialsFromJson} from './utils/parse-env-vars';
+export {ISslCredentials} from './utils/ssl-credentials';
+
 export {withRetries, RetryParameters} from './retries';
+
 export {YdbError, StatusCode} from './errors';
+
+export {TableSessionPool} from "./table/table-session-pool";
+
+export {AlterTableDescription} from "./table/table-session";
+export {TableDescription} from "./table/table-session";
+export {TableIndex} from "./table/table-session";
+export {TableProfile} from "./table/table-session";
+export {CachingPolicy} from "./table/table-session";
+export {ExecutionPolicy} from "./table/table-session";
+export {CompactionPolicy} from "./table/table-session";
+export {ReplicationPolicy} from "./table/table-session";
+export {PartitioningPolicy} from "./table/table-session";
+export {ExplicitPartitions} from "./table/table-session";
+export {StoragePolicy} from "./table/table-session";
+export {ColumnFamilyPolicy} from "./table/table-session";
+export {StorageSettings} from "./table/table-session";
+export {Column} from "./table/table-session";
+export {TableSession, TableSession as Session} from "./table/table-session";
+export {ExecuteScanQuerySettings} from "./table/table-session";
+export {ReadTableSettings} from "./table/table-session";
+export {BulkUpsertSettings} from "./table/table-session";
+export {ExecuteQuerySettings} from "./table/table-session";
+export {PrepareQuerySettings} from "./table/table-session";
+export {RollbackTransactionSettings} from "./table/table-session";
+export {CommitTransactionSettings} from "./table/table-session";
+export {BeginTransactionSettings} from "./table/table-session";
+export {DescribeTableSettings} from "./table/table-session";
+export {DropTableSettings} from "./table/table-session";
+export {AlterTableSettings} from "./table/table-session";
+export {CreateTableSettings} from "./table/table-session";
+export {OperationParams} from "./table/table-session";
+export {AUTO_TX} from "./table/table-session";
+
+export {StaticCredentialsAuthService} from "./credentials/static-credentials-auth-service";
+export {IamAuthService} from "./credentials/iam-auth-service";
+export {MetadataAuthService} from "./credentials/metadata-auth-service";
+export {TokenAuthService} from "./credentials/token-auth-service";
+export {AnonymousAuthService} from "./credentials/anonymous-auth-service";
+export {ITokenService} from "./credentials/i-token-service";
+export {IAuthService} from "./credentials/i-auth-service";
+export {ModifyPermissionsSettings} from "./schema/scheme-service";
+export {DescribePathSettings} from "./schema/scheme-service";
+export {ListDirectorySettings} from "./schema/scheme-service";
+export {RemoveDirectorySettings} from "./schema/scheme-service";
+export {MakeDirectorySettings} from "./schema/scheme-service";
+
+export {ParsedConnectionString, parseConnectionString} from "./utils/parse-connection-string";

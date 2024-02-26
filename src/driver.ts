@@ -1,14 +1,14 @@
-import DiscoveryService from './discovery';
-import {TableClient} from './table';
-import SchemeService from './scheme';
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
-import {IAuthService} from './credentials';
 import {TimeoutExpired} from './errors';
 import {getLogger, Logger} from './logging';
-import SchemeClient from './scheme';
-import {ClientOptions} from './utils';
-import {parseConnectionString} from './parse-connection-string';
-import {makeSslCredentials, ISslCredentials} from './ssl-credentials';
+import {makeSslCredentials, ISslCredentials} from './utils/ssl-credentials';
+import DiscoveryService from "./discovery/discovery-service";
+import {TableClient} from "./table/table-client";
+import {ClientOptions} from "./utils/authenticated-service";
+import {IAuthService} from "./credentials/i-auth-service";
+import SchemeService from "./schema/scheme-client";
+import SchemeClient from "./schema/scheme-client";
+import {parseConnectionString} from "./utils/parse-connection-string";
 
 export interface IPoolSettings {
     minLimit?: number;

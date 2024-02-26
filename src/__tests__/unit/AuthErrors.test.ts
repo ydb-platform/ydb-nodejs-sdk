@@ -1,12 +1,12 @@
-
 import { FallbackLogger, setupLogger } from '../../logging';
 setupLogger(new FallbackLogger({level: 'error'}))
 
 import { ServiceError } from '@grpc/grpc-js/build/src/call';
-import {IamAuthService, StaticCredentialsAuthService} from '../../credentials';
 import { TransportUnavailable } from '../../errors';
 import { StatusObject } from '@grpc/grpc-js';
 import { Status } from '@grpc/grpc-js/build/src/constants';
+import {StaticCredentialsAuthService} from "../../credentials/static-credentials-auth-service";
+import {IamAuthService} from "../../credentials/iam-auth-service";
 
 describe('Retries on errors in auth services', () => {
     const mockIamCounter = {retries: 0}
@@ -40,7 +40,7 @@ describe('Retries on errors in auth services', () => {
                     throw mockCallErrorFromStatus({code: 14, details: 'My custom unavailable error', metadata: {}})
                 })
                 return service
-            } 
+            }
             return actual
         })
         require('ydb-sdk-proto')

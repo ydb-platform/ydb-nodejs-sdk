@@ -4,7 +4,7 @@ import {google, Ydb} from 'ydb-sdk-proto';
 import 'reflect-metadata';
 import {DateTime} from 'luxon';
 import {uuidToNative, uuidToValue} from './uuid';
-import {fromDecimalString, toDecimalString} from './decimal';
+import {fromDecimalString, toDecimalString} from './utils/decimal';
 import Type = Ydb.Type;
 import IType = Ydb.IType;
 import IStructMember = Ydb.IStructMember;
