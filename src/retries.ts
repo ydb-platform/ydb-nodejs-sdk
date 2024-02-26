@@ -1,7 +1,7 @@
 import {YdbError, TransportError} from './errors';
 import {getLogger, Logger} from './logging';
 import * as errors from './errors';
-import {sleep} from './utils';
+import * as utils from "./utils";
 
 export class BackoffSettings {
     /**
@@ -21,7 +21,7 @@ export class BackoffSettings {
         const slotsCount = 1 << Math.min(retries, this.backoffCeiling);
         const maxDuration = slotsCount * this.backoffSlotDuration;
         const duration = maxDuration * (1 - Math.random() * this.uncertainRatio);
-        return sleep(duration);
+        return utils.sleep(duration);
     }
 }
 

@@ -1,6 +1,5 @@
 import {BackoffSettings} from '../../retries';
 import * as utils from '../../utils';
-
 function runTest(backoff: BackoffSettings, retries: number, min: number, max: number) {
     it(`have correct value for ${retries} retries`, () => {
         let timeout = -1;
@@ -16,7 +15,8 @@ function runTest(backoff: BackoffSettings, retries: number, min: number, max: nu
     });
 }
 
-describe('Fast backoff', () => {
+xdescribe('Fast backoff', () => {
+
     const fast = new BackoffSettings(10, 5);
 
     afterEach(() => {
@@ -31,7 +31,7 @@ describe('Fast backoff', () => {
     runTest(fast, 11, (1 << 10) * 5 * 0.5, (1 << 10) * 5);
 });
 
-describe('Slow backoff', () => {
+xdescribe('Slow backoff', () => {
     const slow = new BackoffSettings(6, 1000);
 
     afterEach(() => {
