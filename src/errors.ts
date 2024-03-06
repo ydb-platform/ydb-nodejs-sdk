@@ -1,7 +1,6 @@
 import {StatusObject as GrpcStatusObject} from '@grpc/grpc-js';
 import {Ydb} from 'ydb-sdk-proto';
 import ApiStatusCode = Ydb.StatusIds.StatusCode;
-import IOperation = Ydb.Operations.IOperation;
 import {Status as GrpcStatus} from '@grpc/grpc-js/build/src/constants';
 
 const TRANSPORT_STATUSES_FIRST = 401000;
@@ -45,7 +44,11 @@ export class YdbError extends Error {
         return issues ? JSON.stringify(issues, null, 2) : '';
     }
 
-    static checkStatus(operation: IOperation) {
+    static checkStatus(operation: {
+        status?: (Ydb.StatusIds.StatusCode|null);
+        issues?: (Ydb.Issue.IIssueMessage[]|null);
+
+    }) {
         if (!operation.status) {
             throw new MissingStatus('Missing status!');
         }
