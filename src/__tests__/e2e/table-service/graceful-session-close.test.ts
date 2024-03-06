@@ -6,7 +6,7 @@ import {initDriver, destroyDriver} from "../../../utils/test";
 
 const SHUTDOWN_URL = process.env.YDB_SHUTDOWN_URL || 'http://localhost:8765/actors/kqp_proxy?force_shutdown=all';
 
-xdescribe('Graceful session close', () => {
+describe('Graceful session close', () => {
     let driver: Driver;
     afterAll(async () => await destroyDriver(driver));
 
