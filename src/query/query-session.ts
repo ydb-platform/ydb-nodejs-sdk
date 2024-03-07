@@ -13,7 +13,6 @@ import IQueryContent = Ydb.Query.IQueryContent;
 import ExecMode = Ydb.Query.ExecMode;
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import {ResultSet} from "./ResultSet";
-import IType = Ydb.IType;
 import Long from "long";
 import IColumn = Ydb.IColumn;
 
@@ -182,10 +181,12 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         if (opts.txControl) ExecuteQueryRequestParams.txControl = opts.txControl;
         if (opts.parameters) ExecuteQueryRequestParams.parameters = opts.parameters;
         if (opts.statsMode) ExecuteQueryRequestParams.statsMode = opts.statsMode; // Where stats goes
-        if (opts.concurrentResultSets) ExecuteQueryRequestParams.concurrentResultSets = opts.concurrentResultSets; // TODO: Impl
+        ExecuteQueryRequestParams.concurrentResultSets = opts.concurrentResultSets ?? false;
 
         const resultSetByIndex: [iterator: IAsyncQueueIterator<Ydb.IValue>, resultSet: ResultSet][] = [];
         const resultSetIterator = buildAsyncQueueIterator<ResultSet>();
+        const concurrentResultSets = ExecuteQueryRequestParams.concurrentResultSets;
+        let lastRowsIterator: IAsyncQueueIterator<Ydb.IValue>;
 
         const responseStream = this.impl.grpcClient!.makeServerStreamRequest(
             Query_V1.ExecuteQuery,
@@ -195,6 +196,15 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             this.impl.metadata);
 
         responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
+            try {
+                ensureCallSucceeded(partialResp);
+            } catch (ydbErr) {
+                resultSetIterator.error(ydbErr as Error);
+                Object.values(resultSetByIndex).forEach(([iterator]) => {
+                    iterator.error(ydbErr as Error);
+                });
+            }
+
             // TODO: Check error
             this.logger.debug('execute(): data: %o', partialResp);
 
@@ -210,6 +220,10 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                 resultSet = new ResultSet(index, partialResp.resultSet!.columns as IColumn[], iterator);
                 resultSetIterator.push(resultSet);
                 resultSetByIndex[index] = [iterator, resultSet];
+                if (!concurrentResultSets) {
+                    lastRowsIterator.end();
+                    lastRowsIterator = iterator;
+                }
             } else {
                 [iterator, resultSet] = resultSetTuple;
             }
@@ -232,18 +246,33 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
 
         responseStream.on('end', () => {
             this.logger.debug('execute(): end');
-
+            resultSetIterator.end();
+            if (concurrentResultSets) {
+                Object.values(resultSetByIndex).forEach(([iterator]) => {
+                    iterator.end();
+                });
+            } else {
+                lastRowsIterator.end();
+            }
         });
 
         responseStream.on('error', (err) => {
             // TODO: Should wrap transport error?
             this.logger.debug('execute(): error: %o', err);
 
-            resultSetIterator.error(err);
-            resultSetByIndex.forEach(([iterator]) => {
-                iterator.error(err);
+            // TODO: required: Error & GrpcStatusObject
+            // const transportErr = TransportError.convertToYdbError(err);
+            const transportErr = err;
+
+            resultSetIterator.error(transportErr);
+            Object.values(resultSetByIndex).forEach(([iterator]) => {
+                iterator.error(transportErr);
             });
         });
+
+        // TODO: where tx comes from
+        // TODO: single exec in a time
+        // TODO: idempotent
 
         return {
             resultSets: resultSetIterator[Symbol.asyncIterator](),
