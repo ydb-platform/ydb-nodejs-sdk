@@ -20,8 +20,16 @@ describe('Create table', () => {
             // tx: ,
             // idempotent: ,
             fn: async (session: QuerySession) => {
-                const res = session.exec({
+                const res = session.execute({
                     // tx:
+                    txControl: {
+                      beginTx: {
+                          serializableReadWrite: {
+
+                          }
+                      },
+                      commitTx: false,
+                    },
                     queryContent: {
                         text: `create table ${tableName} {
                             id UInt64,
@@ -35,7 +43,7 @@ describe('Create table', () => {
                     },
 
                     // rowMode: ,
-                    // keepInCache: ,
+                    // keepInCache: , // ???
                     // timeout: ,
                 });
 

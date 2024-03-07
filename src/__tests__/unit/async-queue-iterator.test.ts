@@ -43,7 +43,7 @@ describe('asyncQueueIterator', () => {
     });
 
     it('starts from error', async () => {
-        q.end(new Error('test'));
+        q.error(new Error('test'));
 
         await expect(async () => {
             for await (const _ of q) expect(false).toBeTruthy()
@@ -58,7 +58,7 @@ describe('asyncQueueIterator', () => {
             resolve(undefined);
         });
 
-        q.end(new Error('test'));
+        q.error(new Error('test'));
 
         await w;
     });
@@ -73,4 +73,32 @@ describe('asyncQueueIterator', () => {
 
         await w;
     });
+
+    it('push stays ok after an error', async () => {
+        q.error(new Error('test'));
+        q.push(12);
+    });
+
+    it('restriction: only one instance of generator is allowed', async () => {
+        q.end();
+        for await (const _ of q);
+
+        await expect(async () => {
+            for await (const _ of q);
+        }).rejects.toThrowError(new Error('Сan be only ONE instance of the generator'));
+    });
+
+    it('restriction: no call of push() or end() after end()', async () => {
+        q.end();
+
+        await expect(async () => {
+            q.push(12);
+        }).rejects.toThrowError(new Error('The queue has already been closed by calling end()'));
+
+        await expect(async () => {
+            q.end();
+        }).rejects.toThrowError(new Error('The queue has already been closed by calling end()'));
+    });
 });
+
+

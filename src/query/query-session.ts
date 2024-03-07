@@ -7,11 +7,15 @@ import {pessimizable} from "../utils";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {Ydb} from "ydb-sdk-proto";
 import {TransportError} from "../errors";
-import {buildAsyncQueueIterator} from "../utils/build-async-queue-iterator";
+import {buildAsyncQueueIterator, IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 import IQueryContent = Ydb.Query.IQueryContent;
 import ExecMode = Ydb.Query.ExecMode;
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
+import {ResultSet} from "./ResultSet";
+import IType = Ydb.IType;
+import Long from "long";
+import IColumn = Ydb.IColumn;
 
 /**
  * Service methods, as they used in GRPC.
@@ -120,6 +124,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
 
 
     public async attach(onStreamClosed: () => void) {
+        // TODO: Check attached
         let connected = false;
         await this.impl.updateMetadata();
         return new Promise((resolve, reject) => {
@@ -161,7 +166,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         });
     }
 
-    public exec(opts: {
+    public execute(opts: {
         queryContent: IQueryContent,
         execMode?: Ydb.Query.ExecMode,
         txControl?: Ydb.Query.ITransactionControl,
@@ -169,50 +174,79 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         statsMode?: Ydb.Query.StatsMode,
         concurrentResultSets?: boolean,
     }) {
-        const params: IExecuteQueryRequest = {
+        const ExecuteQueryRequestParams: IExecuteQueryRequest = {
             sessionId: this.sessionId,
             queryContent: opts.queryContent,
             execMode: opts.execMode ?? ExecMode.EXEC_MODE_EXECUTE,
         };
-        if (opts.txControl) params.txControl = opts.txControl;
-        if (opts.parameters) params.parameters = opts.parameters;
-        if (opts.statsMode) params.statsMode = opts.statsMode;
-        // if (opts.concurrentResultSets) params.execMode = opts.concurrentResultSets; // TODO: Implement both mode
+        if (opts.txControl) ExecuteQueryRequestParams.txControl = opts.txControl;
+        if (opts.parameters) ExecuteQueryRequestParams.parameters = opts.parameters;
+        if (opts.statsMode) ExecuteQueryRequestParams.statsMode = opts.statsMode; // Where stats goes
+        if (opts.concurrentResultSets) ExecuteQueryRequestParams.concurrentResultSets = opts.concurrentResultSets; // TODO: Impl
 
-        const res = buildAsyncQueueIterator<string>();
+        const resultSetByIndex: [iterator: IAsyncQueueIterator<Ydb.IValue>, resultSet: ResultSet][] = [];
+        const resultSetIterator = buildAsyncQueueIterator<ResultSet>();
 
         const responseStream = this.impl.grpcClient!.makeServerStreamRequest(
             Query_V1.ExecuteQuery,
             (v) => Ydb.Query.ExecuteQueryRequest.encode(v).finish() as Buffer,
             Ydb.Query.ExecuteQueryResponsePart.decode,
-            Ydb.Query.ExecuteQueryRequest.create(params),
+            Ydb.Query.ExecuteQueryRequest.create(ExecuteQueryRequestParams),
             this.impl.metadata);
 
         responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
-            this.logger.debug('exec(): data: %o', partialResp);
+            // TODO: Check error
+            this.logger.debug('execute(): data: %o', partialResp);
+
+            const _index = partialResp.resultSetIndex;
+            const index = Long.isLong(_index) ? (_index as Long).toInt() : (resultSetByIndex as unknown as number);
+
+            let iterator: IAsyncQueueIterator<Ydb.IValue>;
+            let resultSet: ResultSet;
+
+            let resultSetTuple = resultSetByIndex[index];
+            if (!resultSetTuple) {
+                iterator = buildAsyncQueueIterator<Ydb.IValue>();
+                resultSet = new ResultSet(index, partialResp.resultSet!.columns as IColumn[], iterator);
+                resultSetIterator.push(resultSet);
+                resultSetByIndex[index] = [iterator, resultSet];
+            } else {
+                [iterator, resultSet] = resultSetTuple;
+            }
+
+            for (const row of partialResp.resultSet!.rows!) {
+                iterator.push(row);
+            }
+
+            if (partialResp.execStats) {
+                resultSet.execStats = partialResp.execStats;
+            }
+
+            // TODO: Process partial meta
         });
 
         responseStream.on('metadata', (metadata) => {
-            // TODO: Expec to see on graceful shutdown
-            this.logger.debug('exec(): metadata: %o', metadata);
-
+            // TODO: Expect to see on graceful shutdown
+            this.logger.debug('execute(): metadata: %o', metadata);
         });
 
         responseStream.on('end', () => {
-            this.logger.debug('exec(): end');
+            this.logger.debug('execute(): end');
+
         });
 
         responseStream.on('error', (err) => {
             // TODO: Should wrap transport error?
-            this.logger.debug('exec(): error: %o', err);
+            this.logger.debug('execute(): error: %o', err);
 
+            resultSetIterator.error(err);
+            resultSetByIndex.forEach(([iterator]) => {
+                iterator.error(err);
+            });
         });
 
-        return res;
-        // {
-        // TODO: result sets enum
-        // TODO: result set class
-        // TODO: another return for concurrentResultSets
-        // }
+        return {
+            resultSets: resultSetIterator[Symbol.asyncIterator](),
+        }
     }
 }

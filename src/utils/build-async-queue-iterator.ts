@@ -17,7 +17,9 @@
 export interface IAsyncQueueIterator<T> {
     push(value: T): void;
 
-    end(err?: Error): void;
+    end(): void;
+
+    error(err: Error): void;
 
     [Symbol.asyncIterator](): AsyncGenerator<T, void>;
 }
@@ -37,6 +39,7 @@ export function buildAsyncQueueIterator<T>(): IAsyncQueueIterator<T> {
 
     return {
         push(value: T): void {
+            if (error) return; // queue is already droped
             if (isQueueOver) throw new Error('The queue has already been closed by calling end()');
             if (waitNextItemPromiseResolve) {
                 waitNextItemPromiseResolve(value);
@@ -46,19 +49,22 @@ export function buildAsyncQueueIterator<T>(): IAsyncQueueIterator<T> {
             }
         },
 
-        end(err?: Error): void {
+        end(): void {
             if (isQueueOver) throw new Error('The queue has already been closed by calling end()');
             isQueueOver = true;
+            if (waitNextItemPromiseResolve) waitNextItemPromiseResolve(QUEUE_END);
+            waitNextItemPromiseResolve = waitNextItemPromiseReject = undefined;
+        },
+
+        error(err: Error): void {
             error = err;
-            if (err) {
-                if (waitNextItemPromiseReject) waitNextItemPromiseReject(err);
-            } else {
-                if (waitNextItemPromiseResolve) waitNextItemPromiseResolve(QUEUE_END);
-            }
+            queue.length = 0; // drop queue
+            if (waitNextItemPromiseReject) waitNextItemPromiseReject(err);
+            waitNextItemPromiseResolve = waitNextItemPromiseReject = undefined;
         },
 
         async* [Symbol.asyncIterator](): AsyncGenerator<T, void> {
-            if (isGeneratorInstantiated) throw new Error('Сan only be one instance of the generator');
+            if (isGeneratorInstantiated) throw new Error('Сan be only ONE instance of the generator');
             isGeneratorInstantiated = true;
             while (true) {
                 if (error) throw error;
