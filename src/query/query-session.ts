@@ -15,6 +15,11 @@ import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import {ResultSet} from "./ResultSet";
 import Long from "long";
 import IColumn = Ydb.IColumn;
+import {ClientReadableStream} from "@grpc/grpc-js";
+import SessionState = Ydb.Query.SessionState;
+
+// TODO: Commit open tx on .do end
+// TODO: assign txId from session during tx
 
 /**
  * Service methods, as they used in GRPC.
@@ -43,7 +48,6 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         public endpoint: Endpoint,
         public sessionId: string,
         private logger: Logger,
-        // private getResponseMetadata: (request: object) => grpc.Metadata | undefined
     ) {
         super();
     }
@@ -118,22 +122,29 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             return Promise.resolve();
         }
         this.beingDeleted = true;
+
+        if (this.attachStream) {
+            await this.attachStream.cancel();
+            delete this.attachStream;
+        }
+
         ensureCallSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
     }
 
+    private attachStream?: ClientReadableStream<SessionState>;
 
     public async attach(onStreamClosed: () => void) {
         // TODO: Check attached
         let connected = false;
         await this.impl.updateMetadata();
         return new Promise((resolve, reject) => {
-            const responseStream = this.impl.grpcClient!.makeServerStreamRequest(
+            this.attachStream = this.impl.grpcClient!.makeServerStreamRequest(
                 Query_V1.AttachSession,
                 (v) => Ydb.Query.AttachSessionRequest.encode(v).finish() as Buffer,
                 Ydb.Query.SessionState.decode,
                 Ydb.Query.AttachSessionRequest.create({sessionId: this.sessionId}),
                 this.impl.metadata);
-            responseStream.on('data', (partialResp: Ydb.Query.SessionState) => {
+            this.attachStream.on('data', (partialResp: Ydb.Query.SessionState) => {
                 this.logger.debug('attach(): data: %o', partialResp);
                 if (!connected) {
                     connected = true;
@@ -145,18 +156,18 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                     }
                 }
             })
-            responseStream.on('metadata', (metadata) => {
-                this.logger.debug('attach(): metadata: %o', metadata);
-
-            });
-            responseStream.on('end', () => {
+            this.attachStream.on('end', () => {
                 this.logger.debug('attach(): end');
+                delete this.attachStream;
                 onStreamClosed();
             });
-            responseStream.on('error', (err) => {
+            this.attachStream.on('error', (err) => {
                 this.logger.debug('attach(): error: %o', err);
+                console.info(3000, err)
                 if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
+                console.info(3100, err)
                 if (connected) {
+                    delete this.attachStream;
                     onStreamClosed();
                 } else {
                     reject(err);
@@ -166,8 +177,10 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     }
 
     public execute(opts: {
+        // TODO: split
         queryContent: IQueryContent,
         execMode?: Ydb.Query.ExecMode,
+        // TODO: Ensure sequential calls
         txControl?: Ydb.Query.ITransactionControl,
         parameters?: { [k: string]: Ydb.ITypedValue },
         statsMode?: Ydb.Query.StatsMode,
@@ -197,9 +210,11 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
 
         responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
             try {
+                // console.info(7000, partialResp);
                 ensureCallSucceeded(partialResp);
             } catch (ydbErr) {
                 resultSetIterator.error(ydbErr as Error);
+                console.info(7100, ydbErr);
                 Object.values(resultSetByIndex).forEach(([iterator]) => {
                     iterator.error(ydbErr as Error);
                 });

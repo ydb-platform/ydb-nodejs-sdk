@@ -203,6 +203,10 @@ export class TransportError extends YdbError {
     }
 }
 
+export class CancelledOnClient extends TransportError {
+    static status = StatusCode.CANCELLED;
+}
+
 export class TransportUnavailable extends TransportError {
     static status = StatusCode.TRANSPORT_UNAVAILABLE;
 }
@@ -216,6 +220,7 @@ export class ClientResourceExhausted extends TransportError {
 }
 
 const TRANSPORT_ERROR_CODES = new Map([
+    [GrpcStatus.CANCELLED, CancelledOnClient],
     [GrpcStatus.UNAVAILABLE, TransportUnavailable],
     [GrpcStatus.DEADLINE_EXCEEDED, ClientDeadlineExceeded],
     [GrpcStatus.RESOURCE_EXHAUSTED, ClientResourceExhausted]

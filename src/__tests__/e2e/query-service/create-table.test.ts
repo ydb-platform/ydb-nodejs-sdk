@@ -20,7 +20,7 @@ describe('Create table', () => {
             // tx: ,
             // idempotent: ,
             fn: async (session: QuerySession) => {
-                const res = session.execute({
+                /*const res =*/ session.execute({
                     // tx:
                     txControl: {
                       beginTx: {
@@ -59,9 +59,9 @@ describe('Create table', () => {
                 //
                 // }
 
-                for await (const v of res) {
-                    console.info(6000, v);
-                }
+                // for await (const v of res) {
+                //     console.info(6000, v);
+                // }
 
                 return 12;
             },
