@@ -34,10 +34,8 @@ export class SessionBuilder extends AuthenticatedService<QueryService> {
     @retryable()
     @pessimizable
     async create(): Promise<QuerySession> {
-        // TODO: Create session may return another endpoint.
-        const response = await this.api.createSession(CreateSessionRequest.create());
-        const {sessionId} = ensureCallSucceeded(response);
-        const session = new QuerySession(this.api, this, this.endpoint, sessionId, this.logger/*, this.getResponseMetadata.bind(this)*/);
+        const {sessionId} = ensureCallSucceeded(await this.api.createSession(CreateSessionRequest.create()));
+        const session = QuerySession[symbols.create](this.api, this, this.endpoint, sessionId, this.logger/*, this.getResponseMetadata.bind(this)*/);
         await session[symbols.sessionAttach](() => { session[symbols.sessionDeleteOnRelease](); });
         return session;
     }
@@ -94,6 +92,11 @@ export class QuerySessionPool extends EventEmitter {
         await Promise.all(_.map([...this.sessions], (session: QuerySession) => this.deleteSession(session)));
         this.logger.debug('Pool has been destroyed.');
     }
+
+    // TODO: Uncomment after switch to TS 5.3
+    // [Symbol.asyncDispose]() {
+    //     return this.destroy();
+    // }
 
     private prepopulateSessions() {
         _.forEach(_.range(this.minLimit), () => this.createSession());

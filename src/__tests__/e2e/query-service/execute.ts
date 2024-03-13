@@ -8,7 +8,9 @@ import {QuerySession} from "../../../query/query-session";
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
 
-describe('Create table', () => {
+const TABLE_NAME = 'test_table_20240313'
+
+describe('Query.execute()', () => {
 
     let discoveryService: DiscoveryService;
     let session: QuerySession;
@@ -25,28 +27,50 @@ describe('Create table', () => {
             logger,
         });
 
+        await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
+
         const sessionBuilder = new SessionBuilder(
             await discoveryService.getEndpoint(),
             DATABASE,
             authService,
             logger,
         );
+
         session = await sessionBuilder.create();
     });
 
     afterAll(async () => {
         discoveryService.destroy();
-        await session.delete();
+        // await session.delete();
     });
 
-    it('execute select', async () => {
-        // session.execute({
-        //     txControl: { // TODO: txId is not allowed
-        //         commitTx: true,
-        //         beginTx: {
-        //
-        //         }
-        //     }
-        // })
+    it('create table', async () => {
+        // TODO: Drop previouse table
+
+        console.info(900)
+
+        await session.execute({
+            text: `
+                DROP TABLE ${TABLE_NAME};`,
+        });
+
+        await session.execute({
+            text: `
+                CREATE TABLE ${TABLE_NAME}
+                (
+                    id    UInt64,
+                    title Utf8,
+                    time  Timestamp,
+                    PRIMARY KEY (id)
+                );`,
+        });
     });
+
+    // select simple
+    // select multiple
+    // number of operations under one transaction
+    // doTx - txControl
+    // update / insert
+    // timeout
+
 });

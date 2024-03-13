@@ -8,16 +8,16 @@ import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {Ydb} from "ydb-sdk-proto";
 import {TransportError} from "../errors";
 import {buildAsyncQueueIterator, IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
-import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
-import IQueryContent = Ydb.Query.IQueryContent;
-import ExecMode = Ydb.Query.ExecMode;
-import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import {ResultSet} from "./ResultSet";
 import Long from "long";
-import IColumn = Ydb.IColumn;
 import {ClientReadableStream} from "@grpc/grpc-js";
 import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
 import * as symbols from './symbols';
+import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
+import ExecMode = Ydb.Query.ExecMode;
+import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
+import IColumn = Ydb.IColumn;
+import Syntax = Ydb.Query.Syntax;
 
 /**
  * Service methods, as they name in GRPC.
@@ -40,26 +40,44 @@ export interface QuerySessionOperation {
 
 export class QuerySession extends EventEmitter implements ICreateSessionResult {
     [symbols.sessionCurrentOperation]?: QuerySessionOperation;
+    [symbols.sessionId]: string; // TODO: make public RO
+    [symbols.sessionTxId]?: string; // TODO: make public RO
     private beingDeleted = false;
     private free = true;
     private closing = false;
     private attachStream?: ClientReadableStream<Ydb.Query.SessionState>;
-    [symbols.sessionTxId]?: string; // TODO: make public RO
+
+    public get sessionId() {
+        return this[symbols.sessionId];
+    }
 
     public get txId() {
         return this[symbols.sessionTxId];
     }
 
 
+    // TODO: make private
     constructor( // TODO: Change to named parameters for consistency
         private api: QueryService,
         private impl: SessionBuilder,
         public endpoint: Endpoint,
-        public sessionId: string,
+        sessionId: string,
         private logger: Logger,
         // TODO: Add timeout
     ) {
         super();
+        this[symbols.sessionId] = sessionId;
+    }
+
+    static [symbols.create]( // TODO: Change to named parameters for consistency
+        api: QueryService,
+        impl: SessionBuilder,
+        endpoint: Endpoint,
+        sessionId: string,
+        logger: Logger,
+        // TODO: Add timeout
+    ) {
+        return new QuerySession(api, impl, endpoint, sessionId, logger);
     }
 
     [symbols.sessionAcquire]() {
@@ -69,6 +87,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     }
 
     [symbols.sessionRelease]() {
+        if (this[symbols.sessionCurrentOperation]) throw new Error('There is an active operation');
         this.free = true;
         this.logger.debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         this.emit(SessionEvent.SESSION_RELEASE, this);
@@ -82,7 +101,6 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         return this.closing;
     }
 
-    // TODO: Improve work with this.txId - transacti on may cover number of ops
     public async beginTransaction(txSettings: Ydb.Query.ITransactionSettings | null = null) {
         if (this[symbols.sessionTxId]) throw new Error('There is already opened transaction');
         const {txMeta} = ensureCallSucceeded(await this.api.beginTransaction({
@@ -128,22 +146,21 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async delete(): Promise<void> {
-        if (this[symbols.sessionIsDeleted]()) {
-            return Promise.resolve();
-        }
+        if (this[symbols.sessionIsDeleted]()) return Promise.resolve();
+        if (this[symbols.sessionCurrentOperation]) throw new Error('There is an active operation');
         this.beingDeleted = true;
-
-        if (this.attachStream) {
-            await this.attachStream.cancel();
-            delete this.attachStream;
-        }
-
+        await this.attachStream?.cancel(); // TODO: Check number of retries of cancel()
         ensureCallSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
     }
 
+    // TODO: Uncomment after switch to TS 5.3
+    // [Symbol.asyncDispose]() {
+    //     return this.delete();
+    // }
+
     // public async attach(onStreamClosed: () => void) {
     public async [symbols.sessionAttach](onStreamClosed: () => void) {
-        // TODO: Check attached
+        if (this.attachStream) throw new Error('Already attached');
         let connected = false;
         await this.impl.updateMetadata();
         return new Promise((resolve, reject) => {
@@ -166,17 +183,15 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                 }
             })
             this.attachStream.on('end', () => {
-                this.logger.debug('attach(): end');
-                delete this.attachStream;
-                onStreamClosed();
+                this.logger.trace('attach(): end');
+                // delete this.attachStream; // uncomment when reattach policy will be implemented
+                // onStreamClosed();
             });
             this.attachStream.on('error', (err) => {
-                this.logger.debug('attach(): error: %o', err);
-                console.info(3000, err)
+                this.logger.trace('attach(): error: %o', err);
                 if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
-                console.info(3100, err)
                 if (connected) {
-                    delete this.attachStream;
+                    // delete this.attachStream; // uncomment when reattach policy will be implemented
                     onStreamClosed();
                 } else {
                     reject(err);
@@ -186,8 +201,15 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     }
 
     public execute(opts: {
-        // TODO: split
-        queryContent: IQueryContent,
+        /**
+         * SQL query/DDL etc.m text.
+         *
+         */
+        text: string,
+        /**
+         * Default value is SYNTAX_YQL_V1.
+         */
+        syntax?: Ydb.Query.Syntax,
         parameters?: { [k: string]: Ydb.ITypedValue },
         txControl?: Ydb.Query.ITransactionControl,
         execMode?: Ydb.Query.ExecMode,
@@ -196,10 +218,13 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         /**
          * Operation timeout in ms
          */
-        timeout: number,
+        timeout?: number,
+        // rowMode: , // TODO: what returns ResultSet - ??? should it be here
     }) {
         // Validate opts
+        if (!opts.text.trim()) throw new Error('"text" parameter is empty')
         // TODO: No tx control in doTx
+        // TODO: Send beingTx in first command in doTx
         if (opts.txControl?.txId) throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
         if (this[symbols.sessionTxId]) {
             if (opts.txControl?.beginTx) throw new Error('txControl.beginTx when there\'s already an open transaction');
@@ -208,37 +233,42 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         }
 
         // Build params
-        const ExecuteQueryRequestParams: IExecuteQueryRequest = {
+        const executeQueryRequest: IExecuteQueryRequest = {
             sessionId: this.sessionId,
-            queryContent: opts.queryContent,
+            queryContent: {
+                text: opts.text,
+                syntax: opts.syntax ?? Syntax.SYNTAX_YQL_V1,
+            },
             execMode: opts.execMode ?? ExecMode.EXEC_MODE_EXECUTE,
         };
-
-        if (opts.parameters) ExecuteQueryRequestParams.parameters = opts.parameters;
-
-        if (opts.statsMode) ExecuteQueryRequestParams.statsMode = opts.statsMode; // Where stats goes
-
-        if (opts.txControl) ExecuteQueryRequestParams.txControl = opts.txControl;
-        if (this[symbols.sessionTxId]) {
-            (ExecuteQueryRequestParams.txControl || (ExecuteQueryRequestParams.txControl = {})).txId = this[symbols.sessionTxId];
-        }
+        if (opts.parameters) executeQueryRequest.parameters = opts.parameters;
+        if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode; // Where stats goes
+        if (opts.txControl) executeQueryRequest.txControl = opts.txControl;
+        executeQueryRequest.concurrentResultSets = opts.concurrentResultSets ?? false;
+        if (this[symbols.sessionTxId])
+            (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[symbols.sessionTxId];
 
         // TODO: Update txId in the result
+        console.info(3000, 'executeQueryRequest:', executeQueryRequest);
 
-        ExecuteQueryRequestParams.concurrentResultSets = opts.concurrentResultSets ?? false;
-
-        // Run operation
+        // Run the operation
         let finished = false;
         const resultSetByIndex: [iterator: IAsyncQueueIterator<Ydb.IValue>, resultSet: ResultSet][] = [];
         const resultSetIterator = buildAsyncQueueIterator<ResultSet>();
-        const concurrentResultSets = ExecuteQueryRequestParams.concurrentResultSets;
+        const concurrentResultSets = executeQueryRequest.concurrentResultSets;
         let lastRowsIterator: IAsyncQueueIterator<Ydb.IValue>;
 
         // Timeout if any
-        const timeoutTimer = opts.timeout > 0 ? setTimeout(() => { cancel(new Error('Timeout is over')); }, opts.timeout) : undefined;
+        const timeoutTimer =
+            typeof opts.timeout === 'number' && opts.timeout > 0 ?
+                setTimeout(() => {
+                    cancel(new Error('Timeout is over'));
+                }, opts.timeout)
+                : undefined;
 
         // One operation per session in a time. And it might be cancelled
-        if ([symbols.sessionCurrentOperation]) throw new Error('There\'s another active operation in the session');
+        if (this[symbols.sessionCurrentOperation]) throw new Error('There\'s another active operation in the session');
+
         function cancel(reason: any) {
             if (finished) return;
             finished = true;
@@ -248,6 +278,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                 iterator.error(reason);
             });
         }
+
         this[symbols.sessionCurrentOperation] = {cancel};
 
         // Operation
@@ -255,7 +286,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             Query_V1.ExecuteQuery,
             (v) => Ydb.Query.ExecuteQueryRequest.encode(v).finish() as Buffer,
             Ydb.Query.ExecuteQueryResponsePart.decode,
-            Ydb.Query.ExecuteQueryRequest.create(ExecuteQueryRequestParams),
+            Ydb.Query.ExecuteQueryRequest.create(executeQueryRequest),
             this.impl.metadata);
 
         responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
@@ -265,42 +296,41 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                 // console.info(7000, partialResp);
                 ensureCallSucceeded(partialResp);
             } catch (ydbErr) {
-                resultSetIterator.error(ydbErr as Error);
-                console.info(7100, ydbErr);
-                Object.values(resultSetByIndex).forEach(([iterator]) => {
-                    iterator.error(ydbErr as Error);
-                });
+                return cancel(ydbErr);
             }
 
             // TODO: Process partial meta
             // TODO: Expect to see on graceful shutdown
 
-            const _index = partialResp.resultSetIndex;
-            const index = Long.isLong(_index) ? (_index as Long).toInt() : (resultSetByIndex as unknown as number);
+            if (partialResp.resultSet) {
 
-            let iterator: IAsyncQueueIterator<Ydb.IValue>;
-            let resultSet: ResultSet;
+                const _index = partialResp.resultSetIndex;
+                const index = Long.isLong(_index) ? (_index as Long).toInt() : (resultSetByIndex as unknown as number);
 
-            let resultSetTuple = resultSetByIndex[index];
-            if (!resultSetTuple) {
-                iterator = buildAsyncQueueIterator<Ydb.IValue>();
-                resultSet = ResultSet[symbols.create](index, partialResp.resultSet!.columns as IColumn[], iterator);
-                resultSetIterator.push(resultSet);
-                resultSetByIndex[index] = [iterator, resultSet];
-                if (!concurrentResultSets) {
-                    lastRowsIterator.end();
-                    lastRowsIterator = iterator;
+                let iterator: IAsyncQueueIterator<Ydb.IValue>;
+                let resultSet: ResultSet;
+
+                let resultSetTuple = resultSetByIndex[index];
+                if (!resultSetTuple) {
+                    iterator = buildAsyncQueueIterator<Ydb.IValue>();
+                    resultSet = ResultSet[symbols.create](index, partialResp.resultSet!.columns as IColumn[], iterator);
+                    resultSetIterator.push(resultSet);
+                    resultSetByIndex[index] = [iterator, resultSet];
+                    if (!concurrentResultSets) {
+                        lastRowsIterator.end();
+                        lastRowsIterator = iterator;
+                    }
+                } else {
+                    [iterator, resultSet] = resultSetTuple;
                 }
-            } else {
-                [iterator, resultSet] = resultSetTuple;
-            }
 
-            for (const row of partialResp.resultSet!.rows!) {
-                iterator.push(row);
-            }
+                for (const row of partialResp.resultSet!.rows!) {
+                    iterator.push(row);
+                }
 
-            if (partialResp.execStats) {
-                resultSet.execStats = partialResp.execStats;
+                if (partialResp.execStats) {
+                    resultSet.execStats = partialResp.execStats;
+                }
             }
         });
 
@@ -309,9 +339,9 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         // });
 
         responseStream.on('end', () => {
-            this.logger.trace('execute(): end');
+            if (finished) return; // finished by cancel() - error or timeout. note: got to be before any logging, so Jest would no complain
 
-            if (finished) return; // finished by cancel() - error or timeout
+            this.logger.trace('execute(): end');
 
             resultSetIterator.end();
             if (concurrentResultSets) {
@@ -330,8 +360,6 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             this.logger.trace('execute(): error: %o', err);
             cancel(TransportError.convertToYdbError(err as Error & GrpcStatusObject));
         });
-
-        // TODO: idempotent
 
         return {
             resultSets: resultSetIterator[Symbol.asyncIterator](),

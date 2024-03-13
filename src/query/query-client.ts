@@ -31,7 +31,7 @@ export class QueryClient extends EventEmitter {
         await this.pool.destroy();
     }
 
-    // TODO: impl do TX
+    // TODO: impl do TX with txControl
     // TODO: warn when session closed with opened TX
 
     public async do<T>(opts: {
@@ -39,13 +39,11 @@ export class QueryClient extends EventEmitter {
         // tx?: ,
         idempotent?: boolean,
         fn: SessionCallback<T>,
-        // values: ,
-        // rowMode: ,
-        // keepInCache: ,
         // timeout: number | undefined,
     }) {
         // TODO: Assign timeout
         // TODO: Keep max attempts?
+        // TODO: idempotent
         // return withRetries(async () => { // TODO: Remove after debug
             // TODO: Bypass ctx
             return this.pool.withSession(opts.fn);
