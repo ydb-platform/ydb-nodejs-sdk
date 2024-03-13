@@ -16,13 +16,11 @@ import {ResultSet} from "./ResultSet";
 import Long from "long";
 import IColumn = Ydb.IColumn;
 import {ClientReadableStream} from "@grpc/grpc-js";
-import SessionState = Ydb.Query.SessionState;
-
-// TODO: Commit open tx on .do end
-// TODO: assign txId from session during tx
+import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
+import * as symbols from './symbols';
 
 /**
- * Service methods, as they used in GRPC.
+ * Service methods, as they name in GRPC.
  */
 const enum Query_V1 {
     CreateSession = '/Ydb.Query.V1.QueryService/CreateSession',
@@ -36,89 +34,101 @@ const enum Query_V1 {
     FetchScriptResults = '/Ydb.Query.V1.QueryService/FetchScriptResults',
 }
 
+export interface QuerySessionOperation {
+    cancel(reason: any): void;
+}
+
 export class QuerySession extends EventEmitter implements ICreateSessionResult {
+    [symbols.sessionCurrentOperation]?: QuerySessionOperation;
     private beingDeleted = false;
     private free = true;
     private closing = false;
-    private txId?: string;
+    private attachStream?: ClientReadableStream<Ydb.Query.SessionState>;
+    [symbols.sessionTxId]?: string; // TODO: make public RO
 
-    constructor(
+    public get txId() {
+        return this[symbols.sessionTxId];
+    }
+
+
+    constructor( // TODO: Change to named parameters for consistency
         private api: QueryService,
         private impl: SessionBuilder,
         public endpoint: Endpoint,
         public sessionId: string,
         private logger: Logger,
+        // TODO: Add timeout
     ) {
         super();
     }
 
-    acquire() {
+    [symbols.sessionAcquire]() {
         this.free = false;
         this.logger.debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         return this;
     }
 
-    release() {
+    [symbols.sessionRelease]() {
         this.free = true;
         this.logger.debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         this.emit(SessionEvent.SESSION_RELEASE, this);
     }
 
-    public isFree() {
-        return this.free && !this.isDeleted();
+    [symbols.sessionIsFree]() {
+        return this.free && !this[symbols.sessionIsDeleted]();
     }
 
-    public isClosing() {
+    [symbols.sessionIsClosing]() {
         return this.closing;
     }
 
     // TODO: Improve work with this.txId - transacti on may cover number of ops
     public async beginTransaction(txSettings: Ydb.Query.ITransactionSettings | null = null) {
-        if (this.txId) throw new Error('There is already opened transaction');
+        if (this[symbols.sessionTxId]) throw new Error('There is already opened transaction');
         const {txMeta} = ensureCallSucceeded(await this.api.beginTransaction({
             sessionId: this.sessionId,
             txSettings,
         }));
-        if (this.txId) throw new Error('Simultaneous beginTransaction() occurred');
-        this.txId = txMeta!.id!;
+        if (this[symbols.sessionTxId]) throw new Error('Simultaneous beginTransaction() occurred');
+        if (txMeta!.id) this[symbols.sessionTxId] = txMeta!.id;
     }
 
     public async commitTransaction() {
-        if (!this.txId) throw new Error('There is no an open transaction');
+        if (!this[symbols.sessionTxId]) throw new Error('There is no an open transaction');
         try {
             return ensureCallSucceeded(await this.api.commitTransaction({
                 sessionId: this.sessionId,
-                txId: this.txId,
+                txId: this[symbols.sessionTxId],
             }));
         } finally {
-            delete this.txId;
+            delete this[symbols.sessionTxId];
         }
     }
 
     public async rollbackTransaction() {
-        if (!this.txId) throw new Error('There is no an open transaction');
+        if (!this[symbols.sessionTxId]) throw new Error('There is no an open transaction');
         try {
             return ensureCallSucceeded(await this.api.rollbackTransaction({
                 sessionId: this.sessionId,
-                txId: this.txId,
+                txId: this[symbols.sessionTxId],
             }));
         } finally {
-            delete this.txId;
+            delete this[symbols.sessionTxId];
         }
     }
 
-    public deleteOnRelease() {
+    public [symbols.sessionDeleteOnRelease]() {
         this.closing = true;
     }
 
-    public isDeleted() {
+    [symbols.sessionIsDeleted]() {
         return this.beingDeleted;
     }
 
     @retryable()
     @pessimizable
     public async delete(): Promise<void> {
-        if (this.isDeleted()) {
+        if (this[symbols.sessionIsDeleted]()) {
             return Promise.resolve();
         }
         this.beingDeleted = true;
@@ -131,9 +141,8 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         ensureCallSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
     }
 
-    private attachStream?: ClientReadableStream<SessionState>;
-
-    public async attach(onStreamClosed: () => void) {
+    // public async attach(onStreamClosed: () => void) {
+    public async [symbols.sessionAttach](onStreamClosed: () => void) {
         // TODO: Check attached
         let connected = false;
         await this.impl.updateMetadata();
@@ -179,28 +188,69 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     public execute(opts: {
         // TODO: split
         queryContent: IQueryContent,
-        execMode?: Ydb.Query.ExecMode,
-        // TODO: Ensure sequential calls
-        txControl?: Ydb.Query.ITransactionControl,
         parameters?: { [k: string]: Ydb.ITypedValue },
+        txControl?: Ydb.Query.ITransactionControl,
+        execMode?: Ydb.Query.ExecMode,
         statsMode?: Ydb.Query.StatsMode,
         concurrentResultSets?: boolean,
+        /**
+         * Operation timeout in ms
+         */
+        timeout: number,
     }) {
+        // Validate opts
+        // TODO: No tx control in doTx
+        if (opts.txControl?.txId) throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
+        if (this[symbols.sessionTxId]) {
+            if (opts.txControl?.beginTx) throw new Error('txControl.beginTx when there\'s already an open transaction');
+        } else {
+            if (opts.txControl?.commitTx && !opts.txControl?.beginTx) throw new Error('txControl.commitTx === true when no open transaction and there\'s no txControl.beginTx');
+        }
+
+        // Build params
         const ExecuteQueryRequestParams: IExecuteQueryRequest = {
             sessionId: this.sessionId,
             queryContent: opts.queryContent,
             execMode: opts.execMode ?? ExecMode.EXEC_MODE_EXECUTE,
         };
-        if (opts.txControl) ExecuteQueryRequestParams.txControl = opts.txControl;
+
         if (opts.parameters) ExecuteQueryRequestParams.parameters = opts.parameters;
+
         if (opts.statsMode) ExecuteQueryRequestParams.statsMode = opts.statsMode; // Where stats goes
+
+        if (opts.txControl) ExecuteQueryRequestParams.txControl = opts.txControl;
+        if (this[symbols.sessionTxId]) {
+            (ExecuteQueryRequestParams.txControl || (ExecuteQueryRequestParams.txControl = {})).txId = this[symbols.sessionTxId];
+        }
+
+        // TODO: Update txId in the result
+
         ExecuteQueryRequestParams.concurrentResultSets = opts.concurrentResultSets ?? false;
 
+        // Run operation
+        let finished = false;
         const resultSetByIndex: [iterator: IAsyncQueueIterator<Ydb.IValue>, resultSet: ResultSet][] = [];
         const resultSetIterator = buildAsyncQueueIterator<ResultSet>();
         const concurrentResultSets = ExecuteQueryRequestParams.concurrentResultSets;
         let lastRowsIterator: IAsyncQueueIterator<Ydb.IValue>;
 
+        // Timeout if any
+        const timeoutTimer = opts.timeout > 0 ? setTimeout(() => { cancel(new Error('Timeout is over')); }, opts.timeout) : undefined;
+
+        // One operation per session in a time. And it might be cancelled
+        if ([symbols.sessionCurrentOperation]) throw new Error('There\'s another active operation in the session');
+        function cancel(reason: any) {
+            if (finished) return;
+            finished = true;
+            if (timeoutTimer) clearTimeout(timeoutTimer);
+            resultSetIterator.error(reason);
+            Object.values(resultSetByIndex).forEach(([iterator]) => {
+                iterator.error(reason);
+            });
+        }
+        this[symbols.sessionCurrentOperation] = {cancel};
+
+        // Operation
         const responseStream = this.impl.grpcClient!.makeServerStreamRequest(
             Query_V1.ExecuteQuery,
             (v) => Ydb.Query.ExecuteQueryRequest.encode(v).finish() as Buffer,
@@ -209,6 +259,8 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             this.impl.metadata);
 
         responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
+            this.logger.trace('execute(): data: %o', partialResp);
+
             try {
                 // console.info(7000, partialResp);
                 ensureCallSucceeded(partialResp);
@@ -220,8 +272,8 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                 });
             }
 
-            // TODO: Check error
-            this.logger.debug('execute(): data: %o', partialResp);
+            // TODO: Process partial meta
+            // TODO: Expect to see on graceful shutdown
 
             const _index = partialResp.resultSetIndex;
             const index = Long.isLong(_index) ? (_index as Long).toInt() : (resultSetByIndex as unknown as number);
@@ -232,7 +284,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             let resultSetTuple = resultSetByIndex[index];
             if (!resultSetTuple) {
                 iterator = buildAsyncQueueIterator<Ydb.IValue>();
-                resultSet = new ResultSet(index, partialResp.resultSet!.columns as IColumn[], iterator);
+                resultSet = ResultSet[symbols.create](index, partialResp.resultSet!.columns as IColumn[], iterator);
                 resultSetIterator.push(resultSet);
                 resultSetByIndex[index] = [iterator, resultSet];
                 if (!concurrentResultSets) {
@@ -250,17 +302,17 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             if (partialResp.execStats) {
                 resultSet.execStats = partialResp.execStats;
             }
-
-            // TODO: Process partial meta
         });
 
-        responseStream.on('metadata', (metadata) => {
-            // TODO: Expect to see on graceful shutdown
-            this.logger.debug('execute(): metadata: %o', metadata);
-        });
+        // responseStream.on('metadata', (metadata) => {
+        //     this.logger.trace('execute(): metadata: %o', metadata);
+        // });
 
         responseStream.on('end', () => {
-            this.logger.debug('execute(): end');
+            this.logger.trace('execute(): end');
+
+            if (finished) return; // finished by cancel() - error or timeout
+
             resultSetIterator.end();
             if (concurrentResultSets) {
                 Object.values(resultSetByIndex).forEach(([iterator]) => {
@@ -269,24 +321,16 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             } else {
                 lastRowsIterator.end();
             }
+
+            delete this[symbols.sessionCurrentOperation];
+            finished = true;
         });
 
         responseStream.on('error', (err) => {
-            // TODO: Should wrap transport error?
-            this.logger.debug('execute(): error: %o', err);
-
-            // TODO: required: Error & GrpcStatusObject
-            // const transportErr = TransportError.convertToYdbError(err);
-            const transportErr = err;
-
-            resultSetIterator.error(transportErr);
-            Object.values(resultSetByIndex).forEach(([iterator]) => {
-                iterator.error(transportErr);
-            });
+            this.logger.trace('execute(): error: %o', err);
+            cancel(TransportError.convertToYdbError(err as Error & GrpcStatusObject));
         });
 
-        // TODO: where tx comes from
-        // TODO: single exec in a time
         // TODO: idempotent
 
         return {

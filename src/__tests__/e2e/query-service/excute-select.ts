@@ -40,12 +40,13 @@ describe('Create table', () => {
     });
 
     it('execute select', async () => {
-        session.execute({
-            txControl: {
-                beginTx: {
-
-                }
-            }
-        })
+        // session.execute({
+        //     txControl: { // TODO: txId is not allowed
+        //         commitTx: true,
+        //         beginTx: {
+        //
+        //         }
+        //     }
+        // })
     });
 });

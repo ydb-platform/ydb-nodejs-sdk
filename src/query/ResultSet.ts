@@ -1,5 +1,7 @@
 import {Ydb} from "ydb-sdk-proto";
 import {IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
+import * as symbols from './symbols';
+
 
 // TODO: Support from TypedData
 
@@ -10,7 +12,7 @@ export class ResultSet {
     public readonly rows: AsyncGenerator<Ydb.IValue, void>;
     public execStats?: Ydb.TableStats.IQueryStats; // TODO: Check that it comes for every resultSet
 
-    constructor(
+    private constructor(
         index: number,
         columns: Ydb.IColumn[],
         rowsIterator: IAsyncQueueIterator<Ydb.IValue>
@@ -18,5 +20,13 @@ export class ResultSet {
         this.index = index;
         this.columns = columns;
         this.rows = rowsIterator[Symbol.asyncIterator]();
+    }
+
+    static [symbols.create](
+        index: number,
+        columns: Ydb.IColumn[],
+        rowsIterator: IAsyncQueueIterator<Ydb.IValue>
+    ) {
+        return new ResultSet(index, columns, rowsIterator);
     }
 }

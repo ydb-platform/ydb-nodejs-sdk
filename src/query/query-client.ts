@@ -31,6 +31,9 @@ export class QueryClient extends EventEmitter {
         await this.pool.destroy();
     }
 
+    // TODO: impl do TX
+    // TODO: warn when session closed with opened TX
+
     public async do<T>(opts: {
         // ctx: ,
         // tx?: ,

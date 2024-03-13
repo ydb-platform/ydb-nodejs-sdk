@@ -10,13 +10,13 @@ import DiscoveryService from "../discovery/discovery-service";
 import {Events} from "../constants";
 import _ from "lodash";
 import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
-
 import {QuerySession} from "./query-session";
 import {IQueryClientSettings} from "./query-client";
 import {pessimizable} from "../utils";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
+import * as symbols from './symbols';
 
 export class SessionBuilder extends AuthenticatedService<QueryService> {
     public endpoint: Endpoint;
@@ -38,7 +38,7 @@ export class SessionBuilder extends AuthenticatedService<QueryService> {
         const response = await this.api.createSession(CreateSessionRequest.create());
         const {sessionId} = ensureCallSucceeded(response);
         const session = new QuerySession(this.api, this, this.endpoint, sessionId, this.logger/*, this.getResponseMetadata.bind(this)*/);
-        await session.attach(() => { session.deleteOnRelease(); });
+        await session[symbols.sessionAttach](() => { session[symbols.sessionDeleteOnRelease](); });
         return session;
     }
 }
@@ -123,7 +123,7 @@ export class QuerySessionPool extends EventEmitter {
         const sessionCreator = await this.getSessionBuilder();
         const session = await sessionCreator.create();
         session.on(SessionEvent.SESSION_RELEASE, async () => {
-            if (session.isClosing()) {
+            if (session[symbols.sessionIsClosing]()) {
                 await this.deleteSession(session);
             } else {
                 this.maybeUseSession(session);
@@ -137,7 +137,7 @@ export class QuerySessionPool extends EventEmitter {
     }
 
     private deleteSession(session: QuerySession): Promise<void> {
-        if (session.isDeleted()) {
+        if (session[symbols.sessionIsDeleted]()) {
             return Promise.resolve();
         }
 
@@ -146,7 +146,7 @@ export class QuerySessionPool extends EventEmitter {
         if (this.waiters.length > 0) {
             this.acquire().then((session) => {
                 if (!this.maybeUseSession(session)) {
-                    session.release();
+                    session[symbols.sessionRelease]();
                 }
             });
         }
@@ -160,8 +160,8 @@ export class QuerySessionPool extends EventEmitter {
 
     private acquire(timeout: number = 0): Promise<QuerySession> {
         for (const session of this.sessions) {
-            if (session.isFree()) {
-                return Promise.resolve(session.acquire());
+            if (session[symbols.sessionIsFree]()) {
+                return Promise.resolve(session[symbols.sessionAcquire]());
             }
         }
 
@@ -169,7 +169,7 @@ export class QuerySessionPool extends EventEmitter {
             this.newSessionsRequested++;
             return this.createSession()
                 .then((session) => {
-                    return session.acquire();
+                    return session[symbols.sessionAcquire]();
                 })
                 .finally(() => {
                     this.newSessionsRequested--;
@@ -180,7 +180,7 @@ export class QuerySessionPool extends EventEmitter {
 
                 function waiter(session: QuerySession) {
                     clearTimeout(timeoutId);
-                    resolve(session.acquire());
+                    resolve(session[symbols.sessionAcquire]());
                 }
 
                 if (timeout) {
@@ -199,7 +199,7 @@ export class QuerySessionPool extends EventEmitter {
     private async _withSession<T>(session: QuerySession, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
         try {
             const result = await callback(session);
-            session.release();
+            session[symbols.sessionRelease]();
             return result;
         } catch (error) {
             if (error instanceof BadSession || error instanceof SessionBusy) {
@@ -208,11 +208,11 @@ export class QuerySessionPool extends EventEmitter {
                 session = await this.createSession();
                 if (maxRetries > 0) {
                     this.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
-                    session.acquire();
+                    session[symbols.sessionAcquire]();
                     return this._withSession(session, callback, maxRetries - 1);
                 }
             } else {
-                session.release();
+                session[symbols.sessionRelease]();
             }
             throw error;
         }
