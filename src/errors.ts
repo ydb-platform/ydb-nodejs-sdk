@@ -53,7 +53,7 @@ export class YdbError extends Error {
             throw new MissingStatus('Missing status!');
         }
 
-        // if (operation.issues) operation.issues = YdbError.flatIssues(operation.issues);
+        if (operation.issues) operation.issues = YdbError.flatIssues(operation.issues);
 
         const status = operation.status as unknown as StatusCode;
         if (operation.status && !SUCCESS_CODES.has(status)) {
@@ -67,19 +67,18 @@ export class YdbError extends Error {
         }
     }
 
-    // private static flatIssues(issues: Ydb.Issue.IIssueMessage[]) {
-    //     console.info(9000, issues)
-    //     const res: Ydb.Issue.IIssueMessage[] = [];
-    //     processLevel(issues);
-    //     return res;
-    //     function processLevel(issues: Ydb.Issue.IIssueMessage[]) {
-    //         for (const issue of issues) {
-    //             res.push(issue);
-    //             if (issue.issues) processLevel(issue.issues);
-    //             delete issue.issues;
-    //         }
-    //     }
-    // }
+    private static flatIssues(issues: Ydb.Issue.IIssueMessage[]) {
+        const res: Ydb.Issue.IIssueMessage[] = [];
+        processLevel(issues);
+        return res;
+        function processLevel(issues: Ydb.Issue.IIssueMessage[]) {
+            for (const issue of issues) {
+                res.push(issue);
+                if (issue.issues) processLevel(issue.issues);
+                delete issue.issues;
+            }
+        }
+    }
 
     static status = StatusCode.STATUS_CODE_UNSPECIFIED;
     public issues: any[] | null;

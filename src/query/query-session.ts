@@ -38,6 +38,10 @@ export interface QuerySessionOperation {
     cancel(reason: any): void;
 }
 
+type IExecuteResult = {
+    resultSets: AsyncGenerator<ResultSet>,
+};
+
 export class QuerySession extends EventEmitter implements ICreateSessionResult {
     [symbols.sessionCurrentOperation]?: QuerySessionOperation;
     [symbols.sessionId]: string; // TODO: make public RO
@@ -55,9 +59,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         return this[symbols.sessionTxId];
     }
 
-
-    // TODO: make private
-    constructor( // TODO: Change to named parameters for consistency
+    private constructor( // TODO: Change to named parameters for consistency
         private api: QueryService,
         private impl: SessionBuilder,
         public endpoint: Endpoint,
@@ -75,7 +77,6 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         endpoint: Endpoint,
         sessionId: string,
         logger: Logger,
-        // TODO: Add timeout
     ) {
         return new QuerySession(api, impl, endpoint, sessionId, logger);
     }
@@ -146,10 +147,10 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     @retryable()
     @pessimizable
     public async delete(): Promise<void> {
-        if (this[symbols.sessionIsDeleted]()) return Promise.resolve();
-        if (this[symbols.sessionCurrentOperation]) throw new Error('There is an active operation');
+        if (this[symbols.sessionIsDeleted]()) return;
         this.beingDeleted = true;
-        await this.attachStream?.cancel(); // TODO: Check number of retries of cancel()
+        await this.attachStream?.cancel();
+        delete this.attachStream; // only one stream cancel even when multi ple retries
         ensureCallSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
     }
 
@@ -182,11 +183,6 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                     }
                 }
             })
-            this.attachStream.on('end', () => {
-                this.logger.trace('attach(): end');
-                // delete this.attachStream; // uncomment when reattach policy will be implemented
-                // onStreamClosed();
-            });
             this.attachStream.on('error', (err) => {
                 this.logger.trace('attach(): error: %o', err);
                 if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
@@ -197,9 +193,18 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                     reject(err);
                 }
             });
+            this.attachStream.on('end', () => {
+                this.logger.trace('attach(): end');
+                // delete this.attachStream; // uncomment when reattach policy will be implemented
+                onStreamClosed();
+            });
         });
     }
 
+    /**
+     * Finishes when the first data block is received or when the end of the stream is received. So if you are sure
+     * that the operation does not return any data, you may not process resultSets.
+     */
     public execute(opts: {
         /**
          * SQL query/DDL etc.m text.
@@ -220,9 +225,13 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
          */
         timeout?: number,
         // rowMode: , // TODO: what returns ResultSet - ??? should it be here
-    }) {
+    }): Promise<IExecuteResult> {
         // Validate opts
         if (!opts.text.trim()) throw new Error('"text" parameter is empty')
+        if (opts.parameters)
+            Object.keys(opts.parameters).forEach(n => {
+                if (!n.startsWith('$')) throw new Error(`Parameter name must start with "$": ${n}`);
+            })
         // TODO: No tx control in doTx
         // TODO: Send beingTx in first command in doTx
         if (opts.txControl?.txId) throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
@@ -242,7 +251,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             execMode: opts.execMode ?? ExecMode.EXEC_MODE_EXECUTE,
         };
         if (opts.parameters) executeQueryRequest.parameters = opts.parameters;
-        if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode; // Where stats goes
+        if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode; // TODO: Where stats goes?
         if (opts.txControl) executeQueryRequest.txControl = opts.txControl;
         executeQueryRequest.concurrentResultSets = opts.concurrentResultSets ?? false;
         if (this[symbols.sessionTxId])
@@ -257,6 +266,9 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         const resultSetIterator = buildAsyncQueueIterator<ResultSet>();
         const concurrentResultSets = executeQueryRequest.concurrentResultSets;
         let lastRowsIterator: IAsyncQueueIterator<Ydb.IValue>;
+        let resultResolve: ((data: IExecuteResult) => void) | undefined
+        let resultReject: ((reason?: any) => void) | undefined;
+        let responseStream: ClientReadableStream<Ydb.Query.ExecuteQueryResponsePart> | undefined;
 
         // Timeout if any
         const timeoutTimer =
@@ -269,20 +281,27 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         // One operation per session in a time. And it might be cancelled
         if (this[symbols.sessionCurrentOperation]) throw new Error('There\'s another active operation in the session');
 
-        function cancel(reason: any) {
+        const cancel = (reason: any, onStreamError?: boolean) => {
             if (finished) return;
             finished = true;
+            if (onStreamError !== true) responseStream!.cancel();
             if (timeoutTimer) clearTimeout(timeoutTimer);
-            resultSetIterator.error(reason);
-            Object.values(resultSetByIndex).forEach(([iterator]) => {
-                iterator.error(reason);
-            });
+            if (resultReject) {
+                resultReject(reason);
+                resultResolve = resultReject = undefined;
+            } else { // resultSet has already been returned to a client code
+                resultSetIterator.error(reason);
+                Object.values(resultSetByIndex).forEach(([iterator]) => {
+                    iterator.error(reason);
+                });
+            }
+            delete this[symbols.sessionCurrentOperation];
         }
 
         this[symbols.sessionCurrentOperation] = {cancel};
 
         // Operation
-        const responseStream = this.impl.grpcClient!.makeServerStreamRequest(
+        responseStream = this.impl.grpcClient!.makeServerStreamRequest(
             Query_V1.ExecuteQuery,
             (v) => Ydb.Query.ExecuteQueryRequest.encode(v).finish() as Buffer,
             Ydb.Query.ExecuteQueryResponsePart.decode,
@@ -293,7 +312,6 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             this.logger.trace('execute(): data: %o', partialResp);
 
             try {
-                // console.info(7000, partialResp);
                 ensureCallSucceeded(partialResp);
             } catch (ydbErr) {
                 return cancel(ydbErr);
@@ -331,15 +349,24 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                 if (partialResp.execStats) {
                     resultSet.execStats = partialResp.execStats;
                 }
+
+                if (resultResolve) {
+                    resultResolve({
+                        resultSets: resultSetIterator[Symbol.asyncIterator](), // a list with first block already in it
+                    });
+                    resultResolve = resultReject = undefined;
+                }
             }
         });
 
-        // responseStream.on('metadata', (metadata) => {
-        //     this.logger.trace('execute(): metadata: %o', metadata);
-        // });
+        responseStream.on('error', (err: Error & GrpcStatusObject) => {
+            this.logger.trace('execute(): error: %o', err);
+            if (err.code === 1) return; // skip "cancelled on client" error
+            cancel(TransportError.convertToYdbError(err), true);
+        });
 
         responseStream.on('end', () => {
-            if (finished) return; // finished by cancel() - error or timeout. note: got to be before any logging, so Jest would no complain
+            if (finished) return; // finished by cancel() - error or timeout. note: got to be before any logging, so Jest would not complain on logging after test end
 
             this.logger.trace('execute(): end');
 
@@ -349,20 +376,23 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                     iterator.end();
                 });
             } else {
-                lastRowsIterator.end();
+                lastRowsIterator?.end();
+            }
+
+            if (resultResolve) {
+                resultResolve({
+                    resultSets: resultSetIterator[Symbol.asyncIterator](), // an empty list
+                });
+                resultResolve = resultReject = undefined;
             }
 
             delete this[symbols.sessionCurrentOperation];
             finished = true;
         });
 
-        responseStream.on('error', (err) => {
-            this.logger.trace('execute(): error: %o', err);
-            cancel(TransportError.convertToYdbError(err as Error & GrpcStatusObject));
-        });
-
-        return {
-            resultSets: resultSetIterator[Symbol.asyncIterator](),
-        }
+        return new Promise<IExecuteResult>((resolve, reject) => {
+            resultResolve = resolve;
+            resultReject = reject;
+        })
     }
 }
