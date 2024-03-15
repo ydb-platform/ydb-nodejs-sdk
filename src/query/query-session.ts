@@ -207,7 +207,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
      */
     public execute(opts: {
         /**
-         * SQL query/DDL etc.m text.
+         * SQL query / DDL etc.
          *
          */
         text: string,
@@ -250,6 +250,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
             },
             execMode: opts.execMode ?? ExecMode.EXEC_MODE_EXECUTE,
         };
+        console.info(7000, opts.concurrentResultSets)
         if (opts.parameters) executeQueryRequest.parameters = opts.parameters;
         if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode; // TODO: Where stats goes?
         if (opts.txControl) executeQueryRequest.txControl = opts.txControl;
@@ -335,7 +336,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                     resultSetIterator.push(resultSet);
                     resultSetByIndex[index] = [iterator, resultSet];
                     if (!concurrentResultSets) {
-                        lastRowsIterator.end();
+                        lastRowsIterator?.end();
                         lastRowsIterator = iterator;
                     }
                 } else {

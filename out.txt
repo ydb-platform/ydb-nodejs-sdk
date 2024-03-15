@@ -1,5 +1,0 @@
-
-> ydb-sdk@5.1.1 test:integration:development
-> cross-env TEST_ENVIRONMENT=dev jest --config jest.config.development.js src/__tests__/e2e/query-service/execute.ts
-
-Terminate batch job (Y/N)? 
