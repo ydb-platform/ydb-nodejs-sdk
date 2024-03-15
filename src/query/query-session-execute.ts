@@ -17,6 +17,7 @@ import IColumn = Ydb.IColumn;
 
 type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
+    execStats?: Ydb.TableStats.IQueryStats;
 };
 
 /**
@@ -88,6 +89,8 @@ export function execute(this: QuerySession, opts: {
     let resultResolve: ((data: IExecuteResult) => void) | undefined
     let resultReject: ((reason?: any) => void) | undefined;
     let responseStream: ClientReadableStream<Ydb.Query.ExecuteQueryResponsePart> | undefined;
+    let execStats: Ydb.TableStats.IQueryStats | undefined;
+
 
 // Timeout if any
     const timeoutTimer =
@@ -136,9 +139,6 @@ export function execute(this: QuerySession, opts: {
             return cancel(ydbErr);
         }
 
-        // TODO: Process partial meta
-        // TODO: Expect to see on graceful shutdown
-
         if (partialResp.resultSet) {
 
             const _index = partialResp.resultSetIndex;
@@ -165,22 +165,26 @@ export function execute(this: QuerySession, opts: {
                 iterator.push(row);
             }
 
-            if (partialResp.execStats) {
-                resultSet.execStats = partialResp.execStats;
-            }
-
             if (resultResolve) {
                 resultResolve({
                     resultSets: resultSetIterator[Symbol.asyncIterator](), // a list with first block already in it
+                    get execStats() { return execStats },
                 });
                 resultResolve = resultReject = undefined;
             }
         }
+
+        if (partialResp.execStats) {
+            execStats = partialResp.execStats;
+        }
+
+        // TODO: Process partial meta
+        // TODO: Expect to see on graceful shutdown
     });
 
     responseStream.on('error', (err: Error & GrpcStatusObject) => {
         this[logger].trace('execute(): error: %o', err);
-        if (err.code === 1) return; // skip "cancelled on client" error
+        if (err.code === 1) return; // skip "cancelled" error
         cancel(TransportError.convertToYdbError(err), true);
     });
 
@@ -201,6 +205,7 @@ export function execute(this: QuerySession, opts: {
         if (resultResolve) {
             resultResolve({
                 resultSets: resultSetIterator[Symbol.asyncIterator](), // an empty list
+                get execStats() { return execStats },
             });
             resultResolve = resultReject = undefined;
         }

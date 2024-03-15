@@ -10,7 +10,6 @@ export class ResultSet {
     public readonly index: number;
     public readonly columns: Ydb.IColumn[]
     public readonly rows: AsyncGenerator<Ydb.IValue, void>;
-    public execStats?: Ydb.TableStats.IQueryStats; // TODO: Check that it comes for every resultSet
 
     private constructor(
         index: number,
