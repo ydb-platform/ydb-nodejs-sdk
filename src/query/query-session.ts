@@ -164,7 +164,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         if (this.attachStream) throw new Error('Already attached');
         let connected = false;
         await this.impl.updateMetadata();
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             this.attachStream = this.impl.grpcClient!.makeServerStreamRequest(
                 Query_V1.AttachSession,
                 (v) => Ydb.Query.AttachSessionRequest.encode(v).finish() as Buffer,
@@ -177,20 +177,23 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
                     connected = true;
                     try {
                         ensureCallSucceeded(partialResp);
-                        resolve(undefined);
+                        resolve();
                     } catch (err) {
                         reject(err);
                     }
                 }
-            })
-            this.attachStream.on('error', (err) => {
+            });
+            this.attachStream.on('metadata', (metadata) => {
+                this.logger.trace('attach(): metadata: %o', metadata);
+            });
+            // TODO: Ensure that on-error always returns GrpcStatusObject
+            this.attachStream.on('error', (err: Error & GrpcStatusObject) => {
                 this.logger.trace('attach(): error: %o', err);
-                if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
                 if (connected) {
                     // delete this.attachStream; // uncomment when reattach policy will be implemented
                     onStreamClosed();
                 } else {
-                    reject(err);
+                    reject(TransportError.convertToYdbError(err));
                 }
             });
             this.attachStream.on('end', () => {
