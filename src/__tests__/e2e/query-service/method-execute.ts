@@ -13,27 +13,19 @@ const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
 const TABLE_NAME = 'test_table_20240313'
 
-const USE_ONLY_ONE_SESSION = true;
-
 describe('Query.execute()', () => {
 
     let discoveryService: DiscoveryService;
     let session: QuerySession;
 
     beforeAll(async () => {
-        if (USE_ONLY_ONE_SESSION)
-            await testOnOneSessionWithoutDriver();
-        else {
-            // TODO: Make tests on driver client
-        }
+        await testOnOneSessionWithoutDriver();
     });
 
     afterAll(async () => {
-        if (USE_ONLY_ONE_SESSION) {
-            discoveryService.destroy();
-            await session[symbols.sessionRelease]();
-            await session.delete();
-        } else {}
+        discoveryService.destroy();
+        await session[symbols.sessionRelease]();
+        await session.delete();
     });
 
     it('create table', async () => {

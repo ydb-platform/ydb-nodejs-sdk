@@ -15,7 +15,7 @@ import {impl, logger, Query_V1, QuerySession} from "./query-session";
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import IColumn = Ydb.IColumn;
 
-type IExecuteResult = {
+export type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
     execStats?: Ydb.TableStats.IQueryStats;
 };
@@ -92,6 +92,7 @@ export function execute(this: QuerySession, opts: {
 
 
 // Timeout if any
+    // TODO: Change to ctx.withTimout once Context will be finished
     const timeoutTimer =
         typeof opts.timeout === 'number' && opts.timeout > 0 ?
             setTimeout(() => {
@@ -143,6 +144,11 @@ export function execute(this: QuerySession, opts: {
         const {resultSet, ...rest} = partialResp;
         console.info(8200, rest);
 
+        if (partialResp.txMeta?.id)
+            this[symbols.sessionTxId] = partialResp.txMeta!.id;
+        else
+            delete this[symbols.sessionTxId];
+
         if (partialResp.resultSet) {
 
             const _index = partialResp.resultSetIndex;
@@ -172,7 +178,9 @@ export function execute(this: QuerySession, opts: {
             if (resultResolve) {
                 resultResolve({
                     resultSets: resultSetIterator[Symbol.asyncIterator](), // a list with first block already in it
-                    get execStats() { return execStats },
+                    get execStats() {
+                        return execStats
+                    },
                 });
                 resultResolve = resultReject = undefined;
             }
@@ -214,7 +222,9 @@ export function execute(this: QuerySession, opts: {
         if (resultResolve) {
             resultResolve({
                 resultSets: resultSetIterator[Symbol.asyncIterator](), // an empty list
-                get execStats() { return execStats },
+                get execStats() {
+                    return execStats
+                },
             });
             resultResolve = resultReject = undefined;
         }
@@ -226,5 +236,5 @@ export function execute(this: QuerySession, opts: {
     return new Promise<IExecuteResult>((resolve, reject) => {
         resultResolve = resolve;
         resultReject = reject;
-    })
+    });
 }
