@@ -5,7 +5,7 @@ import {getLogger} from "../../../logging";
 import {SessionBuilder} from "../../../query/query-session-pool";
 import {QuerySession} from "../../../query/query-session";
 import * as symbols from "../../../query/symbols";
-import {TypedValues} from "../../../types";
+import {declareType, TypedData, TypedValues, Types} from "../../../types";
 import {Ydb} from "ydb-sdk-proto";
 import StatsMode = Ydb.Query.StatsMode;
 
@@ -13,41 +13,28 @@ const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
 const TABLE_NAME = 'test_table_20240313'
 
+const USE_ONLY_ONE_SESSION = true;
+
 describe('Query.execute()', () => {
 
     let discoveryService: DiscoveryService;
     let session: QuerySession;
 
     beforeAll(async () => {
-        const logger = getLogger();
-        const authService = new AnonymousAuthService();
-
-        discoveryService = new DiscoveryService({
-            endpoint: ENDPOINT,
-            database: DATABASE,
-            authService,
-            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
-            logger,
-        });
-
-        await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
-
-        const sessionBuilder = new SessionBuilder(
-            await discoveryService.getEndpoint(),
-            DATABASE,
-            authService,
-            logger,
-        );
-
-        session = await sessionBuilder.create();
+        if (USE_ONLY_ONE_SESSION)
+            await testOnOneSessionWithoutDriver();
+        else {
+            // TODO: Make tests on driver client
+        }
     });
 
     afterAll(async () => {
-        discoveryService.destroy();
-        await session[symbols.sessionRelease]();
-        await session.delete();
+        if (USE_ONLY_ONE_SESSION) {
+            discoveryService.destroy();
+            await session[symbols.sessionRelease]();
+            await session.delete();
+        } else {}
     });
-
 
     it('create table', async () => {
         await createTestTable();
@@ -92,7 +79,7 @@ describe('Query.execute()', () => {
         {mode: StatsMode.STATS_MODE_PROFILE, isExpected: true},
     ])
     {
-        it.only(`statsMode: ${StatsMode[mode]}`, async () => {
+        it(`statsMode: ${StatsMode[mode]}`, async () => {
             await createTestTable();
             await insertCupleLinesInTestTable();
             const res = await simpleSelect(mode);
@@ -107,9 +94,45 @@ describe('Query.execute()', () => {
         });
     }
 
+    it('check iterator on multi parts stream', async () => {
+        await createTestTable();
+
+        const generatedRowsCount = 5000;
+
+        function *dataGenerator(rowsCount: number) {
+            for (let id = 1; id <= rowsCount; id++)
+                yield new Row({
+                    id,
+                    title: `title_${id}`,
+                    time: new Date(),
+                })
+        }
+
+        await session.execute({
+            text: `
+                UPSERT INTO ${TABLE_NAME} (id, title, time)
+                SELECT id, title, time FROM AS_TABLE($table)
+            `,
+            parameters: {
+                '$table': Row.asTypedCollection([...dataGenerator(generatedRowsCount)]),
+            }
+        });
+
+        const res = await simpleSelect();
+
+        let linesCount = 0;
+        for await (const resultSet of res.resultSets)
+            for await (const _row of resultSet.rows)
+                linesCount++;
+
+        expect(linesCount).toBe(2 * generatedRowsCount);
+    });
+
     // number of operations under one transaction
     // doTx - txControl
+    // convert to native type
     // update / insert
+    // error
     // timeout
 
     async function createTestTable() {
@@ -130,16 +153,20 @@ describe('Query.execute()', () => {
     async function insertCupleLinesInTestTable() {
         await session.execute({
             parameters: {
-                '$id': TypedValues.uint64(1),
-                '$title': TypedValues.text('Some title1'),
+                '$id1': TypedValues.uint64(1),
+                '$title1': TypedValues.text('Some title1'),
+                '$id2': TypedValues.uint64(2),
+                '$title2': TypedValues.text('Some title2'),
                 '$timestamp': TypedValues.timestamp(new Date()),
             },
             text: `
                 INSERT INTO ${TABLE_NAME} (id, title, time)
-                VALUES ($id, $title, $timestamp);
+                VALUES ($id1, $title1, $timestamp);
+                INSERT INTO ${TABLE_NAME} (id, title, time)
+                VALUES ($id2, $title2, $timestamp);
             `,
         });
-        return 1;
+        return 2;
     }
 
     async function simpleSelect(statsMode?: Ydb.Query.StatsMode) {
@@ -151,7 +178,55 @@ describe('Query.execute()', () => {
                 SELECT * -- double
                 FROM ${TABLE_NAME};
             `,
-            concurrentResultSets: false,
+            // concurrentResultSets: false,
         });
     }
+
+    async function testOnOneSessionWithoutDriver() {
+        const logger = getLogger();
+        const authService = new AnonymousAuthService();
+
+        discoveryService = new DiscoveryService({
+            endpoint: ENDPOINT,
+            database: DATABASE,
+            authService,
+            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
+            logger,
+        });
+
+        await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
+
+        const sessionBuilder = new SessionBuilder(
+            await discoveryService.getEndpoint(),
+            DATABASE,
+            authService,
+            logger,
+        );
+
+        session = await sessionBuilder.create();
+    }
 });
+
+interface IRow {
+    id: number;
+    title: string;
+    time: Date;
+}
+
+class Row extends TypedData {
+    @declareType(Types.UINT64)
+    public id: number;
+
+    @declareType(Types.UTF8)
+    public title: string;
+
+    @declareType(Types.DATETIME)
+    public time: Date;
+
+    constructor(data: IRow) {
+        super(data);
+        this.id = data.id;
+        this.title = data.title;
+        this.time = data.time;
+    }
+}

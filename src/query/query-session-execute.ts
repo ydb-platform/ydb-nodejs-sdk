@@ -69,7 +69,6 @@ export function execute(this: QuerySession, opts: {
         },
         execMode: opts.execMode ?? Ydb.Query.ExecMode.EXEC_MODE_EXECUTE,
     };
-    console.info(7000, opts.concurrentResultSets)
     if (opts.parameters) executeQueryRequest.parameters = opts.parameters;
     if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode; // TODO: Where stats goes?
     if (opts.txControl) executeQueryRequest.txControl = opts.txControl;
@@ -133,11 +132,16 @@ export function execute(this: QuerySession, opts: {
     responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
         this[logger].trace('execute(): data: %o', partialResp);
 
+        console.info(8000, 'data')
+
         try {
             ensureCallSucceeded(partialResp);
         } catch (ydbErr) {
             return cancel(ydbErr);
         }
+
+        const {resultSet, ...rest} = partialResp;
+        console.info(8200, rest);
 
         if (partialResp.resultSet) {
 
@@ -178,14 +182,19 @@ export function execute(this: QuerySession, opts: {
             execStats = partialResp.execStats;
         }
 
-        // TODO: Process partial meta
-        // TODO: Expect to see on graceful shutdown
+        partialResp.txMeta
+
     });
 
     responseStream.on('error', (err: Error & GrpcStatusObject) => {
         this[logger].trace('execute(): error: %o', err);
         if (err.code === 1) return; // skip "cancelled" error
         cancel(TransportError.convertToYdbError(err), true);
+    });
+
+    responseStream.on('metadata', (_metadata) => {
+        // TODO: Process partial meta
+        // TODO: Expect to see on graceful shutdown
     });
 
     responseStream.on('end', () => {
