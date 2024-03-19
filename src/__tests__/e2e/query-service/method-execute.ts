@@ -119,7 +119,7 @@ describe('Query.execute()', () => {
             text: 'SELECT 1;',
         });
 
-        drainExecuteResult(res);
+        await drainExecuteResult(res);
 
         expect(res.execStats?.queryPlan).toBeDefined();
         expect(res.execStats?.queryAst).toBeDefined();
@@ -127,7 +127,7 @@ describe('Query.execute()', () => {
 
     it('ExecMode: EXEC_MODE_EXECUTE | undefined', async () => {
         for (const execMode of [ExecMode.EXEC_MODE_EXECUTE, undefined])
-            drainExecuteResult(await session.execute({
+            await drainExecuteResult(await session.execute({
                 execMode,
                 text: 'SELECT 1;',
             }));
