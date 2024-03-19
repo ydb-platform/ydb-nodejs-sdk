@@ -1,3 +1,10 @@
+// number of operations under one transaction
+// doTx - txControl
+// convert to native type
+// update / insert
+// error
+// timeout
+
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
@@ -8,6 +15,8 @@ import * as symbols from "../../../query/symbols";
 import {declareType, TypedData, TypedValues, Types} from "../../../types";
 import {Ydb} from "ydb-sdk-proto";
 import StatsMode = Ydb.Query.StatsMode;
+import ExecMode = Ydb.Query.ExecMode;
+import {IExecuteResult} from "../../../query/query-session-execute";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
@@ -63,21 +72,82 @@ describe('Query.execute()', () => {
         expect(linesCount).toBe(2 * linesInserted);
     });
 
+    it('ExecMode: EXEC_MODE_UNSPECIFIED', async () => {
+        await expect(async () => await session.execute({
+                execMode: ExecMode.EXEC_MODE_UNSPECIFIED,
+                text: 'SELECT 1;',
+            })
+        ).rejects.toThrowError(new Error('BadRequest (code 400010): [\n' + // TODO: Find out why
+            '  {\n' +
+            '    "message": "Unexpected query mode",\n' +
+            '    "severity": 1\n' +
+            '  }\n' +
+            ']'));
+    });
+
+    it('ExecMode: EXEC_MODE_PARSE', async () => {
+        await expect(async () =>
+            await session.execute({
+                execMode: ExecMode.EXEC_MODE_PARSE,
+                text: 'SELECT 1;',
+            })
+        ).rejects.toThrowError(new Error('BadRequest (code 400010): [\n' + // TODO: Figure out why
+            '  {\n' +
+            '    "message": "Unexpected query mode",\n' +
+            '    "severity": 1\n' +
+            '  }\n' +
+            ']'));
+    });
+
+    it('ExecMode: EXEC_MODE_VALIDATE', async () => {
+        await expect(async () =>
+            await session.execute({
+                execMode: ExecMode.EXEC_MODE_VALIDATE,
+                text: 'SELECT 1;',
+            })
+        ).rejects.toThrowError(new Error('BadRequest (code 400010): [\n' + // TODO: Figure out why
+            '  {\n' +
+            '    "message": "Unexpected query type.",\n' +
+            '    "severity": 1\n' +
+            '  }\n' +
+            ']'));
+    });
+
+    it('ExecMode: EXEC_MODE_EXPLAIN', async () => {
+        const res = await session.execute({
+            execMode: ExecMode.EXEC_MODE_EXPLAIN,
+            text: 'SELECT 1;',
+        });
+
+        drainExecuteResult(res);
+
+        expect(res.execStats?.queryPlan).toBeDefined();
+        expect(res.execStats?.queryAst).toBeDefined();
+    });
+
+    it('ExecMode: EXEC_MODE_EXECUTE | undefined', async () => {
+        for (const execMode of [ExecMode.EXEC_MODE_EXECUTE, undefined])
+            drainExecuteResult(await session.execute({
+                execMode,
+                text: 'SELECT 1;',
+            }));
+    });
+
     for (const {mode, isExpected} of [
         {mode: StatsMode.STATS_MODE_UNSPECIFIED, isExpected: false},
         {mode: StatsMode.STATS_MODE_NONE, isExpected: false},
         {mode: StatsMode.STATS_MODE_BASIC, isExpected: true},
         {mode: StatsMode.STATS_MODE_FULL, isExpected: true},
         {mode: StatsMode.STATS_MODE_PROFILE, isExpected: true},
-    ])
-    {
+    ]) {
         it(`statsMode: ${StatsMode[mode]}`, async () => {
             await createTestTable();
             await insertCupleLinesInTestTable();
             const res = await simpleSelect(mode);
 
             for await (const resultSet of res.resultSets)
-                for await (const _row of resultSet.rows) {}
+                for await (const _row of resultSet.rows) {
+                }
 
             if (isExpected)
                 expect(res.execStats).not.toBeUndefined();
@@ -91,7 +161,7 @@ describe('Query.execute()', () => {
 
         const generatedRowsCount = 5000;
 
-        function *dataGenerator(rowsCount: number) {
+        function* dataGenerator(rowsCount: number) {
             for (let id = 1; id <= rowsCount; id++)
                 yield new Row({
                     id,
@@ -119,13 +189,6 @@ describe('Query.execute()', () => {
 
         expect(linesCount).toBe(2 * generatedRowsCount);
     });
-
-    // number of operations under one transaction
-    // doTx - txControl
-    // convert to native type
-    // update / insert
-    // error
-    // timeout
 
     async function createTestTable() {
         await session.execute({
@@ -196,6 +259,12 @@ describe('Query.execute()', () => {
         );
 
         session = await sessionBuilder.create();
+    }
+
+    async function drainExecuteResult(res: IExecuteResult) {
+        for await (const rs of res.resultSets)
+            for await (const _row of rs.rows) {
+            }
     }
 });
 

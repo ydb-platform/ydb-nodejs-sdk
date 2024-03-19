@@ -76,9 +76,6 @@ export function execute(this: QuerySession, opts: {
     if (this[symbols.sessionTxId])
         (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[symbols.sessionTxId];
 
-// TODO: Update txId in the result
-    console.info(3000, 'executeQueryRequest:', executeQueryRequest);
-
 // Run the operation
     let finished = false;
     const resultSetByIndex: [iterator: IAsyncQueueIterator<Ydb.IValue>, resultSet: ResultSet][] = [];
@@ -133,16 +130,11 @@ export function execute(this: QuerySession, opts: {
     responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
         this[logger].trace('execute(): data: %o', partialResp);
 
-        console.info(8000, 'data')
-
         try {
             ensureCallSucceeded(partialResp);
         } catch (ydbErr) {
             return cancel(ydbErr);
         }
-
-        const {resultSet, ...rest} = partialResp;
-        console.info(8200, rest);
 
         if (partialResp.txMeta?.id)
             this[symbols.sessionTxId] = partialResp.txMeta!.id;

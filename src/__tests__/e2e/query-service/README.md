@@ -1,4 +1,5 @@
-If test with [CREATE TABLE](https://ydb.tech/docs/en/yql/reference/syntax/create_table) returns an error, first make sure last build of YDB image is in use.
+If test with [CREATE TABLE](https://ydb.tech/docs/en/yql/reference/syntax/create_table) returns
+an error, first make sure last build of YDB image is in use.
 
 `ghcr.io/ydb-platform/local-ydb:nightly`
 

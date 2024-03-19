@@ -531,7 +531,6 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
         const metadata = this.getResponseMetadata(request);
         if (metadata) {
             const serverHints = metadata.get(ResponseMetadataKeys.ServerHints) || [];
-            console.info(9999, serverHints);
             if (serverHints.includes('session-close')) {
                 this.closing = true;
             }
