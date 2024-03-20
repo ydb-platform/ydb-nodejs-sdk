@@ -1,15 +1,4 @@
-// begin
-// commit
-// rollback
-
-// execute all
-// execute begin
-// execute commit
-// forgot
-
 // session should autocimmit at the end
-// session should rollback in case of failure
-
 // doTx locks manipulations with tx
 
 import {getLogger} from "../../../logging";

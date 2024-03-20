@@ -1,7 +1,3 @@
-/**
- * Finishes when the first data block is received or when the end of the stream is received. So if you are sure
- * that the operation does not return any data, you may not process resultSets.
- */
 import {Ydb} from "ydb-sdk-proto";
 import * as symbols from "./symbols";
 import {buildAsyncQueueIterator, IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
@@ -43,6 +39,7 @@ export function execute(this: QuerySession, opts: {
      * Operation timeout in ms
      */
     timeout?: number,
+    // idempotent: , // TODO: Keep in session, was there an non-idempotent opеration
     // rowMode: , // TODO: what returns ResultSet - ??? should it be here
 }): Promise<IExecuteResult> {
     // Validate opts
