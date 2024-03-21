@@ -48,13 +48,16 @@ export function execute(this: QuerySession, opts: {
         Object.keys(opts.parameters).forEach(n => {
             if (!n.startsWith('$')) throw new Error(`Parameter name must start with "$": ${n}`);
         })
-// TODO: No tx control in doTx
-// TODO: Send beingTx in first command in doTx
-    if (opts.txControl?.txId) throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
+    if (opts.txControl && this[symbols.sessionTxSettings])
+        throw new Error('Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used');
+    if (opts.txControl?.txId)
+        throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
     if (this[symbols.sessionTxId]) {
-        if (opts.txControl?.beginTx) throw new Error('txControl.beginTx when there\'s already an open transaction');
+        if (opts.txControl?.beginTx)
+            throw new Error('txControl.beginTx when there\'s already an open transaction');
     } else {
-        if (opts.txControl?.commitTx && !opts.txControl?.beginTx) throw new Error('txControl.commitTx === true when no open transaction and there\'s no txControl.beginTx');
+        if (opts.txControl?.commitTx && !opts.txControl?.beginTx)
+            throw new Error('txControl.commitTx === true when no open transaction and there\'s no txControl.beginTx');
     }
 
 // Build params
@@ -66,12 +69,15 @@ export function execute(this: QuerySession, opts: {
         },
         execMode: opts.execMode ?? Ydb.Query.ExecMode.EXEC_MODE_EXECUTE,
     };
+    if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode;
     if (opts.parameters) executeQueryRequest.parameters = opts.parameters;
-    if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode; // TODO: Where stats goes?
-    if (opts.txControl) executeQueryRequest.txControl = opts.txControl;
-    executeQueryRequest.concurrentResultSets = opts.concurrentResultSets ?? false;
+    if (this[symbols.sessionTxSettings] && !this[symbols.sessionTxId])
+        executeQueryRequest.txControl = {beginTx: this[symbols.sessionTxSettings], commitTx: false};
+    else if (opts.txControl)
+        executeQueryRequest.txControl = opts.txControl;
     if (this[symbols.sessionTxId])
         (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[symbols.sessionTxId];
+    executeQueryRequest.concurrentResultSets = opts.concurrentResultSets ?? false;
 
 // Run the operation
     let finished = false;

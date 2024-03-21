@@ -9,7 +9,7 @@ import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
 import {Events} from "../constants";
 import _ from "lodash";
-import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
+import {/*BadSession, SessionBusy,*/ SessionPoolEmpty} from "../errors";
 import {QuerySession} from "./query-session";
 import {IQueryClientSettings} from "./query-client";
 import {pessimizable} from "../utils";
@@ -53,7 +53,7 @@ export class QuerySessionPool extends EventEmitter {
     private readonly authService: IAuthService;
     private readonly sslCredentials?: ISslCredentials;
     private readonly clientOptions?: ClientOptions;
-    private readonly minLimit: number;
+    /*private readonly*/ minLimit: number;
     private readonly maxLimit: number;
     private readonly sessions: Set<QuerySession>;
     private readonly sessionBuilders: Map<Endpoint, SessionBuilder>;
@@ -84,13 +84,13 @@ export class QuerySessionPool extends EventEmitter {
         this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
             this.sessionBuilders.delete(endpoint);
         });
-        this.prepopulateSessions();
+        // this.prepopulateSessions();
     }
 
     public async destroy(): Promise<void> {
-        this.logger.debug('Destroying pool...');
+        this.logger.debug('Destroying query pool...');
         await Promise.all(_.map([...this.sessions], (session: QuerySession) => this.deleteSession(session)));
-        this.logger.debug('Pool has been destroyed.');
+        this.logger.debug('Query pool has been destroyed.');
     }
 
     // TODO: Uncomment after switch to TS 5.3
@@ -98,9 +98,10 @@ export class QuerySessionPool extends EventEmitter {
     //     return this.destroy();
     // }
 
-    private prepopulateSessions() {
-        _.forEach(_.range(this.minLimit), () => this.createSession());
-    }
+    // TODO: Reconsider.  Seems like bad idea for sereverless functions and causes problems on quick dispose
+    // private prepopulateSessions() {
+    //     _.forEach(_.range(this.minLimit), () => this.createSession());
+    // }
 
     private async getSessionBuilder(): Promise<SessionBuilder> {
         const endpoint = await this.discoveryService.getEndpoint();
@@ -161,7 +162,7 @@ export class QuerySessionPool extends EventEmitter {
             });
     }
 
-    private acquire(timeout: number = 0): Promise<QuerySession> {
+    public acquire(timeout: number = 0): Promise<QuerySession> {
         for (const session of this.sessions) {
             if (session[symbols.sessionIsFree]()) {
                 return Promise.resolve(session[symbols.sessionAcquire]());
@@ -197,37 +198,5 @@ export class QuerySessionPool extends EventEmitter {
                 this.waiters.push(waiter);
             });
         }
-    }
-
-    private async _withSession<T>(session: QuerySession, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
-        try {
-            const result = await callback(session);
-            session[symbols.sessionRelease]();
-            return result;
-        } catch (error) {
-            if (error instanceof BadSession || error instanceof SessionBusy) {
-                this.logger.debug('Encountered bad or busy session, re-creating the session');
-                session.emit(SessionEvent.SESSION_BROKEN);
-                session = await this.createSession();
-                if (maxRetries > 0) {
-                    this.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
-                    session[symbols.sessionAcquire]();
-                    return this._withSession(session, callback, maxRetries - 1);
-                }
-            } else {
-                session[symbols.sessionRelease]();
-            }
-            throw error;
-        }
-    }
-
-    public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
-        const session = await this.acquire(timeout);
-        return this._withSession(session, callback);
-    }
-
-    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
-        const session = await this.acquire(timeout);
-        return this._withSession(session, callback, maxRetries);
     }
 }

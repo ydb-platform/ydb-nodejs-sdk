@@ -46,6 +46,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     [symbols.sessionCurrentOperation]?: QuerySessionOperation;
     [symbols.sessionId]: string;
     [symbols.sessionTxId]?: string;
+    [symbols.sessionTxSettings]?: Ydb.Query.ITransactionSettings;
 
     // TODO: Add doTx transaction settings
 

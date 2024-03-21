@@ -15,4 +15,5 @@ export const sessionAttach = Symbol('sessionAttach');
 
 export const sessionId = Symbol('sessionId');
 export const sessionTxId = Symbol('sessionTxId');
+export const sessionTxSettings = Symbol('sessionTxSettings');
 export const sessionCurrentOperation = Symbol('sessionCurrentOperation');
