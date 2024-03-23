@@ -11,9 +11,10 @@ import * as symbols from './symbols';
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 
 import {attach as attachImpl} from './query-session-attach';
-import {execute as executeImpl} from './query-session-execute';
+import {CANNOT_MANAGE_TRASACTIONS_ERROR, execute as executeImpl} from './query-session-execute';
 import {
-    beginTransaction as beginTransactionImpl,
+    beginTransaction,
+    beginTransaction as beginTransactionImpl, commitTransaction,
     commitTransaction as commitTransactionImpl,
     rollbackTransaction as rollbackTransactionImpl
 } from './query-session-transaction';
@@ -40,7 +41,6 @@ export interface QuerySessionOperation {
 export const api = Symbol('api');
 export const impl = Symbol('impl');
 export const attachStream = Symbol('attachStream');
-export const logger = Symbol('logger');
 
 export class QuerySession extends EventEmitter implements ICreateSessionResult {
     [symbols.sessionCurrentOperation]?: QuerySessionOperation;
@@ -52,7 +52,6 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
 
     // private fields, available in the methods placed in separated files
     [impl]: SessionBuilder;
-    [logger]: Logger;
     [attachStream]?: ClientReadableStream<Ydb.Query.SessionState>;
     [api]: QueryService;
 
@@ -74,13 +73,12 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         _impl: SessionBuilder,
         public endpoint: Endpoint,
         sessionId: string,
-        _logger: Logger,
+        public readonly logger: Logger,
         // TODO: Add timeout
     ) {
         super();
         this[api] = _api;
         this[impl] = _impl;
-        this[logger] = _logger;
         this[symbols.sessionId] = sessionId;
     }
 
@@ -96,14 +94,14 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
 
     [symbols.sessionAcquire]() {
         this.free = false;
-        this[logger].debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
+        this.logger.debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         return this;
     }
 
     [symbols.sessionRelease]() {
         if (this[symbols.sessionCurrentOperation]) throw new Error('There is an active operation');
         this.free = true;
-        this[logger].debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
+        this.logger.debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         this.emit(SessionEvent.SESSION_RELEASE, this);
     }
 
@@ -140,9 +138,24 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
 
     [symbols.sessionAttach] = attachImpl;
 
-    public beginTransaction = beginTransactionImpl;
-    public commitTransaction = commitTransactionImpl;
-    public rollbackTransaction = rollbackTransactionImpl;
+    public async beginTransaction(txSettings: Ydb.Query.ITransactionSettings | null = null) {
+        if (this[symbols.sessionTxSettings]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
+        return beginTransaction.call(this, txSettings);
+    }
+
+    public async commitTransaction() {
+        if (this[symbols.sessionTxSettings]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
+        return commitTransaction.call(this);
+    }
+
+    public async rollbackTransaction() {
+        if (this[symbols.sessionTxSettings]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
+        return rollbackTransactionImpl.call(this);
+    }
+
+    public [symbols.sessionBeginTransaction] = beginTransactionImpl;
+    public [symbols.sessionCommitTransaction] = commitTransactionImpl;
+    public [symbols.sessionRollbackTransaction] = rollbackTransactionImpl;
 
     public execute = executeImpl;
 }

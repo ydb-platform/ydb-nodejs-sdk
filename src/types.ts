@@ -360,6 +360,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
 };
 
 export function convertYdbValueToNative(type: IType, value: IValue): any {
+    // TODO: Performance may be increased if this logic will return simple light type converters based on type
     if (type.typeId) {
         if (type.typeId === PrimitiveTypeId.UUID) {
             return uuidToNative(value);

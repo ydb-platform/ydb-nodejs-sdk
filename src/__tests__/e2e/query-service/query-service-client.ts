@@ -1,16 +1,15 @@
 import Driver from "../../../driver";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {IExecuteResult} from "../../../query/query-session-execute";
-// @ts-ignore
 import * as errors from "../../../errors";
 import path from "path";
 import fs from "fs";
+import {AUTO_TX} from "../../../table";
 import {QuerySession} from "../../../query/query-session";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2135';
 // const TABLE_NAME = 'test_table_20240313'
-const SESSION_MAX_LIMIT = 2;
 
 describe('Query client', () => {
 
@@ -29,10 +28,6 @@ describe('Query client', () => {
             database: DATABASE,
             authService: new AnonymousAuthService(),
             sslCredentials,
-            poolSettings: {
-                minLimit: 1, // TODO: Reconsider. Currently disabled
-                maxLimit: SESSION_MAX_LIMIT,
-            }
         });
         if (!(await driver.ready(3000))) throw new Error('Driver is not ready!');
     });
@@ -40,42 +35,112 @@ describe('Query client', () => {
     afterAll(async () => await driver?.destroy());
 
     it('Query client do()', async () => {
-        const usedSessions: QuerySession[] = [];
-        let prevSession: QuerySession;
         let count = 0;
+        let prevSession: QuerySession;
         const res = await driver.queryClient.do({
             fn: async (session) => {
                 count++;
 
-                // use different session for every attempt
-                if (count > 1) expect(prevSession.sessionId).not.toBe(session.sessionId);
-                prevSession = session;
+                if (prevSession) expect(prevSession).toBe(session); // session gets reused
 
-                // reuse existing sessions
-                if (count > SESSION_MAX_LIMIT) expect(usedSessions.findIndex(v => v === session)).not.toBe(-1);
-                usedSessions.push(session);
+                expect(session.txId).not.toBeDefined();
 
-                // force new attempt
-                if (count < 4) throw new errors.Unavailable('test'); // an fast backoff error
-
-                // test operation on DB
-                const res = await session.execute({
-                   text: 'SELECT 1',
+                // test operation on DB with explicite transaction
+                let res = await session.execute({
+                    txControl: {beginTx: AUTO_TX.beginTx},
+                    text: 'SELECT 1',
                 });
                 await drainExecuteResult(res);
+
+                expect(session.txId).toBeDefined();
+
+                res = await session.execute({
+                    text: 'SELECT 1',
+                });
+                await drainExecuteResult(res);
+
+                expect(session.txId).toBeDefined();
+
+                // force new attempt
+                if (count < 3) throw new errors.Unavailable('test'); // an fast backoff error
+
+                res = await session.execute({
+                    txControl: {commitTx: true},
+                    text: 'SELECT 1',
+                });
+                await drainExecuteResult(res);
+
+                expect(session.txId).not.toBeDefined();
 
                 // result
                 return 12;
             }
         });
         expect(res).toBe(12);
-        expect(count).toBe(4);
+        expect(count).toBe(3);
     });
 
-    // it('Query client doTx()', async () => {
-    //
-    // });
-    //
+    // it('Auto commit', async () => {
+    // it('Auto rollback', async () => {
+    // it('Broken session', async () => {
+
+    it('Query client doTx()', async () => {
+        let prevSession: QuerySession;
+        let count = 0;
+        const res = await driver.queryClient.doTx({
+            fn: async (session) => {
+                count++;
+
+                expect(session.txId).not.toBeDefined(); // actual transaction will be created on first session.execute
+
+                if (prevSession) expect(prevSession).toBe(session); // session gets reused
+                prevSession = session;
+
+                await expect(async () =>
+                    await session.execute({
+                        txControl: {beginTx: AUTO_TX.beginTx},
+                        text: 'SELECT 1',
+                    })
+                ).rejects.toThrowError(
+                    new Error('Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used'));
+
+                let res = await session.execute({
+                    text: 'SELECT 1',
+                });
+                await drainExecuteResult(res);
+
+                expect(session.txId).toBeDefined();
+
+                res = await session.execute({
+                    text: 'SELECT 1',
+                });
+                await drainExecuteResult(res);
+
+                expect(session.txId).toBeDefined();
+
+                // force new attempt
+                if (count < 2) throw new errors.Unavailable('test'); // an fast backoff error
+
+                await expect(async () =>
+                    await session.commitTransaction()
+                ).rejects.toThrowError(
+                    new Error('Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used'));
+
+                await expect(async () =>
+                    session.rollbackTransaction()
+                ).rejects.toThrowError(
+                    new Error('Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used'));
+
+                expect(session.txId).toBeDefined();
+
+                // result
+                return 12;
+            }
+        });
+        expect(res).toBe(12);
+        expect(count).toBe(2);
+    });
+
     // it('Auto commit or rollback', async () => {
     //
     // });

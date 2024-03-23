@@ -98,7 +98,7 @@ export class QuerySessionPool extends EventEmitter {
     //     return this.destroy();
     // }
 
-    // TODO: Reconsider.  Seems like bad idea for sereverless functions and causes problems on quick dispose
+    // TODO: Reconsider. Seems like bad idea for serverless functions and causes problems on quick dispose
     // private prepopulateSessions() {
     //     _.forEach(_.range(this.minLimit), () => this.createSession());
     // }

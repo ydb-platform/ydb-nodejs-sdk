@@ -1,6 +1,6 @@
 I hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/?lang=en
 
-<!--- Please provide a general summary of your changes in the title above -->
+<!--- Please provide a general summary of your changes in the rowTitle above -->
 
 ## Pull request type
 

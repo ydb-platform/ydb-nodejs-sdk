@@ -2,7 +2,7 @@ import {Ydb} from "ydb-sdk-proto";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
 import {TransportError} from "../errors";
-import {attachStream, impl, logger, Query_V1, QuerySession} from "./query-session";
+import {attachStream, impl, Query_V1, QuerySession} from "./query-session";
 
 export async function attach(this:QuerySession, onStreamClosed: () => void) {
     if (this[attachStream]) throw new Error('Already attached');
@@ -17,7 +17,7 @@ export async function attach(this:QuerySession, onStreamClosed: () => void) {
             this[impl].metadata);
 
         this[attachStream]!.on('data', (partialResp: Ydb.Query.SessionState) => {
-            this[logger].debug('attach(): data: %o', partialResp);
+            this.logger.debug('attach(): data: %o', partialResp);
             if (!connected) {
                 connected = true;
                 try {
@@ -30,12 +30,12 @@ export async function attach(this:QuerySession, onStreamClosed: () => void) {
         });
 
         this[attachStream]!.on('metadata', (metadata) => {
-            this[logger].trace('attach(): metadata: %o', metadata);
+            this.logger.trace('attach(): metadata: %o', metadata);
         });
 
         // TODO: Ensure that on-error always returns GrpcStatusObject
         this[attachStream]!.on('error', (err: Error & GrpcStatusObject) => {
-            this[logger].trace('attach(): error: %o', err);
+            this.logger.trace('attach(): error: %o', err);
             if (connected) {
                 // delete this[attachStream]; // uncomment when reattach policy will be implemented
                 onStreamClosed();
@@ -45,7 +45,7 @@ export async function attach(this:QuerySession, onStreamClosed: () => void) {
         });
 
         this[attachStream]!.on('end', () => {
-            this[logger].trace('attach(): end');
+            this.logger.trace('attach(): end');
             // delete this[attachStream]; // uncomment when reattach policy will be implemented
             onStreamClosed();
         });

@@ -28,7 +28,7 @@ describe('Bulk upsert', () => {
         await driver.tableClient.withSession(async (session) => {
             const initialRows = [
                 new Row({id: 0, title: 'zero'}),
-                new Row({id: 1, title: 'no title'}),
+                new Row({id: 1, title: 'no rowTitle'}),
             ];
 
             const rowsToUpsert = Row.asTypedCollection([

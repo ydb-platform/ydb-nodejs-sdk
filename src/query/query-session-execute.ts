@@ -7,14 +7,29 @@ import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import Long from "long";
 import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
 import {TransportError} from "../errors";
-import {impl, logger, Query_V1, QuerySession} from "./query-session";
+import {impl, Query_V1, QuerySession} from "./query-session";
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import IColumn = Ydb.IColumn;
+import {convertYdbValueToNative, snakeToCamelCaseConversion} from "../types";
+import {resultsetYdbColumns} from "./symbols";
 
 export type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
     execStats?: Ydb.TableStats.IQueryStats;
 };
+
+export const CANNOT_MANAGE_TRASACTIONS_ERROR = 'Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used';
+
+export const enum RowType {
+    /**
+     * Received rows get converted to js native format according to rules from src/types.ts.
+     */
+    Native,
+    /**
+     * As it is received from GRPC buffer.  Required to use TypedData<T> in ResultSet.
+     */
+    Ydb,
+}
 
 /**
  * Finishes when the first data block is received or when the end of the stream is received. So if you are sure
@@ -30,6 +45,9 @@ export function execute(this: QuerySession, opts: {
      * Default value is SYNTAX_YQL_V1.
      */
     syntax?: Ydb.Query.Syntax,
+    /**
+     * SQL query parameters.
+     */
     parameters?: { [k: string]: Ydb.ITypedValue },
     txControl?: Ydb.Query.ITransactionControl,
     execMode?: Ydb.Query.ExecMode,
@@ -39,8 +57,11 @@ export function execute(this: QuerySession, opts: {
      * Operation timeout in ms
      */
     timeout?: number,
+    /**
+     * Default Native.
+     */
+    rowMode?: RowType,
     // idempotent: , // TODO: Keep in session, was there an non-idempotent opеration
-    // rowMode: , // TODO: what returns ResultSet - ??? should it be here
 }): Promise<IExecuteResult> {
     // Validate opts
     if (!opts.text.trim()) throw new Error('"text" parameter is empty')
@@ -49,7 +70,7 @@ export function execute(this: QuerySession, opts: {
             if (!n.startsWith('$')) throw new Error(`Parameter name must start with "$": ${n}`);
         })
     if (opts.txControl && this[symbols.sessionTxSettings])
-        throw new Error('Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used');
+        throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
     if (opts.txControl?.txId)
         throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
     if (this[symbols.sessionTxId]) {
@@ -131,7 +152,7 @@ export function execute(this: QuerySession, opts: {
         this[impl].metadata);
 
     responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
-        this[logger].trace('execute(): data: %o', partialResp);
+        this.logger.trace('execute(): data: %o', partialResp);
 
         try {
             ensureCallSucceeded(partialResp);
@@ -149,13 +170,21 @@ export function execute(this: QuerySession, opts: {
             const _index = partialResp.resultSetIndex;
             const index = Long.isLong(_index) ? (_index as Long).toInt() : (resultSetByIndex as unknown as number);
 
-            let iterator: IAsyncQueueIterator<Ydb.IValue>;
+            let iterator: IAsyncQueueIterator<{[key: string]: any}>;
             let resultSet: ResultSet;
 
             let resultSetTuple = resultSetByIndex[index];
             if (!resultSetTuple) {
                 iterator = buildAsyncQueueIterator<Ydb.IValue>();
-                resultSet = ResultSet[symbols.create](index, partialResp.resultSet!.columns as IColumn[], iterator);
+                switch (opts.rowMode) {
+                    case RowType.Ydb:
+                        resultSet = new ResultSet(index, partialResp.resultSet!.columns as IColumn[], opts.rowMode ?? RowType.Native, iterator);
+                        break;
+                    default: // Native
+                        const nativeColumnsNames = (partialResp.resultSet!.columns as IColumn[]).map(v => snakeToCamelCaseConversion.ydbToJs(v.name!));
+                        resultSet = new ResultSet(index, nativeColumnsNames, opts.rowMode ?? RowType.Native, iterator);
+                        resultSet[resultsetYdbColumns] = partialResp.resultSet!.columns as IColumn[];
+                }
                 resultSetIterator.push(resultSet);
                 resultSetByIndex[index] = [iterator, resultSet];
                 if (!concurrentResultSets) {
@@ -166,8 +195,23 @@ export function execute(this: QuerySession, opts: {
                 [iterator, resultSet] = resultSetTuple;
             }
 
-            for (const row of partialResp.resultSet!.rows!) {
-                iterator.push(row);
+            switch (opts.rowMode) {
+                case RowType.Ydb:
+                    for (const row of partialResp.resultSet!.rows!) iterator.push(row);
+                    break;
+                default: // Native
+                    for (const row of partialResp.resultSet!.rows!) {
+                        const nativeRow: { [key: string]: any } = {}; // reduced was not used due some strange typing behaviour
+                        try {
+                            row.items?.forEach((v, i) => {
+                                const nativeColumnName = (resultSet.columns as string[])[i];
+                                nativeRow[nativeColumnName] = convertYdbValueToNative(resultSet[resultsetYdbColumns]![i].type!, v);
+                            });
+                        } catch (err) {
+                            throw err;
+                        }
+                        iterator.push(nativeRow);
+                    }
             }
 
             if (resultResolve) {
@@ -190,7 +234,7 @@ export function execute(this: QuerySession, opts: {
     });
 
     responseStream.on('error', (err: Error & GrpcStatusObject) => {
-        this[logger].trace('execute(): error: %o', err);
+        this.logger.trace('execute(): error: %o', err);
         if (err.code === 1) return; // skip "cancelled" error
         cancel(TransportError.convertToYdbError(err), true);
     });
@@ -203,7 +247,7 @@ export function execute(this: QuerySession, opts: {
     responseStream.on('end', () => {
         if (finished) return; // finished by cancel() - error or timeout. note: got to be before any logging, so Jest would not complain on logging after test end
 
-        this[logger].trace('execute(): end');
+        this.logger.trace('execute(): end');
 
         resultSetIterator.end();
         if (concurrentResultSets) {

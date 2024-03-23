@@ -1,5 +1,5 @@
 import EventEmitter from "events";
-import {QuerySessionPool, SessionCallback} from "./query-session-pool";
+import {QuerySessionPool, SessionCallback, SessionEvent} from "./query-session-pool";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {IPoolSettings} from "../driver";
 import DiscoveryService from "../discovery/discovery-service";
@@ -56,24 +56,28 @@ export class QueryClient extends EventEmitter {
                 // return opts.fn(session);
                 const res = await opts.fn(session);
                 return res;
+            } catch (err) {
+                // TODO: Rollback transaction on appropriate errors
+                throw err;
             } finally {
                 // TODO: Cleanup idempotentocy
                 delete session[symbols.sessionTxSettings];
                 if (session[symbols.sessionTxId]) { // there is an open transaction within session
                     if (opts.txSettong) {
                         // likely doTx was called and user expects have the transaction being commited
-                        await session.commitTransaction();
+                        await session[symbols.sessionCommitTransaction]();
                     } else {
                         // likely do() was called and user intentionally haven't closed transaction
-                        await session.rollbackTransaction();
+                        await session[symbols.sessionRollbackTransaction]();
                     }
                 }
                 if (session[symbols.sessionCurrentOperation]) {
                     // TODO: Debug log
-                    session[symbols.sessionRelease]()
+                    session.emit(SessionEvent.SESSION_BROKEN);
+                } else {
+                    session[symbols.sessionRelease]();
                 }
             }
-            session[symbols.sessionRelease]();
         })
     }
 }

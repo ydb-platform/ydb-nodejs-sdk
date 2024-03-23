@@ -1,7 +1,7 @@
 ---
 name: Bug Report
 about: Create a report to help YDB Node.js SDK to improve
-title: "bug: "
+rowTitle: "bug: "
 labels: "bug"
 assignees: ""
 
@@ -24,7 +24,7 @@ assignees: ""
 
 <!-- Describe how the bug manifests. -->
 
-## Expected behavior: 
+## Expected behavior:
 
 <!-- Describe what the behavior would be without the bug. -->
 

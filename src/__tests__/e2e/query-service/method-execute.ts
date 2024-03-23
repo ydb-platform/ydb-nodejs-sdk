@@ -11,7 +11,6 @@ import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service"
 import {getLogger} from "../../../logging";
 import {SessionBuilder} from "../../../query/query-session-pool";
 import {QuerySession} from "../../../query/query-session";
-import * as symbols from "../../../query/symbols";
 import {declareType, TypedData, TypedValues, Types} from "../../../types";
 import {Ydb} from "ydb-sdk-proto";
 import StatsMode = Ydb.Query.StatsMode;
@@ -20,7 +19,7 @@ import {IExecuteResult} from "../../../query/query-session-execute";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
-const TABLE_NAME = 'test_table_20240313'
+const TABLE_NAME = 'test_table_20240313_1'
 
 describe('Query.execute()', () => {
 
@@ -33,7 +32,7 @@ describe('Query.execute()', () => {
 
     afterAll(async () => {
         discoveryService.destroy();
-        await session[symbols.sessionRelease]();
+        // await session[symbols.sessionRelease]();
         await session.delete();
     });
 
