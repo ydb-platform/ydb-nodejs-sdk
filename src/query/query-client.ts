@@ -10,6 +10,7 @@ import {Ydb} from "ydb-sdk-proto";
 import {AUTO_TX} from "../table";
 import {withRetries} from "../retries";
 import * as symbols from "./symbols";
+import {BadSession, SessionBusy} from "../errors";
 
 export interface IQueryClientSettings {
     database: string;
@@ -28,11 +29,20 @@ interface IDoOpts<T> {
     timeout?: number,
 }
 
+/**
+ * YDB Query Service client.
+ *
+ * # Experimental
+ *
+ * Notice: This API is EXPERIMENTAL and may be changed or removed in a later release.
+ */
 export class QueryClient extends EventEmitter {
     private pool: QuerySessionPool;
+    private logger: Logger;
 
     constructor(settings: IQueryClientSettings) {
         super();
+        this.logger = settings.logger;
         this.pool = new QuerySessionPool(settings);
     }
 
@@ -40,28 +50,22 @@ export class QueryClient extends EventEmitter {
         await this.pool.destroy();
     }
 
-    public doTx<T>(opts: IDoOpts<T>): Promise<T> {
-        if (!opts.txSettong) {
-            opts = {...opts, txSettong: AUTO_TX.beginTx};
-        }
-        return this.do<T>(opts);
-    }
-
     public async do<T>(opts: IDoOpts<T>): Promise<T> {
-        // TODO: Bypass idempotency to retrier
+        // TODO: Bypass idempotency state to retrier
         return withRetries<T>(async () => {
             const session = await this.pool.acquire();
+            let error;
             try {
                 if (opts.txSettong) session[symbols.sessionTxSettings] = opts.txSettong;
-                // return opts.fn(session);
-                const res = await opts.fn(session);
-                return res;
-            } catch (err) {
-                // TODO: Rollback transaction on appropriate errors
-                throw err;
-            } finally {
-                // TODO: Cleanup idempotentocy
-                delete session[symbols.sessionTxSettings];
+                let res: T;
+                try {
+                    res = await opts.fn(session);
+                } catch (err) {
+                    if (session[symbols.sessionTxId] && !(err instanceof BadSession || err instanceof SessionBusy)) {
+                        await session[symbols.sessionRollbackTransaction]();
+                    }
+                    throw err;
+                }
                 if (session[symbols.sessionTxId]) { // there is an open transaction within session
                     if (opts.txSettong) {
                         // likely doTx was called and user expects have the transaction being commited
@@ -71,13 +75,29 @@ export class QueryClient extends EventEmitter {
                         await session[symbols.sessionRollbackTransaction]();
                     }
                 }
-                if (session[symbols.sessionCurrentOperation]) {
-                    // TODO: Debug log
+                return res;
+            } catch (err) {
+                error = err;
+                throw err;
+            } finally {
+                // TODO: Cleanup idempotentocy
+                // delete session[symbols.sessionTxId];
+                delete session[symbols.sessionTxSettings];
+                delete session[symbols.sessionCurrentOperation];
+                if (error instanceof BadSession || error instanceof SessionBusy) {
+                    this.logger.debug('Encountered bad or busy session, re-creating the session');
                     session.emit(SessionEvent.SESSION_BROKEN);
                 } else {
                     session[symbols.sessionRelease]();
                 }
             }
         })
+    }
+
+    public doTx<T>(opts: IDoOpts<T>): Promise<T> {
+        if (!opts.txSettong) {
+            opts = {...opts, txSettong: AUTO_TX.beginTx};
+        }
+        return this.do<T>(opts);
     }
 }

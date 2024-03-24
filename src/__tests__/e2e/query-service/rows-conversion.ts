@@ -10,7 +10,7 @@ import {Ydb} from "ydb-sdk-proto";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
-const TABLE_NAME = 'test_table_20240313_3'
+const TABLE_NAME = 'test_table_3'
 
 interface IRow {
     id: number;
@@ -55,8 +55,10 @@ describe('Rows conversion', () => {
         const res = await simpleSelect(RowType.Native);
 
         for await (const rs of res.resultSets) {
+            expect(rs.index).toBe(0);
+
             expect(rs.columns[0]).toBe('id');
-            expect(rs.columns[1]).toBe('rowTitle');
+            expect(rs.columns[1]).toBe('rowTitle'); // as camel case
 
             const {value: row1} = await rs.rows.next();
             expect(row1!.id).toBe(1);
@@ -75,9 +77,10 @@ describe('Rows conversion', () => {
 
         for await (const rs of res.resultSets) {
             expect((rs.columns[0] as Ydb.IColumn).name).toBe('id');
-            expect((rs.columns[1] as Ydb.IColumn).name).toBe('row_title');
+            expect((rs.columns[1] as Ydb.IColumn).name).toBe('row_title'); // snake case as in YDB
 
-            const typedRows = rs.typedRows(Row);
+            expect(rs.index).toBe(0);
+            const typedRows= rs.typedRows(Row);
 
             const {value: row1} = await typedRows.next();
             expect(row1!.id).toBe(1);

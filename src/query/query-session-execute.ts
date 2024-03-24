@@ -201,6 +201,7 @@ export function execute(this: QuerySession, opts: {
                     break;
                 default: // Native
                     for (const row of partialResp.resultSet!.rows!) {
+                        // TODO: Rewrite to reduce
                         const nativeRow: { [key: string]: any } = {}; // reduced was not used due some strange typing behaviour
                         try {
                             row.items?.forEach((v, i) => {

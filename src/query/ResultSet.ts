@@ -21,10 +21,11 @@ export class ResultSet {
         this.rows = rowsIterator[Symbol.asyncIterator]();
     }
 
-    // public typedRows<T extends TypedData>(type: {new(): T}): AsyncGenerator<T, void> {
     public typedRows<T extends TypedData>(type: {new(...args: any[]): T}): AsyncGenerator<T, void> {
+        if (this.rowMode !== RowType.Ydb) throw new Error('Typed strings can only be retrieved in rowMode == RowType.Ydb')
+        const columns = this.columns as IColumn[];
+        // TODO: Check correspondence of required and received columns and their types
         async function* typedRows<T>(self: ResultSet) {
-            const columns = self.columns as IColumn[];
             const nativeColumns = columns.map(col => snakeToCamelCaseConversion.ydbToJs(col.name!))
             const rows = self.rows;
             while (true) {

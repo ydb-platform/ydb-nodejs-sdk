@@ -11,7 +11,7 @@ import * as symbols from "../../../query/symbols";
 import {IExecuteResult} from "../../../query/query-session-execute";
 
 const DATABASE = '/local';
-const ENDPOINT = 'grpcs://localhost:2136';
+const ENDPOINT = 'grpc://localhost:2136';
 
 describe('Query service transactions', () => {
 

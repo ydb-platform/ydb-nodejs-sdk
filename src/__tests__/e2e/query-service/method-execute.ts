@@ -19,7 +19,7 @@ import {IExecuteResult} from "../../../query/query-session-execute";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
-const TABLE_NAME = 'test_table_20240313_1'
+const TABLE_NAME = 'test_table_1'
 
 describe('Query.execute()', () => {
 
