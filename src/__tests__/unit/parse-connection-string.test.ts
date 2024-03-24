@@ -1,4 +1,4 @@
-import {parseConnectionString} from "../../../utils/parse-connection-string";
+import {parseConnectionString} from "../../utils/parse-connection-string";
 
 describe('Parse connection string', () => {
     it('test parseConnectionString', () => {

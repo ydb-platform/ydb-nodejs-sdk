@@ -30,6 +30,7 @@ export abstract class GrpcService<Api extends $protobuf.rpc.Service> {
     }
 
     protected getClient(host: string, sslCredentials?: ISslCredentials): Api {
+        // TODO: Change to one grpc connect all services per endpoint.  Ensure that improves SLO
         const client = sslCredentials ?
             new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientPrivateKey, sslCredentials.clientCertChain)) :
             new grpc.Client(host, grpc.credentials.createInsecure());
@@ -51,11 +52,12 @@ export type ClientOptions = Record<string, any>;
 
 export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     protected api: Api;
-    private metadata: grpc.Metadata;
+    public metadata: grpc.Metadata;
     private responseMetadata: WeakMap<object, grpc.Metadata>;
     private lastRequest!: object;
-
     private readonly headers: MetadataHeaders;
+    // TODO: Take from endpoint and from createSession response
+    public grpcClient?: grpc.Client;
 
     static isServiceAsyncMethod(target: object, prop: string | number | symbol, receiver: any) {
         return (
@@ -74,9 +76,10 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         database: string,
         private name: string,
         private apiCtor: ServiceFactory<Api>,
-        private authService: IAuthService,
+        protected authService: IAuthService,
         private sslCredentials?: ISslCredentials,
         clientOptions?: ClientOptions,
+        private streamMethods?: string[],
     ) {
         this.headers = new Map([getVersionHeader(), getDatabaseHeader(database)]);
         this.metadata = new grpc.Metadata();
@@ -94,14 +97,9 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
                                 }
                             }
 
-                            this.metadata = await this.authService.getAuthMetadata();
-                            for (const [name, value] of this.headers) {
-                                if (value) {
-                                    this.metadata.add(name, value);
-                                }
-                            }
+                            await this.updateMetadata();
 
-                            return property.call(receiver, ...args);
+                            return (property as Function).call(receiver, ...args);
                         } :
                         property;
                 }
@@ -109,13 +107,22 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         );
     }
 
+    public async updateMetadata() {
+        this.metadata = await this.authService.getAuthMetadata();
+        for (const [name, value] of this.headers) {
+            if (value) {
+                this.metadata.add(name, value);
+            }
+        }
+    }
+
     protected getClient(host: string, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
-        const client = sslCredentials ?
+        const client = this.grpcClient = sslCredentials ?
             new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions) :
             new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
-            if (method.name.startsWith('Stream')) {
+            if (method.name.startsWith('Stream') || (this.streamMethods && this.streamMethods.findIndex((v) => v === method.name) >= 0)) {
                 client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata)
                     .on('data', (data) => callback(null, data))
                     .on('end', () => callback(new StreamEnd(), null))

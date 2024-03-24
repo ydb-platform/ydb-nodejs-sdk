@@ -2,13 +2,6 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## [5.2.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.1...v5.2.0) (2024-02-27)
-
-
-### Features
-
-* large code files are separated ([f5f9abe](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/f5f9abe2321bfc457827f0df641b9092d110ab7b), [5e57af0](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/5e57af0cbe7ff57e24841cffe1cae6f4ce25dc30))
-
 ## [5.1.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.0...v5.1.1) (2023-09-04)
 
 

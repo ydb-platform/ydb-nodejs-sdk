@@ -25,9 +25,9 @@ import {Logger} from "../logging";
 import {retryable} from "../retries";
 import {MissingStatus, MissingValue, SchemeError, YdbError} from "../errors";
 import {ResponseMetadataKeys} from "../constants";
-import {pessimizable} from "../utils/pessimizable";
-import {AsyncResponse, ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
-import {StreamEnd} from "../utils/authenticated-service";
+import {pessimizable} from "../utils";
+import {YdbOperationAsyncResponse, ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
+import {StreamEnd} from "../utils";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode | null);
@@ -525,7 +525,7 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
 
     private processResponseMetadata(
         request: object,
-        response: AsyncResponse,
+        response: YdbOperationAsyncResponse,
         onResponseMetadata?: (metadata: grpc.Metadata) => void
     ) {
         const metadata = this.getResponseMetadata(request);

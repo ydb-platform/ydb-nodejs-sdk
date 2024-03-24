@@ -1,43 +1,43 @@
 import {Ydb} from "ydb-sdk-proto";
-export import TableService = Ydb.Table.V1.TableService;
-import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
-export import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
-import CreateSessionResult = Ydb.Table.CreateSessionResult;
+export import QueryService = Ydb.Query.V1.QueryService;
+import CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 import {Endpoint} from "../discovery";
 import {Logger} from "../logging";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {retryable} from "../retries";
 import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
-import {Events, SESSION_KEEPALIVE_PERIOD} from "../constants";
+import {Events} from "../constants";
 import _ from "lodash";
-import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
-
-import {TableSession} from "./table-session";
-import {ITableClientSettings} from "./table-client";
+import {/*BadSession, SessionBusy,*/ SessionPoolEmpty} from "../errors";
+import {QuerySession} from "./query-session";
+import {IQueryClientSettings} from "./query-client";
 import {pessimizable} from "../utils";
-import {getOperationPayload} from "../utils/process-ydb-operation-result";
+import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
+import * as symbols from './symbols';
 
-export class SessionBuilder extends AuthenticatedService<TableService> {
+export class SessionBuilder extends AuthenticatedService<QueryService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
-        super(host, database, 'Ydb.Table.V1.TableService', TableService, authService, sslCredentials, clientOptions);
+        super(host, database, 'Ydb.Query.V1.QueryService', QueryService, authService, sslCredentials, clientOptions,
+            ['AttachSession', 'ExecuteQuery'] // methods that return Stream
+        );
         this.endpoint = endpoint;
         this.logger = logger;
     }
 
     @retryable()
     @pessimizable
-    async create(): Promise<TableSession> {
-        const response = await this.api.createSession(CreateSessionRequest.create());
-        const payload = getOperationPayload(response);
-        const {sessionId} = CreateSessionResult.decode(payload);
-        return new TableSession(this.api, this.endpoint, sessionId, this.logger, this.getResponseMetadata.bind(this));
+    async create(): Promise<QuerySession> {
+        const {sessionId} = ensureCallSucceeded(await this.api.createSession(CreateSessionRequest.create()));
+        const session = QuerySession[symbols.create](this.api, this, this.endpoint, sessionId, this.logger/*, this.getResponseMetadata.bind(this)*/);
+        await session[symbols.sessionAttach](() => { session[symbols.sessionDeleteOnRelease](); });
+        return session;
     }
 }
 
@@ -46,28 +46,27 @@ export enum SessionEvent {
     SESSION_BROKEN = 'SESSION_BROKEN'
 }
 
-type SessionCallback<T> = (session: TableSession) => Promise<T>;
+export type SessionCallback<T> = (session: QuerySession) => Promise<T>;
 
-export class TableSessionPool extends EventEmitter {
+export class QuerySessionPool extends EventEmitter {
     private readonly database: string;
     private readonly authService: IAuthService;
     private readonly sslCredentials?: ISslCredentials;
     private readonly clientOptions?: ClientOptions;
-    private readonly minLimit: number;
+    /*private readonly*/ minLimit: number;
     private readonly maxLimit: number;
-    private readonly sessions: Set<TableSession>;
+    private readonly sessions: Set<QuerySession>;
     private readonly sessionBuilders: Map<Endpoint, SessionBuilder>;
     private readonly discoveryService: DiscoveryService;
     private newSessionsRequested: number;
     private sessionsBeingDeleted: number;
-    private readonly sessionKeepAliveId: NodeJS.Timeout;
     private readonly logger: Logger;
-    private readonly waiters: ((session: TableSession) => void)[] = [];
+    private readonly waiters: ((session: QuerySession) => void)[] = [];
 
-    private static SESSION_MIN_LIMIT = 1; // TODO: Return back to 5
+    private static SESSION_MIN_LIMIT = 5;
     private static SESSION_MAX_LIMIT = 20;
 
-    constructor(settings: ITableClientSettings) {
+    constructor(settings: IQueryClientSettings) {
         super();
         this.database = settings.database;
         this.authService = settings.authService;
@@ -75,42 +74,34 @@ export class TableSessionPool extends EventEmitter {
         this.clientOptions = settings.clientOptions;
         this.logger = settings.logger;
         const poolSettings = settings.poolSettings;
-        this.minLimit = poolSettings?.minLimit || TableSessionPool.SESSION_MIN_LIMIT;
-        this.maxLimit = poolSettings?.maxLimit || TableSessionPool.SESSION_MAX_LIMIT;
+        this.minLimit = poolSettings?.minLimit || QuerySessionPool.SESSION_MIN_LIMIT;
+        this.maxLimit = poolSettings?.maxLimit || QuerySessionPool.SESSION_MAX_LIMIT;
         this.sessions = new Set();
         this.newSessionsRequested = 0;
         this.sessionsBeingDeleted = 0;
-        this.sessionKeepAliveId = this.initListeners(poolSettings?.keepAlivePeriod || SESSION_KEEPALIVE_PERIOD);
         this.sessionBuilders = new Map();
         this.discoveryService = settings.discoveryService;
         this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
             this.sessionBuilders.delete(endpoint);
         });
-        this.prepopulateSessions();
+        // this.prepopulateSessions();
     }
 
     public async destroy(): Promise<void> {
-        this.logger.debug('Destroying pool...');
-        clearInterval(this.sessionKeepAliveId);
-        await Promise.all(_.map([...this.sessions], (session: TableSession) => this.deleteSession(session)));
-        this.logger.debug('Pool has been destroyed.');
+        this.logger.debug('Destroying query pool...');
+        await Promise.all(_.map([...this.sessions], (session: QuerySession) => this.deleteSession(session)));
+        this.logger.debug('Query pool has been destroyed.');
     }
 
-    private initListeners(keepAlivePeriod: number) {
-        return setInterval(async () => Promise.all(
-            _.map([...this.sessions], (session: TableSession) => {
-                return session.keepAlive()
-                    // delete session if error
-                    .catch(() => this.deleteSession(session))
-                    // ignore errors to avoid UnhandledPromiseRejectionWarning
-                    .catch(() => Promise.resolve())
-            })
-        ), keepAlivePeriod);
-    }
+    // TODO: Uncomment after switch to TS 5.3
+    // [Symbol.asyncDispose]() {
+    //     return this.destroy();
+    // }
 
-    private prepopulateSessions() {
-        _.forEach(_.range(this.minLimit), () => this.createSession());
-    }
+    // TODO: Reconsider. Seems like bad idea for serverless functions and causes problems on quick dispose
+    // private prepopulateSessions() {
+    //     _.forEach(_.range(this.minLimit), () => this.createSession());
+    // }
 
     private async getSessionBuilder(): Promise<SessionBuilder> {
         const endpoint = await this.discoveryService.getEndpoint();
@@ -121,7 +112,7 @@ export class TableSessionPool extends EventEmitter {
         return this.sessionBuilders.get(endpoint) as SessionBuilder;
     }
 
-    private maybeUseSession(session: TableSession) {
+    private maybeUseSession(session: QuerySession) {
         if (this.waiters.length > 0) {
             const waiter = this.waiters.shift();
             if (typeof waiter === "function") {
@@ -132,11 +123,11 @@ export class TableSessionPool extends EventEmitter {
         return false;
     }
 
-    private async createSession(): Promise<TableSession> {
+    private async createSession(): Promise<QuerySession> {
         const sessionCreator = await this.getSessionBuilder();
         const session = await sessionCreator.create();
         session.on(SessionEvent.SESSION_RELEASE, async () => {
-            if (session.isClosing()) {
+            if (session[symbols.sessionIsClosing]()) {
                 await this.deleteSession(session);
             } else {
                 this.maybeUseSession(session);
@@ -149,8 +140,8 @@ export class TableSessionPool extends EventEmitter {
         return session;
     }
 
-    private deleteSession(session: TableSession): Promise<void> {
-        if (session.isDeleted()) {
+    private deleteSession(session: QuerySession): Promise<void> {
+        if (session[symbols.sessionIsDeleted]()) {
             return Promise.resolve();
         }
 
@@ -159,7 +150,7 @@ export class TableSessionPool extends EventEmitter {
         if (this.waiters.length > 0) {
             this.acquire().then((session) => {
                 if (!this.maybeUseSession(session)) {
-                    session.release();
+                    session[symbols.sessionRelease]();
                 }
             });
         }
@@ -171,10 +162,10 @@ export class TableSessionPool extends EventEmitter {
             });
     }
 
-    private acquire(timeout: number = 0): Promise<TableSession> {
+    public acquire(timeout: number = 0): Promise<QuerySession> {
         for (const session of this.sessions) {
-            if (session.isFree()) {
-                return Promise.resolve(session.acquire());
+            if (session[symbols.sessionIsFree]()) {
+                return Promise.resolve(session[symbols.sessionAcquire]());
             }
         }
 
@@ -182,7 +173,7 @@ export class TableSessionPool extends EventEmitter {
             this.newSessionsRequested++;
             return this.createSession()
                 .then((session) => {
-                    return session.acquire();
+                    return session[symbols.sessionAcquire]();
                 })
                 .finally(() => {
                     this.newSessionsRequested--;
@@ -191,9 +182,9 @@ export class TableSessionPool extends EventEmitter {
             return new Promise((resolve, reject) => {
                 let timeoutId: NodeJS.Timeout;
 
-                function waiter(session: TableSession) {
+                function waiter(session: QuerySession) {
                     clearTimeout(timeoutId);
-                    resolve(session.acquire());
+                    resolve(session[symbols.sessionAcquire]());
                 }
 
                 if (timeout) {
@@ -207,37 +198,5 @@ export class TableSessionPool extends EventEmitter {
                 this.waiters.push(waiter);
             });
         }
-    }
-
-    private async _withSession<T>(session: TableSession, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
-        try {
-            const result = await callback(session);
-            session.release();
-            return result;
-        } catch (error) {
-            if (error instanceof BadSession || error instanceof SessionBusy) {
-                this.logger.debug('Encountered bad or busy session, re-creating the session');
-                session.emit(SessionEvent.SESSION_BROKEN);
-                session = await this.createSession();
-                if (maxRetries > 0) {
-                    this.logger.debug(`Re-running operation in new session, ${maxRetries} left.`);
-                    session.acquire();
-                    return this._withSession(session, callback, maxRetries - 1);
-                }
-            } else {
-                session.release();
-            }
-            throw error;
-        }
-    }
-
-    public async withSession<T>(callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
-        const session = await this.acquire(timeout);
-        return this._withSession(session, callback);
-    }
-
-    public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
-        const session = await this.acquire(timeout);
-        return this._withSession(session, callback, maxRetries);
     }
 }

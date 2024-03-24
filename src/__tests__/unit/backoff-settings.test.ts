@@ -15,7 +15,7 @@ function runTest(backoff: BackoffSettings, retries: number, min: number, max: nu
     });
 }
 
-xdescribe('Fast backoff', () => {
+describe('Fast backoff', () => {
 
     const fast = new BackoffSettings(10, 5);
 
@@ -31,7 +31,7 @@ xdescribe('Fast backoff', () => {
     runTest(fast, 11, (1 << 10) * 5 * 0.5, (1 << 10) * 5);
 });
 
-xdescribe('Slow backoff', () => {
+describe('Slow backoff', () => {
     const slow = new BackoffSettings(6, 1000);
 
     afterEach(() => {
