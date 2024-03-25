@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.3.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.2.0...v5.3.0) (2024-03-25)
+
+
+### Features
+
+* add YDB Query Service client ([f7a5958](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/f7a59582d468c59af8384885cdf9328dad48abbb))
+
 ## [5.1.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.0...v5.1.1) (2023-09-04)
 
 
