@@ -6,6 +6,7 @@ import {
     Logger,
     TypedValues,
 } from 'ydb-sdk';
+// @ts-ignore
 import {Row} from './data-helpers';
 import {main} from '../utils';
 
@@ -76,71 +77,76 @@ async function select(driver: Driver) {
     console.info(`rowCount: ${res}`);
 }
 
-async function typedSelect(driver: Driver) {
-    const res = await driver.queryClient.do({
-        fn: async (session) => {
-            const res = await session.execute({
-                text: `
-                    SELECT *
-                    FROM ${TABLE};
-                    SELECT * -- double
-                    FROM ${TABLE};        `
-            });
-            let rowCount = 0;
-            for await (const resultSet of res.resultSets) {
-                console.info(`ResultSet index: ${resultSet.index}`)
-                for await (const row of resultSet.typedRows(Row)) {
-                    rowCount++;
-                    console.info(`row: ${row}`);
-                }
-            }
-            return rowCount;
-        }
-    });
-    console.info(`rowCount: ${res}`);
-}
 
-async function bulkUpsert(driver: Driver) {
-    await driver.queryClient.do({
-        fn: async (session) => {
-            function* dataGenerator(rowsCount: number) {
-                for (let id = 1; id <= rowsCount; id++)
-                    yield new Row({
-                        id,
-                        rowTitle: `title_${id}`,
-                        time: new Date(),
-                    })
-            }
+// See src/__tests__/e2e/query-service/rows-conversion.ts for typed rows.  Code below caes strange error during compilatio. Invistigating
 
-            await session.execute({
-                text: `
-                UPSERT INTO ${TABLE} (id, title, time)
-                SELECT id, title, time FROM AS_TABLE($table)`,
-                parameters: {
-                    '$table': Row.asTypedCollection([...dataGenerator(20)]),
-                }
-            });
-        },
-    });
-}
+// @ts-ignore
+// async function typedSelect(driver: Driver) {
+//     const res = await driver.queryClient.do({
+//         fn: async (session) => {
+//             // @ts-ignore
+//             const res = await session.execute({
+//                 text: `
+//                     SELECT *
+//                     FROM ${TABLE};
+//                     SELECT * -- double
+//                     FROM ${TABLE};        `
+//             });
+//             let rowCount = 0;
+//             for await (const resultSet of res.resultSets) {
+//                 console.info(`ResultSet index: ${resultSet.index}`)
+//                 for await (const row of resultSet.typedRows(Row)) {
+//                     rowCount++;
+//                     console.info(`row: ${row}`);
+//                 }
+//             }
+//             return rowCount;
+//         }
+//     });
+//     console.info(`rowCount: ${res}`);
+// }
+
+// async function bulkUpsert(driver: Driver) {
+//     await driver.queryClient.do({
+//         fn: async (session) => {
+//             let arr: Row[] = [];
+//
+//             for (let id = 1; id <= 20; id++)
+//                 arr.push(new Row({
+//                     id,
+//                     rowTitle: `title_${id}`,
+//                     time: new Date(),
+//                 }));
+//
+//             await session.execute({
+//                 text: `
+//                 UPSERT INTO ${TABLE} (id, title, time)
+//                 SELECT id, title, time FROM AS_TABLE($table)`,
+//                 parameters: {
+//                     '$table': Row.asTypedCollection(arr),
+//                 }
+//             });
+//         },
+//     });
+// }
 
 async function run(logger: Logger, endpoint: string, database: string) {
     const authService = getCredentialsFromEnv();
-    logger.debug('Driver initializing...');
+    logger.info('Driver initializing...');
     const driver = new Driver({endpoint, database, authService});
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
         process.exit(1);
     }
-
-    createTestTable(driver);
-    insert(driver);
-    select(driver);
-    bulkUpsert(driver);
-    typedSelect(driver);
+    await createTestTable(driver);
+    await insert(driver);
+    await select(driver);
+    // await bulkUpsert(driver);
+    // await typedSelect(driver);
 
     // transactions
+    // doTx
 
     await driver.destroy();
 }

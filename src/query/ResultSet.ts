@@ -3,7 +3,6 @@ import {IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
 import {RowType} from "./query-session-execute";
 import * as symbols from './symbols'
 import {convertYdbValueToNative, snakeToCamelCaseConversion, TypedData} from "../types";
-import IColumn = Ydb.IColumn;
 
 export class ResultSet {
     [symbols.resultsetYdbColumns]?: Ydb.IColumn[];
@@ -23,7 +22,7 @@ export class ResultSet {
 
     public typedRows<T extends TypedData>(type: {new(...args: any[]): T}): AsyncGenerator<T, void> {
         if (this.rowMode !== RowType.Ydb) throw new Error('Typed strings can only be retrieved in rowMode == RowType.Ydb')
-        const columns = this.columns as IColumn[];
+        const columns = this.columns as Ydb.IColumn[];
         // TODO: Check correspondence of required and received columns and their types
         async function* typedRows<T>(self: ResultSet) {
             const nativeColumns = columns.map(col => snakeToCamelCaseConversion.ydbToJs(col.name!))

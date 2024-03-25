@@ -1,6 +1,6 @@
 {
   "name": "ydb-sdk",
-  "version": "5.1.1",
+  "version": "5.2.0",
   "description": "Node.js bindings for working with YDB API over gRPC",
   "main": "build/cjs/src/index.js",
   "module": "build/esm/src/index.js",
@@ -61,7 +61,7 @@
     "rimraf": "^5.0.1",
     "standard-version": "^9.3.2",
     "ts-jest": "^29.1.2",
-    "typescript": "^4.6.4"
+    "typescript": "^5.4.3"
   },
   "peerDependenciesMeta": {
     "@yandex-cloud/nodejs-sdk": {
