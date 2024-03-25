@@ -1,7 +1,6 @@
 import {StatusObject as GrpcStatusObject} from '@grpc/grpc-js';
 import {Ydb} from 'ydb-sdk-proto';
 import ApiStatusCode = Ydb.StatusIds.StatusCode;
-import IOperation = Ydb.Operations.IOperation;
 import {Status as GrpcStatus} from '@grpc/grpc-js/build/src/constants';
 
 const TRANSPORT_STATUSES_FIRST = 401000;
@@ -45,10 +44,17 @@ export class YdbError extends Error {
         return issues ? JSON.stringify(issues, null, 2) : '';
     }
 
-    static checkStatus(operation: IOperation) {
+    static checkStatus(operation: {
+        status?: (Ydb.StatusIds.StatusCode|null);
+        issues?: (Ydb.Issue.IIssueMessage[]|null);
+
+    }) {
         if (!operation.status) {
             throw new MissingStatus('Missing status!');
         }
+
+        if (operation.issues) operation.issues = YdbError.flatIssues(operation.issues);
+
         const status = operation.status as unknown as StatusCode;
         if (operation.status && !SUCCESS_CODES.has(status)) {
             const ErrCls = SERVER_SIDE_ERROR_CODES.get(status);
@@ -57,6 +63,19 @@ export class YdbError extends Error {
                 throw new Error(`Unexpected status code ${status}!`);
             } else {
                 throw new ErrCls(`${ErrCls.name} (code ${status}): ${YdbError.formatIssues(operation.issues)}`, operation.issues);
+            }
+        }
+    }
+
+    private static flatIssues(issues: Ydb.Issue.IIssueMessage[]) {
+        const res: Ydb.Issue.IIssueMessage[] = [];
+        processLevel(issues);
+        return res;
+        function processLevel(issues: Ydb.Issue.IIssueMessage[]) {
+            for (const issue of issues) {
+                res.push(issue);
+                if (issue.issues) processLevel(issue.issues);
+                delete issue.issues;
             }
         }
     }
@@ -213,6 +232,7 @@ export class ClientResourceExhausted extends TransportError {
 }
 
 const TRANSPORT_ERROR_CODES = new Map([
+    [GrpcStatus.CANCELLED, Cancelled],
     [GrpcStatus.UNAVAILABLE, TransportUnavailable],
     [GrpcStatus.DEADLINE_EXCEEDED, ClientDeadlineExceeded],
     [GrpcStatus.RESOURCE_EXHAUSTED, ClientResourceExhausted]

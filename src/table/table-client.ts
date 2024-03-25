@@ -6,7 +6,7 @@ import DiscoveryService from "../discovery/discovery-service";
 import {Logger} from "../logging";
 
 import {TableSession} from "./table-session";
-import {ClientOptions} from "../utils/authenticated-service";
+import {ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 
 export interface ITableClientSettings {

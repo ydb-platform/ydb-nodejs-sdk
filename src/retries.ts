@@ -65,8 +65,7 @@ class RetryStrategy {
         public retryParameters: RetryParameters,
         logger?: Logger,
     ) {
-        if (!logger) this.logger = getLogger();
-        else this.logger = logger;
+        this.logger = logger ?? getLogger();
     }
 
     async retry<T>(asyncMethod: () => Promise<T>) {

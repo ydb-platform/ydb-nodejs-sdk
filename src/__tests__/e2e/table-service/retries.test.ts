@@ -55,6 +55,7 @@ describe('Retries on errors', () => {
             const et = new ErrorThrower(new Endpoint({}, ''));
 
             await expect(
+                // TODO: Turn to unit test
                 driver.tableClient.withSession(async () => {
                     await et.errorThrower(() => {
                         retries++;
@@ -83,4 +84,5 @@ describe('Retries on errors', () => {
     createError(TransportUnavailable, 3); // TODO: have retries for idempotent queries, BUT now always have retries
     createError(ClientResourceExhausted, 3);
     createError(ClientDeadlineExceeded, 3);
+    // TODO: Add EXTERNAL ERROR
 });
