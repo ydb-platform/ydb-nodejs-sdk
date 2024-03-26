@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.3.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.0...v5.3.1) (2024-03-26)
+
+
+### Bug Fixes
+
+* visibility of RowType type ([c1f258d](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/c1f258d57f5158b926345d505951f5f5dd93c579))
+
 ## [5.3.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.2.0...v5.3.0) (2024-03-25)
 
 
