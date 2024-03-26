@@ -1,10 +1,3 @@
-// number of operations under one transaction
-// doTx - txControl
-// convert to native type
-// update / insert
-// error
-// timeout
-
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";

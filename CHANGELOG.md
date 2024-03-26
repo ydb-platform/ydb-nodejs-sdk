@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.3.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.0...v5.3.1) (2024-03-26)
+
+
+### Bug Fixes
+
+* visibility of RowType type ([c1f258d](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/c1f258d57f5158b926345d505951f5f5dd93c579))
+
 ## [5.3.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.2.0...v5.3.0) (2024-03-25)
 
 
@@ -9,8 +16,14 @@ All notable changes to this project will be documented in this file. See [standa
 
 * add YDB Query Service client ([f7a5958](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/f7a59582d468c59af8384885cdf9328dad48abbb))
 
-## [5.1.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.0...v5.1.1) (2023-09-04)
+## [5.2.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.1...v5.2.0) (2024-02-27)
 
+
+### Features
+
+* large code files are separated ([f94dbcb](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/f94dbcb31f4c17eeb7713d44f5115c2f7f5ea927), [e624b04](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/e624b04dfa85c022e5a5a16308eab2ad13587a42))
+
+## [5.1.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.0...v5.1.1) (2023-09-04)
 
 ### Bug Fixes
 
