@@ -1,6 +1,3 @@
-// session should autocimmit at the end
-// doTx locks manipulations with tx
-
 import {getLogger} from "../../../logging";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import DiscoveryService from "../../../discovery/discovery-service";
