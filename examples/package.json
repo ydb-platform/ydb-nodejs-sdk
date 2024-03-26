@@ -16,7 +16,8 @@
     "scan-query": "node build/scan-query/index.js",
     "scheme-client": "node build/scheme-client/index.js",
     "type-utils": "node build/type-utils/index.js",
-    "url-shortener": "node build/url-shortener/index.js"
+    "url-shortener": "node build/url-shortener/index.js",
+    "query-service": "node build/query-service/index.js"
   },
   "dependencies": {
     "@yandex-cloud/nodejs-sdk": "^2.4.1",
@@ -32,6 +33,6 @@
     "@types/yargs": "^15.0.9",
     "crc": "^3.8.0",
     "express": "^4.17.1",
-    "typescript": "^4.6.4"
+    "typescript": "^5.4.3"
   }
 }

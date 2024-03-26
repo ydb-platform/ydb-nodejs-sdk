@@ -1,14 +1,15 @@
-import DiscoveryService from './discovery';
-import {TableClient} from './table';
-import SchemeService from './scheme';
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
-import {IAuthService} from './credentials';
 import {TimeoutExpired} from './errors';
 import {getLogger, Logger} from './logging';
-import SchemeClient from './scheme';
-import {ClientOptions} from './utils';
-import {parseConnectionString} from './parse-connection-string';
-import {makeSslCredentials, ISslCredentials} from './ssl-credentials';
+import {makeSslCredentials, ISslCredentials} from './utils/ssl-credentials';
+import DiscoveryService from "./discovery/discovery-service";
+import {TableClient} from "./table";
+import {ClientOptions} from "./utils";
+import {IAuthService} from "./credentials/i-auth-service";
+import SchemeService from "./schema/scheme-client";
+import SchemeClient from "./schema/scheme-client";
+import {parseConnectionString} from "./utils/parse-connection-string";
+import {QueryClient} from "./query";
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -38,6 +39,7 @@ export default class Driver {
     private discoveryService: DiscoveryService;
 
     public tableClient: TableClient;
+    public queryClient: QueryClient;
     public schemeClient: SchemeService;
 
     constructor(settings: IDriverSettings) {
@@ -79,6 +81,15 @@ export default class Driver {
             discoveryService: this.discoveryService,
             logger: this.logger,
         });
+        this.queryClient = new QueryClient({
+            database: this.database,
+            authService: this.authService,
+            sslCredentials: this.sslCredentials,
+            poolSettings: this.poolSettings,
+            clientOptions: this.clientOptions,
+            discoveryService: this.discoveryService,
+            logger: this.logger,
+        });
         this.schemeClient = new SchemeClient({
             database: this.database,
             authService: this.authService,
@@ -106,8 +117,16 @@ export default class Driver {
     public async destroy(): Promise<void> {
         this.logger.debug('Destroying driver...');
         this.discoveryService.destroy();
-        await this.tableClient.destroy();
-        await this.schemeClient.destroy();
+        await Promise.all([
+            this.tableClient.destroy(),
+            this.queryClient.destroy(),
+            this.schemeClient.destroy(),
+        ]);
         this.logger.debug('Driver has been destroyed.');
     }
+
+    // TODO: Upgrade project to TS 5.2+
+    // async [Symbol.asyncDispose]() {
+    //     return this.destroy();
+    // }
 }

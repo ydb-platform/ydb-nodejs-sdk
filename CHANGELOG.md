@@ -2,8 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## [5.1.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.0...v5.1.1) (2023-09-04)
+## [5.3.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.0...v5.3.1) (2024-03-26)
 
+
+### Bug Fixes
+
+* visibility of RowType type ([c1f258d](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/c1f258d57f5158b926345d505951f5f5dd93c579))
+
+## [5.3.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.2.0...v5.3.0) (2024-03-25)
+
+
+### Features
+
+* add YDB Query Service client ([f7a5958](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/f7a59582d468c59af8384885cdf9328dad48abbb))
+
+## [5.2.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.1...v5.2.0) (2024-02-27)
+
+
+### Features
+
+* large code files are separated ([f94dbcb](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/f94dbcb31f4c17eeb7713d44f5115c2f7f5ea927), [e624b04](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/e624b04dfa85c022e5a5a16308eab2ad13587a42))
+
+## [5.1.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.1.0...v5.1.1) (2023-09-04)
 
 ### Bug Fixes
 
@@ -286,7 +306,7 @@ All notable changes to this project will be documented in this file. See [standa
     - decimal value is present as string instead of bigint
       (it wasn't working for float values before)
     - fix uuid and tz-date types conversion (it wasn't working before)
-* signatures of most methods in Session are changed:
+* signatures of most methods in TableSession are changed:
     - executeQuery
       Before: `(query, params, txControl, operationParams?, settings?, collectStats?)`
       After: `(query, params, txControl, settings?)`
@@ -336,7 +356,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 * drop support of old environment variables ([963819a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/963819af9209a45749f5118077f1da4bdb390fa6))
 * reorganize signature of SchemeClient's methods ([734d57a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/734d57a2dd7c655cf727b96df415212504339cf8))
-* reorganize signatures of Session's methods ([431f149](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/431f1491bf880f3ba9541d9455d8dd2f2b7849e6))
+* reorganize signatures of TableSession's methods ([431f149](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/431f1491bf880f3ba9541d9455d8dd2f2b7849e6))
 * use identity names conversion in TypedData ([275598a](https://www.github.com/ydb-platform/ydb-nodejs-sdk/commit/275598aa444e1e977386a3dadd02bbc9ba01f38e))
 
 ### [2.9.2](https://www.github.com/ydb-platform/ydb-nodejs-sdk/compare/v2.9.1...v2.9.2) (2022-02-09)
@@ -431,7 +451,7 @@ All notable changes to this project will be documented in this file. See [standa
 * and many other changes in protobufs.
 
 ### 1.10.0
-* Add `alterTable` method to Session class
+* Add `alterTable` method to TableSession class
 * Put compiled protobufs to a separate 'ydb-sdk' namespace
 
 ### 1.9.0

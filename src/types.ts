@@ -4,7 +4,7 @@ import {google, Ydb} from 'ydb-sdk-proto';
 import 'reflect-metadata';
 import {DateTime} from 'luxon';
 import {uuidToNative, uuidToValue} from './uuid';
-import {fromDecimalString, toDecimalString} from './decimal';
+import {fromDecimalString, toDecimalString} from './utils/decimal';
 import Type = Ydb.Type;
 import IType = Ydb.IType;
 import IStructMember = Ydb.IStructMember;
@@ -360,6 +360,7 @@ const valueToNativeConverters: Record<string, (input: string|number) => any> = {
 };
 
 export function convertYdbValueToNative(type: IType, value: IValue): any {
+    // TODO: Performance may be increased if this logic will return simple light type converters based on type
     if (type.typeId) {
         if (type.typeId === PrimitiveTypeId.UUID) {
             return uuidToNative(value);

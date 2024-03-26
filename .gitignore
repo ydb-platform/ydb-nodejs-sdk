@@ -18,3 +18,6 @@ temp/
 
 # secrets
 secrets/*
+
+# jest
+coverage

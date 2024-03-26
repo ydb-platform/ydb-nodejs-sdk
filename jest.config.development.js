@@ -1,12 +1,10 @@
 module.exports = {
-    globals: {
-        'ts-jest': {
-            tsconfig: 'tsconfig-cjs.json'
-        }
-    },
     roots: ['<rootDir>/src'],
+    preset: 'ts-jest',
     transform: {
-        '^.+\\.tsx?$': 'ts-jest',
+        '^.+\\.{ts|tsx}?$': ['ts-jest', {
+            tsConfig: 'tsconfig.json',
+        }],
     },
     testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],

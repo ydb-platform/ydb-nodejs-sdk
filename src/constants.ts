@@ -5,6 +5,7 @@ export enum Events {
     ENDPOINT_REMOVED = 'endpoint:removed'
 }
 
+// TODO: Remove obsolete consts and one for grpc metadata
 export enum ResponseMetadataKeys {
     RequestId = 'x-request-id',
     ConsumedUnits = 'x-ydb-consumed-units',
