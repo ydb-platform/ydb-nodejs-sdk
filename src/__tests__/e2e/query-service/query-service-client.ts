@@ -9,7 +9,6 @@ import {QuerySession} from "../../../query/query-session";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2135';
-// const TABLE_NAME = 'test_table_20240313'
 
 describe('Query client', () => {
 

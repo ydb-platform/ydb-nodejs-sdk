@@ -9,7 +9,7 @@ import {IAuthService} from "./credentials/i-auth-service";
 import SchemeService from "./schema/scheme-client";
 import SchemeClient from "./schema/scheme-client";
 import {parseConnectionString} from "./utils/parse-connection-string";
-import {QueryClient} from "./query/query-client";
+import {QueryClient} from "./query";
 
 export interface IPoolSettings {
     minLimit?: number;
