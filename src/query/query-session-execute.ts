@@ -16,6 +16,13 @@ import {resultsetYdbColumns} from "./symbols";
 export type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
     execStats?: Ydb.TableStats.IQueryStats;
+    /**
+     * Gets resolved when all data is received from stream and execute() operation become completed. At that moment
+     * is allowed to start next operation within session.
+     *
+     * Wait for this promise is equivalent to get read all data from all result sets.
+     */
+    opFinished: Promise<void>;
 };
 
 export const CANNOT_MANAGE_TRASACTIONS_ERROR = 'Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used';
@@ -108,6 +115,8 @@ export function execute(this: QuerySession, opts: {
     let lastRowsIterator: IAsyncQueueIterator<Ydb.IValue>;
     let resultResolve: ((data: IExecuteResult) => void) | undefined
     let resultReject: ((reason?: any) => void) | undefined;
+    let finishedResolve: (() => void) | undefined;
+    let finishedReject: ((reason?: any) => void) | undefined;
     let responseStream: ClientReadableStream<Ydb.Query.ExecuteQueryResponsePart> | undefined;
     let execStats: Ydb.TableStats.IQueryStats | undefined;
 
@@ -138,6 +147,7 @@ export function execute(this: QuerySession, opts: {
                 iterator.error(reason);
             });
         }
+        if (finishedReject) finishedReject(reason);
         delete this[symbols.sessionCurrentOperation];
     }
 
@@ -221,6 +231,10 @@ export function execute(this: QuerySession, opts: {
                     get execStats() {
                         return execStats
                     },
+                    opFinished: new Promise<void>((resolve, reject) => {
+                        finishedResolve = resolve;
+                        finishedReject = reject;
+                    })
                 });
                 resultResolve = resultReject = undefined;
             }
@@ -265,10 +279,12 @@ export function execute(this: QuerySession, opts: {
                 get execStats() {
                     return execStats
                 },
+                opFinished: Promise.resolve()
             });
             resultResolve = resultReject = undefined;
         }
 
+        if (finishedResolve) finishedResolve();
         delete this[symbols.sessionCurrentOperation];
         finished = true;
     });
