@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.3.2](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.1...v5.3.2) (2024-03-28)
+
+
+### Bug Fixes
+
+* add opFinished in query service result ([cf2959c](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/cf2959c4eae01bb5f5e07090e85cd7499f79be6c))
+
 ## [5.3.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.0...v5.3.1) (2024-03-26)
 
 
