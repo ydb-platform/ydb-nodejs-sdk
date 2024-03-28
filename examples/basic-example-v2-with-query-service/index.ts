@@ -1,3 +1,4 @@
+// @ts-ignore
 import {Column, Driver, getCredentialsFromEnv, Logger, TableDescription, TableIndex, Types, RowType} from 'ydb-sdk';
 import {Episode, getEpisodesData, getSeasonsData, getSeriesData, Series} from './data-helpers';
 import {main} from '../utils';
@@ -103,63 +104,64 @@ async function createTables(driver: Driver, logger: Logger) {
 
 // TODO: Returns {"issues":[{"message":"Scheme operation failed, status: ExecComplete, reason: Check failed: path: '/local/seasons', error: path exist, request accepts it (id: [OwnerId: 72075186232723360, LocalPathId: 6], type: EPathTypeTable, state: EPathStateNoChanges)","severity":1}]}
 
-// async function createTables(driver: Driver, logger: Logger) {
-//     logger.info('Dropping old tables and create new ones...');
-//
-//     await driver.queryClient.do({
-//         fn: async (session) => {
-//             await session.execute({
-//                 text: `
-//                     DROP TABLE IF EXISTS ${SERIES_TABLE};
-//                     DROP TABLE IF EXISTS ${EPISODES_TABLE};
-//                     DROP TABLE IF EXISTS ${SEASONS_TABLE};`,
-//             });
-//         },
-//     });
-//
-//     await driver.queryClient.do({
-//         fn: async (session) => {
-//             await session.execute({
-//                 text: `
-//                     CREATE TABLE ${SERIES_TABLE}
-//                     (
-//                         series_id    UInt64,
-//                         title        Utf8,
-//                         series_info  Utf8,
-//                         release_date DATE,
-//                         PRIMARY KEY (series_id)
-//                     );
-//
-//                     CREATE TABLE ${SEASONS_TABLE}
-//                     (
-//                         series_id   UInt64,
-//                         season_id   UInt64,
-//                         first_aired DATE,
-//                         PRIMARY KEY (series_id, season_id)
-//                     );
-//
-//                     CREATE TABLE ${SEASONS_TABLE}
-//                     (
-//                         series_id   UInt64,
-//                         season_id   UInt64,
-//                         first_aired DATE,
-//                         PRIMARY KEY (series_id, season_id)
-//                     );
-//
-//                     CREATE TABLE ${EPISODES_TABLE}
-//                     (
-//                         series_id  UInt64,
-//                         season_id  UInt64,
-//                         episode_id UInt64,
-//                         title      Utf8,
-//                         air_date   DATE,
-//                         PRIMARY KEY (series_id, season_id),
-//                         INDEX      episodes_index GLOBAL ASYNC ON (air_date)
-//                     );`,
-//             });
-//         },
-//     });
-// }
+// @ts-ignore
+async function createTablesErr(driver: Driver, logger: Logger) {
+    logger.info('Dropping old tables and create new ones...');
+
+    await driver.queryClient.do({
+        fn: async (session) => {
+            await session.execute({
+                text: `
+                    DROP TABLE IF EXISTS ${SERIES_TABLE};
+                    DROP TABLE IF EXISTS ${EPISODES_TABLE};
+                    DROP TABLE IF EXISTS ${SEASONS_TABLE};`,
+            });
+        },
+    });
+
+    await driver.queryClient.do({
+        fn: async (session) => {
+            await session.execute({
+                text: `
+                    CREATE TABLE ${SERIES_TABLE}
+                    (
+                        series_id    UInt64,
+                        title        Utf8,
+                        series_info  Utf8,
+                        release_date DATE,
+                        PRIMARY KEY (series_id)
+                    );
+
+                    CREATE TABLE ${SEASONS_TABLE}
+                    (
+                        series_id   UInt64,
+                        season_id   UInt64,
+                        first_aired DATE,
+                        PRIMARY KEY (series_id, season_id)
+                    );
+
+                    CREATE TABLE ${SEASONS_TABLE}
+                    (
+                        series_id   UInt64,
+                        season_id   UInt64,
+                        first_aired DATE,
+                        PRIMARY KEY (series_id, season_id)
+                    );
+
+                    CREATE TABLE ${EPISODES_TABLE}
+                    (
+                        series_id  UInt64,
+                        season_id  UInt64,
+                        episode_id UInt64,
+                        title      Utf8,
+                        air_date   DATE,
+                        PRIMARY KEY (series_id, season_id),
+                        INDEX      episodes_index GLOBAL ASYNC ON (air_date)
+                    );`,
+            });
+        },
+    });
+}
 
 async function describeTable(driver: Driver, tableName: string, logger: Logger) {
     logger.info(`Describing table: ${tableName}`);
@@ -220,8 +222,7 @@ async function selectPrepared(driver: Driver, data: ThreeIds[], logger: Logger):
                 // Note: In query service execute() there is no "prepared query" option.
                 //       This behaviour applied by YDB according to an internal rule
 
-                console.info(2000, session.sessionId);
-                const {resultSets} = await session.execute({
+                const {resultSets, opFinished} = await session.execute({
                     parameters: {
                         '$seriesId': episode.getTypedValue('seriesId'),
                         '$seasonId': episode.getTypedValue('seasonId'),
@@ -237,6 +238,7 @@ async function selectPrepared(driver: Driver, data: ThreeIds[], logger: Logger):
                 });
                 const {value: resultSet} = await resultSets.next();
                 const {value: row} = await resultSet.rows.next();
+                await opFinished;
                 logger.info(`Select prepared query ${JSON.stringify(row, null, 2)}`);
             }
         }
@@ -333,8 +335,7 @@ async function run(logger: Logger, endpoint: string, database: string) {
         await selectSimple(driver, logger);
         await upsertSimple(driver, logger);
 
-        // TODO: Fix
-        // await selectPrepared(driver, [[2, 3, 7], [2, 3, 8]], logger);
+        await selectPrepared(driver, [[2, 3, 7], [2, 3, 8]], logger);
 
         await explicitTcl(driver, [2, 6, 1], logger);
         await selectPrepared(driver, [[2, 6, 1]], logger);
