@@ -1,5 +1,4 @@
-// @ts-ignore
-import {Column, Driver, getCredentialsFromEnv, Logger, TableDescription, TableIndex, Types, RowType} from 'ydb-sdk';
+import {Driver, getCredentialsFromEnv, Logger, RowType} from 'ydb-sdk';
 import {Episode, getEpisodesData, getSeasonsData, getSeriesData, Series} from './data-helpers';
 import {main} from '../utils';
 
