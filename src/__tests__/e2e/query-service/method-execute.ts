@@ -43,23 +43,15 @@ describe('Query.execute()', () => {
         const linesInserted = await insertCupleLinesInTestTable();
         const res = await simpleSelect();
 
-        let linesCount = 0;
-        for await (const resultSet of res.resultSets)
-            for await (const _row of resultSet.rows)
-                linesCount++;
-
-        expect(linesCount).toBe(2 * linesInserted);
-    });
-
-    it('simple select', async () => {
-        await createTestTable();
-        const linesInserted = await insertCupleLinesInTestTable();
-        const res = await simpleSelect();
+        expect(async () => await simpleSelect()).rejects
+            .toThrowError(new Error('There\'s another active operation in the session'));
 
         let linesCount = 0;
         for await (const resultSet of res.resultSets)
             for await (const _row of resultSet.rows)
                 linesCount++;
+
+        await res.opFinished;
 
         expect(linesCount).toBe(2 * linesInserted);
     });
