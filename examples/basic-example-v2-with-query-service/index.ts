@@ -10,102 +10,6 @@ const SEASONS_TABLE = 'seasons';
 const EPISODES_TABLE = 'episodes';
 
 async function createTables(driver: Driver, logger: Logger) {
-    logger.info('Dropping old tables...');
-
-    await driver.tableClient.withSessionRetry(async (session) => {
-        await session.dropTable(SERIES_TABLE);
-        await session.dropTable(EPISODES_TABLE);
-        await session.dropTable(SEASONS_TABLE);
-    });
-
-    logger.info('Creating tables...');
-    await driver.tableClient.withSessionRetry(async (session) => {
-        await session.createTable(
-            SERIES_TABLE,
-            new TableDescription()
-                .withColumn(new Column(
-                    'series_id',
-                    Types.optional(Types.UINT64),
-                ))
-                .withColumn(new Column(
-                    'title',
-                    Types.optional(Types.UTF8),
-                ))
-                .withColumn(new Column(
-                    'series_info',
-                    Types.optional(Types.UTF8),
-                ))
-                .withColumn(new Column(
-                    'release_date',
-                    Types.optional(Types.DATE),
-                ))
-                .withPrimaryKey('series_id')
-        );
-
-        await session.createTable(
-            SEASONS_TABLE,
-            new TableDescription()
-                .withColumn(new Column(
-                    'series_id',
-                    Types.optional(Types.UINT64),
-                ))
-                .withColumn(new Column(
-                    'season_id',
-                    Types.optional(Types.UINT64),
-                ))
-                .withColumn(new Column(
-                    'title',
-                    Types.optional(Types.UTF8),
-                ))
-                .withColumn(new Column(
-                    'first_aired',
-                    Types.optional(Types.DATE),
-                ))
-                .withColumn(new Column(
-                    'last_aired',
-                    Types.optional(Types.DATE),
-                ))
-                .withPrimaryKeys('series_id', 'season_id')
-        );
-
-        const episodesIndex = new TableIndex('episodes_index')
-            .withIndexColumns('title')
-            .withDataColumns('air_date')
-            .withGlobalAsync(true)
-
-        await session.createTable(
-            EPISODES_TABLE,
-            new TableDescription()
-                .withColumn(new Column(
-                    'series_id',
-                    Types.optional(Types.UINT64),
-                ))
-                .withColumn(new Column(
-                    'season_id',
-                    Types.optional(Types.UINT64),
-                ))
-                .withColumn(new Column(
-                    'episode_id',
-                    Types.optional(Types.UINT64),
-                ))
-                .withColumn(new Column(
-                    'title',
-                    Types.optional(Types.UTF8),
-                ))
-                .withColumn(new Column(
-                    'air_date',
-                    Types.optional(Types.DATE),
-                ))
-                .withPrimaryKeys('series_id', 'season_id', 'episode_id')
-                .withIndex(episodesIndex)
-        );
-    });
-}
-
-// TODO: Returns {"issues":[{"message":"Scheme operation failed, status: ExecComplete, reason: Check failed: path: '/local/seasons', error: path exist, request accepts it (id: [OwnerId: 72075186232723360, LocalPathId: 6], type: EPathTypeTable, state: EPathStateNoChanges)","severity":1}]}
-
-// @ts-ignore
-async function createTablesErr(driver: Driver, logger: Logger) {
     logger.info('Dropping old tables and create new ones...');
 
     await driver.queryClient.do({
@@ -136,15 +40,9 @@ async function createTablesErr(driver: Driver, logger: Logger) {
                     (
                         series_id   UInt64,
                         season_id   UInt64,
+                        title UTF8,
                         first_aired DATE,
-                        PRIMARY KEY (series_id, season_id)
-                    );
-
-                    CREATE TABLE ${SEASONS_TABLE}
-                    (
-                        series_id   UInt64,
-                        season_id   UInt64,
-                        first_aired DATE,
+                        last_aired DATE,
                         PRIMARY KEY (series_id, season_id)
                     );
 
@@ -153,9 +51,9 @@ async function createTablesErr(driver: Driver, logger: Logger) {
                         series_id  UInt64,
                         season_id  UInt64,
                         episode_id UInt64,
-                        title      Utf8,
+                        title      UTf8,
                         air_date   DATE,
-                        PRIMARY KEY (series_id, season_id),
+                        PRIMARY KEY (series_id, season_id, episode_id),
                         INDEX      episodes_index GLOBAL ASYNC ON (air_date)
                     );`,
             });
