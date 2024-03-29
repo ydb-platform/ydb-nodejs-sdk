@@ -206,12 +206,11 @@ async function transactionPerWholeDo(driver: Driver, ids: ThreeIds, logger: Logg
                       AND season_id = $seasonId
                       AND episode_id = $episodeId;`
             })
-            logger.info(`TxId ${session.txId} committed.`);
+            logger.info(`TxId ${session.txId} will be committed by doTx().`);
         }
     });
 }
 
-// @ts-ignore
 async function fillTablesWithData(driver: Driver, _logger: Logger) {
     await driver.queryClient.do({
         fn: async (session) => {
