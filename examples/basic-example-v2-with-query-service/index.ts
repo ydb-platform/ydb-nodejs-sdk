@@ -11,22 +11,14 @@ const EPISODES_TABLE = 'episodes';
 
 async function createTables(driver: Driver, logger: Logger) {
     logger.info('Dropping old tables and create new ones...');
-
     await driver.queryClient.do({
         fn: async (session) => {
             await session.execute({
                 text: `
                     DROP TABLE IF EXISTS ${SERIES_TABLE};
                     DROP TABLE IF EXISTS ${EPISODES_TABLE};
-                    DROP TABLE IF EXISTS ${SEASONS_TABLE};`,
-            });
-        },
-    });
+                    DROP TABLE IF EXISTS ${SEASONS_TABLE};
 
-    await driver.queryClient.do({
-        fn: async (session) => {
-            await session.execute({
-                text: `
                     CREATE TABLE ${SERIES_TABLE}
                     (
                         series_id    UInt64,
@@ -70,8 +62,8 @@ async function describeTable(driver: Driver, tableName: string, logger: Logger) 
     }
 }
 
-async function selectSimple(driver: Driver, logger: Logger): Promise<void> {
-    logger.info('Making a simple select...');
+async function selectTypedSimple(driver: Driver, logger: Logger): Promise<void> {
+    logger.info('Making a simple typed select...');
     const result = await driver.queryClient.do({
         fn: async (session) => {
             const {resultSets} =
@@ -85,12 +77,38 @@ async function selectSimple(driver: Driver, logger: Logger): Promise<void> {
                         WHERE series_id = 1;`,
                 });
             const {value: resultSet1} = await resultSets.next();
-            const rows: Series[] = []
+            const rows: Series[] = [];
+            // Note: resultSet1.rows will iterate YDB IValue structures
             for await (const row of resultSet1.typedRows(Series)) rows.push(row);
-            return rows;
+            return {cols: resultSet1.columns, rows};
         }
     });
-    logger.info(`selectSimple result: ${JSON.stringify(result, null, 2)}`);
+    logger.info(`selectTypedSimple cols: ${JSON.stringify(result.cols, null, 2)}`);
+    logger.info(`selectTypedSimple rows: ${JSON.stringify(result.rows, null, 2)}`);
+}
+
+async function selectNativeSimple(driver: Driver, logger: Logger): Promise<void> {
+    logger.info('Making a simple native select...');
+    const result = await driver.queryClient.do({
+        fn: async (session) => {
+            const {resultSets} =
+                await session.execute({
+                    rowMode: RowType.Native, // Result set cols and rows returned as native javascript values. It's default behaviour
+                    text: `
+                        SELECT series_id,
+                               title,
+                               release_date
+                        FROM ${SERIES_TABLE}
+                        WHERE series_id = 1;`,
+                });
+            const {value: resultSet1} = await resultSets.next();
+            const rows: any[][] = []
+            for await (const row of resultSet1.rows) rows.push(row);
+            return {cols: resultSet1.columns, rows};
+        }
+    });
+    logger.info(`selectNativeSimple cols: ${JSON.stringify(result.cols, null, 2)}`);
+    logger.info(`selectNativeSimple rows: ${JSON.stringify(result.rows, null, 2)}`);
 }
 
 async function upsertSimple(driver: Driver, logger: Logger): Promise<void> {
@@ -109,9 +127,8 @@ async function upsertSimple(driver: Driver, logger: Logger): Promise<void> {
 
 type ThreeIds = [number, number, number];
 
-// TODO: Add native version
-async function selectPrepared(driver: Driver, data: ThreeIds[], logger: Logger): Promise<void> {
-    logger.info('Selecting prepared query...');
+async function selectWithParameters(driver: Driver, data: ThreeIds[], logger: Logger): Promise<void> {
+    logger.info('Selecting query with parameters...');
     await driver.queryClient.do({
         fn: async (session) => {
             for (const [seriesId, seasonId, episodeId] of data) {
@@ -143,9 +160,8 @@ async function selectPrepared(driver: Driver, data: ThreeIds[], logger: Logger):
     });
 }
 
-// TODO: Add doTx
 async function explicitTcl(driver: Driver, ids: ThreeIds, logger: Logger) {
-    logger.info('Running prepared query with explicit transaction control...');
+    logger.info('Running query with explicit transaction control...');
     await driver.queryClient.do({
         fn: async (session) => {
             await session.beginTransaction({serializableReadWrite: {}});
@@ -167,6 +183,31 @@ async function explicitTcl(driver: Driver, ids: ThreeIds, logger: Logger) {
             const txId = session.txId;
             await session.commitTransaction();
             logger.info(`TxId ${txId} committed.`);
+        }
+    });
+}
+
+async function transactionPerWholeDo(driver: Driver, ids: ThreeIds, logger: Logger) {
+    logger.info('Running query with one transaction per whole doTx()...');
+    await driver.queryClient.doTx({
+        txSettings: {serializableReadWrite: {}},
+        fn: async (session) => {
+            const [seriesId, seasonId, episodeId] = ids;
+            const episode = new Episode({seriesId, seasonId, episodeId, title: '', airDate: new Date()});
+            await session.execute({
+                parameters: {
+                    '$seriesId': episode.getTypedValue('seriesId'),
+                    '$seasonId': episode.getTypedValue('seasonId'),
+                    '$episodeId': episode.getTypedValue('episodeId')
+                },
+                text: `
+                    UPDATE episodes
+                    SET air_date = CurrentUtcDate()
+                    WHERE series_id = $seriesId
+                      AND season_id = $seasonId
+                      AND episode_id = $episodeId;`
+            })
+            logger.info(`TxId ${session.txId} committed.`);
         }
     });
 }
@@ -230,13 +271,16 @@ async function run(logger: Logger, endpoint: string, database: string) {
         await describeTable(driver, SERIES_TABLE, logger);
         await fillTablesWithData(driver, logger);
 
-        await selectSimple(driver, logger);
+        await selectTypedSimple(driver, logger);
+        await selectNativeSimple(driver, logger);
         await upsertSimple(driver, logger);
 
-        await selectPrepared(driver, [[2, 3, 7], [2, 3, 8]], logger);
+        await selectWithParameters(driver, [[2, 3, 7], [2, 3, 8]], logger);
 
         await explicitTcl(driver, [2, 6, 1], logger);
-        await selectPrepared(driver, [[2, 6, 1]], logger);
+        await selectWithParameters(driver, [[2, 6, 1]], logger);
+
+        await transactionPerWholeDo(driver, [2, 6,21], logger);
 
     } catch (err) {
         console.error(err);
