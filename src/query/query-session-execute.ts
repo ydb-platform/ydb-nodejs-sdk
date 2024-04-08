@@ -1,5 +1,10 @@
 import {Ydb} from "ydb-sdk-proto";
-import * as symbols from "./symbols";
+import {
+    resultsetYdbColumnsSymbol,
+    sessionTxIdSymbol,
+    sessionTxSettingsSymbol,
+    sessionCurrentOperationSymbol,
+} from "./symbols";
 import {buildAsyncQueueIterator, IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
 import {ResultSet} from "./ResultSet";
 import {ClientReadableStream} from "@grpc/grpc-js";
@@ -11,11 +16,17 @@ import {implSymbol, Query_V1, QuerySession} from "./query-session";
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import IColumn = Ydb.IColumn;
 import {convertYdbValueToNative, snakeToCamelCaseConversion} from "../types";
-import {resultsetYdbColumnsSymbol} from "./symbols";
 
 export type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
     execStats?: Ydb.TableStats.IQueryStats;
+    /**
+     * Gets resolved when all data is received from stream and execute() operation become completed. At that moment
+     * is allowed to start next operation within session.
+     *
+     * Wait for this promise is equivalent to get read all data from all result sets.
+     */
+    opFinished: Promise<void>;
 };
 
 export const CANNOT_MANAGE_TRASACTIONS_ERROR = 'Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used';
@@ -70,11 +81,11 @@ export function execute(this: QuerySession, opts: {
         Object.keys(opts.parameters).forEach(n => {
             if (!n.startsWith('$')) throw new Error(`Parameter name must start with "$": ${n}`);
         })
-    if (opts.txControl && this[symbols.sessionTxSettingsSymbol])
+    if (opts.txControl && this[sessionTxSettingsSymbol])
         throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
     if (opts.txControl?.txId)
         throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
-    if (this[symbols.sessionTxIdSymbol]) {
+    if (this[sessionTxIdSymbol]) {
         if (opts.txControl?.beginTx)
             throw new Error('txControl.beginTx when there\'s already an open transaction');
     } else {
@@ -93,12 +104,12 @@ export function execute(this: QuerySession, opts: {
     };
     if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode;
     if (opts.parameters) executeQueryRequest.parameters = opts.parameters;
-    if (this[symbols.sessionTxSettingsSymbol] && !this[symbols.sessionTxIdSymbol])
-        executeQueryRequest.txControl = {beginTx: this[symbols.sessionTxSettingsSymbol], commitTx: false};
+    if (this[sessionTxSettingsSymbol] && !this[sessionTxIdSymbol])
+        executeQueryRequest.txControl = {beginTx: this[sessionTxSettingsSymbol], commitTx: false};
     else if (opts.txControl)
         executeQueryRequest.txControl = opts.txControl;
-    if (this[symbols.sessionTxIdSymbol])
-        (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[symbols.sessionTxIdSymbol];
+    if (this[sessionTxIdSymbol])
+        (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[sessionTxIdSymbol];
     executeQueryRequest.concurrentResultSets = opts.concurrentResultSets ?? false;
 
 // Run the operation
@@ -109,6 +120,8 @@ export function execute(this: QuerySession, opts: {
     let lastRowsIterator: IAsyncQueueIterator<Ydb.IValue>;
     let resultResolve: ((data: IExecuteResult) => void) | undefined
     let resultReject: ((reason?: any) => void) | undefined;
+    let finishedResolve: (() => void) | undefined;
+    let finishedReject: ((reason?: any) => void) | undefined;
     let responseStream: ClientReadableStream<Ydb.Query.ExecuteQueryResponsePart> | undefined;
     let execStats: Ydb.TableStats.IQueryStats | undefined;
 
@@ -123,7 +136,7 @@ export function execute(this: QuerySession, opts: {
             : undefined;
 
 // One operation per session in a time. And it might be cancelled
-    if (this[symbols.sessionCurrentOperationSymbol]) throw new Error('There\'s another active operation in the session');
+    if (this[sessionCurrentOperationSymbol]) throw new Error('There\'s another active operation in the session');
 
     const cancel = (reason: any, onStreamError?: boolean) => {
         if (finished) return;
@@ -139,10 +152,11 @@ export function execute(this: QuerySession, opts: {
                 iterator.error(reason);
             });
         }
-        delete this[symbols.sessionCurrentOperationSymbol];
+        if (finishedReject) finishedReject(reason);
+        delete this[sessionCurrentOperationSymbol];
     }
 
-    this[symbols.sessionCurrentOperationSymbol] = {cancel};
+    this[sessionCurrentOperationSymbol] = {cancel};
 
 // Operation
     responseStream = this[implSymbol].grpcClient!.makeServerStreamRequest(
@@ -162,16 +176,16 @@ export function execute(this: QuerySession, opts: {
         }
 
         if (partialResp.txMeta?.id)
-            this[symbols.sessionTxIdSymbol] = partialResp.txMeta!.id;
+            this[sessionTxIdSymbol] = partialResp.txMeta!.id;
         else
-            delete this[symbols.sessionTxIdSymbol];
+            delete this[sessionTxIdSymbol];
 
         if (partialResp.resultSet) {
 
             const _index = partialResp.resultSetIndex;
             const index = Long.isLong(_index) ? (_index as Long).toInt() : (resultSetByIndex as unknown as number);
 
-            let iterator: IAsyncQueueIterator<{[key: string]: any}>;
+            let iterator: IAsyncQueueIterator<{ [key: string]: any }>;
             let resultSet: ResultSet;
 
             let resultSetTuple = resultSetByIndex[index];
@@ -222,6 +236,10 @@ export function execute(this: QuerySession, opts: {
                     get execStats() {
                         return execStats
                     },
+                    opFinished: new Promise<void>((resolve, reject) => {
+                        finishedResolve = resolve;
+                        finishedReject = reject;
+                    })
                 });
                 resultResolve = resultReject = undefined;
             }
@@ -266,11 +284,13 @@ export function execute(this: QuerySession, opts: {
                 get execStats() {
                     return execStats
                 },
+                opFinished: Promise.resolve()
             });
             resultResolve = resultReject = undefined;
         }
 
-        delete this[symbols.sessionCurrentOperationSymbol];
+        if (finishedResolve) finishedResolve();
+        delete this[sessionCurrentOperationSymbol];
         finished = true;
     });
 

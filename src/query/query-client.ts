@@ -34,7 +34,7 @@ export interface IQueryClientSettings {
 interface IDoOpts<T> {
     ctx?: Context,
     // ctx?: Context
-    txSettong?: Ydb.Query.ITransactionSettings,
+    txSettings?: Ydb.Query.ITransactionSettings,
     fn: SessionCallback<T>,
     timeout?: number,
 }
@@ -75,7 +75,7 @@ export class QueryClient extends EventEmitter {
                 const session = await this.pool.acquire();
                 let error;
                 try {
-                    if (opts.txSettong) session[sessionTxSettingsSymbol] = opts.txSettong;
+                    if (opts.txSettings) session[sessionTxSettingsSymbol] = opts.txSettings;
                     let res: T;
                     try {
                         res = await opts.fn(session);
@@ -86,7 +86,7 @@ export class QueryClient extends EventEmitter {
                         throw err;
                     }
                     if (session[sessionTxIdSymbol]) { // there is an open transaction within session
-                        if (opts.txSettong) {
+                        if (opts.txSettings) {
                             // likely doTx was called and user expects have the transaction being commited
                             await session[sessionCommitTransactionSymbol]();
                         } else {
@@ -118,9 +118,8 @@ export class QueryClient extends EventEmitter {
 
     @EnsureContext()
     public doTx<T>(opts: IDoOpts<T>): Promise<T> {
-        // const ctx = opts.ctx!;
-        if (!opts.txSettong) {
-            opts = {...opts, txSettong: AUTO_TX.beginTx};
+        if (!opts.txSettings) {
+            opts = {...opts, txSettings: AUTO_TX.beginTx};
         }
         return this.do<T>(opts);
     }
