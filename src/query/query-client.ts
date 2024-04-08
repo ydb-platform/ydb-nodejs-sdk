@@ -9,7 +9,14 @@ import {IAuthService} from "../credentials/i-auth-service";
 import {Ydb} from "ydb-sdk-proto";
 import {AUTO_TX} from "../table";
 import {withRetries} from "../retries";
-import * as symbols from "./symbols";
+import {
+    sessionTxSettingsSymbol,
+    sessionTxIdSymbol,
+    sessionRollbackTransactionSymbol,
+    sessionCommitTransactionSymbol,
+    sessionCurrentOperationSymbol,
+    sessionReleaseSymbol
+} from "./symbols";
 import {BadSession, SessionBusy} from "../errors";
 import {Context, CtxDispose} from "../context/Context";
 import {EnsureContext} from "../context/ensureContext";
@@ -56,7 +63,7 @@ export class QueryClient extends EventEmitter {
     @EnsureContext()
     public async do<T>(opts: IDoOpts<T>): Promise<T> {
         let ctx = opts.ctx!; // guarnteed by @EnsureContext()
-        let dispose: CtxDispose;
+        let dispose: CtxDispose | undefined;
         if (opts.timeout) {
             ({ctx, dispose} = ctx.createChild({
                 timeout: opts.timeout,
@@ -68,23 +75,23 @@ export class QueryClient extends EventEmitter {
                 const session = await this.pool.acquire();
                 let error;
                 try {
-                    if (opts.txSettong) session[symbols.sessionTxSettings] = opts.txSettong;
+                    if (opts.txSettong) session[sessionTxSettingsSymbol] = opts.txSettong;
                     let res: T;
                     try {
                         res = await opts.fn(session);
                     } catch (err) {
-                        if (session[symbols.sessionTxId] && !(err instanceof BadSession || err instanceof SessionBusy)) {
-                            await session[symbols.sessionRollbackTransaction]();
+                        if (session[sessionTxIdSymbol] && !(err instanceof BadSession || err instanceof SessionBusy)) {
+                            await session[sessionRollbackTransactionSymbol]();
                         }
                         throw err;
                     }
-                    if (session[symbols.sessionTxId]) { // there is an open transaction within session
+                    if (session[sessionTxIdSymbol]) { // there is an open transaction within session
                         if (opts.txSettong) {
                             // likely doTx was called and user expects have the transaction being commited
-                            await session[symbols.sessionCommitTransaction]();
+                            await session[sessionCommitTransactionSymbol]();
                         } else {
                             // likely do() was called and user intentionally haven't closed transaction
-                            await session[symbols.sessionRollbackTransaction]();
+                            await session[sessionRollbackTransactionSymbol]();
                         }
                     }
                     return res;
@@ -93,14 +100,14 @@ export class QueryClient extends EventEmitter {
                     throw err;
                 } finally {
                     // TODO: Cleanup idempotentocy
-                    // delete session[symbols.sessionTxId];
-                    delete session[symbols.sessionTxSettings];
-                    delete session[symbols.sessionCurrentOperation];
+                    // delete session[sessionTxId];
+                    delete session[sessionTxSettingsSymbol];
+                    delete session[sessionCurrentOperationSymbol];
                     if (error instanceof BadSession || error instanceof SessionBusy) {
                         this.logger.debug('Encountered bad or busy session, re-creating the session');
                         session.emit(SessionEvent.SESSION_BROKEN);
                     } else {
-                        session[symbols.sessionRelease]();
+                        session[sessionReleaseSymbol]();
                     }
                 }
             });
