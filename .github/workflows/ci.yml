@@ -54,6 +54,6 @@ jobs:
     - name: Build examples
       run: npm link && cd examples && npm i && npm link ydb-sdk && npm run build
     - name: Run tests
-      run: npm run test:all
+      run: npm run test:prod
       env:
         YDB_SSL_ROOT_CERTIFICATES_FILE: /tmp/ydb_certs/ca.pem

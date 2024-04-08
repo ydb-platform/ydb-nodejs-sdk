@@ -21,7 +21,7 @@ describe('Query service transactions', () => {
 
     afterAll(async () => {
         discoveryService.destroy();
-        await session[symbols.sessionRelease]();
+        await session[symbols.sessionReleaseSymbol]();
         await session.delete();
     });
 

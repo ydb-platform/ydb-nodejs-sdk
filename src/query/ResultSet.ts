@@ -5,7 +5,7 @@ import * as symbols from './symbols'
 import {convertYdbValueToNative, snakeToCamelCaseConversion, TypedData} from "../types";
 
 export class ResultSet {
-    [symbols.resultsetYdbColumns]?: Ydb.IColumn[];
+    [symbols.resultsetYdbColumnsSymbol]?: Ydb.IColumn[];
 
     public readonly columns: Ydb.IColumn[] | string[];
     public readonly rows: AsyncGenerator<{[key: string]: any}, void>;

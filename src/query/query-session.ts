@@ -7,7 +7,23 @@ import {pessimizable} from "../utils";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {Ydb} from "ydb-sdk-proto";
 import {ClientReadableStream} from "@grpc/grpc-js";
-import * as symbols from './symbols';
+import {
+    sessionIdSymbol,
+    sessionTxSettingsSymbol,
+    sessionTxIdSymbol,
+    sessionCurrentOperationSymbol,
+    sessionAcquireSymbol,
+    sessionReleaseSymbol,
+    sessionAttachSymbol,
+    sessionIsFreeSymbol,
+    sessionIsDeletedSymbol,
+    sessionDeleteOnReleaseSymbol,
+    sessionRollbackTransactionSymbol,
+    sessionCommitTransactionSymbol,
+    sessionBeginTransactionSymbol,
+    createSymbol,
+    sessionIsClosingSymbol
+} from './symbols';
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 
 import {attach as attachImpl} from './query-session-attach';
@@ -38,22 +54,20 @@ export interface QuerySessionOperation {
     cancel(reason: any): void;
 }
 
-export const api = Symbol('api');
-export const impl = Symbol('impl');
-export const attachStream = Symbol('attachStream');
+export const apiSymbol = Symbol('api');
+export const implSymbol = Symbol('impl');
+export const attachStreamSymbol = Symbol('attachStream');
 
 export class QuerySession extends EventEmitter implements ICreateSessionResult {
-    [symbols.sessionCurrentOperation]?: QuerySessionOperation;
-    [symbols.sessionId]: string;
-    [symbols.sessionTxId]?: string;
-    [symbols.sessionTxSettings]?: Ydb.Query.ITransactionSettings;
-
-    // TODO: Add doTx transaction settings
+    [sessionCurrentOperationSymbol]?: QuerySessionOperation;
+    [sessionIdSymbol]: string;
+    [sessionTxIdSymbol]?: string;
+    [sessionTxSettingsSymbol]?: Ydb.Query.ITransactionSettings;
 
     // private fields, available in the methods placed in separated files
-    [impl]: SessionBuilder;
-    [attachStream]?: ClientReadableStream<Ydb.Query.SessionState>;
-    [api]: QueryService;
+    [implSymbol]: SessionBuilder;
+    [attachStreamSymbol]?: ClientReadableStream<Ydb.Query.SessionState>;
+    [apiSymbol]: QueryService;
 
     // TODO: Move those fields to SessionBase
     private beingDeleted = false;
@@ -61,11 +75,11 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     private closing = false;
 
     public get sessionId() {
-        return this[symbols.sessionId];
+        return this[sessionIdSymbol];
     }
 
     public get txId() {
-        return this[symbols.sessionTxId];
+        return this[sessionTxIdSymbol];
     }
 
     private constructor( // TODO: Change to named parameters for consistency
@@ -77,12 +91,12 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         // TODO: Add timeout
     ) {
         super();
-        this[api] = _api;
-        this[impl] = _impl;
-        this[symbols.sessionId] = sessionId;
+        this[apiSymbol] = _api;
+        this[implSymbol] = _impl;
+        this[sessionIdSymbol] = sessionId;
     }
 
-    static [symbols.create]( // TODO: Change to named parameters for consistency
+    static [createSymbol](
         api: QueryService,
         impl: SessionBuilder,
         endpoint: Endpoint,
@@ -92,43 +106,43 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         return new QuerySession(api, impl, endpoint, sessionId, logger);
     }
 
-    [symbols.sessionAcquire]() {
+    [sessionAcquireSymbol]() {
         this.free = false;
         this.logger.debug(`Acquired session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         return this;
     }
 
-    [symbols.sessionRelease]() {
-        if (this[symbols.sessionCurrentOperation]) throw new Error('There is an active operation');
+    [sessionReleaseSymbol]() {
+        if (this[sessionCurrentOperationSymbol]) throw new Error('There is an active operation');
         this.free = true;
         this.logger.debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         this.emit(SessionEvent.SESSION_RELEASE, this);
     }
 
-    [symbols.sessionIsFree]() {
-        return this.free && !this[symbols.sessionIsDeleted]();
+    [sessionIsFreeSymbol]() {
+        return this.free && !this[sessionIsDeletedSymbol]();
     }
 
-    [symbols.sessionIsClosing]() {
+    [sessionIsClosingSymbol]() {
         return this.closing;
     }
 
-    public [symbols.sessionDeleteOnRelease]() {
+    public [sessionDeleteOnReleaseSymbol]() {
         this.closing = true;
     }
 
-    [symbols.sessionIsDeleted]() {
+    [sessionIsDeletedSymbol]() {
         return this.beingDeleted;
     }
 
     @retryable()
     @pessimizable
     public async delete(): Promise<void> {
-        if (this[symbols.sessionIsDeleted]()) return;
+        if (this[sessionIsDeletedSymbol]()) return;
         this.beingDeleted = true;
-        await this[attachStream]?.cancel();
-        delete this[attachStream]; // only one stream cancel even when multi ple retries
-        ensureCallSucceeded(await this[api].deleteSession({sessionId: this.sessionId}));
+        await this[attachStreamSymbol]?.cancel();
+        delete this[attachStreamSymbol]; // only one stream cancel even when multi ple retries
+        ensureCallSucceeded(await this[apiSymbol].deleteSession({sessionId: this.sessionId}));
     }
 
     // TODO: Uncomment after switch to TS 5.3
@@ -136,26 +150,26 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     //     return this.delete();
     // }
 
-    [symbols.sessionAttach] = attachImpl;
+    [sessionAttachSymbol] = attachImpl;
 
     public async beginTransaction(txSettings: Ydb.Query.ITransactionSettings | null = null) {
-        if (this[symbols.sessionTxSettings]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
+        if (this[sessionTxSettingsSymbol]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
         return beginTransaction.call(this, txSettings);
     }
 
     public async commitTransaction() {
-        if (this[symbols.sessionTxSettings]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
+        if (this[sessionTxSettingsSymbol]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
         return commitTransaction.call(this);
     }
 
     public async rollbackTransaction() {
-        if (this[symbols.sessionTxSettings]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
+        if (this[sessionTxSettingsSymbol]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
         return rollbackTransactionImpl.call(this);
     }
 
-    public [symbols.sessionBeginTransaction] = beginTransactionImpl;
-    public [symbols.sessionCommitTransaction] = commitTransactionImpl;
-    public [symbols.sessionRollbackTransaction] = rollbackTransactionImpl;
+    public [sessionBeginTransactionSymbol] = beginTransactionImpl;
+    public [sessionCommitTransactionSymbol] = commitTransactionImpl;
+    public [sessionRollbackTransactionSymbol] = rollbackTransactionImpl;
 
     public execute = executeImpl;
 }

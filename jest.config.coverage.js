@@ -1,4 +1,4 @@
-const config = require('./jest.config.development');
+const config = require('./jest.config.dev');
 
 /*
  * For a detailed explanation regarding each configuration property and type check, visit:

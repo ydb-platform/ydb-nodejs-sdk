@@ -8,6 +8,8 @@ import {Logger} from "../logging";
 import {TableSession} from "./table-session";
 import {ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
+import {Context} from "../context/Context";
+import {EnsureContext} from "../context/ensureContext";
 
 export interface ITableClientSettings {
     database: string;
@@ -27,15 +29,27 @@ export class TableClient extends EventEmitter {
         this.pool = new TableSessionPool(settings);
     }
 
-    public async withSession<T>(callback: (session: TableSession) => Promise<T>, timeout: number = 0): Promise<T> {
-        return this.pool.withSession(callback, timeout);
+    // @ts-ignore
+    public async withSession<T>(callback: (session: TableSession) => Promise<T>, timeout?: number): Promise<T>;
+    public async withSession<T>(ctx: Context, callback: (session: TableSession) => Promise<T>, timeout?: number): Promise<T>;
+        @EnsureContext(true)
+    public async withSession<T>(ctx: Context, callback: (session: TableSession) => Promise<T>, timeout: number = 0): Promise<T> {
+        return this.pool.withSession(ctx, callback, timeout);
     }
 
-    public async withSessionRetry<T>(callback: (session: TableSession) => Promise<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
-        return this.pool.withSessionRetry(callback, timeout, maxRetries);
+    // @ts-ignore
+    public async withSessionRetry<T>(callback: (session: TableSession) => Promise<T>, timeout?: number, maxRetries?: number): Promise<T>;
+    public async withSessionRetry<T>(ctx: Context, callback: (session: TableSession) => Promise<T>, timeout?: number, maxRetries?: number): Promise<T>;
+    @EnsureContext(true)
+    public async withSessionRetry<T>(ctx: Context, callback: (session: TableSession) => Promise<T>, timeout: number = 0, maxRetries = 10): Promise<T> {
+        return this.pool.withSessionRetry(ctx, callback, timeout, maxRetries);
     }
 
-    public async destroy() {
-        await this.pool.destroy();
+    // @ts-ignore
+    public async destroy(): Promise<void>;
+    public async destroy(ctx: Context): Promise<void>;
+    @EnsureContext(true)
+    public async destroy(ctx: Context): Promise<void> {
+        await this.pool.destroy(ctx);
     }
 }

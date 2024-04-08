@@ -16,7 +16,15 @@ import {pessimizable} from "../utils";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
-import * as symbols from './symbols';
+import {
+    createSymbol, sessionAcquireSymbol,
+    sessionAttachSymbol,
+    sessionDeleteOnReleaseSymbol,
+    sessionIsFreeSymbol,
+    sessionIsClosingSymbol,
+    sessionReleaseSymbol,
+    sessionIsDeletedSymbol
+} from './symbols';
 
 export class SessionBuilder extends AuthenticatedService<QueryService> {
     public endpoint: Endpoint;
@@ -35,8 +43,10 @@ export class SessionBuilder extends AuthenticatedService<QueryService> {
     @pessimizable
     async create(): Promise<QuerySession> {
         const {sessionId} = ensureCallSucceeded(await this.api.createSession(CreateSessionRequest.create()));
-        const session = QuerySession[symbols.create](this.api, this, this.endpoint, sessionId, this.logger/*, this.getResponseMetadata.bind(this)*/);
-        await session[symbols.sessionAttach](() => { session[symbols.sessionDeleteOnRelease](); });
+        const session = QuerySession[createSymbol](this.api, this, this.endpoint, sessionId, this.logger/*, this.getResponseMetadata.bind(this)*/);
+        await session[sessionAttachSymbol](() => {
+            session[sessionDeleteOnReleaseSymbol]();
+        });
         return session;
     }
 }
@@ -53,7 +63,8 @@ export class QuerySessionPool extends EventEmitter {
     private readonly authService: IAuthService;
     private readonly sslCredentials?: ISslCredentials;
     private readonly clientOptions?: ClientOptions;
-    /*private readonly*/ minLimit: number;
+    /*private readonly*/
+    minLimit: number;
     private readonly maxLimit: number;
     private readonly sessions: Set<QuerySession>;
     private readonly sessionBuilders: Map<Endpoint, SessionBuilder>;
@@ -127,7 +138,7 @@ export class QuerySessionPool extends EventEmitter {
         const sessionCreator = await this.getSessionBuilder();
         const session = await sessionCreator.create();
         session.on(SessionEvent.SESSION_RELEASE, async () => {
-            if (session[symbols.sessionIsClosing]()) {
+            if (session[sessionIsClosingSymbol]()) {
                 await this.deleteSession(session);
             } else {
                 this.maybeUseSession(session);
@@ -141,7 +152,7 @@ export class QuerySessionPool extends EventEmitter {
     }
 
     private deleteSession(session: QuerySession): Promise<void> {
-        if (session[symbols.sessionIsDeleted]()) {
+        if (session[sessionIsDeletedSymbol]()) {
             return Promise.resolve();
         }
 
@@ -150,7 +161,7 @@ export class QuerySessionPool extends EventEmitter {
         if (this.waiters.length > 0) {
             this.acquire().then((session) => {
                 if (!this.maybeUseSession(session)) {
-                    session[symbols.sessionRelease]();
+                    session[sessionReleaseSymbol]();
                 }
             });
         }
@@ -164,8 +175,8 @@ export class QuerySessionPool extends EventEmitter {
 
     public acquire(timeout: number = 0): Promise<QuerySession> {
         for (const session of this.sessions) {
-            if (session[symbols.sessionIsFree]()) {
-                return Promise.resolve(session[symbols.sessionAcquire]());
+            if (session[sessionIsFreeSymbol]()) {
+                return Promise.resolve(session[sessionAcquireSymbol]());
             }
         }
 
@@ -173,7 +184,7 @@ export class QuerySessionPool extends EventEmitter {
             this.newSessionsRequested++;
             return this.createSession()
                 .then((session) => {
-                    return session[symbols.sessionAcquire]();
+                    return session[sessionAcquireSymbol]();
                 })
                 .finally(() => {
                     this.newSessionsRequested--;
@@ -184,7 +195,7 @@ export class QuerySessionPool extends EventEmitter {
 
                 function waiter(session: QuerySession) {
                     clearTimeout(timeoutId);
-                    resolve(session[symbols.sessionAcquire]());
+                    resolve(session[sessionAcquireSymbol]());
                 }
 
                 if (timeout) {

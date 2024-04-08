@@ -1,5 +1,10 @@
 import {Ydb} from "ydb-sdk-proto";
-import * as symbols from "./symbols";
+import {
+    resultsetYdbColumnsSymbol,
+    sessionTxIdSymbol,
+    sessionTxSettingsSymbol,
+    sessionCurrentOperationSymbol,
+} from "./symbols";
 import {buildAsyncQueueIterator, IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
 import {ResultSet} from "./ResultSet";
 import {ClientReadableStream} from "@grpc/grpc-js";
@@ -7,11 +12,10 @@ import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import Long from "long";
 import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
 import {TransportError} from "../errors";
-import {impl, Query_V1, QuerySession} from "./query-session";
+import {implSymbol, Query_V1, QuerySession} from "./query-session";
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import IColumn = Ydb.IColumn;
 import {convertYdbValueToNative, snakeToCamelCaseConversion} from "../types";
-import {resultsetYdbColumns} from "./symbols";
 
 export type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
@@ -32,6 +36,7 @@ export const enum RowType {
      * Received rows get converted to js native format according to rules from src/types.ts.
      */
     Native,
+
     /**
      * As it is received from GRPC buffer.  Required to use TypedData<T> in ResultSet.
      */
@@ -76,11 +81,11 @@ export function execute(this: QuerySession, opts: {
         Object.keys(opts.parameters).forEach(n => {
             if (!n.startsWith('$')) throw new Error(`Parameter name must start with "$": ${n}`);
         })
-    if (opts.txControl && this[symbols.sessionTxSettings])
+    if (opts.txControl && this[sessionTxSettingsSymbol])
         throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
     if (opts.txControl?.txId)
         throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
-    if (this[symbols.sessionTxId]) {
+    if (this[sessionTxIdSymbol]) {
         if (opts.txControl?.beginTx)
             throw new Error('txControl.beginTx when there\'s already an open transaction');
     } else {
@@ -99,12 +104,12 @@ export function execute(this: QuerySession, opts: {
     };
     if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode;
     if (opts.parameters) executeQueryRequest.parameters = opts.parameters;
-    if (this[symbols.sessionTxSettings] && !this[symbols.sessionTxId])
-        executeQueryRequest.txControl = {beginTx: this[symbols.sessionTxSettings], commitTx: false};
+    if (this[sessionTxSettingsSymbol] && !this[sessionTxIdSymbol])
+        executeQueryRequest.txControl = {beginTx: this[sessionTxSettingsSymbol], commitTx: false};
     else if (opts.txControl)
         executeQueryRequest.txControl = opts.txControl;
-    if (this[symbols.sessionTxId])
-        (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[symbols.sessionTxId];
+    if (this[sessionTxIdSymbol])
+        (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[sessionTxIdSymbol];
     executeQueryRequest.concurrentResultSets = opts.concurrentResultSets ?? false;
 
 // Run the operation
@@ -131,7 +136,7 @@ export function execute(this: QuerySession, opts: {
             : undefined;
 
 // One operation per session in a time. And it might be cancelled
-    if (this[symbols.sessionCurrentOperation]) throw new Error('There\'s another active operation in the session');
+    if (this[sessionCurrentOperationSymbol]) throw new Error('There\'s another active operation in the session');
 
     const cancel = (reason: any, onStreamError?: boolean) => {
         if (finished) return;
@@ -148,18 +153,18 @@ export function execute(this: QuerySession, opts: {
             });
         }
         if (finishedReject) finishedReject(reason);
-        delete this[symbols.sessionCurrentOperation];
+        delete this[sessionCurrentOperationSymbol];
     }
 
-    this[symbols.sessionCurrentOperation] = {cancel};
+    this[sessionCurrentOperationSymbol] = {cancel};
 
 // Operation
-    responseStream = this[impl].grpcClient!.makeServerStreamRequest(
+    responseStream = this[implSymbol].grpcClient!.makeServerStreamRequest(
         Query_V1.ExecuteQuery,
         (v) => Ydb.Query.ExecuteQueryRequest.encode(v).finish() as Buffer,
         Ydb.Query.ExecuteQueryResponsePart.decode,
         Ydb.Query.ExecuteQueryRequest.create(executeQueryRequest),
-        this[impl].metadata);
+        this[implSymbol].metadata);
 
     responseStream.on('data', (partialResp: Ydb.Query.ExecuteQueryResponsePart) => {
         this.logger.trace('execute(): data: %o', partialResp);
@@ -171,16 +176,16 @@ export function execute(this: QuerySession, opts: {
         }
 
         if (partialResp.txMeta?.id)
-            this[symbols.sessionTxId] = partialResp.txMeta!.id;
+            this[sessionTxIdSymbol] = partialResp.txMeta!.id;
         else
-            delete this[symbols.sessionTxId];
+            delete this[sessionTxIdSymbol];
 
         if (partialResp.resultSet) {
 
             const _index = partialResp.resultSetIndex;
             const index = Long.isLong(_index) ? (_index as Long).toInt() : (resultSetByIndex as unknown as number);
 
-            let iterator: IAsyncQueueIterator<{[key: string]: any}>;
+            let iterator: IAsyncQueueIterator<{ [key: string]: any }>;
             let resultSet: ResultSet;
 
             let resultSetTuple = resultSetByIndex[index];
@@ -193,7 +198,7 @@ export function execute(this: QuerySession, opts: {
                     default: // Native
                         const nativeColumnsNames = (partialResp.resultSet!.columns as IColumn[]).map(v => snakeToCamelCaseConversion.ydbToJs(v.name!));
                         resultSet = new ResultSet(index, nativeColumnsNames, opts.rowMode ?? RowType.Native, iterator);
-                        resultSet[resultsetYdbColumns] = partialResp.resultSet!.columns as IColumn[];
+                        resultSet[resultsetYdbColumnsSymbol] = partialResp.resultSet!.columns as IColumn[];
                 }
                 resultSetIterator.push(resultSet);
                 resultSetByIndex[index] = [iterator, resultSet];
@@ -216,7 +221,7 @@ export function execute(this: QuerySession, opts: {
                         try {
                             row.items?.forEach((v, i) => {
                                 const nativeColumnName = (resultSet.columns as string[])[i];
-                                nativeRow[nativeColumnName] = convertYdbValueToNative(resultSet[resultsetYdbColumns]![i].type!, v);
+                                nativeRow[nativeColumnName] = convertYdbValueToNative(resultSet[resultsetYdbColumnsSymbol]![i].type!, v);
                             });
                         } catch (err) {
                             throw err;
@@ -285,7 +290,7 @@ export function execute(this: QuerySession, opts: {
         }
 
         if (finishedResolve) finishedResolve();
-        delete this[symbols.sessionCurrentOperation];
+        delete this[sessionCurrentOperationSymbol];
         finished = true;
     });
 
