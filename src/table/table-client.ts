@@ -3,13 +3,13 @@ import {TableSessionPool} from "./table-session-pool";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {IPoolSettings} from "../driver";
 import DiscoveryService from "../discovery/discovery-service";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 
 import {TableSession} from "./table-session";
 import {ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Context} from "../context/Context";
-import {EnsureContext} from "../context/ensureContext";
+import {EnsureContext} from "../context/EnsureContext";
 
 export interface ITableClientSettings {
     database: string;

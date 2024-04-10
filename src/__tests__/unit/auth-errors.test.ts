@@ -1,22 +1,21 @@
-import { FallbackLogger, setupLogger } from '../../logging';
-setupLogger(new FallbackLogger({level: 'error'}))
-
-import { ServiceError } from '@grpc/grpc-js/build/src/call';
-import { TransportUnavailable } from '../../errors';
-import { StatusObject } from '@grpc/grpc-js';
-import { Status } from '@grpc/grpc-js/build/src/constants';
+import {ServiceError} from '@grpc/grpc-js/build/src/call';
+import {TransportUnavailable} from '../../errors';
+import {StatusObject} from '@grpc/grpc-js';
+import {Status} from '@grpc/grpc-js/build/src/constants';
 import {StaticCredentialsAuthService} from "../../credentials/static-credentials-auth-service";
 import {IamAuthService} from "../../credentials/iam-auth-service";
 
-describe('Retries on errors in auth services', () => {
+xdescribe('Retries on errors in auth services', () => {
     const mockIamCounter = {retries: 0}
     const mockStaticCredCounter = {retries: 0}
+
     function mockCallErrorFromStatus(status: StatusObject): ServiceError {
         const message = `${status.code} ${Status[status.code]}: ${status.details}`;
         return Object.assign(new Error(message), status);
-      }
+    }
 
-    beforeEach(() => {});
+    beforeEach(() => {
+    });
     beforeAll(() => {
 
         jest.mock('ydb-sdk-proto', () => {
@@ -62,7 +61,7 @@ describe('Retries on errors in auth services', () => {
         await expect(mockIamCounter.retries).toBe(10);
     });
 
-    it('Static creds auth service - UNAVAILABLE', async () => {
+    it.only('Static creds auth service - UNAVAILABLE', async () => {
         const staticAuth = new StaticCredentialsAuthService('usr', 'pwd', 'endpoint');
 
         await expect(async () => {

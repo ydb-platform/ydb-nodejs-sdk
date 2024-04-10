@@ -9,6 +9,9 @@ import * as grpc from "@grpc/grpc-js";
 import {addCredentialsToMetadata} from "./add-credentials-to-metadata";
 
 import {IAuthService} from "./i-auth-service";
+import {HasLogger} from "../logger/HasLogger";
+import {Logger} from "../logger/simple-logger";
+import {getDefaultLogger} from "../logger/getDefaultLogger";
 
 interface StaticCredentialsAuthOptions {
     /** Custom ssl sertificates. If you use it in driver, you must use it here too */
@@ -24,8 +27,8 @@ interface StaticCredentialsAuthOptions {
     tokenExpirationTimeout?: number
 }
 
-class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> {
-    constructor(endpoint: string, sslCredentials?: ISslCredentials) {
+class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> implements HasLogger {
+    constructor(endpoint: string, sslCredentials?: ISslCredentials, public readonly logger: Logger = getDefaultLogger()) {
         super(endpoint, 'Ydb.Auth.V1.AuthService', Ydb.Auth.V1.AuthService, sslCredentials);
     }
 

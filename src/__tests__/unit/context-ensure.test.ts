@@ -1,5 +1,5 @@
 import {Context} from "../../context/Context";
-import {EnsureContext} from "../../context/ensureContext";
+import {EnsureContext} from "../../context/EnsureContext";
 
 describe('ensureContext', () => {
     it('positional args', () => {

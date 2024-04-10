@@ -1,10 +1,11 @@
 import fs from 'fs';
-import {getLogger, Logger} from '../logging';
+import {Logger} from '../logger/simple-logger';
 import {IamAuthService, IIamCredentials} from "../credentials/iam-auth-service";
 import {MetadataAuthService} from "../credentials/metadata-auth-service";
 import {TokenAuthService} from "../credentials/token-auth-service";
 import {AnonymousAuthService} from "../credentials/anonymous-auth-service";
 import {IAuthService} from "../credentials/i-auth-service";
+import {getDefaultLogger} from "../logger/getDefaultLogger";
 
 export function getSACredentialsFromJson(filename: string): IIamCredentials {
     const buffer = fs.readFileSync(filename);
@@ -18,7 +19,7 @@ export function getSACredentialsFromJson(filename: string): IIamCredentials {
 }
 
 export function getCredentialsFromEnv(logger?: Logger): IAuthService {
-    logger = logger || getLogger();
+    logger = logger || getDefaultLogger();
     if (process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS) {
         logger.debug('YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS env var found, using IamAuthService with params from that json file.');
         return new IamAuthService(getSACredentialsFromJson(process.env.YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS));

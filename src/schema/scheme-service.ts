@@ -7,12 +7,13 @@ import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
 import {OperationParamsSettings} from "../table";
 import {AuthenticatedService, ClientOptions, pessimizable} from "../utils";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 import {Endpoint} from "../discovery";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {retryable} from "../retries";
 import {ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
+import {HasLogger} from "../logger/HasLogger";
 
 function preparePermissions(action?: IPermissions | null) {
     if (action && action.permissionNames) {
@@ -51,8 +52,8 @@ export class DescribePathSettings extends OperationParamsSettings {
 export class ModifyPermissionsSettings extends OperationParamsSettings {
 }
 
-export class SchemeService extends AuthenticatedService<SchemeServiceAPI> {
-    private logger: Logger;
+export class SchemeService extends AuthenticatedService<SchemeServiceAPI> implements HasLogger {
+    public readonly logger: Logger;
     private readonly database: string;
     public endpoint: Endpoint;
 

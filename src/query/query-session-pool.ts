@@ -2,7 +2,7 @@ import {Ydb} from "ydb-sdk-proto";
 export import QueryService = Ydb.Query.V1.QueryService;
 import CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 import {Endpoint} from "../discovery";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {retryable} from "../retries";
 import EventEmitter from "events";
@@ -25,10 +25,11 @@ import {
     sessionReleaseSymbol,
     sessionIsDeletedSymbol
 } from './symbols';
+import {HasLogger} from "../logger/HasLogger";
 
-export class SessionBuilder extends AuthenticatedService<QueryService> {
+export class SessionBuilder extends AuthenticatedService<QueryService> implements HasLogger {
     public endpoint: Endpoint;
-    private readonly logger: Logger;
+    public readonly logger: Logger;
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();

@@ -1,7 +1,7 @@
 // @ts-ignore
 import {Context, setContextIdGenerator} from '../../context/Context';
 // @ts-ignore
-import {ensureContext} from '../../context/ensureContext';
+import {ensureContext} from '../../context/EnsureContext';
 // @ts-ignore
 import {cancelListenersSymbol, errSymbol} from '../../context/symbols';
 

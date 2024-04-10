@@ -1,7 +1,7 @@
 import EventEmitter from "events";
 import {QueryService, SessionBuilder, SessionEvent} from "./query-session-pool";
 import {Endpoint} from "../discovery";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 import {retryable} from "../retries";
 import {pessimizable} from "../utils";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";

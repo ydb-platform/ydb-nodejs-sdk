@@ -21,13 +21,14 @@ import * as grpc from "@grpc/grpc-js";
 import EventEmitter from "events";
 import {ICreateSessionResult, SessionEvent, TableService} from "./table-session-pool";
 import {Endpoint} from "../discovery";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 import {retryable} from "../retries";
 import {MissingStatus, MissingValue, SchemeError, YdbError} from "../errors";
 import {ResponseMetadataKeys} from "../constants";
 import {pessimizable} from "../utils";
 import {YdbOperationAsyncResponse, ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
 import {StreamEnd} from "../utils";
+import {HasLogger} from "../logger/HasLogger";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode | null);
@@ -258,7 +259,7 @@ export class ExecuteScanQuerySettings {
     }
 }
 
-export class TableSession extends EventEmitter implements ICreateSessionResult {
+export class TableSession extends EventEmitter implements ICreateSessionResult, HasLogger {
     private beingDeleted = false;
     private free = true;
     private closing = false;
@@ -267,7 +268,7 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
         private api: TableService,
         public endpoint: Endpoint,
         public sessionId: string,
-        private logger: Logger,
+        public readonly logger: Logger,
         private getResponseMetadata: (request: object) => grpc.Metadata | undefined
     ) {
         super();

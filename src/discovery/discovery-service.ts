@@ -2,7 +2,7 @@ import {Ydb} from "ydb-sdk-proto";
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import {Endpoint, SuccessDiscoveryHandler} from "./endpoint";
 import EventEmitter from "events";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 import _ from "lodash";
 import {Events} from "../constants";
 import {retryable} from "../retries";
@@ -11,6 +11,7 @@ import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService} from "../utils/authenticated-service";
 import {withTimeout} from "../utils/with-timeout";
 import {IAuthService} from "../credentials/i-auth-service";
+import {HasLogger} from "../logger/HasLogger";
 
 type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {
@@ -25,7 +26,7 @@ interface IDiscoverySettings {
     sslCredentials?: ISslCredentials,
 }
 
-export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
+export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> implements HasLogger {
     private readonly database: string;
     private readonly discoveryPeriod: number;
     private readonly endpointsPromise: Promise<void>;
@@ -36,7 +37,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
     private endpoints: Endpoint[] = [];
     private currentEndpointIndex: number = 0;
     private events: EventEmitter = new EventEmitter();
-    private logger: Logger;
+    public readonly logger: Logger;
 
     // private selfLocation: string = '';
 

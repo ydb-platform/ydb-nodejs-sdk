@@ -1,6 +1,6 @@
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {TimeoutExpired} from './errors';
-import {getLogger, Logger} from './logging';
+import {Logger, SimpleLogger} from './logger/simple-logger';
 import {makeSslCredentials, ISslCredentials} from './utils/ssl-credentials';
 import DiscoveryService from "./discovery/discovery-service";
 import {TableClient} from "./table";
@@ -43,7 +43,9 @@ export default class Driver {
     public schemeClient: SchemeService;
 
     constructor(settings: IDriverSettings) {
-        this.logger = settings.logger || getLogger();
+        this.logger = settings.logger || new SimpleLogger({
+            envKey: 'YDB_SDK_LOGLEVEL',
+        });
 
         if (settings.connectionString) {
             const {endpoint, database} = parseConnectionString(settings.connectionString);
@@ -125,7 +127,7 @@ export default class Driver {
         this.logger.debug('Driver has been destroyed.');
     }
 
-    // TODO: Upgrade project to TS 5.2+
+    // TODO: Upgrade project to TS 5.3+ and figyre out then it's time to start use Symbol.asyncDispose
     // async [Symbol.asyncDispose]() {
     //     return this.destroy();
     // }

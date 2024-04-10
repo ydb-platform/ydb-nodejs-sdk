@@ -1,14 +1,14 @@
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
-import {getLogger} from "../../../logging";
+import {LogLevel, SimpleLogger} from "../../../logger/simple-logger";
 import {SessionBuilder} from "../../../query/query-session-pool";
-import {QuerySession} from "../../../query/query-session";
+import {QuerySession} from "../../../query";
 import {declareType, TypedData, TypedValues, Types} from "../../../types";
 import {Ydb} from "ydb-sdk-proto";
 import StatsMode = Ydb.Query.StatsMode;
 import ExecMode = Ydb.Query.ExecMode;
-import {IExecuteResult} from "../../../query/query-session-execute";
+import {IExecuteResult} from "../../../query";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
@@ -222,7 +222,7 @@ describe('Query.execute()', () => {
     }
 
     async function testOnOneSessionWithoutDriver() {
-        const logger = getLogger();
+        const logger = new SimpleLogger({level: LogLevel.warn});
         const authService = new AnonymousAuthService();
 
         discoveryService = new DiscoveryService({

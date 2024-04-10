@@ -8,7 +8,7 @@ export {
     LogFn,
     FallbackLogger,
     getFallbackLogFunction,
-} from './logging';
+} from './logger/simple-logger';
 
 export {default as Driver, IDriverSettings, IPoolSettings} from './driver';
 

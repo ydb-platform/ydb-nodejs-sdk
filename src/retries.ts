@@ -1,7 +1,9 @@
 import {YdbError, TransportError} from './errors';
-import {getLogger, Logger} from './logging';
+import {Logger} from './logger/simple-logger';
 import * as errors from './errors';
 import * as utils from "./utils";
+import {getDefaultLogger} from "./logger/getDefaultLogger";
+import {HasLogger} from "./logger/HasLogger";
 
 export class BackoffSettings {
     /**
@@ -65,7 +67,7 @@ class RetryStrategy {
         public retryParameters: RetryParameters,
         logger?: Logger,
     ) {
-        this.logger = logger ?? getLogger();
+        this.logger = logger ?? getDefaultLogger();
     }
 
     async retry<T>(asyncMethod: () => Promise<T>) {
@@ -114,15 +116,25 @@ class RetryStrategy {
     }
 }
 
-export function retryable(strategyParams?: RetryParameters, retryStrategyLogger?: Logger) {
-    return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+type RetryableResult = (target: HasLogger, propertyKey: string, descriptor: PropertyDescriptor) => void;
+
+export function retryable(): RetryableResult;
+export function retryable(strategyParams: RetryParameters): RetryableResult;
+/**
+ * @deprecated retryStrategyLogger not in use anymore
+ */
+export function retryable(strategyParams: RetryParameters, retryStrategyLogger: Logger): RetryableResult;
+
+export function retryable(strategyParams?: RetryParameters) {
+    return (target: HasLogger, propertyKey: string, descriptor: PropertyDescriptor) => {
         const originalMethod = descriptor.value;
         const wrappedMethodName = `${target.constructor.name}::${propertyKey}`;
-
-        if (!strategyParams) strategyParams = new RetryParameters();
-        let strategy = new RetryStrategy(wrappedMethodName, strategyParams, retryStrategyLogger);
-
+        let strategy: RetryStrategy;
         descriptor.value = async function (...args: any) {
+            if (!strategy) { // first time
+                if (!strategyParams) strategyParams = new RetryParameters();
+                strategy = new RetryStrategy(wrappedMethodName, strategyParams, (this as HasLogger).logger);
+            }
             return await strategy.retry(async () => await originalMethod.call(this, ...args));
         };
     };

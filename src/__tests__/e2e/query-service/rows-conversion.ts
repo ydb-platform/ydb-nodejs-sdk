@@ -1,6 +1,6 @@
 import DiscoveryService from "../../../discovery/discovery-service";
 import {QuerySession} from "../../../query/query-session";
-import {getLogger} from "../../../logging";
+import {LogLevel, SimpleLogger} from "../../../logger/simple-logger";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {SessionBuilder} from "../../../query/query-session-pool";
@@ -138,7 +138,7 @@ describe('Rows conversion', () => {
     }
 
     async function testOnOneSessionWithoutDriver() {
-        const logger = getLogger();
+        const logger = new SimpleLogger({level: LogLevel.warn});
         const authService = new AnonymousAuthService();
 
         discoveryService = new DiscoveryService({

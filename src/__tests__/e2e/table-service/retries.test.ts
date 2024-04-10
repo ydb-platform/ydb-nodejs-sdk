@@ -18,14 +18,15 @@ import {
     Undetermined,
     YdbError,
 } from '../../../errors';
-import {FallbackLogger} from '../../../logging';
+import {LogLevel, SimpleLogger} from '../../../logger/simple-logger';
 import {RetryParameters, retryable} from '../../../retries';
 import {Endpoint} from "../../../discovery";
 import {pessimizable} from "../../../utils";
 import {initDriver, destroyDriver} from "../../../utils/test";
+import {HasLogger} from "../../../logger/HasLogger";
 
-const logger = new FallbackLogger({level: 'error'});
-class ErrorThrower {
+const logger = new SimpleLogger({level: LogLevel.error});
+class ErrorThrower implements HasLogger {
     constructor(public endpoint: Endpoint) {}
 
     @retryable(

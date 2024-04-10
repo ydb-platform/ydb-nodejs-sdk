@@ -1,11 +1,10 @@
-import {getLogger} from "../../../logging";
+import {SimpleLogger} from "../../../logger/simple-logger";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {SessionBuilder} from "../../../query/query-session-pool";
-import {QuerySession} from "../../../query/query-session";
-import * as symbols from "../../../query/symbols";
-import {IExecuteResult} from "../../../query/query-session-execute";
+import {QuerySession, IExecuteResult} from "../../../query";
+import {sessionReleaseSymbol} from "../../../query/symbols";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';
@@ -21,7 +20,7 @@ describe('Query service transactions', () => {
 
     afterAll(async () => {
         discoveryService.destroy();
-        await session[symbols.sessionReleaseSymbol]();
+        await session[sessionReleaseSymbol]();
         await session.delete();
     });
 
@@ -111,7 +110,7 @@ describe('Query service transactions', () => {
     }
 
     async function testOnOneSessionWithoutDriver() {
-        const logger = getLogger();
+        const logger = new SimpleLogger();
         const authService = new AnonymousAuthService();
 
         discoveryService = new DiscoveryService({

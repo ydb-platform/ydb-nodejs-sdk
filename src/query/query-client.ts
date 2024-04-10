@@ -3,7 +3,7 @@ import {QuerySessionPool, SessionCallback, SessionEvent} from "./query-session-p
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {IPoolSettings} from "../driver";
 import DiscoveryService from "../discovery/discovery-service";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 import {ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Ydb} from "ydb-sdk-proto";
@@ -19,7 +19,7 @@ import {
 } from "./symbols";
 import {BadSession, SessionBusy} from "../errors";
 import {Context, CtxDispose} from "../context/Context";
-import {EnsureContext} from "../context/ensureContext";
+import {EnsureContext} from "../context/EnsureContext";
 
 export interface IQueryClientSettings {
     database: string;

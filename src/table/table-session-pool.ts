@@ -4,7 +4,7 @@ import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
 export import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 import CreateSessionResult = Ydb.Table.CreateSessionResult;
 import {Endpoint} from "../discovery";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {retryable} from "../retries";
 import EventEmitter from "events";
@@ -20,11 +20,12 @@ import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Context} from "../context/Context";
-import {EnsureContext} from "../context/ensureContext";
+import {EnsureContext} from "../context/EnsureContext";
+import {HasLogger} from "../logger/HasLogger";
 
-export class SessionBuilder extends AuthenticatedService<TableService> {
+export class SessionBuilder extends AuthenticatedService<TableService> implements HasLogger {
     public endpoint: Endpoint;
-    private readonly logger: Logger;
+    public readonly logger: Logger;
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();

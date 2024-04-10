@@ -9,6 +9,9 @@ import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 import {addCredentialsToMetadata} from "./add-credentials-to-metadata";
 import {IAuthService} from "./i-auth-service";
 import {ISslCredentials, makeDefaultSslCredentials} from "../utils/ssl-credentials";
+import {HasLogger} from "../logger/HasLogger";
+import {Logger} from "../logger/simple-logger";
+import {getDefaultLogger} from "../logger/getDefaultLogger";
 
 export interface IIamCredentials {
     serviceAccountId: string,
@@ -17,8 +20,8 @@ export interface IIamCredentials {
     iamEndpoint: string
 }
 
-class IamTokenGrpcService extends GrpcService<IamTokenService> {
-    constructor(iamCredentials: IIamCredentials, sslCredentials: ISslCredentials) {
+class IamTokenGrpcService extends GrpcService<IamTokenService> implements HasLogger {
+    constructor(iamCredentials: IIamCredentials, sslCredentials: ISslCredentials, public readonly logger: Logger = getDefaultLogger()) {
         super(
             iamCredentials.iamEndpoint,
             'yandex.cloud.iam.v1.IamTokenService',
