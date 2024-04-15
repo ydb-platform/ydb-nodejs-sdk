@@ -1,4 +1,4 @@
-import Driver from '../../../driver';
+import Driver from '../../driver';
 import {
     Aborted,
     BadRequest,
@@ -17,21 +17,21 @@ import {
     Unavailable,
     Undetermined,
     YdbError,
-} from '../../../errors';
-import {LogLevel, SimpleLogger} from '../../../logger/simple-logger';
-import {RetryParameters, retryable} from '../../../retries';
-import {Endpoint} from "../../../discovery";
-import {pessimizable} from "../../../utils";
-import {initDriver, destroyDriver} from "../../../utils/test";
-import {HasLogger} from "../../../logger/HasLogger";
+} from '../../retries/errors';
+import {Logger} from '../../logger/simple-logger';
+import {retryable} from '../../retries/retries';
+import {Endpoint} from "../../discovery";
+import {pessimizable} from "../../utils";
+import {initDriver, destroyDriver} from "../../utils/test";
+import {HasLogger} from "../../logger/has-logger";
+import {buildTestLogger} from "../../logger/tests/test-logger";
+import {RetryParameters} from "../../retries/retryParameters";
 
-const logger = new SimpleLogger({level: LogLevel.error});
 class ErrorThrower implements HasLogger {
-    constructor(public endpoint: Endpoint) {}
+    constructor(public endpoint: Endpoint, public readonly logger: Logger) {}
 
     @retryable(
-        new RetryParameters({maxRetries: 3, backoffCeiling: 3, backoffSlotDuration: 5}),
-        logger,
+        new RetryParameters({maxRetries: 3, backoffCeiling: 3, backoffSlotDuration: 5})
     )
     @pessimizable
     errorThrower(callback: () => any) {
@@ -41,9 +41,14 @@ class ErrorThrower implements HasLogger {
 
 describe('Retries on errors', () => {
     let driver: Driver;
+    // @ts-ignore
+    let logger: Logger;
+    // @ts-ignore
+    let loggerFn: jest.Mock<any, any>;
 
     beforeAll(async () => {
         driver = await initDriver({logger});
+        ({testLogger: logger, testLoggerFn: loggerFn} = buildTestLogger());
     });
 
     afterAll(async () => await destroyDriver(driver));
@@ -53,7 +58,7 @@ describe('Retries on errors', () => {
         it(`${error.name}`, async () => {
             // here must be retries
             let retries = 0;
-            const et = new ErrorThrower(new Endpoint({}, ''));
+            const et = new ErrorThrower(new Endpoint({}, ''), logger);
 
             await expect(
                 // TODO: Turn to unit test

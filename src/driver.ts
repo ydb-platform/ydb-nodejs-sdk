@@ -1,5 +1,5 @@
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
-import {TimeoutExpired} from './errors';
+import {TimeoutExpired} from './retries/errors';
 import {Logger, SimpleLogger} from './logger/simple-logger';
 import {makeSslCredentials, ISslCredentials} from './utils/ssl-credentials';
 import DiscoveryService from "./discovery/discovery-service";

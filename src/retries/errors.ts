@@ -6,6 +6,16 @@ import {Status as GrpcStatus} from '@grpc/grpc-js/build/src/constants';
 const TRANSPORT_STATUSES_FIRST = 401000;
 const CLIENT_STATUSES_FIRST = 402000;
 
+export const IdempotentBackoffSymbol = Symbol('idempotent_backoff');
+export const NonIdempotentBackoffSyumbol = Symbol('non_idempotent_backoff');
+export  const RetryPolicySymbol = Symbol('delete_session');
+
+export const enum Backoff {
+    No,
+    Fast,
+    Slow,
+}
+
 export enum StatusCode {
     STATUS_CODE_UNSPECIFIED = ApiStatusCode.STATUS_CODE_UNSPECIFIED,
     SUCCESS = ApiStatusCode.SUCCESS,
@@ -39,7 +49,20 @@ export enum StatusCode {
     SESSION_POOL_EMPTY = CLIENT_STATUSES_FIRST + 40,
 }
 
+type SpecificErrorRetryPolicy = {
+    backoff: Backoff,
+    deleteSession: boolean,
+    idempotent: boolean,
+    nonIdempotent: boolean
+}
+
+function retryPolicy(backoff: Backoff, deleteSession: boolean, idempotent: boolean, nonIdempotent: boolean): SpecificErrorRetryPolicy {
+    return {backoff, deleteSession, idempotent, nonIdempotent};
+}
+
 export class YdbError extends Error {
+    public static [RetryPolicySymbol]: SpecificErrorRetryPolicy;
+
     static formatIssues(issues?: null | any[]) {
         return issues ? JSON.stringify(issues, null, 2) : '';
     }
@@ -92,82 +115,103 @@ export class YdbError extends Error {
 
 export class Unauthenticated extends YdbError {
     static status = StatusCode.UNAUTHENTICATED
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, true, false, false)
 }
 
+// TODO: ??? not found yet
 export class SessionPoolEmpty extends YdbError {
-    static status = StatusCode.SESSION_POOL_EMPTY
+    static status = StatusCode.SESSION_POOL_EMPTY;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff., , , );
 }
 
 export class BadRequest extends YdbError {
-    static status = StatusCode.BAD_REQUEST
+    static status = StatusCode.BAD_REQUEST;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false, false, false);
 }
 
 export class Unauthorized extends YdbError {
-    static status = StatusCode.UNAUTHORIZED
+    static status = StatusCode.UNAUTHORIZED;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false, false, false);
 }
 
 export class InternalError extends YdbError {
-    static status = StatusCode.INTERNAL_ERROR
+    static status = StatusCode.INTERNAL_ERROR;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false, false, false);
 }
 
 export class Aborted extends YdbError {
     static status = StatusCode.ABORTED
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.Fast, false, true, true);
 }
 
 export class Unavailable extends YdbError {
     static status = StatusCode.UNAVAILABLE
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.Fast, false, true, true);
 }
 
 export class Overloaded extends YdbError {
     static status = StatusCode.OVERLOADED
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.Slow, false, true, true);
 }
 
 export class SchemeError extends YdbError {
-    static status = StatusCode.SCHEME_ERROR
+    static status = StatusCode.SCHEME_ERROR;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false,false, false);
 }
 
 export class GenericError extends YdbError {
-    static status = StatusCode.GENERIC_ERROR
+    static status = StatusCode.GENERIC_ERROR;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false, false, false);
 }
 
 export class BadSession extends YdbError {
-    static status = StatusCode.BAD_SESSION
+    static status = StatusCode.BAD_SESSION;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, true, true, true);
 }
 
 export class Timeout extends YdbError {
-    static status = StatusCode.TIMEOUT
+    static status = StatusCode.TIMEOUT;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false, false, false);
 }
 
 export class PreconditionFailed extends YdbError {
     static status = StatusCode.PRECONDITION_FAILED
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false, false, false)
 }
 
 export class NotFound extends YdbError {
-    static status = StatusCode.NOT_FOUND
+    static status = StatusCode.NOT_FOUND;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false, false, false);
 }
 
 export class AlreadyExists extends YdbError {
-    static status = StatusCode.ALREADY_EXISTS
+    static status = StatusCode.ALREADY_EXISTS;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, false, false, false);
 }
 
 export class SessionExpired extends YdbError {
-    static status = StatusCode.SESSION_EXPIRED
+    static status = StatusCode.SESSION_EXPIRED;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.No, true, false, false);
 }
 
 export class Cancelled extends YdbError {
-    static status = StatusCode.CANCELLED
+    static status = StatusCode.CANCELLED;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.Fast, false, false, false);
 }
 
 export class Undetermined extends YdbError {
-    static status = StatusCode.UNDETERMINED
+    static status = StatusCode.UNDETERMINED;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.Fast, false, true, false);
 }
 
 export class Unsupported extends YdbError {
-    static status = StatusCode.UNSUPPORTED
+    static status = StatusCode.UNSUPPORTED;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.Fast, true, true, true);
 }
 
 export class SessionBusy extends YdbError {
-    static status = StatusCode.SESSION_BUSY
+    static status = StatusCode.SESSION_BUSY;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff.Fast, true, true, true);
 }
 
 const SUCCESS_CODES = new Set([
@@ -221,14 +265,17 @@ export class TransportError extends YdbError {
 
 export class TransportUnavailable extends TransportError {
     static status = StatusCode.TRANSPORT_UNAVAILABLE;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff., , , )
 }
 
 export class ClientDeadlineExceeded extends TransportError {
     static status = StatusCode.CLIENT_DEADLINE_EXCEEDED;
+    public static [RetryPolicySymbol] = retryPolicy(Backoff., , , )
 }
 
 export class ClientResourceExhausted extends TransportError {
     static status = StatusCode.CLIENT_RESOURCE_EXHAUSTED;
+    public static [RetryPolicySymbol] = retryPolicy(false, Backoff.Slow, Backoff.Slow)
 }
 
 const TRANSPORT_ERROR_CODES = new Map([

@@ -6,12 +6,12 @@ import CreateSessionResult = Ydb.Table.CreateSessionResult;
 import {Endpoint} from "../discovery";
 import {Logger} from "../logger/simple-logger";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries";
+import {retryable} from "../retries/retries";
 import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
 import {Events, SESSION_KEEPALIVE_PERIOD} from "../constants";
 import _ from "lodash";
-import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
+import {BadSession, SessionBusy, SessionPoolEmpty} from "../retries/errors";
 
 import {TableSession} from "./table-session";
 import {ITableClientSettings} from "./table-client";
@@ -21,7 +21,7 @@ import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Context} from "../context/Context";
 import {EnsureContext} from "../context/EnsureContext";
-import {HasLogger} from "../logger/HasLogger";
+import {HasLogger} from "../logger/has-logger";
 
 export class SessionBuilder extends AuthenticatedService<TableService> implements HasLogger {
     public endpoint: Endpoint;

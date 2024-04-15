@@ -5,13 +5,13 @@ import EventEmitter from "events";
 import {Logger} from "../logger/simple-logger";
 import _ from "lodash";
 import {Events} from "../constants";
-import {retryable} from "../retries";
+import {retryable} from "../retries/retries";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService} from "../utils/authenticated-service";
 import {withTimeout} from "../utils/with-timeout";
 import {IAuthService} from "../credentials/i-auth-service";
-import {HasLogger} from "../logger/HasLogger";
+import {HasLogger} from "../logger/has-logger";
 
 type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {

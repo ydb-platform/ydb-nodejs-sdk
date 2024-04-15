@@ -8,7 +8,7 @@ import {ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Ydb} from "ydb-sdk-proto";
 import {AUTO_TX} from "../table";
-import {withRetries} from "../retries";
+import {withRetries} from "../retries/retries";
 import {
     sessionTxSettingsSymbol,
     sessionTxIdSymbol,
@@ -17,7 +17,7 @@ import {
     sessionCurrentOperationSymbol,
     sessionReleaseSymbol
 } from "./symbols";
-import {BadSession, SessionBusy} from "../errors";
+import {BadSession, SessionBusy} from "../retries/errors";
 import {Context, CtxDispose} from "../context/Context";
 import {EnsureContext} from "../context/EnsureContext";
 
@@ -110,7 +110,7 @@ export class QueryClient extends EventEmitter {
                         session[sessionReleaseSymbol]();
                     }
                 }
-            });
+            }, this.logger);
         } finally {
             if (dispose) dispose();
         }

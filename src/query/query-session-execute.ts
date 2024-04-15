@@ -11,7 +11,7 @@ import {ClientReadableStream} from "@grpc/grpc-js";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import Long from "long";
 import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
-import {TransportError} from "../errors";
+import {TransportError} from "../retries/errors";
 import {implSymbol, Query_V1, QuerySession} from "./query-session";
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import IColumn = Ydb.IColumn;

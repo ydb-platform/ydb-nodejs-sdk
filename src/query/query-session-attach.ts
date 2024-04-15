@@ -1,7 +1,7 @@
 import {Ydb} from "ydb-sdk-proto";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
-import {TransportError} from "../errors";
+import {TransportError} from "../retries/errors";
 import {attachStreamSymbol, implSymbol, Query_V1, QuerySession} from "./query-session";
 
 export async function attach(this:QuerySession, onStreamClosed: () => void) {

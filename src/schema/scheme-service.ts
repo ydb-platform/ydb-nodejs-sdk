@@ -11,9 +11,9 @@ import {Logger} from "../logger/simple-logger";
 import {Endpoint} from "../discovery";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries";
+import {retryable} from "../retries/retries";
 import {ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
-import {HasLogger} from "../logger/HasLogger";
+import {HasLogger} from "../logger/has-logger";
 
 function preparePermissions(action?: IPermissions | null) {
     if (action && action.permissionNames) {

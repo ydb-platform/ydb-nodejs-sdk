@@ -4,12 +4,12 @@ import CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 import {Endpoint} from "../discovery";
 import {Logger} from "../logger/simple-logger";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries";
+import {retryable} from "../retries/retries";
 import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
 import {Events} from "../constants";
 import _ from "lodash";
-import {/*BadSession, SessionBusy,*/ SessionPoolEmpty} from "../errors";
+import {/*BadSession, SessionBusy,*/ SessionPoolEmpty} from "../retries/errors";
 import {QuerySession} from "./query-session";
 import {IQueryClientSettings} from "./query-client";
 import {pessimizable} from "../utils";
@@ -25,7 +25,7 @@ import {
     sessionReleaseSymbol,
     sessionIsDeletedSymbol
 } from './symbols';
-import {HasLogger} from "../logger/HasLogger";
+import {HasLogger} from "../logger/has-logger";
 
 export class SessionBuilder extends AuthenticatedService<QueryService> implements HasLogger {
     public endpoint: Endpoint;

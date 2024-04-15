@@ -1,20 +1,27 @@
 import Driver from "../../../driver";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {IExecuteResult} from "../../../query";
-import * as errors from "../../../errors";
+import * as errors from "../../../retries/errors";
 import path from "path";
 import fs from "fs";
 import {AUTO_TX} from "../../../table";
 import {QuerySession} from "../../../query";
+import {Logger} from "../../../logger/simple-logger";
+import {buildTestLogger} from "../../../logger/tests/test-logger";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2135';
 
 describe('Query client', () => {
-
     let driver: Driver;
+    // @ts-ignore
+    let testLogger: Logger;
+    // @ts-ignore
+    let testLoggerFn: jest.Mock<any, any>;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
+        ({testLogger: testLogger, testLoggerFn: testLoggerFn} = buildTestLogger());
+
         const certFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || path.join(process.cwd(), 'ydb_certs/ca.pem');
         if (!fs.existsSync(certFile)) {
             throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_SSL_ROOT_CERTIFICATES_FILE env variable or run Docker container https://cloud.yandex.ru/docs/ydb/getting_started/ydb_docker inside working directory`);
@@ -27,13 +34,14 @@ describe('Query client', () => {
             database: DATABASE,
             authService: new AnonymousAuthService(),
             sslCredentials,
+            logger: testLogger,
         });
         if (!(await driver.ready(3000))) throw new Error('Driver is not ready!');
     });
 
     afterAll(async () => await driver?.destroy());
 
-    it.only('Query client do()', async () => {
+    it('Query client do()', async () => {
         let count = 0;
         let prevSession: QuerySession;
         const res = await driver.queryClient.do({

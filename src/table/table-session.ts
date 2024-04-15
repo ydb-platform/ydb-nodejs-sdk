@@ -22,13 +22,13 @@ import EventEmitter from "events";
 import {ICreateSessionResult, SessionEvent, TableService} from "./table-session-pool";
 import {Endpoint} from "../discovery";
 import {Logger} from "../logger/simple-logger";
-import {retryable} from "../retries";
-import {MissingStatus, MissingValue, SchemeError, YdbError} from "../errors";
+import {retryable} from "../retries/retries";
+import {MissingStatus, MissingValue, SchemeError, YdbError} from "../retries/errors";
 import {ResponseMetadataKeys} from "../constants";
 import {pessimizable} from "../utils";
 import {YdbOperationAsyncResponse, ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
 import {StreamEnd} from "../utils";
-import {HasLogger} from "../logger/HasLogger";
+import {HasLogger} from "../logger/has-logger";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode | null);

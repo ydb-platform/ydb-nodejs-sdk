@@ -32,9 +32,9 @@ export {
 export {getCredentialsFromEnv, getSACredentialsFromJson} from './utils/parse-env-vars';
 export {ISslCredentials} from './utils/ssl-credentials';
 
-export {withRetries, RetryParameters} from './retries';
+export {withRetries} from './retries/retries';
 
-export {YdbError, StatusCode} from './errors';
+export {YdbError, StatusCode} from './retries/errors';
 
 export {TableSessionPool} from "./table/table-session-pool";
 
@@ -84,3 +84,4 @@ export {MakeDirectorySettings} from "./schema/scheme-service";
 export {ParsedConnectionString, parseConnectionString} from "./utils/parse-connection-string";
 
 export {QueryClient, ResultSet, RowType} from "./query";
+export {RetryParameters} from "./retries/retryParameters";

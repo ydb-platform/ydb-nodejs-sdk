@@ -1,4 +1,4 @@
-import {NotFound} from "../errors";
+import {NotFound} from "../retries/errors";
 import {Endpoint} from "../discovery";
 
 export interface Pessimizable {

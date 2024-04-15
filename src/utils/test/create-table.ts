@@ -1,5 +1,5 @@
 import {Column, TableDescription, TableSession} from "../../table";
-import {withRetries} from "../../retries";
+import {withRetries} from "../../retries/retries";
 import {Types} from "../../types";
 import {Row} from "./row";
 

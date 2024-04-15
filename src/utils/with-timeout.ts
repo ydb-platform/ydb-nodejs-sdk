@@ -1,4 +1,4 @@
-import {TimeoutExpired} from "../errors";
+import {TimeoutExpired} from "../retries/errors";
 
 export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     let timeoutId: NodeJS.Timeout;

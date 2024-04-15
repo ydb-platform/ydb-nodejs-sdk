@@ -1,5 +1,5 @@
 import {Ydb} from "ydb-sdk-proto";
-import {MissingOperation, MissingValue, StatusCode, YdbError} from "../errors";
+import {MissingOperation, MissingValue, StatusCode, YdbError} from "../retries/errors";
 
 export interface YdbOperationAsyncResponse {
     operation?: Ydb.Operations.IOperation | null

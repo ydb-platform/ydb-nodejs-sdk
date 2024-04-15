@@ -1,6 +1,6 @@
 import Driver from '../../../driver';
 import {declareType, TypedData, Types} from '../../../types';
-import {withRetries} from '../../../retries';
+import {withRetries} from '../../../retries/retries';
 import {Column, TableSession, TableDescription} from "../../../table";
 import {initDriver, destroyDriver, TABLE} from "../../../utils/test";
 

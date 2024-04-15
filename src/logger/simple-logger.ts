@@ -1,4 +1,4 @@
-import {getDefaultLogger} from "./getDefaultLogger";
+import {getDefaultLogger} from "./get-default-logger";
 
 const DEFAULT_ENV_KEY = 'LOG_LEVEL';
 
