@@ -248,9 +248,6 @@ export function execute(this: QuerySession, opts: {
         if (partialResp.execStats) {
             execStats = partialResp.execStats;
         }
-
-        partialResp.txMeta
-
     });
 
     responseStream.on('error', (err: Error & GrpcStatusObject) => {
@@ -282,7 +279,7 @@ export function execute(this: QuerySession, opts: {
             resultResolve({
                 resultSets: resultSetIterator[Symbol.asyncIterator](), // an empty list
                 get execStats() {
-                    return execStats
+                    return execStats;
                 },
                 opFinished: Promise.resolve()
             });

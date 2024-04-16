@@ -14,6 +14,7 @@ var errsToCheck = []struct {
 			nonIdempotent: false,
 		},
 	},
+#++
 	{
 		// golang context deadline exceeded
 		err:           context.DeadlineExceeded,
@@ -24,6 +25,7 @@ var errsToCheck = []struct {
 			nonIdempotent: false,
 		},
 	},
+#++
 	{
 		// golang context canceled
 		err:           context.Canceled,

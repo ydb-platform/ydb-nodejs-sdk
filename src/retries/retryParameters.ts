@@ -27,8 +27,8 @@ export class BackoffSettings {
     }
 }
 
-export class RetryParameters implements HasLogger {
-    public timeout: 0;
+export class RetryParameters {
+    public timeout: number = 0;
     public retryNotFound: boolean;
     public unknownErrorHandler: (_error: unknown) => void;
     public maxRetries: number;
@@ -43,13 +43,14 @@ export class RetryParameters implements HasLogger {
          * by the time to attempt the operation. use timeout parameter
          */
         maxRetries?: number, // TODO: Obsoleted
-        onYdbErrorCb?: (_error: YdbError) => void, // TODO: Whwere is in use
+        onYdbErrorCb?: (_error: YdbError) => void, // TODO: Where is in use
         backoffCeiling?: number,
         backoffSlotDuration?: number,
         timeout?: number,
         logger?: Logger,
     }) {
         this.logger = opts?.logger ?? getDefaultLogger();
+        if (opts?.hasOwnProperty('timeout') && opts.timeout! > 0) this.timeout = opts.timeout!;
 
         this.maxRetries = opts?.maxRetries ?? 10;
         this.onYdbErrorCb = opts?.onYdbErrorCb ?? ((_error: YdbError) => {
