@@ -1,8 +1,7 @@
 import EventEmitter from "events";
 import {QueryService, SessionBuilder, SessionEvent} from "./query-session-pool";
 import {Endpoint} from "../discovery";
-import {Logger} from "../logging";
-import {retryable} from "../retries";
+import {retryable} from "../retries_obsoleted";
 import {pessimizable} from "../utils";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {Ydb} from "ydb-sdk-proto";
@@ -34,6 +33,7 @@ import {
     commitTransaction as commitTransactionImpl,
     rollbackTransaction as rollbackTransactionImpl
 } from './query-session-transaction';
+import {Logger} from "../logger/simple-logger";
 
 /**
  * Service methods, as they name in GRPC.

@@ -4,9 +4,8 @@ import CreateSessionRequest = Ydb.Table.CreateSessionRequest;
 export import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 import CreateSessionResult = Ydb.Table.CreateSessionResult;
 import {Endpoint} from "../discovery";
-import {Logger} from "../logging";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries";
+import {retryable} from "../retries_obsoleted";
 import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
 import {Events, SESSION_KEEPALIVE_PERIOD} from "../constants";
@@ -19,8 +18,8 @@ import {pessimizable} from "../utils";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
-import {Context} from "../context/Context";
-import {EnsureContext} from "../context/ensureContext";
+import {Context, ensureContext} from "../context";
+import {Logger} from "../logger/simple-logger";
 
 export class SessionBuilder extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;
@@ -94,7 +93,7 @@ export class TableSessionPool extends EventEmitter {
     // @ts-ignore
     public async destroy(): Promise<void>;
     public async destroy(ctx: Context): Promise<void>;
-    @EnsureContext(true)
+    @ensureContext(true)
     public async destroy(_ctx: Context): Promise<void> {
         this.logger.debug('Destroying pool...');
         clearInterval(this.sessionKeepAliveId);
@@ -241,7 +240,7 @@ export class TableSessionPool extends EventEmitter {
     // @ts-ignore
     public async withSession<T>(callback: SessionCallback<T>, timeout: number): Promise<T>;
     public async withSession<T>(ctx: Context, callback: SessionCallback<T>, timeout: number): Promise<T>;
-    @EnsureContext(true)
+    @ensureContext(true)
     public async withSession<T>(ctx: Context, callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
         const session = await this.acquire(timeout);
         return this._withSession(ctx, session, callback);
@@ -250,7 +249,7 @@ export class TableSessionPool extends EventEmitter {
     // @ts-ignore
     public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries: number): Promise<T>;
     public async withSessionRetry<T>(ctx: Context, callback: SessionCallback<T>, timeout: number, maxRetries: number): Promise<T>;
-    @EnsureContext(true)
+    @ensureContext(true)
     public async withSessionRetry<T>(ctx: Context, callback: SessionCallback<T>, timeout: number = 0, maxRetries: number = 10): Promise<T> {
         const session = await this.acquire(timeout);
         return this._withSession(ctx, session, callback, maxRetries);

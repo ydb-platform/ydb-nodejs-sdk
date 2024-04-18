@@ -21,13 +21,13 @@ import * as grpc from "@grpc/grpc-js";
 import EventEmitter from "events";
 import {ICreateSessionResult, SessionEvent, TableService} from "./table-session-pool";
 import {Endpoint} from "../discovery";
-import {Logger} from "../logging";
-import {retryable} from "../retries";
+import {retryable} from "../retries_obsoleted";
 import {MissingStatus, MissingValue, SchemeError, YdbError} from "../errors";
 import {ResponseMetadataKeys} from "../constants";
 import {pessimizable} from "../utils";
 import {YdbOperationAsyncResponse, ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
 import {StreamEnd} from "../utils";
+import {Logger} from "../logger/simple-logger";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode | null);

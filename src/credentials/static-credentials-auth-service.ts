@@ -2,13 +2,17 @@ import {Ydb} from "ydb-sdk-proto";
 import AuthServiceResult = Ydb.Auth.LoginResult;
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {GrpcService, withTimeout} from "../utils";
-import {retryable} from "../retries";
+import {retryable} from "../retries_obsoleted";
 import {DateTime} from "luxon";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import * as grpc from "@grpc/grpc-js";
 import {addCredentialsToMetadata} from "./add-credentials-to-metadata";
 
 import {IAuthService} from "./i-auth-service";
+import {HasLogger} from "../logger/has-logger";
+import {Logger} from "../logger/simple-logger";
+import {getDefaultLogger} from "../logger/get-default-logger";
+import {ensureContext} from "../context";
 
 interface StaticCredentialsAuthOptions {
     /** Custom ssl sertificates. If you use it in driver, you must use it here too */
@@ -24,11 +28,12 @@ interface StaticCredentialsAuthOptions {
     tokenExpirationTimeout?: number
 }
 
-class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> {
-    constructor(endpoint: string, sslCredentials?: ISslCredentials) {
+class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> implements HasLogger {
+    constructor(endpoint: string, sslCredentials?: ISslCredentials, public readonly logger: Logger = getDefaultLogger()) {
         super(endpoint, 'Ydb.Auth.V1.AuthService', Ydb.Auth.V1.AuthService, sslCredentials);
     }
 
+    @ensureContext(true)
     @retryable()
     login(request: Ydb.Auth.ILoginRequest) {
         return this.api.login(request);
@@ -49,11 +54,26 @@ export class StaticCredentialsAuthService implements IAuthService {
     private password: string;
     private endpoint: string;
     private sslCredentials: ISslCredentials | undefined;
+    public readonly logger: Logger;
 
     constructor(
         user: string,
         password: string,
         endpoint: string,
+        options?: StaticCredentialsAuthOptions
+    );
+    constructor(
+        user: string,
+        password: string,
+        endpoint: string,
+        loggerOrOptions: Logger | StaticCredentialsAuthOptions,
+        options?: StaticCredentialsAuthOptions
+    );
+    constructor(
+        user: string,
+        password: string,
+        endpoint: string,
+        loggerOrOptions?: Logger | StaticCredentialsAuthOptions,
         options?: StaticCredentialsAuthOptions
     ) {
         this.tokenTimestamp = null;
@@ -61,6 +81,12 @@ export class StaticCredentialsAuthService implements IAuthService {
         this.password = password;
         this.endpoint = endpoint;
         this.sslCredentials = options?.sslCredentials;
+        if (typeof loggerOrOptions === 'object' && loggerOrOptions !== null && 'error' in loggerOrOptions) {
+            this.logger = loggerOrOptions as Logger;
+        } else {
+            options = loggerOrOptions;
+            this.logger = getDefaultLogger();
+        }
         if (options?.tokenRequestTimeout) this.tokenRequestTimeout = options.tokenRequestTimeout;
         if (options?.tokenExpirationTimeout) this.tokenExpirationTimeout = options.tokenExpirationTimeout;
     }
@@ -75,6 +101,7 @@ export class StaticCredentialsAuthService implements IAuthService {
         let runtimeAuthService = new StaticCredentialsGrpcService(
             this.endpoint,
             this.sslCredentials,
+            this.logger,
         );
         const tokenPromise = runtimeAuthService.login({
             user: this.user,

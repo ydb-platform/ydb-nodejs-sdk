@@ -3,12 +3,11 @@ import {QuerySessionPool, SessionCallback, SessionEvent} from "./query-session-p
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {IPoolSettings} from "../driver";
 import DiscoveryService from "../discovery/discovery-service";
-import {Logger} from "../logging";
 import {ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Ydb} from "ydb-sdk-proto";
 import {AUTO_TX} from "../table";
-import {withRetries} from "../retries";
+import {withRetries} from "../retries_obsoleted";
 import {
     sessionTxSettingsSymbol,
     sessionTxIdSymbol,
@@ -18,8 +17,9 @@ import {
     sessionReleaseSymbol
 } from "./symbols";
 import {BadSession, SessionBusy} from "../errors";
-import {Context, CtxDispose} from "../context/Context";
-import {EnsureContext} from "../context/ensureContext";
+import {Context, CtxDispose} from "../context";
+import {ensureContext} from "../context/ensure-context";
+import {Logger} from "../logger/simple-logger";
 
 export interface IQueryClientSettings {
     database: string;
@@ -60,7 +60,7 @@ export class QueryClient extends EventEmitter {
         await this.pool.destroy();
     }
 
-    @EnsureContext()
+    @ensureContext()
     public async do<T>(opts: IDoOpts<T>): Promise<T> {
         let ctx = opts.ctx!; // guarnteed by @EnsureContext()
         let dispose: CtxDispose | undefined;
@@ -116,7 +116,7 @@ export class QueryClient extends EventEmitter {
         }
     }
 
-    @EnsureContext()
+    @ensureContext()
     public doTx<T>(opts: IDoOpts<T>): Promise<T> {
         if (!opts.txSettings) {
             opts = {...opts, txSettings: AUTO_TX.beginTx};

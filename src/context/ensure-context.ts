@@ -1,4 +1,4 @@
-import {Context} from "./Context";
+import {Context} from "./context";
 
 /**
  * Decorator that ensures:
@@ -10,7 +10,7 @@ import {Context} from "./Context";
  *
  * @param isPositionalArgs
  */
-export function EnsureContext(isPositionalArgs?: boolean) { // TODO: Should I got logger somehow?
+export function ensureContext(isPositionalArgs?: boolean) { // TODO: Should I got logger somehow?
     return (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) => {
         const originalMethod = descriptor.value;
         // const wrappedMethodName = `${target.constructor.name}::${propertyKey}`; // for regular method

@@ -1,7 +1,8 @@
 import {YdbError, TransportError} from './errors';
-import {getLogger, Logger} from './logging';
 import * as errors from './errors';
 import * as utils from "./utils";
+import {Logger} from "./logger/simple-logger";
+// import {getDefaultLogger} from "./logger/get-default-logger";
 
 export class BackoffSettings {
     /**
@@ -59,13 +60,13 @@ const RETRYABLE_ERRORS_FAST = [
 const RETRYABLE_ERRORS_SLOW = [errors.Overloaded, errors.ClientResourceExhausted];
 
 class RetryStrategy {
-    private logger: Logger;
+    // private logger: Logger;
     constructor(
         public methodName = 'UnknownClass::UnknownMethod',
         public retryParameters: RetryParameters,
-        logger?: Logger,
+        _logger?: Logger,
     ) {
-        this.logger = logger ?? getLogger();
+        // this.logger = logger ?? getDefaultLogger();
     }
 
     async retry<T>(asyncMethod: () => Promise<T>) {
@@ -79,24 +80,24 @@ class RetryStrategy {
                 if(TransportError.isMember(e)) e = TransportError.convertToYdbError(e)
                 error = e;
                 if (e instanceof YdbError) {
-                    const errName = e.constructor.name;
-                    const retriesLeft = retryParameters.maxRetries - retries;
+                    // const errName = e.constructor.name;
+                    // const retriesLeft = retryParameters.maxRetries - retries;
                     if (RETRYABLE_ERRORS_FAST.some((cls) => e instanceof cls)) {
                         retryParameters.onYdbErrorCb(e);
                         if (e instanceof errors.NotFound && !retryParameters.retryNotFound) {
                             throw e;
                         }
 
-                        this.logger.warn(
-                            `Caught an error ${errName}, retrying with fast backoff, ${retriesLeft} retries left`,
-                        );
+                        // this.logger.warn(
+                        //     `Caught an error ${errName}, retrying with fast backoff, ${retriesLeft} retries left`,
+                        // );
                         await this.retryParameters.fastBackoff.waitBackoffTimeout(retries);
                     } else if (RETRYABLE_ERRORS_SLOW.some((cls) => e instanceof cls)) {
                         retryParameters.onYdbErrorCb(e);
 
-                        this.logger.warn(
-                            `Caught an error ${errName}, retrying with slow backoff, ${retriesLeft} retries left`,
-                        );
+                        // this.logger.warn(
+                        //     `Caught an error ${errName}, retrying with slow backoff, ${retriesLeft} retries left`,
+                        // );
                         await this.retryParameters.slowBackoff.waitBackoffTimeout(retries);
                     } else {
                         retryParameters.onYdbErrorCb(e);
@@ -109,7 +110,7 @@ class RetryStrategy {
             }
             retries++;
         }
-        this.logger.warn('All retries have been used, re-throwing error');
+        // this.logger.warn('All retries have been used, re-throwing error');
         throw error;
     }
 }

@@ -3,12 +3,16 @@ import {yandex} from "ydb-sdk-proto";
 import * as grpc from "@grpc/grpc-js";
 import jwt from "jsonwebtoken";
 import {GrpcService, sleep, withTimeout} from "../utils";
-import {retryable} from "../retries";
+import {retryable} from "../retries_obsoleted";
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 import {addCredentialsToMetadata} from "./add-credentials-to-metadata";
 import {IAuthService} from "./i-auth-service";
 import {ISslCredentials, makeDefaultSslCredentials} from "../utils/ssl-credentials";
+import {HasLogger} from "../logger/has-logger";
+import {Logger} from "../logger/simple-logger";
+import {getDefaultLogger} from "../logger/get-default-logger";
+import {ensureContext} from "../context";
 
 export interface IIamCredentials {
     serviceAccountId: string,
@@ -17,16 +21,25 @@ export interface IIamCredentials {
     iamEndpoint: string
 }
 
-class IamTokenGrpcService extends GrpcService<IamTokenService> {
-    constructor(iamCredentials: IIamCredentials, sslCredentials: ISslCredentials) {
+class IamTokenGrpcService extends GrpcService<IamTokenService> implements HasLogger {
+    public readonly logger: Logger;
+
+    constructor(iamCredentials: IIamCredentials, sslCredentialsOrLogger?: ISslCredentials | Logger, logger?: Logger) {
+        const hasLogger = typeof sslCredentialsOrLogger === 'object' && sslCredentialsOrLogger !== null && 'error' in sslCredentialsOrLogger;
         super(
             iamCredentials.iamEndpoint,
             'yandex.cloud.iam.v1.IamTokenService',
             IamTokenService,
-            sslCredentials,
+            (sslCredentialsOrLogger && !hasLogger) ? (sslCredentialsOrLogger as ISslCredentials) : undefined,
         );
+        if (hasLogger) {
+            this.logger = sslCredentialsOrLogger as Logger;
+        } else {
+            this.logger = logger ?? getDefaultLogger();
+        }
     }
 
+    @ensureContext(true)
     @retryable()
     create(request: yandex.cloud.iam.v1.ICreateIamTokenRequest) {
         return this.api.create(request);
@@ -37,7 +50,7 @@ class IamTokenGrpcService extends GrpcService<IamTokenService> {
     }
 }
 
-export class IamAuthService implements IAuthService {
+export class IamAuthService implements IAuthService, HasLogger {
     private jwtExpirationTimeout = 3600 * 1000;
     private tokenExpirationTimeout = 120 * 1000;
     private tokenRequestTimeout = 10 * 1000;
@@ -46,11 +59,20 @@ export class IamAuthService implements IAuthService {
     private tokenUpdateInProgress: Boolean = false;
     private readonly iamCredentials: IIamCredentials;
     private readonly sslCredentials: ISslCredentials;
+    public readonly logger: Logger;
 
-    constructor(iamCredentials: IIamCredentials, sslCredentials?: ISslCredentials) {
+    constructor(iamCredentials: IIamCredentials, logger?: Logger);
+    constructor(iamCredentials: IIamCredentials, sslCredentials?: ISslCredentials, logger?: Logger);
+    constructor(iamCredentials: IIamCredentials, sslCredentialsOrLogger?: ISslCredentials | Logger, logger?: Logger) {
         this.iamCredentials = iamCredentials;
-        this.sslCredentials = sslCredentials || makeDefaultSslCredentials()
         this.tokenTimestamp = null;
+        if (typeof sslCredentialsOrLogger === 'object' && sslCredentialsOrLogger !== null && 'error' in sslCredentialsOrLogger) {
+            this.sslCredentials = makeDefaultSslCredentials()
+            this.logger = sslCredentialsOrLogger as Logger;
+        } else {
+            this.sslCredentials = (sslCredentialsOrLogger as ISslCredentials) || makeDefaultSslCredentials()
+            this.logger = logger ?? getDefaultLogger();
+        }
     }
 
     getJwtRequest() {
@@ -79,6 +101,7 @@ export class IamAuthService implements IAuthService {
         let runtimeIamAuthService = new IamTokenGrpcService(
             this.iamCredentials,
             this.sslCredentials,
+            this.logger,
         );
         const tokenPromise = runtimeIamAuthService.create({jwt: this.getJwtRequest()});
         const result = await withTimeout<ICreateIamTokenResponse>(

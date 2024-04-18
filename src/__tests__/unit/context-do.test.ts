@@ -1,4 +1,4 @@
-import {Context, setContextIdGenerator} from "../../context/Context";
+import {Context, setContextIdGenerator} from "../../context";
 
 describe('Context.do', () => {
     beforeEach(() => {

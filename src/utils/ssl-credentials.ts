@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as tls from 'tls';
 
 // noinspection ES6PreferShortImport
-import { Logger } from '../logging';
 import certs from '../certs/certs.json';
+import {Logger} from "../logger/simple-logger";
 
 function makeInternalRootCertificates() {
     const internalRootCertificates = Buffer.from(certs.internal, 'utf8')

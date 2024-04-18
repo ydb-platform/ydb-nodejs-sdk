@@ -1,11 +1,10 @@
 import Driver from "../../../driver";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
-import {IExecuteResult} from "../../../query/query-session-execute";
 import * as errors from "../../../errors";
 import path from "path";
 import fs from "fs";
 import {AUTO_TX} from "../../../table";
-import {QuerySession} from "../../../query/query-session";
+import {QuerySession, IExecuteResult} from "../../../query";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2135';

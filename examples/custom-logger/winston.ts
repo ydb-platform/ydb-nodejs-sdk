@@ -1,5 +1,5 @@
 import {mainWithoutLogger} from '../utils';
-import {Driver, getCredentialsFromEnv, Logger, setupLogger} from 'ydb-sdk';
+import {Driver, getCredentialsFromEnv, Logger/*, setupLogger*/} from 'ydb-sdk';
 import winston from 'winston';
 
 export async function run(endpoint: string, database: string) {
@@ -14,7 +14,7 @@ export async function run(endpoint: string, database: string) {
             trace: 6,
         },
     }) as unknown as Logger;
-    /* 
+    /*
     Log levels accordance:
     YDB-SDK-logger -> winston (npm levels)
     fatal -> !!! no such level, set exact as error
@@ -24,10 +24,10 @@ export async function run(endpoint: string, database: string) {
     debug -> debug
     trace -> silly(6)
     */
-    setupLogger(logger);
+    // setupLogger(logger);
     logger.info('Driver initializing...');
     const authService = getCredentialsFromEnv();
-    const driver = new Driver({endpoint, database, authService});
+    const driver = new Driver({endpoint, database, authService, logger});
     const timeout = 10000;
     if (!(await driver.ready(timeout))) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);

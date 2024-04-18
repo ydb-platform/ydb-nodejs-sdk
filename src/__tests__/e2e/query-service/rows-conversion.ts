@@ -1,12 +1,11 @@
 import DiscoveryService from "../../../discovery/discovery-service";
-import {QuerySession} from "../../../query/query-session";
-import {getLogger} from "../../../logging";
+import {QuerySession, RowType} from "../../../query";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {SessionBuilder} from "../../../query/query-session-pool";
 import {declareType, TypedData, TypedValues, Types} from "../../../types";
-import {RowType} from "../../../query/query-session-execute";
 import {Ydb} from "ydb-sdk-proto";
+import {getDefaultLogger} from "../../../logger/get-default-logger";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
@@ -138,7 +137,7 @@ describe('Rows conversion', () => {
     }
 
     async function testOnOneSessionWithoutDriver() {
-        const logger = getLogger();
+        const logger = getDefaultLogger();
         const authService = new AnonymousAuthService();
 
         discoveryService = new DiscoveryService({

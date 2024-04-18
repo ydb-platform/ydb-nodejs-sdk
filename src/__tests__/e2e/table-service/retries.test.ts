@@ -18,13 +18,13 @@ import {
     Undetermined,
     YdbError,
 } from '../../../errors';
-import {FallbackLogger} from '../../../logging';
-import {RetryParameters, retryable} from '../../../retries';
+import {retryable, RetryParameters} from '../../../retries_obsoleted';
 import {Endpoint} from "../../../discovery";
 import {pessimizable} from "../../../utils";
-import {initDriver, destroyDriver} from "../../../utils/test";
+import {destroyDriver, initDriver} from "../../../utils/test";
+import {LogLevel, SimpleLogger} from "../../../logger/simple-logger";
 
-const logger = new FallbackLogger({level: 'error'});
+const logger = new SimpleLogger({level: LogLevel.error});
 class ErrorThrower {
     constructor(public endpoint: Endpoint) {}
 

@@ -4,11 +4,14 @@ export {
     getLogger,
     setupLogger,
     setDefaultLogger,
-    Logger,
-    LogFn,
     FallbackLogger,
     getFallbackLogFunction,
-} from './logging';
+} from './logger/deprecated';
+
+export {
+    Logger,
+    LogFn,
+} from './logger/simple-logger';
 
 export {default as Driver, IDriverSettings, IPoolSettings} from './driver';
 
@@ -32,7 +35,7 @@ export {
 export {getCredentialsFromEnv, getSACredentialsFromJson} from './utils/parse-env-vars';
 export {ISslCredentials} from './utils/ssl-credentials';
 
-export {withRetries, RetryParameters} from './retries';
+export {withRetries, RetryParameters} from './retries_obsoleted';
 
 export {YdbError, StatusCode} from './errors';
 

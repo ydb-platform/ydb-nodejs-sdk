@@ -2,15 +2,14 @@ import {Ydb} from "ydb-sdk-proto";
 import DiscoveryServiceAPI = Ydb.Discovery.V1.DiscoveryService;
 import {Endpoint, SuccessDiscoveryHandler} from "./endpoint";
 import EventEmitter from "events";
-import {Logger} from "../logging";
 import _ from "lodash";
 import {Events} from "../constants";
-import {retryable} from "../retries";
+import {retryable} from "../retries_obsoleted";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
-import {AuthenticatedService} from "../utils/authenticated-service";
-import {withTimeout} from "../utils/with-timeout";
+import {AuthenticatedService, withTimeout} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
+import {Logger} from "../logger/simple-logger";
 
 type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {

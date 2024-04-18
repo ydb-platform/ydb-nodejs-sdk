@@ -2,9 +2,8 @@ import {Ydb} from "ydb-sdk-proto";
 export import QueryService = Ydb.Query.V1.QueryService;
 import CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 import {Endpoint} from "../discovery";
-import {Logger} from "../logging";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries";
+import {retryable} from "../retries_obsoleted";
 import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
 import {Events} from "../constants";
@@ -25,6 +24,7 @@ import {
     sessionReleaseSymbol,
     sessionIsDeletedSymbol
 } from './symbols';
+import {Logger} from "../logger/simple-logger";
 
 export class SessionBuilder extends AuthenticatedService<QueryService> {
     public endpoint: Endpoint;

@@ -15,7 +15,7 @@ import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {ClientOptions} from "../utils";
 import DiscoveryService from "../discovery/discovery-service";
-import {Logger} from "../logging";
+import {Logger} from "../logger/simple-logger";
 
 interface ISchemeClientSettings {
     database: string;

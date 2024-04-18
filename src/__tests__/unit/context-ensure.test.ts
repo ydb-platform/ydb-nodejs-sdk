@@ -1,5 +1,4 @@
-import {Context} from "../../context/Context";
-import {EnsureContext} from "../../context/ensureContext";
+import {Context, ensureContext} from "../../context";
 
 describe('ensureContext', () => {
     it('positional args', () => {
@@ -7,7 +6,7 @@ describe('ensureContext', () => {
             // @ts-ignore
             noArgs(): void;
             noArgs(ctx: Context): void;
-            @EnsureContext(true)
+            @ensureContext(true)
             noArgs(ctx: Context): void {
                 expect(ctx instanceof Context).toBeTruthy();
             }
@@ -15,7 +14,7 @@ describe('ensureContext', () => {
             // @ts-ignore
             posArgs(n: number, s: string): void;
             posArgs(ctx: Context, n: number, s: string): void;
-            @EnsureContext(true)
+            @ensureContext(true)
             posArgs(ctx: Context, n: number, s: string) {
                 expect(ctx instanceof Context).toBeTruthy();
                 expect(n).toBe(12);
@@ -26,7 +25,7 @@ describe('ensureContext', () => {
             static staticNoArgs(): void;
             static staticNoArgs(ctx: Context): void;
 
-            @EnsureContext(true)
+            @ensureContext(true)
             static staticNoArgs(ctx: Context) {
                 expect(ctx instanceof Context).toBeTruthy();
             }
@@ -49,7 +48,7 @@ describe('ensureContext', () => {
             // noArgs(opts: {
             //     ctx?: Context,
             // }): void;
-            @EnsureContext()
+            @ensureContext()
             noArgs(opts?: {
                 ctx?: Context,
             }): void {
@@ -57,7 +56,7 @@ describe('ensureContext', () => {
                 expect(ctx instanceof Context).toBeTruthy();
             }
 
-            @EnsureContext(false) // should throw error cause fire arg is not obj
+            @ensureContext(false) // should throw error cause fire arg is not obj
             mismatchTypeOfArgs(n: number, s: string) {
                 expect(n).toBe(12);
                 expect(s).toBe('test');

@@ -1,6 +1,5 @@
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {TimeoutExpired} from './errors';
-import {getLogger, Logger} from './logging';
 import {makeSslCredentials, ISslCredentials} from './utils/ssl-credentials';
 import DiscoveryService from "./discovery/discovery-service";
 import {TableClient} from "./table";
@@ -10,6 +9,8 @@ import SchemeService from "./schema/scheme-client";
 import SchemeClient from "./schema/scheme-client";
 import {parseConnectionString} from "./utils/parse-connection-string";
 import {QueryClient} from "./query";
+import {Logger} from "./logger/simple-logger";
+import {getDefaultLogger} from "./logger/get-default-logger";
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -43,7 +44,7 @@ export default class Driver {
     public schemeClient: SchemeService;
 
     constructor(settings: IDriverSettings) {
-        this.logger = settings.logger || getLogger();
+        this.logger = settings.logger || getDefaultLogger();
 
         if (settings.connectionString) {
             const {endpoint, database} = parseConnectionString(settings.connectionString);

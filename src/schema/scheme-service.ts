@@ -7,12 +7,12 @@ import IMakeDirectoryRequest = Ydb.Scheme.IMakeDirectoryRequest;
 import IPermissions = Ydb.Scheme.IPermissions;
 import {OperationParamsSettings} from "../table";
 import {AuthenticatedService, ClientOptions, pessimizable} from "../utils";
-import {Logger} from "../logging";
 import {Endpoint} from "../discovery";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries";
+import {retryable} from "../retries_obsoleted";
 import {ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
+import {Logger} from "../logger/simple-logger";
 
 function preparePermissions(action?: IPermissions | null) {
     if (action && action.permissionNames) {
