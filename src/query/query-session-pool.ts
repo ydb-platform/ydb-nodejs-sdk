@@ -4,7 +4,7 @@ import CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 import {Endpoint} from "../discovery";
 import {Logger} from "../logger/simple-logger";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries/retries";
+import {retryable} from "../retries/retryable";
 import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
 import {Events} from "../constants";
@@ -26,6 +26,8 @@ import {
     sessionIsDeletedSymbol
 } from './symbols';
 import {HasLogger} from "../logger/has-logger";
+import {ensureContext} from "../context/EnsureContext";
+import {Context} from "../context/Context";
 
 export class SessionBuilder extends AuthenticatedService<QueryService> implements HasLogger {
     public endpoint: Endpoint;
@@ -40,6 +42,7 @@ export class SessionBuilder extends AuthenticatedService<QueryService> implement
         this.logger = logger;
     }
 
+    @ensureContext(true)
     @retryable()
     @pessimizable
     async create(): Promise<QuerySession> {
@@ -99,7 +102,7 @@ export class QuerySessionPool extends EventEmitter {
         // this.prepopulateSessions();
     }
 
-    public async destroy(): Promise<void> {
+    public async destroy(_ctx: Context): Promise<void> {
         this.logger.debug('Destroying query pool...');
         await Promise.all(_.map([...this.sessions], (session: QuerySession) => this.deleteSession(session)));
         this.logger.debug('Query pool has been destroyed.');

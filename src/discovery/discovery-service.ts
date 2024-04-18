@@ -5,19 +5,23 @@ import EventEmitter from "events";
 import {Logger} from "../logger/simple-logger";
 import _ from "lodash";
 import {Events} from "../constants";
-import {retryable} from "../retries/retries";
+import {retryable} from "../retries/retryable";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService} from "../utils/authenticated-service";
 import {withTimeout} from "../utils/with-timeout";
 import {IAuthService} from "../credentials/i-auth-service";
 import {HasLogger} from "../logger/has-logger";
+import {ensureContext} from "../context/EnsureContext";
+import {Context} from "../context/Context";
+import {HasObjectContext} from "../context/has-object-context";
 
 type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {
 };
 
 interface IDiscoverySettings {
+    ctx: Context,
     endpoint: string;
     database: string;
     discoveryPeriod: number;
@@ -26,7 +30,8 @@ interface IDiscoverySettings {
     sslCredentials?: ISslCredentials,
 }
 
-export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> implements HasLogger {
+export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> implements HasLogger, HasObjectContext {
+    public readonly ctx: Context;
     private readonly database: string;
     private readonly discoveryPeriod: number;
     private readonly endpointsPromise: Promise<void>;
@@ -50,40 +55,45 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
             settings.authService,
             settings.sslCredentials,
         );
+        this.ctx = settings.ctx;
         this.database = settings.database;
         this.discoveryPeriod = settings.discoveryPeriod;
         this.logger = settings.logger;
         this.endpointsPromise = new Promise((resolve, reject) => {
             this.resolveEndpoints = (endpoints: Endpoint[]) => {
-                this.updateEndpoints(endpoints);
+                this.updateEndpoints(this.ctx, endpoints);
                 resolve();
             };
             this.rejectEndpoints = reject;
         });
-        this.periodicDiscoveryId = this.init();
+        this.periodicDiscoveryId = this.init(this.ctx);
     }
 
-    public destroy(): void {
+    // @ts-ignore
+    public destroy(): void;
+    public destroy(ctx: Context): void;
+    @ensureContext(true)
+    public destroy(_ctx: Context): void {
         clearInterval(this.periodicDiscoveryId);
     }
 
-    private init(): NodeJS.Timeout {
-        this.discoverEndpoints(this.database)
+    private init(ctx: Context): NodeJS.Timeout {
+        this.discoverEndpoints(ctx, this.database)
             .then(this.resolveEndpoints)
             .catch(this.rejectEndpoints);
 
         return setInterval(async () => {
             await this.endpointsPromise;
             try {
-                const endpoints = await this.discoverEndpoints(this.database);
-                this.updateEndpoints(endpoints);
+                const endpoints = await this.discoverEndpoints(ctx, this.database);
+                this.updateEndpoints(ctx, endpoints);
             } catch (error) {
                 this.logger.error(error as object);
             }
         }, this.discoveryPeriod);
     }
 
-    private updateEndpoints(endpoints: Endpoint[]): void {
+    private updateEndpoints(_ctx: Context, endpoints: Endpoint[]): void {
         const getHost = (endpoint: Endpoint) => endpoint.toString();
         const endpointsToAdd = _.differenceBy(endpoints, this.endpoints, getHost);
         const endpointsToRemove = _.differenceBy(this.endpoints, endpoints, getHost);
@@ -111,7 +121,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
     }
 
     @retryable()
-    private async discoverEndpoints(database: string): Promise<Endpoint[]> {
+    private async discoverEndpoints(_ctx: Context, database: string): Promise<Endpoint[]> {
         const response = await this.api.listEndpoints({database});
         const payload = getOperationPayload(response);
         const endpointsResult = Ydb.Discovery.ListEndpointsResult.decode(payload);
@@ -127,22 +137,30 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         this.events.on(eventName, callback);
     }
 
-    public ready(timeout: number): Promise<void> {
+    // @ts-ignore
+    public ready(timeout: number): Promise<void>;
+    public ready(ctx: Context, timeout: number): Promise<void>;
+    @ensureContext(true)
+    public ready(_ctx: Context, timeout: number): Promise<void> {
         return withTimeout<void>(this.endpointsPromise, timeout);
     }
 
-    private async getEndpointRR(): Promise<Endpoint> {
+    private async getEndpointRR(_ctx: Context): Promise<Endpoint> {
         await this.endpointsPromise;
         const endpoint = this.endpoints[this.currentEndpointIndex++ % this.endpoints.length];
         this.logger.trace('getEndpointRR result: %o', endpoint);
         return endpoint;
     }
 
-    public async getEndpoint(): Promise<Endpoint> {
-        let endpoint = await this.getEndpointRR();
+    // @ts-ignore
+    public async getEndpoint(): Promise<Endpoint>;
+    public async getEndpoint(ctx: Context): Promise<Endpoint>;
+    @ensureContext(true)
+    public async getEndpoint(ctx: Context): Promise<Endpoint> {
+        let endpoint = await this.getEndpointRR(ctx);
         let counter = 0;
         while (endpoint.pessimized && counter < this.endpoints.length) {
-            endpoint = await this.getEndpointRR();
+            endpoint = await this.getEndpointRR(ctx);
             counter++;
         }
         if (counter === this.endpoints.length) {

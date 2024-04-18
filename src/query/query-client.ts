@@ -8,7 +8,6 @@ import {ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Ydb} from "ydb-sdk-proto";
 import {AUTO_TX} from "../table";
-import {withRetries} from "../retries/retries";
 import {
     sessionTxSettingsSymbol,
     sessionTxIdSymbol,
@@ -17,11 +16,17 @@ import {
     sessionCurrentOperationSymbol,
     sessionReleaseSymbol
 } from "./symbols";
-import {BadSession, SessionBusy} from "../retries/errors";
+import {BadSession, SessionBusy, TransportError, YdbError} from "../retries/errors";
 import {Context, CtxDispose} from "../context/Context";
-import {EnsureContext} from "../context/EnsureContext";
+import {ensureContext} from "../context/EnsureContext";
+import {HasLogger} from "../logger/has-logger";
+import {HasObjectContext} from "../context/has-object-context";
+import {RetryStrategy} from "../retries/retryStrategy";
+import {RetryParameters} from "../retries/retryParameters";
+import {RetryPolicySymbol} from "../retries/symbols";
 
 export interface IQueryClientSettings {
+    ctx: Context,
     database: string;
     authService: IAuthService;
     sslCredentials?: ISslCredentials;
@@ -33,7 +38,6 @@ export interface IQueryClientSettings {
 
 interface IDoOpts<T> {
     ctx?: Context,
-    // ctx?: Context
     txSettings?: Ydb.Query.ITransactionSettings,
     fn: SessionCallback<T>,
     timeout?: number,
@@ -46,77 +50,81 @@ interface IDoOpts<T> {
  *
  * Notice: This API is EXPERIMENTAL and may be changed or removed in a later release.
  */
-export class QueryClient extends EventEmitter {
+export class QueryClient extends EventEmitter implements HasLogger, HasObjectContext {
+    public readonly objCtx: Context;
+    public readonly logger: Logger;
+    private retryer: RetryStrategy;
     private pool: QuerySessionPool;
-    private logger: Logger;
 
     constructor(settings: IQueryClientSettings) {
         super();
+        this.objCtx = settings.ctx;
         this.logger = settings.logger;
+        this.retryer = new RetryStrategy(new RetryParameters(), this.logger);
         this.pool = new QuerySessionPool(settings);
     }
 
-    public async destroy() {
-        await this.pool.destroy();
+    public async destroy(ctx: Context) {
+        await this.pool.destroy(ctx);
     }
 
-    @EnsureContext()
+    @ensureContext()
     public async do<T>(opts: IDoOpts<T>): Promise<T> {
-        let ctx = opts.ctx!; // guarnteed by @EnsureContext()
-        let dispose: CtxDispose | undefined;
+        let ctx = opts.ctx!; // guarnteed by @ensureContext()
+        let disposeTimeout: CtxDispose | undefined;
         if (opts.timeout) {
-            ({ctx, dispose} = ctx.createChild({
+            ({ctx, dispose: disposeTimeout} = ctx.createChild({
                 timeout: opts.timeout,
             }));
         }
         try {
             // TODO: Bypass idempotency state to retrier
-            return withRetries<T>(async () => {
+            return this.retryer.retry(ctx, async (_ctx, _attemptsCount, _logger) => {
                 const session = await this.pool.acquire();
-                let error;
+                let result: T | undefined, err: YdbError | undefined;
                 try {
                     if (opts.txSettings) session[sessionTxSettingsSymbol] = opts.txSettings;
-                    let res: T;
                     try {
-                        res = await opts.fn(session);
-                    } catch (err) {
-                        if (session[sessionTxIdSymbol] && !(err instanceof BadSession || err instanceof SessionBusy)) {
-                            await session[sessionRollbackTransactionSymbol]();
+                        result = await opts.fn(session);
+                        if (session[sessionTxIdSymbol]) { // there is an open transaction within session
+                            if (opts.txSettings) {
+                                // likely doTx was called and user expects have the transaction being commited
+                                await session[sessionCommitTransactionSymbol]();
+                            } else {
+                                // likely do() was called and user intentionally haven't closed transaction
+                                await session[sessionRollbackTransactionSymbol]();
+                            }
                         }
-                        throw err;
+                    } catch (error) {
+                        if (TransportError.isMember(error)) error = TransportError.convertToYdbError(error);
+                        if (error instanceof YdbError) err = error;
+                        else throw error;
                     }
-                    if (session[sessionTxIdSymbol]) { // there is an open transaction within session
-                        if (opts.txSettings) {
-                            // likely doTx was called and user expects have the transaction being commited
-                            await session[sessionCommitTransactionSymbol]();
-                        } else {
-                            // likely do() was called and user intentionally haven't closed transaction
-                            await session[sessionRollbackTransactionSymbol]();
-                        }
-                    }
-                    return res;
-                } catch (err) {
-                    error = err;
-                    throw err;
+
                 } finally {
                     // TODO: Cleanup idempotentocy
                     // delete session[sessionTxId];
                     delete session[sessionTxSettingsSymbol];
                     delete session[sessionCurrentOperationSymbol];
-                    if (error instanceof BadSession || error instanceof SessionBusy) {
-                        this.logger.debug('Encountered bad or busy session, re-creating the session');
+                    // @ts-ignore
+                    if (err?.constructor[RetryPolicySymbol].deleteSession) {
                         session.emit(SessionEvent.SESSION_BROKEN);
                     } else {
                         session[sessionReleaseSymbol]();
                     }
                 }
-            }, this.logger);
+                return {
+                    result,
+                    err,
+                    idempotent: false,  // TODO: Get from session
+                };
+            });
         } finally {
-            if (dispose) dispose();
+            if (disposeTimeout) disposeTimeout();
         }
     }
 
-    @EnsureContext()
+    @ensureContext()
     public doTx<T>(opts: IDoOpts<T>): Promise<T> {
         if (!opts.txSettings) {
             opts = {...opts, txSettings: AUTO_TX.beginTx};

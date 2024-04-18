@@ -32,7 +32,7 @@ export {
 export {getCredentialsFromEnv, getSACredentialsFromJson} from './utils/parse-env-vars';
 export {ISslCredentials} from './utils/ssl-credentials';
 
-export {withRetries} from './retries/retries';
+export {withRetries} from './retries/retryable';
 
 export {YdbError, StatusCode} from './retries/errors';
 

@@ -1,8 +1,5 @@
 import * as utils from "../utils";
-import {HasLogger} from "../logger/has-logger";
 import {YdbError} from "./errors";
-import {Logger} from "../logger/simple-logger";
-import {getDefaultLogger} from "../logger/get-default-logger";
 
 export class BackoffSettings {
     /**
@@ -35,7 +32,6 @@ export class RetryParameters {
     public onYdbErrorCb: (_error: YdbError) => void;
     public fastBackoff: BackoffSettings;
     public slowBackoff: BackoffSettings;
-    public readonly logger: Logger;
 
     constructor(opts?: {
         /**
@@ -47,9 +43,7 @@ export class RetryParameters {
         backoffCeiling?: number,
         backoffSlotDuration?: number,
         timeout?: number,
-        logger?: Logger,
     }) {
-        this.logger = opts?.logger ?? getDefaultLogger();
         if (opts?.hasOwnProperty('timeout') && opts.timeout! > 0) this.timeout = opts.timeout!;
 
         this.maxRetries = opts?.maxRetries ?? 10;

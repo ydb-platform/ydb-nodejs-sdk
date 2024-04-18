@@ -19,7 +19,7 @@ import {
     YdbError,
 } from '../../retries/errors';
 import {Logger} from '../../logger/simple-logger';
-import {retryable} from '../../retries/retries';
+import {retryable} from '../../retries/retryable';
 import {Endpoint} from "../../discovery";
 import {pessimizable} from "../../utils";
 import {initDriver, destroyDriver} from "../../utils/test";

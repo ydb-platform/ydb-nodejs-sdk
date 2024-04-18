@@ -11,9 +11,10 @@ import {Logger} from "../logger/simple-logger";
 import {Endpoint} from "../discovery";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries/retries";
+import {retryable} from "../retries/retryable";
 import {ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
 import {HasLogger} from "../logger/has-logger";
+import {ensureContext} from "../context/EnsureContext";
 
 function preparePermissions(action?: IPermissions | null) {
     if (action && action.permissionNames) {
@@ -80,6 +81,7 @@ export class SchemeService extends AuthenticatedService<SchemeServiceAPI> implem
         };
     }
 
+    @ensureContext(true)
     @retryable()
     @pessimizable
     public async makeDirectory(path: string, settings?: MakeDirectorySettings): Promise<void> {
@@ -88,6 +90,7 @@ export class SchemeService extends AuthenticatedService<SchemeServiceAPI> implem
         ensureOperationSucceeded(await this.api.makeDirectory(request));
     }
 
+    @ensureContext(true)
     @retryable()
     @pessimizable
     public async removeDirectory(path: string, settings?: RemoveDirectorySettings): Promise<void> {
@@ -96,6 +99,7 @@ export class SchemeService extends AuthenticatedService<SchemeServiceAPI> implem
         ensureOperationSucceeded(await this.api.removeDirectory(request));
     }
 
+    @ensureContext(true)
     @retryable()
     @pessimizable
     public async listDirectory(path: string, settings?: ListDirectorySettings): Promise<ListDirectoryResult> {
@@ -106,6 +110,7 @@ export class SchemeService extends AuthenticatedService<SchemeServiceAPI> implem
         return ListDirectoryResult.decode(payload);
     }
 
+    @ensureContext(true)
     @retryable()
     @pessimizable
     public async describePath(path: string, settings?: DescribePathSettings): Promise<DescribePathResult> {
@@ -116,6 +121,7 @@ export class SchemeService extends AuthenticatedService<SchemeServiceAPI> implem
         return DescribePathResult.decode(payload);
     }
 
+    @ensureContext(true)
     @retryable()
     @pessimizable
     public async modifyPermissions(path: string, permissionActions: IPermissionsAction[], clearPermissions?: boolean, settings?: ModifyPermissionsSettings) {

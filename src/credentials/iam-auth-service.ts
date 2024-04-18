@@ -3,7 +3,7 @@ import {yandex} from "ydb-sdk-proto";
 import * as grpc from "@grpc/grpc-js";
 import jwt from "jsonwebtoken";
 import {GrpcService, sleep, withTimeout} from "../utils";
-import {retryable} from "../retries/retries";
+import {retryable} from "../retries/retryable";
 import IamTokenService = yandex.cloud.iam.v1.IamTokenService;
 import ICreateIamTokenResponse = yandex.cloud.iam.v1.ICreateIamTokenResponse;
 import {addCredentialsToMetadata} from "./add-credentials-to-metadata";
@@ -12,6 +12,7 @@ import {ISslCredentials, makeDefaultSslCredentials} from "../utils/ssl-credentia
 import {HasLogger} from "../logger/has-logger";
 import {Logger} from "../logger/simple-logger";
 import {getDefaultLogger} from "../logger/get-default-logger";
+import {ensureContext} from "../context/EnsureContext";
 
 export interface IIamCredentials {
     serviceAccountId: string,
@@ -38,6 +39,7 @@ class IamTokenGrpcService extends GrpcService<IamTokenService> implements HasLog
         }
     }
 
+    @ensureContext(true)
     @retryable()
     create(request: yandex.cloud.iam.v1.ICreateIamTokenRequest) {
         return this.api.create(request);

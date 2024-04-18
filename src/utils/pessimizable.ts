@@ -12,7 +12,7 @@ export function pessimizable(_target: Pessimizable, _propertyKey: string, descri
             return await originalMethod.call(this, ...args);
         } catch (error) {
             if (!(error instanceof NotFound)) {
-                this.endpoint.pessimize();
+                this.endpoint.pessimize(); // TODO: Does not seems right. Check pessimizable
             }
             throw error;
         }

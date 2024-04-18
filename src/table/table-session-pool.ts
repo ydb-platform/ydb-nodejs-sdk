@@ -6,12 +6,12 @@ import CreateSessionResult = Ydb.Table.CreateSessionResult;
 import {Endpoint} from "../discovery";
 import {Logger} from "../logger/simple-logger";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {retryable} from "../retries/retries";
+import {retryable} from "../retries/retryable";
 import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
 import {Events, SESSION_KEEPALIVE_PERIOD} from "../constants";
 import _ from "lodash";
-import {BadSession, SessionBusy, SessionPoolEmpty} from "../retries/errors";
+import {BadSession, SessionBusy, SessionPoolEmpty, YdbError} from "../retries/errors";
 
 import {TableSession} from "./table-session";
 import {ITableClientSettings} from "./table-client";
@@ -20,8 +20,9 @@ import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Context} from "../context/Context";
-import {EnsureContext} from "../context/EnsureContext";
+import {ensureContext} from "../context/EnsureContext";
 import {HasLogger} from "../logger/has-logger";
+import {RetryPolicySymbol} from "../retries/symbols";
 
 export class SessionBuilder extends AuthenticatedService<TableService> implements HasLogger {
     public endpoint: Endpoint;
@@ -34,9 +35,13 @@ export class SessionBuilder extends AuthenticatedService<TableService> implement
         this.logger = logger;
     }
 
+    // @ts-ignore
+    async create(): Promise<TableSession>;
+    async create(_ctx: Context): Promise<TableSession>;
+    @ensureContext(true)
     @retryable()
     @pessimizable
-    async create(): Promise<TableSession> {
+    async create(_ctx: Context): Promise<TableSession> {
         const response = await this.api.createSession(CreateSessionRequest.create());
         const payload = getOperationPayload(response);
         const {sessionId} = CreateSessionResult.decode(payload);
@@ -95,7 +100,7 @@ export class TableSessionPool extends EventEmitter {
     // @ts-ignore
     public async destroy(): Promise<void>;
     public async destroy(ctx: Context): Promise<void>;
-    @EnsureContext(true)
+    @ensureContext(true)
     public async destroy(_ctx: Context): Promise<void> {
         this.logger.debug('Destroying pool...');
         clearInterval(this.sessionKeepAliveId);
@@ -217,13 +222,15 @@ export class TableSessionPool extends EventEmitter {
     }
 
     private async _withSession<T>(_ctx: Context, session: TableSession, callback: SessionCallback<T>, maxRetries = 0): Promise<T> {
-        // TODO: set context to session
+        // TODO: reolace with RetryStrategy.retry
         try {
             const result = await callback(session);
             session.release();
             return result;
         } catch (error) {
-            if (error instanceof BadSession || error instanceof SessionBusy) {
+            // @ts-ignore
+            if ((error as YdbError).constructor[RetryPolicySymbol]?.deleteSession) {
+            // if (error instanceof BadSession || error instanceof SessionBusy) { // TODO: Remove after check
                 this.logger.debug('Encountered bad or busy session, re-creating the session');
                 session.emit(SessionEvent.SESSION_BROKEN);
                 session = await this.createSession();
@@ -239,19 +246,31 @@ export class TableSessionPool extends EventEmitter {
         }
     }
 
+    /**
+     * @deprecated use tableClient.do()
+     */
     // @ts-ignore
     public async withSession<T>(callback: SessionCallback<T>, timeout: number): Promise<T>;
+    /**
+     * @deprecated use tableClient.do()
+     */
     public async withSession<T>(ctx: Context, callback: SessionCallback<T>, timeout: number): Promise<T>;
-    @EnsureContext(true)
+    @ensureContext(true)
     public async withSession<T>(ctx: Context, callback: SessionCallback<T>, timeout: number = 0): Promise<T> {
         const session = await this.acquire(timeout);
         return this._withSession(ctx, session, callback);
     }
 
+    /**
+     * @deprecated use tableClient.do()
+     */
     // @ts-ignore
     public async withSessionRetry<T>(callback: SessionCallback<T>, timeout: number = 0, maxRetries: number): Promise<T>;
+    /**
+     * @deprecated use tableClient.do()
+     */
     public async withSessionRetry<T>(ctx: Context, callback: SessionCallback<T>, timeout: number, maxRetries: number): Promise<T>;
-    @EnsureContext(true)
+    @ensureContext(true)
     public async withSessionRetry<T>(ctx: Context, callback: SessionCallback<T>, timeout: number = 0, maxRetries: number = 10): Promise<T> {
         const session = await this.acquire(timeout);
         return this._withSession(ctx, session, callback, maxRetries);

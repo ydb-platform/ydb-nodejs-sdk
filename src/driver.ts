@@ -10,6 +10,10 @@ import SchemeService from "./schema/scheme-client";
 import SchemeClient from "./schema/scheme-client";
 import {parseConnectionString} from "./utils/parse-connection-string";
 import {QueryClient} from "./query";
+import {Context} from "./context/Context";
+import {HasObjectContext} from "./context/has-object-context";
+import {getDefaultLogger} from "./logger/get-default-logger";
+import {ensureContext} from "./context/EnsureContext";
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -18,6 +22,7 @@ export interface IPoolSettings {
 }
 
 export interface IDriverSettings {
+    ctx?: Context,
     endpoint?: string;
     database?: string;
     connectionString?: string;
@@ -28,14 +33,15 @@ export interface IDriverSettings {
     logger?: Logger;
 }
 
-export default class Driver {
+export default class Driver implements HasLogger, HasObjectContext {
+    public readonly ctx: Context;
+    public readonly logger: Logger;
     private endpoint: string;
     private database: string;
     private authService: IAuthService;
     private sslCredentials?: ISslCredentials;
     private poolSettings?: IPoolSettings;
     private clientOptions?: ClientOptions;
-    private logger: Logger;
     private discoveryService: DiscoveryService;
 
     public tableClient: TableClient;
@@ -43,9 +49,8 @@ export default class Driver {
     public schemeClient: SchemeService;
 
     constructor(settings: IDriverSettings) {
-        this.logger = settings.logger || new SimpleLogger({
-            envKey: 'YDB_SDK_LOGLEVEL',
-        });
+        this.ctx = settings.ctx ?? Context.createNew().ctx;
+        this.logger = settings.logger || getDefaultLogger();
 
         if (settings.connectionString) {
             const {endpoint, database} = parseConnectionString(settings.connectionString);
@@ -67,14 +72,16 @@ export default class Driver {
         this.clientOptions = settings.clientOptions;
 
         this.discoveryService = new DiscoveryService({
+            ctx: this.ctx,
+            logger: this.logger,
             endpoint: this.endpoint,
             database: this.database,
             authService: this.authService,
             sslCredentials: this.sslCredentials,
-            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
-            logger: this.logger,
+            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD
         });
         this.tableClient = new TableClient({
+            // TODO: Add ctx
             database: this.database,
             authService: this.authService,
             sslCredentials: this.sslCredentials,
@@ -84,6 +91,7 @@ export default class Driver {
             logger: this.logger,
         });
         this.queryClient = new QueryClient({
+            // TODO: Add ctx
             database: this.database,
             authService: this.authService,
             sslCredentials: this.sslCredentials,
@@ -93,6 +101,7 @@ export default class Driver {
             logger: this.logger,
         });
         this.schemeClient = new SchemeClient({
+            // TODO: Add ctx
             database: this.database,
             authService: this.authService,
             sslCredentials: this.sslCredentials,
@@ -102,9 +111,9 @@ export default class Driver {
         });
     }
 
-    public async ready(timeout: number): Promise<boolean> {
+    public async ready(timeout: number): Promise<boolean> { // works within driver ctx
         try {
-            await this.discoveryService.ready(timeout);
+            await this.discoveryService.ready(this.ctx, timeout);
             this.logger.debug('Driver is ready!');
             return true;
         } catch (e) {
@@ -116,13 +125,17 @@ export default class Driver {
         }
     }
 
-    public async destroy(): Promise<void> {
+    // @ts-ignore
+    public async destroy(): Promise<void>;
+    public async destroy(ctx: Context): Promise<void>;
+    @ensureContext()
+    public async destroy(ctx: Context): Promise<void> {
         this.logger.debug('Destroying driver...');
         this.discoveryService.destroy();
         await Promise.all([
-            this.tableClient.destroy(),
-            this.queryClient.destroy(),
-            this.schemeClient.destroy(),
+            this.tableClient.destroy(ctx),
+            this.queryClient.destroy(ctx),
+            this.schemeClient.destroy(ctx),
         ]);
         this.logger.debug('Driver has been destroyed.');
     }

@@ -2,7 +2,7 @@ import {Ydb} from "ydb-sdk-proto";
 import AuthServiceResult = Ydb.Auth.LoginResult;
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {GrpcService, withTimeout} from "../utils";
-import {retryable} from "../retries/retries";
+import {retryable} from "../retries/retryable";
 import {DateTime} from "luxon";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import * as grpc from "@grpc/grpc-js";
@@ -12,6 +12,7 @@ import {IAuthService} from "./i-auth-service";
 import {HasLogger} from "../logger/has-logger";
 import {Logger} from "../logger/simple-logger";
 import {getDefaultLogger} from "../logger/get-default-logger";
+import {ensureContext} from "../context/EnsureContext";
 
 interface StaticCredentialsAuthOptions {
     /** Custom ssl sertificates. If you use it in driver, you must use it here too */
@@ -32,6 +33,7 @@ class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> 
         super(endpoint, 'Ydb.Auth.V1.AuthService', Ydb.Auth.V1.AuthService, sslCredentials);
     }
 
+    @ensureContext(true)
     @retryable()
     login(request: Ydb.Auth.ILoginRequest) {
         return this.api.login(request);

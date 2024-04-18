@@ -22,13 +22,19 @@ import EventEmitter from "events";
 import {ICreateSessionResult, SessionEvent, TableService} from "./table-session-pool";
 import {Endpoint} from "../discovery";
 import {Logger} from "../logger/simple-logger";
-import {retryable} from "../retries/retries";
+import {retryable} from "../retries/retryable";
 import {MissingStatus, MissingValue, SchemeError, YdbError} from "../retries/errors";
 import {ResponseMetadataKeys} from "../constants";
 import {pessimizable} from "../utils";
-import {YdbOperationAsyncResponse, ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
+import {
+    YdbOperationAsyncResponse,
+    ensureOperationSucceeded,
+    getOperationPayload
+} from "../utils/process-ydb-operation-result";
 import {StreamEnd} from "../utils";
 import {HasLogger} from "../logger/has-logger";
+import {ensureContext} from "../context/EnsureContext";
+import {Context} from "../context/Context";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode | null);
@@ -298,9 +304,13 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         return this.beingDeleted;
     }
 
+    // @ts-ignore
+    public async delete(): Promise<void>;
+    public async delete(ctx: Context): Promise<void>;
+    @ensureContext(true)
     @retryable()
     @pessimizable
-    public async delete(): Promise<void> {
+    public async delete(_ctx: Context): Promise<void> {
         if (this.isDeleted()) {
             return Promise.resolve();
         }
@@ -308,17 +318,33 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
     }
 
+    // @ts-ignore
+    public async keepAlive(): Promise<void>;
+    public async keepAlive(ctx: Context): Promise<void>;
+    @ensureContext(true)
     @retryable()
     @pessimizable
-    public async keepAlive(): Promise<void> {
+    public async keepAlive(_ctx: Context): Promise<void> { // TODO: Consider make it priuvate
         const request = {sessionId: this.sessionId};
         const response = await this.api.keepAlive(request);
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
-    @retryable()
-    @pessimizable
+    // @ts-ignore
     public async createTable(
+        tablePath: string,
+        description: TableDescription,
+        settings?: CreateTableSettings,
+    ): Promise<void>;
+    public async createTable(
+        _ctx: Context,
+        tablePath: string,
+        description: TableDescription,
+        settings?: CreateTableSettings,
+    ): Promise<void>;
+    @ensureContext(true)
+    public async createTable(
+        _ctx: Context,
         tablePath: string,
         description: TableDescription,
         settings?: CreateTableSettings,
@@ -336,9 +362,21 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
-    @retryable()
-    @pessimizable
+    // @ts-ignore
     public async alterTable(
+        tablePath: string,
+        description: AlterTableDescription,
+        settings?: AlterTableSettings
+    ): Promise<void>;
+    public async alterTable(
+        _ctx:Context,
+        tablePath: string,
+        description: AlterTableDescription,
+        settings?: AlterTableSettings
+    ): Promise<void>;
+    @ensureContext(true)
+    public async alterTable(
+        _ctx:Context,
         tablePath: string,
         description: AlterTableDescription,
         settings?: AlterTableSettings
@@ -362,13 +400,15 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         }
     }
 
+    // @ts-ignore
+    public async dropTable(tablePath: string, settings?: DropTableSettings): Promise<void>;
+    public async dropTable(ctx: Context, tablePath: string, settings?: DropTableSettings): Promise<void>
     /*
      Drop table located at `tablePath` in the current database. By default dropping non-existent tables does not
      throw an error, to throw an error pass `new DropTableSettings({muteNonExistingTableErrors: true})` as 2nd argument.
      */
-    @retryable()
-    @pessimizable
-    public async dropTable(tablePath: string, settings?: DropTableSettings): Promise<void> {
+    @ensureContext(true)
+    public async dropTable(_ctx: Context, tablePath: string, settings?: DropTableSettings): Promise<void> {
         const request: Ydb.Table.IDropTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
@@ -382,9 +422,11 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         ensureOperationSucceeded(this.processResponseMetadata(request, response), suppressedErrors);
     }
 
-    @retryable()
-    @pessimizable
-    public async describeTable(tablePath: string, settings?: DescribeTableSettings): Promise<DescribeTableResult> {
+    // @ts-ignore
+    public async describeTable(tablePath: string, settings?: DescribeTableSettings): Promise<DescribeTableResult>;
+    public async describeTable(ctx: Context, tablePath: string, settings?: DescribeTableSettings): Promise<DescribeTableResult>;
+    @ensureContext(true)
+    public async describeTable(_ctx: Context, tablePath: string, settings?: DescribeTableSettings): Promise<DescribeTableResult> {
         const request: Ydb.Table.IDescribeTableRequest = {
             sessionId: this.sessionId,
             path: `${this.endpoint.database}/${tablePath}`,
@@ -403,9 +445,17 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         return DescribeTableResult.decode(payload);
     }
 
-    @retryable()
-    @pessimizable
+    // @ts-ignore
     public async describeTableOptions(
+        settings?: DescribeTableSettings,
+    ): Promise<Ydb.Table.DescribeTableOptionsResult>;
+    public async describeTableOptions(
+        ctx: Context,
+        settings?: DescribeTableSettings,
+    ): Promise<Ydb.Table.DescribeTableOptionsResult>;
+    @ensureContext(true)
+    public async describeTableOptions(
+        _ctx: Context,
         settings?: DescribeTableSettings,
     ): Promise<Ydb.Table.DescribeTableOptionsResult> {
         const request: Ydb.Table.IDescribeTableOptionsRequest = {
@@ -417,9 +467,19 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         return Ydb.Table.DescribeTableOptionsResult.decode(payload);
     }
 
-    @retryable()
-    @pessimizable
+    // @ts-ignore
     public async beginTransaction(
+        txSettings: ITransactionSettings,
+        settings?: BeginTransactionSettings,
+    ): Promise<ITransactionMeta>;
+    public async beginTransaction(
+        ctx: Context,
+        txSettings: ITransactionSettings,
+        settings?: BeginTransactionSettings,
+    ): Promise<ITransactionMeta>;
+    @ensureContext(true)
+    public async beginTransaction(
+        _ctx: Context,
         txSettings: ITransactionSettings,
         settings?: BeginTransactionSettings,
     ): Promise<ITransactionMeta> {
@@ -439,9 +499,11 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         throw new Error('Could not begin new transaction, txMeta is empty!');
     }
 
-    @retryable()
-    @pessimizable
-    public async commitTransaction(txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void> {
+    // @ts-ignore
+    public async commitTransaction(txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void>;
+    public async commitTransaction(ctx: Context, txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void>;
+    @ensureContext(true)
+    public async commitTransaction(_ctx: Context, txControl: IExistingTransaction, settings?: CommitTransactionSettings): Promise<void> {
         const request: Ydb.Table.ICommitTransactionRequest = {
             sessionId: this.sessionId,
             txId: txControl.txId,
@@ -454,9 +516,11 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
-    @retryable()
-    @pessimizable
-    public async rollbackTransaction(txControl: IExistingTransaction, settings?: RollbackTransactionSettings): Promise<void> {
+    // @ts-ignore
+    public async rollbackTransaction(txControl: IExistingTransaction, settings?: RollbackTransactionSettings): Promise<void>;
+    public async rollbackTransaction(ctx: Context, txControl: IExistingTransaction, settings?: RollbackTransactionSettings): Promise<void>;
+    @ensureContext(true)
+    public async rollbackTransaction(_ctx: Context, txControl: IExistingTransaction, settings?: RollbackTransactionSettings): Promise<void> {
         const request: Ydb.Table.IRollbackTransactionRequest = {
             sessionId: this.sessionId,
             txId: txControl.txId,
@@ -468,9 +532,11 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
 
-    @retryable()
-    @pessimizable
-    public async prepareQuery(queryText: string, settings?: PrepareQuerySettings): Promise<PrepareQueryResult> {
+    // @ts-ignore
+    public async prepareQuery(queryText: string, settings?: PrepareQuerySettings): Promise<PrepareQueryResult>;
+    public async prepareQuery(ctx: Context, queryText: string, settings?: PrepareQuerySettings): Promise<PrepareQueryResult>;
+    @ensureContext(true)
+    public async prepareQuery(_ctx: Context, queryText: string, settings?: PrepareQuerySettings): Promise<PrepareQueryResult> {
         const request: Ydb.Table.IPrepareDataQueryRequest = {
             sessionId: this.sessionId,
             yqlText: queryText,
@@ -483,8 +549,23 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         return PrepareQueryResult.decode(payload);
     }
 
-    @pessimizable
+    // @ts-ignore
     public async executeQuery(
+        query: PrepareQueryResult | string,
+        params: IQueryParams,
+        txControl: IExistingTransaction | INewTransaction,
+        settings?: ExecuteQuerySettings,
+    ): Promise<ExecuteQueryResult>;
+    public async executeQuery(
+        ctx: Context,
+        query: PrepareQueryResult | string,
+        params: IQueryParams,
+        txControl: IExistingTransaction | INewTransaction,
+        settings?: ExecuteQuerySettings,
+    ): Promise<ExecuteQueryResult>;
+    @ensureContext(true)
+    public async executeQuery(
+        _ctx: Context,
         query: PrepareQueryResult | string,
         params: IQueryParams = {},
         txControl: IExistingTransaction | INewTransaction = AUTO_TX,
@@ -524,11 +605,25 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         return ExecuteQueryResult.decode(payload);
     }
 
+    // @ts-ignore
     private processResponseMetadata(
         request: object,
         response: YdbOperationAsyncResponse,
         onResponseMetadata?: (metadata: grpc.Metadata) => void
-    ) {
+    ): YdbOperationAsyncResponse;
+    private processResponseMetadata(
+        ctx: Context,
+        request: object,
+        response: YdbOperationAsyncResponse,
+        onResponseMetadata?: (metadata: grpc.Metadata) => void
+    ): YdbOperationAsyncResponse;
+    @ensureContext(true)
+    private processResponseMetadata(
+        _ctx: Context,
+        request: object,
+        response: YdbOperationAsyncResponse,
+        onResponseMetadata?: (metadata: grpc.Metadata) => void
+    ): YdbOperationAsyncResponse {
         const metadata = this.getResponseMetadata(request);
         if (metadata) {
             const serverHints = metadata.get(ResponseMetadataKeys.ServerHints) || [];
@@ -540,8 +635,11 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         return response;
     }
 
-    @pessimizable
-    public async bulkUpsert(tablePath: string, rows: TypedValue, settings?: BulkUpsertSettings) {
+    // @ts-ignore
+    public async bulkUpsert(tablePath: string, rows: TypedValue, settings?: BulkUpsertSettings): Promise<BulkUpsertResult>;
+    public async bulkUpsert(ctx: Context, tablePath: string, rows: TypedValue, settings?: BulkUpsertSettings): Promise<BulkUpsertResult>;
+    @ensureContext(true)
+    public async bulkUpsert(_ctx: Context, tablePath: string, rows: TypedValue, settings?: BulkUpsertSettings): Promise<BulkUpsertResult> {
         const request: Ydb.Table.IBulkUpsertRequest = {
             table: `${this.endpoint.database}/${tablePath}`,
             rows,
@@ -554,8 +652,19 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         return BulkUpsertResult.decode(payload);
     }
 
-    @pessimizable
+    // @ts-ignore
     public async streamReadTable(
+        tablePath: string,
+        consumer: (result: Ydb.Table.ReadTableResult) => void,
+        settings?: ReadTableSettings): Promise<void>;
+    public async streamReadTable(
+        ctx: Context,
+        tablePath: string,
+        consumer: (result: Ydb.Table.ReadTableResult) => void,
+        settings?: ReadTableSettings): Promise<void>;
+    @ensureContext(true)
+    public async streamReadTable(
+        ctx: Context,
         tablePath: string,
         consumer: (result: Ydb.Table.ReadTableResult) => void,
         settings?: ReadTableSettings): Promise<void> {
@@ -571,14 +680,28 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         }
 
         return this.executeStreamRequest(
+            ctx,
             request,
             this.api.streamReadTable.bind(this.api),
             Ydb.Table.ReadTableResult.create,
             consumer);
     }
 
-    @pessimizable
+    // @ts-ignore
     public async streamExecuteScanQuery(
+        query: PrepareQueryResult | string,
+        consumer: (result: ExecuteScanQueryPartialResult) => void,
+        params: IQueryParams,
+        settings?: ExecuteScanQuerySettings): Promise<void>;
+    public async streamExecuteScanQuery(
+        ctx: Context,
+        query: PrepareQueryResult | string,
+        consumer: (result: ExecuteScanQueryPartialResult) => void,
+        params: IQueryParams,
+        settings?: ExecuteScanQuerySettings): Promise<void>;
+    @ensureContext(true)
+    public async streamExecuteScanQuery(
+        ctx: Context,
         query: PrepareQueryResult | string,
         consumer: (result: ExecuteScanQueryPartialResult) => void,
         params: IQueryParams = {},
@@ -605,6 +728,7 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         }
 
         return this.executeStreamRequest(
+            ctx,
             request,
             this.api.streamExecuteScanQuery.bind(this.api),
             ExecuteScanQueryPartialResult.create,
@@ -612,6 +736,7 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
     }
 
     private executeStreamRequest<Req, Resp extends PartialResponse<IRes>, IRes, Res>(
+        _ctx: Context,
         request: Req,
         apiStreamMethod: (request: Req, callback: (error: (Error | null), response?: Resp) => void) => void,
         transformer: (result: IRes) => Res,
@@ -648,7 +773,11 @@ export class TableSession extends EventEmitter implements ICreateSessionResult, 
         });
     }
 
-    public async explainQuery(query: string, operationParams?: Ydb.Operations.IOperationParams): Promise<ExplainQueryResult> {
+    // @ts-ignore
+    public async explainQuery(query: string, operationParams?: Ydb.Operations.IOperationParams): Promise<ExplainQueryResult>;
+    public async explainQuery(ctx: Context, query: string, operationParams?: Ydb.Operations.IOperationParams): Promise<ExplainQueryResult>;
+    @ensureContext(true)
+    public async explainQuery(_ctx: Context, query: string, operationParams?: Ydb.Operations.IOperationParams): Promise<ExplainQueryResult> {
         const request: Ydb.Table.IExplainDataQueryRequest = {
             sessionId: this.sessionId,
             yqlText: query,

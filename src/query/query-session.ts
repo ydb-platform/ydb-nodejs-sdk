@@ -2,7 +2,7 @@ import EventEmitter from "events";
 import {QueryService, SessionBuilder, SessionEvent} from "./query-session-pool";
 import {Endpoint} from "../discovery";
 import {Logger} from "../logger/simple-logger";
-import {retryable} from "../retries/retries";
+import {retryable} from "../retries/retryable";
 import {pessimizable} from "../utils";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {Ydb} from "ydb-sdk-proto";
@@ -22,18 +22,19 @@ import {
     sessionCommitTransactionSymbol,
     sessionBeginTransactionSymbol,
     createSymbol,
-    sessionIsClosingSymbol
+    sessionIsClosingSymbol,
+    sessionIsIdempotentSymbol
 } from './symbols';
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 
 import {attach as attachImpl} from './query-session-attach';
 import {CANNOT_MANAGE_TRASACTIONS_ERROR, execute as executeImpl} from './query-session-execute';
 import {
-    beginTransaction,
-    beginTransaction as beginTransactionImpl, commitTransaction,
+    beginTransaction as beginTransactionImpl,
     commitTransaction as commitTransactionImpl,
     rollbackTransaction as rollbackTransactionImpl
 } from './query-session-transaction';
+import {ensureContext} from "../context/EnsureContext";
 
 /**
  * Service methods, as they name in GRPC.
@@ -63,6 +64,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     [sessionIdSymbol]: string;
     [sessionTxIdSymbol]?: string;
     [sessionTxSettingsSymbol]?: Ydb.Query.ITransactionSettings;
+    [sessionIsIdempotentSymbol]?: boolean;
 
     // private fields, available in the methods placed in separated files
     [implSymbol]: SessionBuilder;
@@ -113,7 +115,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     }
 
     [sessionReleaseSymbol]() {
-        if (this[sessionCurrentOperationSymbol]) throw new Error('There is an active operation');
+        if (this[sessionCurrentOperationSymbol]) throw new Error('There is an active operation'); // TODO: Return YdbError with deleteSession = true
         this.free = true;
         this.logger.debug(`Released session ${this.sessionId} on endpoint ${this.endpoint.toString()}.`);
         this.emit(SessionEvent.SESSION_RELEASE, this);
@@ -135,13 +137,14 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         return this.beingDeleted;
     }
 
+    @ensureContext(true)
     @retryable()
     @pessimizable
     public async delete(): Promise<void> {
         if (this[sessionIsDeletedSymbol]()) return;
         this.beingDeleted = true;
         await this[attachStreamSymbol]?.cancel();
-        delete this[attachStreamSymbol]; // only one stream cancel even when multi ple retries
+        delete this[attachStreamSymbol]; // only one stream cancel even when multiple retries
         ensureCallSucceeded(await this[apiSymbol].deleteSession({sessionId: this.sessionId}));
     }
 
@@ -154,12 +157,12 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
 
     public async beginTransaction(txSettings: Ydb.Query.ITransactionSettings | null = null) {
         if (this[sessionTxSettingsSymbol]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
-        return beginTransaction.call(this, txSettings);
+        return beginTransactionImpl.call(this, txSettings);
     }
 
     public async commitTransaction() {
         if (this[sessionTxSettingsSymbol]) throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
-        return commitTransaction.call(this);
+        return commitTransactionImpl.call(this);
     }
 
     public async rollbackTransaction() {
