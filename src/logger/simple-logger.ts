@@ -2,6 +2,7 @@ export const DEFAULT_ENV_KEY = 'YDB_LOG_LEVEL';
 export const DEFAULT_LEVEL = 'info';
 
 export enum LogLevel {
+    none = 'none',
     fatal = 'fatal',
     error = 'error',
     warn = 'warn',
@@ -138,6 +139,7 @@ export class SimpleLogger implements Logger {
         level = envLevel === undefined ? level ?? LogLevel[DEFAULT_LEVEL] : LogLevel[envLevel];
 
         for (const lvl of Object.values<LogLevel>(LogLevel)) {
+            if (lvl === LogLevel.none) continue;
             // @ts-ignore
             this[lvl] = simpleLogFnBuilder(lvl);
             if (lvl === level) break;

@@ -10,7 +10,7 @@ import ExecMode = Ydb.Query.ExecMode;
 import {getDefaultLogger} from "../../../logger/get-default-logger";
 
 const DATABASE = '/local';
-const ENDPOINT = 'grpcs://localhost:2136';
+const ENDPOINT = 'grpc://localhost:2136';
 const TABLE_NAME = 'test_table_1'
 
 describe('Query.execute()', () => {

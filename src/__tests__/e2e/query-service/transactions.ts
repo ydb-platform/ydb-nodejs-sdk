@@ -24,7 +24,7 @@ describe('Query service transactions', () => {
         await session.delete();
     });
 
-    it.only('implicit transactions', async () => {
+    it('implicit transactions', async () => {
 
         // open transaction
         expect(session.txId).toBeUndefined();
