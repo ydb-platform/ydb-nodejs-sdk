@@ -104,15 +104,20 @@ describe('retryer', () => {
                     false /* error comes thru RetryLambdaResult */
                 ])
                     for (const isIdempotentOp of [false, true]) {
-                        // skip senseless tests
+                        // when backoff is not specified, nonIdempotent && idempotent do not affect the test
+                        if (backoff === null && !(nonIdempotent && idempotent)) continue;
+                        // makes no sense to retry non-idempotent operations, while do not retry idempotent one
                         if (nonIdempotent && !idempotent) continue;
+                        // with simply thrown error, the information that operation is idempotent or not is not available
                         if (simpleError && isIdempotentOp) continue;
+
                         const testName = `retry: ` +
                             `backoff: ${backoff === null ? null : ['No', 'Fast', 'Slow'][backoff]}; ` +
                             `nonIdempotent: ${Number(nonIdempotent)}; idempotent: ${Number(idempotent)}; ` +
                             `simpleError: ${simpleError}; isIdempotentOp: ${Number(isIdempotentOp)}`;
                         // leave the only test, if specified
                         if (ONLY_TEST && testName !== ONLY_TEST) continue;
+
                         it(testName, async () => {
                             const {ctx} = Context.createNew();
                             // @ts-ignore
@@ -235,6 +240,9 @@ describe('retryer', () => {
 //
 // });
 // it('stop on context done', async () => {
+//
+// });
+// it('limit by count for legacy', async () => {
 //
 // });
 })
