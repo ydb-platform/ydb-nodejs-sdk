@@ -317,13 +317,13 @@ describe('Context', () => {
                 promiseReject = reject;
             })
             const {ctx} = Context.createNew();
-            expect(ctx.cancellablePromise(promise)).toBe(promise);
+            expect(ctx.cancelRace(promise)).toBe(promise);
 
             const {ctx: ctx2, cancel} = ctx.createChild({
                 cancel: true,
             });
 
-            const promise2 = ctx2.cancellablePromise(promise);
+            const promise2 = ctx2.cancelRace(promise);
             expect(promise2).not.toBe(promise);
 
             switch (scenario) {

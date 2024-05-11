@@ -3,3 +3,4 @@ export const fastBackoffRetryMessage =  'Caught an error %s, retrying with fast 
 export const slowBackoffRetryMessage =  'Caught an error %s, retrying with slow backoff in %d ms';
 export const notRetryableErrorMessage =  'Caught an error %s, it is not retriable';
 export const successAfterNAttempts = 'The operation completed successfully after %d attempts';
+export const tooManyAttempts = 'Too many attempts (obsolete approach): %d';

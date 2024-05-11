@@ -61,6 +61,10 @@ interface IContextCreateResult {
 
 type OnCancelListener = (cause: Error) => void;
 
+interface IContextWrapLambda<T> {
+    (ctx: Context, cancel?: CtxCancel, done?: CtxDone): Promise<T>;
+}
+
 /**
  * TypeScript Context implementation inspired by golang context (https://pkg.go.dev/context).
  *
@@ -152,7 +156,7 @@ export class Context {
     /**
      * Makes a promise cancellable through context, if the context allows cancel or has a timeout.
      */
-    public cancellablePromise<T>(promise: Promise<T>): Promise<T> {
+    public cancelRace<T>(promise: Promise<T>): Promise<T> {
         if (!this.onCancel) return promise;
         let cancelReject: (reason?: any) => void;
         const cancelPromise = new Promise((_, reject) => {
@@ -164,6 +168,18 @@ export class Context {
         return (Promise.race([promise, cancelPromise]) as Promise<T>).finally(() => {
             unsub();
         });
+    }
+
+    /**
+     * Wraps a method with a context with specified properties. Just, syntactic sugar.
+     */
+    public async wrap<T>(opts: IContextOpts, fn: IContextWrapLambda<T>): Promise<T> {
+        const {ctx, dispose, cancel, done} = this.createChild(opts);
+        try {
+            return await ctx.cancelRace(fn(ctx, cancel, done));
+        } finally {
+            if (dispose) dispose();
+        }
     }
 
     /**
@@ -254,14 +270,12 @@ function setContextTimeout(timeout: number, cancel: OnCancelListener) {
         (err as any).cause = timeoutSymbol;
         cancel(err);
     }, timeout);
-
     function dispose() {
         if (timer) {
             clearTimeout(timer);
             timer = undefined;
         }
     }
-
     return dispose;
 }
 
@@ -272,7 +286,6 @@ function createDone(cancel: OnCancelListener) {
         (err as any).cause = doneSymbol;
         cancel(err);
     }
-
     return done;
 }
 

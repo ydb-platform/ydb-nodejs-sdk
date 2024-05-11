@@ -29,11 +29,17 @@ export class RetryParameters {
      * @deprecated Something from the past. Now the NotFound error processing is specified in the error description.
      */
     public retryNotFound: boolean;
+    /**
+     * @deprecated Not supported in the new retryer - no useful life example
+     */
     public unknownErrorHandler: (_error: unknown) => void; // TODO: Impl
     /**
      * @deprecated Now attempts are not limited by number of attempts, but may be limited by timeout.
      */
     public maxRetries: number;
+    /**
+     * @deprecated Not supported in the new retryer - no useful life example
+     */
     public onYdbErrorCb: (_error: YdbError) => void; // TODO: Impl
     public fastBackoff: BackoffSettings;
     public slowBackoff: BackoffSettings;
@@ -43,15 +49,15 @@ export class RetryParameters {
          * @deprecated to be consistent with other YDB SDKes, the retryer is now NOT limited by the number of attempts, but
          * by the time to attempt the operation. Use timeout parameter
          */
-        maxRetries?: number, // TODO: Obsoleted
-        onYdbErrorCb?: (_error: YdbError) => void, // TODO: Where is in use
+        maxRetries?: number,
+        onYdbErrorCb?: (_error: YdbError) => void,
         backoffCeiling?: number,
         backoffSlotDuration?: number,
         timeout?: number,
     }) {
         if (opts?.hasOwnProperty('timeout') && opts.timeout! > 0) this.timeout = opts.timeout!;
 
-        this.maxRetries = opts?.maxRetries ?? 10;
+        this.maxRetries = opts?.maxRetries ?? 0;
         this.onYdbErrorCb = opts?.onYdbErrorCb ?? ((_error: YdbError) => {
         });
         this.fastBackoff = new BackoffSettings(10, 5);
