@@ -20,8 +20,10 @@ import {
     sessionRollbackTransactionSymbol,
     sessionCommitTransactionSymbol,
     sessionBeginTransactionSymbol,
+    isIdempotentSymbol,
+    isIdempotentDoLevelSymbol,
     createSymbol,
-    sessionIsClosingSymbol
+    sessionIsClosingSymbol, ctxSymbol
 } from './symbols';
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 
@@ -34,6 +36,7 @@ import {
     rollbackTransaction as rollbackTransactionImpl
 } from './query-session-transaction';
 import {Logger} from "../logger/simple-logger";
+import {Context} from "../context";
 
 /**
  * Service methods, as they name in GRPC.
@@ -59,10 +62,13 @@ export const implSymbol = Symbol('impl');
 export const attachStreamSymbol = Symbol('attachStream');
 
 export class QuerySession extends EventEmitter implements ICreateSessionResult {
+    [ctxSymbol]?: Context;
     [sessionCurrentOperationSymbol]?: QuerySessionOperation;
     [sessionIdSymbol]: string;
     [sessionTxIdSymbol]?: string;
     [sessionTxSettingsSymbol]?: Ydb.Query.ITransactionSettings;
+    [isIdempotentDoLevelSymbol]?: boolean
+    [isIdempotentSymbol]?: boolean;
 
     // private fields, available in the methods placed in separated files
     [implSymbol]: SessionBuilder;
@@ -73,6 +79,10 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
     private free = true;
     private closing = false;
+
+    public get ctx() {
+        return this[ctxSymbol]!;
+    }
 
     public get sessionId() {
         return this[sessionIdSymbol];

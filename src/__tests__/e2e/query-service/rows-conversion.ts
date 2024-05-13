@@ -6,6 +6,8 @@ import {SessionBuilder} from "../../../query/query-session-pool";
 import {declareType, TypedData, TypedValues, Types} from "../../../types";
 import {Ydb} from "ydb-sdk-proto";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
+import {ctxSymbol} from "../../../query/symbols";
+import {Context} from "../../../context";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpcs://localhost:2136';
@@ -158,5 +160,6 @@ describe('Rows conversion', () => {
         );
 
         session = await sessionBuilder.create();
+        session[ctxSymbol] = Context.createNew().ctx;
     }
 });
