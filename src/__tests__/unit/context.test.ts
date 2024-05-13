@@ -1,5 +1,5 @@
 // @ts-ignore
-import {Context, setContextIdGenerator} from '../../context/Context';
+import {Context, setContextIdGenerator} from '../../context';
 // @ts-ignore
 import {ensureContext} from '../../context/ensureContext';
 // @ts-ignore
@@ -69,12 +69,12 @@ describe('Context', () => {
             expect(done2).toBeUndefined();
 
             const {ctx: ctx3, cancel: cancel3, dispose: dispose3, done: done3} =
-                ctx1.createChild();
+                ctx1.createChild({force: true});
             expect(ctx3).toBeDefined();
             expect(ctx3.err).toBeUndefined();
             expect(ctx3.onCancel).toBeDefined(); // because parent ctx has cancel
             expect(cancel3).toBeUndefined(); // cancel was not requested through options
-            expect(dispose3).toBeDefined(); // dispose cancel chain
+            expect(dispose3).toBeDefined(); // dispose cancel
             expect(done3).toBeUndefined();
 
             const testCancel = new Error('Test cancel');
@@ -294,6 +294,56 @@ describe('Context', () => {
 
         expect(ctx2[Symbol1]).toBe('aaa');
     });
+
+    it('keep using old context if possible', () => {
+        const {ctx} = Context.createNew();
+        expect(ctx.createChild().ctx).toBe(ctx);
+
+        expect(ctx.createChild({}).ctx).toBe(ctx);
+        expect(ctx.createChild({timeout: -1}).ctx).toBe(ctx);
+        expect(ctx.createChild({timeout: undefined}).ctx).toBe(ctx);
+
+        expect(ctx.createChild({cancel: true}).ctx).not.toBe(ctx);
+        expect(ctx.createChild({cancel: false}).ctx).not.toBe(ctx);
+        expect(ctx.createChild({timeout: 12}).ctx).not.toBe(ctx);
+        expect(ctx.createChild({done: true}).ctx).not.toBe(ctx);
+    });
+
+    for (const scenario of ['ok', 'failed', 'cancel'])
+        it(`'cancellablePromise: scenario: ${scenario}`, async () => {
+            let promiseResolve: (value: unknown) => void, promiseReject: (reason?: any) => void;
+            const promise = new Promise((resolve, reject) => {
+                promiseResolve = resolve;
+                promiseReject = reject;
+            })
+            const {ctx} = Context.createNew();
+            expect(ctx.cancelRace(promise)).toBe(promise);
+
+            const {ctx: ctx2, cancel} = ctx.createChild({
+                cancel: true,
+            });
+
+            const promise2 = ctx2.cancelRace(promise);
+            expect(promise2).not.toBe(promise);
+
+            switch (scenario) {
+                case 'ok': {
+                    promiseResolve!(12);
+                    expect(await promise2).toBe(12);
+                }
+                    break;
+                case 'failed': {
+                    promiseReject!(new Error('test'));
+                    await expect(promise2).rejects.toThrow('test');
+                }
+                    break;
+                case 'cancel': {
+                    cancel!();
+                    await expect(promise2).rejects.toThrow('Unknown');
+                }
+                    break;
+            }
+        });
 
     it('make 100% coverage', () => {
         {

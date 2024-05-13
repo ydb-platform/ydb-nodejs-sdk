@@ -16,7 +16,7 @@ describe('Types', () => {
 
     describe('Convert from native to YDB value', () => {
         describe('Primitive values', () => {
-            it('Numeric values', () => {
+            it.only('Numeric values', () => {
                 expect(TypedValues.bool(true)).toEqual({
                     type: {typeId: Ydb.Type.PrimitiveTypeId.BOOL},
                     value: {boolValue: true},

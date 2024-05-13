@@ -4,6 +4,8 @@
 
 export const createSymbol = Symbol('create');
 
+export const ctxSymbol = Symbol('ctx');
+
 export const sessionAcquireSymbol = Symbol('sessionAcquire');
 export const sessionReleaseSymbol = Symbol('sessionRelease');
 export const sessionIsFreeSymbol = Symbol('sessionIsFree');
@@ -15,6 +17,8 @@ export const sessionAttachSymbol = Symbol('sessionAttach');
 export const sessionBeginTransactionSymbol = Symbol('sessionBeginTransaction');
 export const sessionCommitTransactionSymbol = Symbol('sessionCommitTransaction');
 export const sessionRollbackTransactionSymbol = Symbol('sessionRollbackTransaction');
+export const isIdempotentDoLevelSymbol = Symbol('isIdempotentDoLevel');
+export const isIdempotentSymbol = Symbol('isIdempotent');
 
 export const sessionIdSymbol = Symbol('sessionId');
 export const sessionTxIdSymbol = Symbol('sessionTxId');

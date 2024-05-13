@@ -1,16 +1,26 @@
-import {Backoff, ClientCancelled, SpecificErrorRetryPolicy, YdbError} from "../errors";
+import {Backoff, ClientCancelled, SpecificErrorRetryPolicy} from "../errors";
 import {HasLogger} from "../logger/has-logger";
 import {Logger} from "../logger/simple-logger";
 import {RetryParameters} from "./retryParameters";
 import {Context} from "../context";
 import {RetryPolicySymbol} from "./symbols";
+import * as utils from "../utils";
+import {
+    fastBackoffRetryMessage,
+    slowBackoffRetryMessage,
+    immediateBackoffRetryMessage,
+    successAfterNAttempts,
+    notRetryableErrorMessage, tooManyAttempts,
+} from "./message";
 
-export interface RetryDelta<T> {
-    (ctx: Context, attemptsCount: number, logger: Logger): Promise<{
-        result?: T,
-        err?: YdbError, // YdbError errors are not get thrown since to retry we also need to know is operation is idempotent
-        idempotent?: boolean
-    }>;
+export interface RetryLambdaResult<T> {
+    result?: T,
+    err?: Error, // YdbError errors are not get thrown since to retry we also need to know is the operation is idempotent
+    idempotent?: boolean
+};
+
+export interface RetryLambda<T> {
+    (ctx: Context, logger: Logger, attemptsCount: number): Promise<RetryLambdaResult<T>>;
 }
 
 export class RetryStrategy implements HasLogger {
@@ -21,44 +31,66 @@ export class RetryStrategy implements HasLogger {
     ) {
     }
 
-    // @EnsureContext(true)
     public async retry<T>(
-        ctx: Context,
-        fn: RetryDelta<T>
+        _ctx: Context,
+        fn: RetryLambda<T>
     ): Promise<T> {
-        let attemptsCounter: number = 0;
-        let prevError: YdbError | undefined;
-        let sameErrorCount: number = 0;
-        while (true) {
-            const r = await fn(ctx, attemptsCounter++, this.logger);
-            // TODO: retryParameters.onYdbErrorCb(e);
-            // TODO: log debug messages
-            // TODO: repleca retries in a test
-            // TODO: pessinizable
-            if (r.err) {
-                // Note: deleteSession suppose to be processed in delta function
-                const retryPolicy = (r.err as any).constructor[RetryPolicySymbol] as SpecificErrorRetryPolicy;
-                const doRetry = r.idempotent ? retryPolicy.idempotent : retryPolicy.nonIdempotent;
-                if (doRetry) {
-                    if (retryPolicy.backoff === Backoff.No) continue; // immediate retry
-                    if (r.err === prevError) { // same repeating Error slows down retries exponentially
-                        sameErrorCount++;
-                    } else {
-                        prevError = r.err;
-                        sameErrorCount = 0;
+        return _ctx.wrap(
+            {timeout: this.retryParameters.timeout},
+            async (ctx) => {
+                let attemptsCounter: number = 0;
+                let prevError: Error | undefined;
+                let sameErrorCount: number = 0;
+                let maxRetries = this.retryParameters.maxRetries;
+                while (true) {
+                    if (maxRetries !== 0 && attemptsCounter >= maxRetries) { // to support the old logic for a while
+                        this.logger.debug(tooManyAttempts, attemptsCounter);
+                        throw new ClientCancelled(new Error(`Too many attempts: ${attemptsCounter}`));
                     }
-                    const backoff = retryPolicy.backoff === Backoff.Fast
-                        ? this.retryParameters.fastBackoff
-                        : this.retryParameters.slowBackoff;
-                    await backoff.waitBackoffTimeout(sameErrorCount);
+                    let r: RetryLambdaResult<T>;
+                    try {
+                        r = await fn(ctx, this.logger, attemptsCounter++);
+                    } catch (err) { // catch any error and process as errors with default policy = non-idempotent, not-retryable
+                        r = {err} as RetryLambdaResult<T>;
+                    }
+                    if (r.err) {
+                        // Note: deleteSession suppose to be processed in the lambda function
+                        const retryPolicy = (r.err as any)[RetryPolicySymbol] as SpecificErrorRetryPolicy;
+                        if (retryPolicy && (r.idempotent ? retryPolicy.idempotent : retryPolicy.nonIdempotent)) {
+                            if (retryPolicy.backoff === Backoff.No) { // immediate retry
+                                this.logger.debug(immediateBackoffRetryMessage, r.err, 1); // delay for 1 ms so fake timer can control process
+                                await utils.sleep(1);
+                                continue;
+                            }
+                            if (r.err.constructor === prevError?.constructor) { // same repeating Error slows down retries exponentially
+                                sameErrorCount++;
+                            } else {
+                                prevError = r.err;
+                                sameErrorCount = 0;
+                            }
+                            const backoff = retryPolicy.backoff === Backoff.Fast
+                                ? this.retryParameters.fastBackoff
+                                : this.retryParameters.slowBackoff;
+                            const waitFor = backoff.calcBackoffTimeout(sameErrorCount);
+                            this.logger.debug(retryPolicy.backoff === Backoff.Fast
+                                    ? fastBackoffRetryMessage
+                                    : slowBackoffRetryMessage
+                                , r.err, waitFor);
+                            await utils.sleep(waitFor);
+                            if (ctx.err) { // make sure that operation was not cancelled while awaiting retry time
+                                this.logger.debug(notRetryableErrorMessage, ctx.err);
+                                throw ctx.err;
+                            }
+                            continue;
+                        } else {
+                            this.logger.debug(notRetryableErrorMessage, r.err);
+                        }
+                        throw r.err;
+                    }
+                    this.logger.debug(successAfterNAttempts, attemptsCounter);
+                    return r.result!;
                 }
-                if (ctx.err) { // here to make sure that operation was not cancelled while awaiting retry time
-                    throw new ClientCancelled(ctx.err);
-                }
-                throw r.err;
-            }
-            return r.result!;
-        }
+            })
     }
 }
 

@@ -1,4 +1,4 @@
-import Driver from '../../../driver';
+import Driver from '../../driver';
 import {
     Aborted,
     BadRequest,
@@ -17,12 +17,12 @@ import {
     Unavailable,
     Undetermined,
     YdbError,
-} from '../../../errors';
-import {retryable, RetryParameters} from '../../../retries_obsoleted';
-import {Endpoint} from "../../../discovery";
-import {pessimizable} from "../../../utils";
-import {destroyDriver, initDriver} from "../../../utils/test";
-import {LogLevel, SimpleLogger} from "../../../logger/simple-logger";
+} from '../../errors';
+import {retryable, RetryParameters} from '../../retries_obsoleted';
+import {Endpoint} from "../../discovery";
+import {pessimizable} from "../../utils";
+import {destroyDriver, initDriver} from "../../utils/test";
+import {LogLevel, SimpleLogger} from "../../logger/simple-logger";
 
 const logger = new SimpleLogger({level: LogLevel.error});
 class ErrorThrower {

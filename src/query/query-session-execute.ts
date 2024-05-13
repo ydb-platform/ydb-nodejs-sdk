@@ -3,7 +3,7 @@ import {
     resultsetYdbColumnsSymbol,
     sessionTxIdSymbol,
     sessionTxSettingsSymbol,
-    sessionCurrentOperationSymbol,
+    sessionCurrentOperationSymbol, isIdempotentDoLevelSymbol, isIdempotentSymbol,
 } from "./symbols";
 import {buildAsyncQueueIterator, IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
 import {ResultSet} from "./ResultSet";
@@ -16,6 +16,7 @@ import {implSymbol, Query_V1, QuerySession} from "./query-session";
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import IColumn = Ydb.IColumn;
 import {convertYdbValueToNative, snakeToCamelCaseConversion} from "../types";
+import {CtxUnsubcribe} from "../context";
 
 export type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
@@ -27,6 +28,7 @@ export type IExecuteResult = {
      * Wait for this promise is equivalent to get read all data from all result sets.
      */
     opFinished: Promise<void>;
+    idempotent?: boolean;
 };
 
 export const CANNOT_MANAGE_TRASACTIONS_ERROR = 'Cannot manage transactions at the session level if do() has the txSettings parameter or doTx() is used';
@@ -68,12 +70,12 @@ export function execute(this: QuerySession, opts: {
     /**
      * Operation timeout in ms
      */
-    timeout?: number,
+    // timeout?: number, // TODO: that make sense to timeout one op?
     /**
      * Default Native.
      */
     rowMode?: RowType,
-    // idempotent: , // TODO: Keep in session, was there an non-idempotent opеration
+    idempotent?: boolean,
 }): Promise<IExecuteResult> {
     // Validate opts
     if (!opts.text.trim()) throw new Error('"text" parameter is empty')
@@ -111,6 +113,10 @@ export function execute(this: QuerySession, opts: {
     if (this[sessionTxIdSymbol])
         (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[sessionTxIdSymbol];
     executeQueryRequest.concurrentResultSets = opts.concurrentResultSets ?? false;
+    if (opts.hasOwnProperty('idempotent')) {
+        if (this[isIdempotentDoLevelSymbol]) throw new Error('The attribute of idempotency is already set at the level of do()');
+        if (opts.idempotent) this[isIdempotentSymbol] = true;
+    }
 
 // Run the operation
     let finished = false;
@@ -126,14 +132,12 @@ export function execute(this: QuerySession, opts: {
     let execStats: Ydb.TableStats.IQueryStats | undefined;
 
 
-// Timeout if any
-    // TODO: Change to ctx.withTimout once Context will be finished
-    const timeoutTimer =
-        typeof opts.timeout === 'number' && opts.timeout > 0 ?
-            setTimeout(() => {
-                cancel(new Error('Timeout is over'));
-            }, opts.timeout)
-            : undefined;
+    let unsub: CtxUnsubcribe;
+    if (this.ctx.onCancel) {
+        unsub = this.ctx.onCancel((cause) => {
+            cancel(cause);
+        });
+    }
 
 // One operation per session in a time. And it might be cancelled
     if (this[sessionCurrentOperationSymbol]) throw new Error('There\'s another active operation in the session');
@@ -142,7 +146,7 @@ export function execute(this: QuerySession, opts: {
         if (finished) return;
         finished = true;
         if (onStreamError !== true) responseStream!.cancel();
-        if (timeoutTimer) clearTimeout(timeoutTimer);
+        if (unsub) unsub();
         if (resultReject) {
             resultReject(reason);
             resultResolve = resultReject = undefined;
@@ -291,6 +295,7 @@ export function execute(this: QuerySession, opts: {
 
         if (finishedResolve) finishedResolve();
         delete this[sessionCurrentOperationSymbol];
+        if (unsub) unsub();
         finished = true;
     });
 

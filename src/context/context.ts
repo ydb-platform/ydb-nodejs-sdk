@@ -41,6 +41,10 @@ interface IContextOpts {
      * cancel context after timeout.
      */
     timeout?: number,
+    /**
+     * Force creation of child context, even if there is no sufficient need.
+     */
+    force?: boolean,
 }
 
 export type CtxDone = () => void;
@@ -56,6 +60,10 @@ interface IContextCreateResult {
 }
 
 type OnCancelListener = (cause: Error) => void;
+
+interface IContextWrapLambda<T> {
+    (ctx: Context, cancel?: CtxCancel, done?: CtxDone): Promise<T>;
+}
 
 /**
  * TypeScript Context implementation inspired by golang context (https://pkg.go.dev/context).
@@ -113,9 +121,17 @@ export class Context {
 
     /**
      * Creates a child context from the this one.
+     *
+     * Note: If there are no sufficient requirements for a new context the parent context
+     * will be keep using.
      */
     public createChild(opts: IContextOpts = {}): IContextCreateResult {
         if (opts.id) throw new Error('This method cannot change the context id');
+        if (!(
+            opts.hasOwnProperty('cancel') ||
+            opts.timeout! > 0 ||
+            opts.done
+        ) && !opts.force) return {ctx: this};
         const ctx = Object.create(this) as Context;
         const originOpts = opts;
         if (this.onCancel)
@@ -135,6 +151,35 @@ export class Context {
         if (originOpts.cancel !== true) delete res.cancel;
         res.ctx = ctx;
         return res;
+    }
+
+    /**
+     * Makes a promise cancellable through context, if the context allows cancel or has a timeout.
+     */
+    public cancelRace<T>(promise: Promise<T>): Promise<T> {
+        if (!this.onCancel) return promise;
+        let cancelReject: (reason?: any) => void;
+        const cancelPromise = new Promise((_, reject) => {
+            cancelReject = reject;
+        });
+        const unsub = this.onCancel((cause) => {
+            cancelReject(cause);
+        });
+        return (Promise.race([promise, cancelPromise]) as Promise<T>).finally(() => {
+            unsub();
+        });
+    }
+
+    /**
+     * Wraps a method with a context with specified properties. Just, syntactic sugar.
+     */
+    public async wrap<T>(opts: IContextOpts, fn: IContextWrapLambda<T>): Promise<T> {
+        const {ctx, dispose, cancel, done} = this.createChild(opts);
+        try {
+            return await ctx.cancelRace(fn(ctx, cancel, done));
+        } finally {
+            if (dispose) dispose();
+        }
     }
 
     /**
@@ -221,29 +266,26 @@ function makeContextCancellable(context: Context) {
 function setContextTimeout(timeout: number, cancel: OnCancelListener) {
     let timer: Timeout | undefined = setTimeout(() => {
         // An error is always created rather than using a constant to have an actual callstack
-        const err = new Error('Timeout');
+        const err = new Error(`Timeout: ${timeout} ms`);
         (err as any).cause = timeoutSymbol;
         cancel(err);
     }, timeout);
-
     function dispose() {
         if (timer) {
             clearTimeout(timer);
             timer = undefined;
         }
     }
-
     return dispose;
 }
 
 function createDone(cancel: OnCancelListener) {
     function done() {
-        // An error is always created rather than using a constant to have an actual callstack
+        // The error is always created rather than using a constant to have an actual callstack
         const err = new Error('Done');
         (err as any).cause = doneSymbol;
         cancel(err);
     }
-
     return done;
 }
 
@@ -251,7 +293,7 @@ function initContext(this: Context, opts: IContextOpts) {
     const res: Omit<IContextCreateResult, 'ctx'> = {};
     let cancel: OnCancelListener;
     if (opts.cancel === true) res.cancel = cancel = makeContextCancellable(this);
-    if (opts.timeout && opts.timeout > 0) res.dispose = setContextTimeout(opts.timeout, cancel! || (cancel = makeContextCancellable(this)));
+    if (opts.timeout! > 0) res.dispose = setContextTimeout(opts.timeout!, cancel! || (cancel = makeContextCancellable(this)));
     if (opts.done) res.done = createDone(cancel! || makeContextCancellable(this));
     return res;
 }

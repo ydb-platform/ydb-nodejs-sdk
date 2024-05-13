@@ -7,19 +7,20 @@ import {ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Ydb} from "ydb-sdk-proto";
 import {AUTO_TX} from "../table";
-import {withRetries} from "../retries_obsoleted";
 import {
     sessionTxSettingsSymbol,
     sessionTxIdSymbol,
     sessionRollbackTransactionSymbol,
     sessionCommitTransactionSymbol,
     sessionCurrentOperationSymbol,
-    sessionReleaseSymbol
+    sessionReleaseSymbol, isIdempotentSymbol, isIdempotentDoLevelSymbol, ctxSymbol
 } from "./symbols";
 import {BadSession, SessionBusy} from "../errors";
-import {Context, CtxDispose} from "../context";
-import {ensureContext} from "../context/ensure-context";
+import {Context} from "../context";
+import {ensureContext} from "../context";
 import {Logger} from "../logger/simple-logger";
+import {RetryStrategy} from "../retries/retryStrategy";
+import {RetryParameters} from "../retries/retryParameters";
 
 export interface IQueryClientSettings {
     database: string;
@@ -37,6 +38,7 @@ interface IDoOpts<T> {
     txSettings?: Ydb.Query.ITransactionSettings,
     fn: SessionCallback<T>,
     timeout?: number,
+    idempotent?: boolean
 }
 
 /**
@@ -49,11 +51,13 @@ interface IDoOpts<T> {
 export class QueryClient extends EventEmitter {
     private pool: QuerySessionPool;
     private logger: Logger;
+    private retrier: RetryStrategy;
 
     constructor(settings: IQueryClientSettings) {
         super();
         this.logger = settings.logger;
         this.pool = new QuerySessionPool(settings);
+        this.retrier = new RetryStrategy(new RetryParameters({maxRetries: 0}), this.logger);
     }
 
     public async destroy() {
@@ -62,58 +66,58 @@ export class QueryClient extends EventEmitter {
 
     @ensureContext()
     public async do<T>(opts: IDoOpts<T>): Promise<T> {
-        let ctx = opts.ctx!; // guarnteed by @EnsureContext()
-        let dispose: CtxDispose | undefined;
-        if (opts.timeout) {
-            ({ctx, dispose} = ctx.createChild({
-                timeout: opts.timeout,
-            }));
-        }
-        try {
-            // TODO: Bypass idempotency state to retrier
-            return withRetries<T>(async () => {
-                const session = await this.pool.acquire();
-                let error;
-                try {
-                    if (opts.txSettings) session[sessionTxSettingsSymbol] = opts.txSettings;
-                    let res: T;
+        return opts.ctx!.wrap(
+            {
+                timeout: opts.timeout
+            },
+            async (ctx) => {
+                return this.retrier.retry<T>(ctx,async (_ctx) => {
+                    const session = await this.pool.acquire();
+                    session[ctxSymbol] = ctx;
+                    if (opts.hasOwnProperty('idempotent')) {
+                        session[isIdempotentDoLevelSymbol] = true;
+                        session[isIdempotentSymbol] = opts.idempotent;
+                    }
+                    let error;
                     try {
-                        res = await opts.fn(session);
+                        if (opts.txSettings) session[sessionTxSettingsSymbol] = opts.txSettings;
+                        let res: T;
+                        try {
+                            res = await opts.fn(session);
+                        } catch (err) {
+                            if (session[sessionTxIdSymbol] && !(err instanceof BadSession || err instanceof SessionBusy)) {
+                                await session[sessionRollbackTransactionSymbol]();
+                            }
+                            throw err;
+                        }
+                        if (session[sessionTxIdSymbol]) { // there is an open transaction within session
+                            if (opts.txSettings) {
+                                // likely doTx was called and user expects have the transaction being commited
+                                await session[sessionCommitTransactionSymbol]();
+                            } else {
+                                // likely do() was called and user intentionally haven't closed transaction
+                                await session[sessionRollbackTransactionSymbol]();
+                            }
+                        }
+                        return {result: res};
                     } catch (err) {
-                        if (session[sessionTxIdSymbol] && !(err instanceof BadSession || err instanceof SessionBusy)) {
-                            await session[sessionRollbackTransactionSymbol]();
-                        }
-                        throw err;
-                    }
-                    if (session[sessionTxIdSymbol]) { // there is an open transaction within session
-                        if (opts.txSettings) {
-                            // likely doTx was called and user expects have the transaction being commited
-                            await session[sessionCommitTransactionSymbol]();
+                        error = err;
+                        return {err: err as Error, idempotent: session[isIdempotentSymbol]}
+                    } finally {
+                        delete session[ctxSymbol];
+                        delete session[sessionTxSettingsSymbol];
+                        delete session[sessionCurrentOperationSymbol];
+                        delete session[isIdempotentDoLevelSymbol];
+                        delete session[isIdempotentSymbol];
+                        if (error instanceof BadSession || error instanceof SessionBusy) {
+                            this.logger.debug('Encountered bad or busy session, re-creating the session');
+                            session.emit(SessionEvent.SESSION_BROKEN);
                         } else {
-                            // likely do() was called and user intentionally haven't closed transaction
-                            await session[sessionRollbackTransactionSymbol]();
+                            session[sessionReleaseSymbol]();
                         }
                     }
-                    return res;
-                } catch (err) {
-                    error = err;
-                    throw err;
-                } finally {
-                    // TODO: Cleanup idempotentocy
-                    // delete session[sessionTxId];
-                    delete session[sessionTxSettingsSymbol];
-                    delete session[sessionCurrentOperationSymbol];
-                    if (error instanceof BadSession || error instanceof SessionBusy) {
-                        this.logger.debug('Encountered bad or busy session, re-creating the session');
-                        session.emit(SessionEvent.SESSION_BROKEN);
-                    } else {
-                        session[sessionReleaseSymbol]();
-                    }
-                }
-            });
-        } finally {
-            if (dispose) dispose();
-        }
+                });
+            })
     }
 
     @ensureContext()
