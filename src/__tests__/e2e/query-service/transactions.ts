@@ -5,8 +5,6 @@ import {SessionBuilder} from "../../../query/query-session-pool";
 import {QuerySession, IExecuteResult} from "../../../query";
 import * as symbols from "../../../query/symbols";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
-import {ctxSymbol} from "../../../query/symbols";
-import {Context} from "../../../context";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';
@@ -26,7 +24,7 @@ describe('Query service transactions', () => {
         await session.delete();
     });
 
-    it('implicit transactions', async () => {
+    it.only('implicit transactions', async () => {
 
         // open transaction
         expect(session.txId).toBeUndefined();
@@ -133,6 +131,5 @@ describe('Query service transactions', () => {
         );
 
         session = await sessionBuilder.create();
-        session[ctxSymbol] = Context.createNew().ctx;
     }
 });

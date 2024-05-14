@@ -1,3 +1,4 @@
+import * as utils from "../utils";
 import {YdbError} from "../errors";
 
 export class BackoffSettings {
@@ -11,53 +12,41 @@ export class BackoffSettings {
     constructor(
         public backoffCeiling: number,
         public backoffSlotDuration: number,
-        public uncertainRatio = 0.5,
+        private uncertainRatio = 0.5,
     ) {
     }
 
-    calcBackoffTimeout(retries: number) {
+    async waitBackoffTimeout(retries: number) {
         const slotsCount = 1 << Math.min(retries, this.backoffCeiling);
         const maxDuration = slotsCount * this.backoffSlotDuration;
         const duration = maxDuration * (1 - Math.random() * this.uncertainRatio);
-        return duration;
+        return utils.sleep(duration);
     }
 }
 
 export class RetryParameters {
     public timeout: number = 0;
-    /**
-     * @deprecated Something from the past. Now the NotFound error processing is specified in the error description.
-     */
     public retryNotFound: boolean;
-    /**
-     * @deprecated Not supported in the new retryer - no useful life example
-     */
-    public unknownErrorHandler: (_error: unknown) => void; // TODO: Impl
-    /**
-     * @deprecated Now attempts are not limited by number of attempts, but may be limited by timeout.
-     */
+    public unknownErrorHandler: (_error: unknown) => void;
     public maxRetries: number;
-    /**
-     * @deprecated Not supported in the new retryer - no useful life example
-     */
-    public onYdbErrorCb: (_error: YdbError) => void; // TODO: Impl
+    public onYdbErrorCb: (_error: YdbError) => void;
     public fastBackoff: BackoffSettings;
     public slowBackoff: BackoffSettings;
 
     constructor(opts?: {
         /**
-         * @deprecated to be consistent with other YDB SDKes, the retryer is now NOT limited by the number of attempts, but
-         * by the time to attempt the operation. Use timeout parameter
+         * @deprecated to be consistent with other YDB SDKes, the repeater is now limited not by the number of attempts, but
+         * by the time to attempt the operation. use timeout parameter
          */
-        maxRetries?: number,
-        onYdbErrorCb?: (_error: YdbError) => void,
+        maxRetries?: number, // TODO: Obsoleted
+        onYdbErrorCb?: (_error: YdbError) => void, // TODO: Where is in use
         backoffCeiling?: number,
         backoffSlotDuration?: number,
         timeout?: number,
     }) {
         if (opts?.hasOwnProperty('timeout') && opts.timeout! > 0) this.timeout = opts.timeout!;
 
-        this.maxRetries = opts?.maxRetries ?? 0;
+        this.maxRetries = opts?.maxRetries ?? 10;
         this.onYdbErrorCb = opts?.onYdbErrorCb ?? ((_error: YdbError) => {
         });
         this.fastBackoff = new BackoffSettings(10, 5);

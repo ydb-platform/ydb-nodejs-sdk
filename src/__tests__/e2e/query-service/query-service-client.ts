@@ -32,7 +32,7 @@ describe('Query client', () => {
 
     afterAll(async () => await driver?.destroy());
 
-    it('Query client do()', async () => {
+    it.only('Query client do()', async () => {
         let count = 0;
         let prevSession: QuerySession;
         const res = await driver.queryClient.do({

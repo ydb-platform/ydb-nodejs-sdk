@@ -8,11 +8,9 @@ import {Ydb} from "ydb-sdk-proto";
 import StatsMode = Ydb.Query.StatsMode;
 import ExecMode = Ydb.Query.ExecMode;
 import {getDefaultLogger} from "../../../logger/get-default-logger";
-import {Context} from "../../../context";
-import {ctxSymbol} from "../../../query/symbols";
 
 const DATABASE = '/local';
-const ENDPOINT = 'grpc://localhost:2136';
+const ENDPOINT = 'grpcs://localhost:2136';
 const TABLE_NAME = 'test_table_1'
 
 describe('Query.execute()', () => {
@@ -244,7 +242,6 @@ describe('Query.execute()', () => {
         );
 
         session = await sessionBuilder.create();
-        session[ctxSymbol] = Context.createNew().ctx;
     }
 
     async function drainExecuteResult(res: IExecuteResult) {

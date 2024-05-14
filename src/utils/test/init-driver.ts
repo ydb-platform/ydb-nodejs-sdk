@@ -14,7 +14,7 @@ export async function initDriver(settings?: Partial<IDriverSettings>): Promise<D
     const sslCredentials = {rootCertificates: fs.readFileSync(certFile)};
 
     const driver = new Driver(Object.assign({
-        endpoint: `grpc://localhost:2136`,
+        endpoint: `grpcs://localhost:2135`,
         database: DATABASE,
         authService: new AnonymousAuthService(),
         sslCredentials,
