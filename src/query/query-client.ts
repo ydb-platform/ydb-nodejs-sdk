@@ -21,6 +21,7 @@ import {ensureContext} from "../context";
 import {Logger} from "../logger/simple-logger";
 import {RetryStrategy} from "../retries/retryStrategy";
 import {RetryParameters} from "../retries/retryParameters";
+import {RetryPolicySymbol} from "../retries/symbols";
 
 export interface IQueryClientSettings {
     database: string;
@@ -78,7 +79,7 @@ export class QueryClient extends EventEmitter {
                         session[isIdempotentDoLevelSymbol] = true;
                         session[isIdempotentSymbol] = opts.idempotent;
                     }
-                    let error;
+                    let error: Error;
                     try {
                         if (opts.txSettings) session[sessionTxSettingsSymbol] = opts.txSettings;
                         let res: T;
@@ -101,15 +102,16 @@ export class QueryClient extends EventEmitter {
                         }
                         return {result: res};
                     } catch (err) {
-                        error = err;
-                        return {err: err as Error, idempotent: session[isIdempotentSymbol]}
+                        error = err as Error;
+                        return {err: error, idempotent: session[isIdempotentSymbol]}
                     } finally {
                         delete session[ctxSymbol];
                         delete session[sessionTxSettingsSymbol];
                         delete session[sessionCurrentOperationSymbol];
                         delete session[isIdempotentDoLevelSymbol];
                         delete session[isIdempotentSymbol];
-                        if (error instanceof BadSession || error instanceof SessionBusy) {
+                        // @ts-ignore
+                        if (error && (error as any)[RetryPolicySymbol]?.deleteSession) {
                             this.logger.debug('Encountered bad or busy session, re-creating the session');
                             session.emit(SessionEvent.SESSION_BROKEN);
                         } else {

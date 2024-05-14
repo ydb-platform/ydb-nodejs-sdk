@@ -175,7 +175,8 @@ export class Aborted extends YdbError {
 
 export class Unavailable extends YdbError {
     static status = StatusCode.UNAVAILABLE;
-    public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.Fast, false, true, true);
+    // TODO: Requires extra logic - see https://github.com/ydb-platform/ydb-go-sdk/blob/e1ba79620427a66c1564a52abe7e1ff10787d442/retry/errors_data_test.go#L197
+    public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.Fast, false, true, false);
 }
 
 export class Overloaded extends YdbError {
