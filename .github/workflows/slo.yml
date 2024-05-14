@@ -7,7 +7,7 @@ name: SLO
 jobs:
   test-slo:
     if: github.event.pull_request.head.repo.full_name == 'ydb-platform/ydb-nodejs-sdk'
-    uses: ydb-platform/slo-tests/.github/workflows/slo.yml@main
+    uses: ydb-platform/slo-tests/.github/workflows/slo.yml@js-version
     secrets: inherit
     with:
       language_id: nodejs
