@@ -5,6 +5,7 @@ on:
       - master
       - release-*
   workflow_dispatch:
+
 jobs:
   test-slo:
     concurrency:
