@@ -47,7 +47,7 @@ jobs:
           language_id0: 'nodejs'
           workload_path0: 'slo-workload'
           language0: 'Native ydb-nodejs-sdk general'
-          workload_build_context0: ../..
+          workload_build_context0: ..
           workload_build_options0: -f Dockerfile --build-arg SRC_PATH=slo-workload --build-arg JOB_NAME=workload-slo
 
       - uses: actions/upload-artifact@v4
