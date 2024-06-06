@@ -60,7 +60,7 @@ describe('Query client', () => {
                 expect(session.txId).toBeDefined();
 
                 // force new attempt
-                if (count < 3) throw new errors.Unavailable('test'); // an fast backoff error
+                if (count < 3) throw new errors.Aborted('test'); // an fast backoff error
 
                 res = await session.execute({
                     txControl: {commitTx: true},
@@ -117,7 +117,7 @@ describe('Query client', () => {
                 expect(session.txId).toBeDefined();
 
                 // force new attempt
-                if (count < 2) throw new errors.Unavailable('test'); // an fast backoff error
+                if (count < 2) throw new errors.Aborted('test'); // an fast backoff error
 
                 await expect(async () =>
                     await session.commitTransaction()
