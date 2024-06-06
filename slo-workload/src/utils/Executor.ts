@@ -4,7 +4,7 @@ import { Driver, Session } from 'ydb-sdk'
 import { packages } from '../../package-lock.json'
 import { QueryBuilder } from './QueryBuilder'
 
-const sdkVersion = packages['node_modules/ydb-sdk'].version
+const sdkVersion = require('../../../package.json').version
 
 const percentiles = [0.5, 0.9, 0.95, 0.99, 0.999]
 
