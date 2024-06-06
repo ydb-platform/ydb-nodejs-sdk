@@ -10,7 +10,7 @@ describe('Connection', () => {
     });
 
     it('Test GRPCS connection', async () => {
-        let driver = await initDriver();
+        let driver = await initDriver({endpoint: 'grpcs://localhost:2135'});
         await driver.tableClient.withSession(async (session) => {
             await session.executeQuery('SELECT 1');
         });
