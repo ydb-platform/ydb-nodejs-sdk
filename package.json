@@ -17,7 +17,7 @@
     "test:dev": "cross-env TEST_ENVIRONMENT=dev jest --config jest.config.dev.js",
     "test:prod": "jest --config jest.config.prod.js",
     "test:coverage": "cross-env TEST_ENVIRONMENT=dev jest --config jest.config.coverage.js",
-    "test": "npm run test:dev",
+    "test": "npm run test:prod",
     "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
     "clean": "rimraf build",
     "prepublishOnly": "npm run clean && npm run build && node ./fixup.js"
