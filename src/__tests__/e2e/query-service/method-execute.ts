@@ -2,14 +2,14 @@ import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {SessionBuilder} from "../../../query/query-session-pool";
-import {QuerySession, IExecuteResult} from "../../../query";
+import {IExecuteResult, QuerySession} from "../../../query";
 import {declareType, TypedData, TypedValues, Types} from "../../../types";
 import {Ydb} from "ydb-sdk-proto";
-import StatsMode = Ydb.Query.StatsMode;
-import ExecMode = Ydb.Query.ExecMode;
 import {getDefaultLogger} from "../../../logger/get-default-logger";
 import {Context} from "../../../context";
 import {ctxSymbol} from "../../../query/symbols";
+import StatsMode = Ydb.Query.StatsMode;
+import ExecMode = Ydb.Query.ExecMode;
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';
@@ -20,13 +20,12 @@ describe('Query.execute()', () => {
     let discoveryService: DiscoveryService;
     let session: QuerySession;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
         await testOnOneSessionWithoutDriver();
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
         discoveryService.destroy();
-        // await session[symbols.sessionRelease]();
         await session.delete();
     });
 
@@ -225,7 +224,6 @@ describe('Query.execute()', () => {
     async function testOnOneSessionWithoutDriver() {
         const logger = getDefaultLogger();
         const authService = new AnonymousAuthService();
-
         discoveryService = new DiscoveryService({
             endpoint: ENDPOINT,
             database: DATABASE,
@@ -233,16 +231,13 @@ describe('Query.execute()', () => {
             discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
             logger,
         });
-
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
-
         const sessionBuilder = new SessionBuilder(
             await discoveryService.getEndpoint(),
             DATABASE,
             authService,
             logger,
         );
-
         session = await sessionBuilder.create();
         session[ctxSymbol] = Context.createNew().ctx;
     }

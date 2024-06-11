@@ -16,11 +16,11 @@ describe('Query service transactions', () => {
     let discoveryService: DiscoveryService;
     let session: QuerySession;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
         await testOnOneSessionWithoutDriver();
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
         discoveryService.destroy();
         await session[symbols.sessionReleaseSymbol]();
         await session.delete();
@@ -121,6 +121,7 @@ describe('Query service transactions', () => {
             authService,
             discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
             logger,
+
         });
 
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
