@@ -12,13 +12,13 @@ export async function initDriver(settings?: Partial<IDriverSettings>): Promise<D
         throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_SSL_ROOT_CERTIFICATES_FILE env variable or run Docker container https://cloud.yandex.ru/docs/ydb/getting_started/ydb_docker inside working directory`);
     }
     const sslCredentials = {rootCertificates: fs.readFileSync(certFile)};
-
-    const driver = new Driver(Object.assign({
+    const driver = new Driver({
         endpoint: `grpc://localhost:2136`,
         database: DATABASE,
         authService: new AnonymousAuthService(),
         sslCredentials,
-    }, settings));
+        ...settings
+    });
     const ready = await driver.ready(3000);
     if (!ready) {
         throw new Error('Driver is not ready!');

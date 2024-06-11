@@ -13,7 +13,7 @@ describe('Query client', () => {
 
     let driver: Driver;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
         const certFile = process.env.YDB_SSL_ROOT_CERTIFICATES_FILE || path.join(process.cwd(), 'ydb_certs/ca.pem');
         if (!fs.existsSync(certFile)) {
             throw new Error(`Certificate file ${certFile} doesn't exist! Please use YDB_SSL_ROOT_CERTIFICATES_FILE env variable or run Docker container https://cloud.yandex.ru/docs/ydb/getting_started/ydb_docker inside working directory`);
@@ -30,7 +30,7 @@ describe('Query client', () => {
         if (!(await driver.ready(3000))) throw new Error('Driver is not ready!');
     });
 
-    afterAll(async () => await driver?.destroy());
+    afterEach(async () => await driver.destroy());
 
     it('Query client do()', async () => {
         let count = 0;
