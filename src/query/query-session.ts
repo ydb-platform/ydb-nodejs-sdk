@@ -1,5 +1,5 @@
 import EventEmitter from "events";
-import {QueryService, SessionBuilder, SessionEvent} from "./query-session-pool";
+import {GrpcQueryService, QueryService, SessionEvent} from "./query-session-pool";
 import {Endpoint} from "../discovery";
 import {retryable} from "../retries_obsoleted";
 import {pessimizable} from "../utils";
@@ -38,21 +38,6 @@ import {
 import {Logger} from "../logger/simple-logger";
 import {Context} from "../context";
 
-/**
- * Service methods, as they name in GRPC.
- */
-export const enum Query_V1 {
-    CreateSession = '/Ydb.Query.V1.QueryService/CreateSession',
-    DeleteSession = '/Ydb.Query.V1.QueryService/DeleteSession',
-    AttachSession = '/Ydb.Query.V1.QueryService/AttachSession',
-    BeginTransaction = '/Ydb.Query.V1.QueryService/BeginTransaction',
-    CommitTransaction = '/Ydb.Query.V1.QueryService/CommitTransaction',
-    RollbackTransaction = '/Ydb.Query.V1.QueryService/RollbackTransaction',
-    ExecuteQuery = '/Ydb.Query.V1.QueryService/ExecuteQuery',
-    ExecuteScript = '/Ydb.Query.V1.QueryService/ExecuteScript',
-    FetchScriptResults = '/Ydb.Query.V1.QueryService/FetchScriptResults',
-}
-
 export interface QuerySessionOperation {
     cancel(reason: any): void;
 }
@@ -71,9 +56,9 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     [isIdempotentSymbol]?: boolean;
 
     // private fields, available in the methods placed in separated files
-    [implSymbol]: SessionBuilder;
+    [implSymbol]: QueryService;
     [attachStreamSymbol]?: ClientReadableStream<Ydb.Query.SessionState>;
-    [apiSymbol]: QueryService;
+    [apiSymbol]: GrpcQueryService;
 
     // TODO: Move those fields to SessionBase
     private beingDeleted = false;
@@ -93,8 +78,8 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     }
 
     private constructor( // TODO: Change to named parameters for consistency
-        _api: QueryService,
-        _impl: SessionBuilder,
+        _api: GrpcQueryService,
+        _impl: QueryService,
         public endpoint: Endpoint,
         sessionId: string,
         public readonly logger: Logger,
@@ -107,8 +92,8 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     }
 
     static [createSymbol](
-        api: QueryService,
-        impl: SessionBuilder,
+        api: GrpcQueryService,
+        impl: QueryService,
         endpoint: Endpoint,
         sessionId: string,
         logger: Logger,

@@ -1,7 +1,7 @@
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
-import {SessionBuilder} from "../../../query/query-session-pool";
+import {QueryService} from "../../../query/query-session-pool";
 import {IExecuteResult, QuerySession} from "../../../query";
 import {declareType, TypedData, TypedValues, Types} from "../../../types";
 import {Ydb} from "ydb-sdk-proto";
@@ -232,17 +232,18 @@ describe('Query.execute()', () => {
             logger,
         });
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
-        const sessionBuilder = new SessionBuilder(
+        const sessionBuilder = new QueryService(
             await discoveryService.getEndpoint(),
             DATABASE,
             authService,
             logger,
         );
-        session = await sessionBuilder.create();
+        session = await sessionBuilder.createSession();
         session[ctxSymbol] = Context.createNew().ctx;
     }
 
     async function drainExecuteResult(res: IExecuteResult) {
+        // TODO: cancel result stream
         for await (const rs of res.resultSets)
             for await (const _row of rs.rows) {
             }

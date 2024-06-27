@@ -79,7 +79,6 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         protected authService: IAuthService,
         private sslCredentials?: ISslCredentials,
         clientOptions?: ClientOptions,
-        private streamMethods?: string[],
     ) {
         this.headers = new Map([getVersionHeader(), getDatabaseHeader(database)]);
         this.metadata = new grpc.Metadata();
@@ -122,7 +121,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
             new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
-            if (method.name.startsWith('Stream') || (this.streamMethods && this.streamMethods.findIndex((v) => v === method.name) >= 0)) {
+            if (method.name.startsWith('Stream')) {
                 client.makeServerStreamRequest(path, _.identity, _.identity, requestData, this.metadata)
                     .on('data', (data) => callback(null, data))
                     .on('end', () => callback(new StreamEnd(), null))
