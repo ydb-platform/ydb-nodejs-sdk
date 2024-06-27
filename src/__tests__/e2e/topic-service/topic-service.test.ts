@@ -7,7 +7,7 @@ import {InternalTopicService} from "../../../topic";
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';
 
-describe('Query.execute()', () => {
+describe('Topic: General', () => {
     let discoveryService: DiscoveryService;
     let topicService: InternalTopicService;
 

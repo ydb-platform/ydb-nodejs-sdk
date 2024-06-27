@@ -3,7 +3,7 @@ import {Ydb} from "ydb-sdk-proto";
 import {InternalTopicService} from "./internal-topic-service";
 import FromClient = Ydb.Topic.StreamWriteMessage.FromClient;
 import FromServer = Ydb.Topic.StreamWriteMessage.FromServer;
-import {ClientWritableStream/*, ServiceError*/} from "@grpc/grpc-js/src/call";
+import {ClientWritableStream/*, ServiceError*/} from "@grpc/grpc-js/build/src/call";
 import EventEmitter from "events";
 
 export interface InternalTopicWriteOpts {
