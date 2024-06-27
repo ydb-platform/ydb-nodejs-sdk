@@ -17,7 +17,7 @@ describe('Query.execute()', () => {
 
     afterEach(async () => {
         discoveryService.destroy();
-        await topicService.dispose();
+        await topicService.destroy();
     });
 
     it('write: simple', async () => {

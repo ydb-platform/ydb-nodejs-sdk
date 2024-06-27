@@ -6,7 +6,7 @@ import ICreateTopicResult = Ydb.Topic.ICreateTopicResult;
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {InternalTopicWrite, InternalTopicWriteOpts, STREAM_DISPOSED} from "./internal-topic-write";
+import {InternalTopicWrite, InternalTopicWriteOpts, STREAM_DESTROYED} from "./internal-topic-write";
 
 // TODO: Ensure required props in args and results
 type CommitOffsetArgs =  Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
@@ -34,7 +34,7 @@ type DropTopicResult = Ydb.Topic.DropTopicResponse;
 export class InternalTopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
     public endpoint: Endpoint;
     private readonly logger: Logger;
-    private streams: {dispose(): void}[] = [];
+    private streams: {destroy(): void}[] = [];
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
@@ -43,17 +43,17 @@ export class InternalTopicService extends AuthenticatedService<Ydb.Topic.V1.Topi
         this.logger = logger;
     }
 
-    dispose() {
+    destroy() {
         const streams = this.streams;
         this.streams = [];
-        streams.forEach(s => {s.dispose()});
+        streams.forEach(s => {s.destroy()});
     }
 
     public async streamWrite(opts: InternalTopicWriteOpts) {
         await this.updateMetadata();
         const stream = new InternalTopicWrite(this, this.logger, opts);
         this.streams.push(stream);
-        stream.once(STREAM_DISPOSED, (stream: {dispose: () => {}}) => {
+        stream.once(STREAM_DESTROYED, (stream: {destroy: () => {}}) => {
            const index = this.streams.findIndex(v => v === stream)
            if (index >= 0) this.streams.splice(index, 1);
         });

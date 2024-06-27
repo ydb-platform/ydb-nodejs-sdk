@@ -19,7 +19,7 @@ type WriteArgs =
 
 type UpdateTokenArgs = Ydb.Topic.UpdateTokenRequest & Required<Pick<Ydb.Topic.UpdateTokenRequest, 'token'>>;
 
-export const STREAM_DISPOSED = 'stream-disposed';
+export const STREAM_DESTROYED = 'stream-destroyed';
 
 export class InternalTopicWrite extends EventEmitter {
     // @ts-ignore
@@ -69,11 +69,11 @@ export class InternalTopicWrite extends EventEmitter {
                 }));
     }
 
-    public dispose() {
+    public destroy() {
         if (this.writeStream) {
             this.writeStream.end();
             delete this.writeStream;
-            this.emit(STREAM_DISPOSED, this);
+            this.emit(STREAM_DESTROYED, this);
         }
     }
 

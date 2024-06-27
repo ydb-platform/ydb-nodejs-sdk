@@ -2,9 +2,6 @@ import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
-import {Context} from "../../../context";
-import {ctxSymbol} from "../../../query/symbols";
-import {TopicServiceInstance} from "../../../topic/topic-service-pool";
 import {InternalTopicService} from "../../../topic";
 
 const DATABASE = '/local';
@@ -21,11 +18,10 @@ describe('Query.execute()', () => {
 
     afterEach(async () => {
         discoveryService.destroy();
-        await topicService.delete();
+        await topicService.destroy();
     });
 
     it('write: simple', async () => {
-        topicService.
 
     });
 
@@ -44,12 +40,11 @@ describe('Query.execute()', () => {
             logger,
         });
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
-        const topicServiceBuilder = new TopicServiceInstance(
+        topicService = new InternalTopicService(
             await discoveryService.getEndpoint(), // TODO: Should be one per endpoint
             DATABASE,
             authService,
             logger,
         );
-        topicService = await topicServiceBuilder.create();
     }
 });
