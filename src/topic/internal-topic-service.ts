@@ -6,24 +6,7 @@ import ICreateTopicResult = Ydb.Topic.ICreateTopicResult;
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {InternalTopicWrite, InternalTopicWriteOpts} from "./internal-topic-write";
-
-type GrpcTopicService = Ydb.Topic.V1.TopicService;
-
-/**
- * Service methods, as they name in GRPC.
- */
-export const enum Query_V1 {
-    // ExecuteQuery = '/Ydb.Query.V1.QueryService/ExecuteQuery',
-}
-
-export interface QuerySessionOperation {
-    cancel(reason: any): void;
-}
-
-export const grpcApiSymbol = Symbol('api');
-export const implSymbol = Symbol('impl');
-export const attachStreamSymbol = Symbol('attachStream');
+import {InternalTopicWrite, InternalTopicWriteOpts, STREAM_DISPOSED} from "./internal-topic-write";
 
 // TODO: Ensure required props in args and results
 type CommitOffsetArgs =  Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
@@ -32,38 +15,50 @@ type CommitOffsetResult = Ydb.Topic.CommitOffsetResponse;
 type UpdateOffsetsInTransactionArgs = Ydb.Topic.IUpdateOffsetsInTransactionRequest;
 type UpdateOffsetsInTransactionResult = Ydb.Topic.UpdateOffsetsInTransactionResponse;
 
-type CreateTopicArgs = Ydb.Topic.ICreateTopicRequest & Required<Pick<Ydb.Topic.ICreateTopicRequest, 'path'>>;;
+type CreateTopicArgs = Ydb.Topic.ICreateTopicRequest & Required<Pick<Ydb.Topic.ICreateTopicRequest, 'path'>>;
 type CreateTopicResult = Ydb.Topic.CreateTopicResponse;
 
-type DescribeTopicArgs = Ydb.Topic.IDescribeTopicRequest & Required<Pick<Ydb.Topic.IDescribeTopicRequest, 'path'>>;;
+type DescribeTopicArgs = Ydb.Topic.IDescribeTopicRequest & Required<Pick<Ydb.Topic.IDescribeTopicRequest, 'path'>>;
 type DescribeTopicResult = Ydb.Topic.DescribeTopicResponse;
 
-type DescribeConsumerArgs = Ydb.Topic.IDescribeConsumerRequest & Required<Pick<Ydb.Topic.IDescribeConsumerRequest, 'path'>>;;
+type DescribeConsumerArgs = Ydb.Topic.IDescribeConsumerRequest & Required<Pick<Ydb.Topic.IDescribeConsumerRequest, 'path'>>;
 type DescribeConsumerResult = Ydb.Topic.DescribeConsumerResponse;
 
-type AlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;;
+type AlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;
 type AlterTopicResult = Ydb.Topic.AlterTopicResponse;
 
-type DropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;;
+type DropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;
 type DropTopicResult = Ydb.Topic.DropTopicResponse;
 
 
-export class InternalTopicService extends AuthenticatedService<GrpcTopicService> implements ICreateTopicResult {
+export class InternalTopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
     public endpoint: Endpoint;
     private readonly logger: Logger;
+    private streams: {dispose(): void}[] = [];
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
-        super(host, database, 'Ydb.Topic.V1.TopicService', GrpcTopicService, authService, sslCredentials, clientOptions);
+        super(host, database, 'Ydb.Topic.V1.TopicService', Ydb.Topic.V1.TopicService, authService, sslCredentials, clientOptions);
         this.endpoint = endpoint;
         this.logger = logger;
     }
 
-    public async streamWrite(opts: InternalTopicWriteOpts) {
-        await this.updateMetadata();
-        return new InternalTopicWrite(this, this.logger, opts);
+    dispose() {
+        const streams = this.streams;
+        this.streams = [];
+        streams.forEach(s => {s.dispose()});
     }
 
+    public async streamWrite(opts: InternalTopicWriteOpts) {
+        await this.updateMetadata();
+        const stream = new InternalTopicWrite(this, this.logger, opts);
+        this.streams.push(stream);
+        stream.once(STREAM_DISPOSED, (stream: {dispose: () => {}}) => {
+           const index = this.streams.findIndex(v => v === stream)
+           if (index >= 0) this.streams.splice(index, 1);
+        });
+        return stream;
+    }
 
     // public streamWrite(request: Ydb.Topic.StreamWriteMessage.IFromClient): Promise<Ydb.Topic.StreamWriteMessage.FromServer>;
     //
