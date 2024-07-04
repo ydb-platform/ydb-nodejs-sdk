@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.3.3](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.2...v5.3.3) (2024-07-04)
+
+
+### Bug Fixes
+
+* add DECLARE that is still required by YDB 24.1 ([8920fee](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/8920feec8ff45ca0210019d57a6b92cc5e2e9880))
+* query service switched to new retryer ([43ce40b](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/43ce40b4b354e585f750ef9ba14331013352e7f9))
+
 ## [5.3.2](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.1...v5.3.2) (2024-03-28)
 
 
