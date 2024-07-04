@@ -115,9 +115,15 @@ describe('Rows conversion', () => {
                 '$title1': TypedValues.text('Some title1'),
                 '$id2': TypedValues.uint64(2),
                 '$title2': TypedValues.text('Some title2'),
-                '$timestamp': TypedValues.timestamp(new Date()),
+                '$timestamp': TypedValues.datetime(new Date()),
             },
             text: `
+                DECLARE $id1 AS Uint64;
+                DECLARE $title1 AS Utf8;
+                DECLARE $id2 AS Uint64;
+                DECLARE $title2 AS Utf8;
+                DECLARE $timestamp AS Datetime;
+
                 INSERT INTO ${TABLE_NAME} (id, row_title, time)
                 VALUES ($id1, $title1, $timestamp);
                 INSERT INTO ${TABLE_NAME} (id, row_title, time)
