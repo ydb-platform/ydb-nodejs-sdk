@@ -2,14 +2,15 @@ import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
-import {InternalTopicService} from "../../../topic";
+import {TopicService} from "../../../topic";
+// import {google, Ydb} from "ydb-sdk-proto";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';
 
 describe('Topic: General', () => {
     let discoveryService: DiscoveryService;
-    let topicService: InternalTopicService;
+    let topicService: TopicService;
 
     beforeEach(async () => {
         await testOnOneSessionWithoutDriver();
@@ -17,12 +18,44 @@ describe('Topic: General', () => {
 
     afterEach(async () => {
         discoveryService.destroy();
-        await topicService.destroy();
+        if (topicService) topicService.dispose();
     });
 
-    it('write: simple', async () => {
-        // topicService.dispose();
+    it.only('write: simple', async () => {
+        console.info(1000);
+        // await topicService.createTopic({
+        //     path: 'MyTopic',
+        // });
 
+        const writer = await topicService.openWriteStream({
+            path: 'MyTopic2',
+        });
+
+        // writer.write(Ydb.Topic.StreamWriteMessage.WriteRequest.create({
+        //     messages: [
+        //         Ydb.Topic.StreamWriteMessage.WriteRequest.MessageData.create({
+        //             seqNo: 1,
+        //             createdAt: google.protobuf.Timestamp.create({
+        //                 seconds: 100,
+        //                 nanos: 0,
+        //             }),
+        //             // metadataItems: [
+        //             //     Ydb.Topic.MetadataItem.create({
+        //             //         key: 'a',
+        //             //         value: [0, 1],
+        //             //     }),
+        //             // ]
+        //             // uncompressedSize: 100,
+        //             // data: new Buffer(),
+        //         }),
+        //     ],
+        // }));
+
+        await new Promise((resolve) => setTimeout(resolve, 4_000));
+
+        console.info(1300);
+
+        await writer.dispose();
     });
 
     it('read: simple', async () => {
@@ -40,7 +73,7 @@ describe('Topic: General', () => {
             logger,
         });
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
-        topicService = new InternalTopicService(
+        topicService = new TopicService(
             await discoveryService.getEndpoint(), // TODO: Should be one per endpoint
             DATABASE,
             authService,

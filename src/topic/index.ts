@@ -1,1 +1,1 @@
-export * from './internal-topic-service';
+export * from './topic-service';

@@ -6,10 +6,10 @@ import ICreateTopicResult = Ydb.Topic.ICreateTopicResult;
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {InternalTopicWrite, InternalTopicWriteOpts, STREAM_DESTROYED} from "./internal-topic-write";
+import {TopicWriteStream, STREAM_DESTROYED, WriteStreamInitArgs} from "./topic-write-stream";
 
 // TODO: Ensure required props in args and results
-type CommitOffsetArgs =  Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
+type CommitOffsetArgs = Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
 type CommitOffsetResult = Ydb.Topic.CommitOffsetResponse;
 
 type UpdateOffsetsInTransactionArgs = Ydb.Topic.IUpdateOffsetsInTransactionRequest;
@@ -21,7 +21,9 @@ type CreateTopicResult = Ydb.Topic.CreateTopicResponse;
 type DescribeTopicArgs = Ydb.Topic.IDescribeTopicRequest & Required<Pick<Ydb.Topic.IDescribeTopicRequest, 'path'>>;
 type DescribeTopicResult = Ydb.Topic.DescribeTopicResponse;
 
-type DescribeConsumerArgs = Ydb.Topic.IDescribeConsumerRequest & Required<Pick<Ydb.Topic.IDescribeConsumerRequest, 'path'>>;
+type DescribeConsumerArgs =
+    Ydb.Topic.IDescribeConsumerRequest
+    & Required<Pick<Ydb.Topic.IDescribeConsumerRequest, 'path'>>;
 type DescribeConsumerResult = Ydb.Topic.DescribeConsumerResponse;
 
 type AlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;
@@ -30,11 +32,10 @@ type AlterTopicResult = Ydb.Topic.AlterTopicResponse;
 type DropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;
 type DropTopicResult = Ydb.Topic.DropTopicResponse;
 
-
-export class InternalTopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
+export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
     public endpoint: Endpoint;
     private readonly logger: Logger;
-    private streams: {destroy(): void}[] = [];
+    private allStreams: { dispose(): void }[] = [];
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
@@ -43,22 +44,32 @@ export class InternalTopicService extends AuthenticatedService<Ydb.Topic.V1.Topi
         this.logger = logger;
     }
 
-    destroy() {
-        const streams = this.streams;
-        this.streams = [];
-        streams.forEach(s => {s.destroy()});
+    public dispose() {
+        const streams = this.allStreams;
+        this.allStreams = [];
+        streams.forEach(s => {
+            s.dispose()
+        });
     }
 
-    public async streamWrite(opts: InternalTopicWriteOpts) {
-        await this.updateMetadata();
-        const stream = new InternalTopicWrite(this, this.logger, opts);
-        this.streams.push(stream);
-        stream.once(STREAM_DESTROYED, (stream: {destroy: () => {}}) => {
-           const index = this.streams.findIndex(v => v === stream)
-           if (index >= 0) this.streams.splice(index, 1);
+    public async openWriteStream(opts: WriteStreamInitArgs) {
+        await this.updateMetadata(); // TODO: Check for update on every message
+        const writerStream = new TopicWriteStream(opts, this, this.logger);
+        writerStream.once(STREAM_DESTROYED, (stream: { dispose: () => {} }) => {
+            const index = this.allStreams.findIndex(v => v === stream)
+            if (index >= 0) this.allStreams.splice(index, 1);
         });
-        return stream;
+        this.allStreams.push(writerStream); // TODO: Is is possible to have multiple streams in a time? I.e. while server errors
+        return writerStream;
+
     }
+
+    // /** FromClient writeRequest */
+    //  writeRequest?: (Ydb.Topic.StreamWriteMessage.IWriteRequest|null);
+    //
+    //  /** FromClient updateTokenRequest */
+    //  updateTokenRequest?: (Ydb.Topic.IUpdateTokenRequest|null);
+
 
     // public streamWrite(request: Ydb.Topic.StreamWriteMessage.IFromClient): Promise<Ydb.Topic.StreamWriteMessage.FromServer>;
     //
