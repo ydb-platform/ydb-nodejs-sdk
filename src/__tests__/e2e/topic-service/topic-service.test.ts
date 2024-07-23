@@ -23,13 +23,19 @@ describe('Topic: General', () => {
 
     it.only('write: simple', async () => {
         console.info(1000);
-        // await topicService.createTopic({
-        //     path: 'MyTopic',
-        // });
+        await topicService.createTopic({
+            path: 'MyTopic',
+        });
 
         const writer = await topicService.openWriteStream({
-            path: 'MyTopic2',
+            path: 'MyTopic',
         });
+
+        // expect()
+
+        // writer.events.on('initResponse', (resp) => {
+        //     resp.
+        // })
 
         // writer.write(Ydb.Topic.StreamWriteMessage.WriteRequest.create({
         //     messages: [

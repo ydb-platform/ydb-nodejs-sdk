@@ -57,7 +57,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     private lastRequest!: object;
     private readonly headers: MetadataHeaders;
     // TODO: Take from endpoint and from createSession response
-    public grpcClient?: grpc.Client;
+    public grpcServiceClient?: grpc.Client;
 
     static isServiceAsyncMethod(target: object, prop: string | number | symbol, receiver: any) {
         return (
@@ -116,7 +116,7 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     }
 
     protected getClient(host: string, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
-        const client = this.grpcClient = sslCredentials ?
+        const client = this.grpcServiceClient = sslCredentials ?
             new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions) :
             new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {

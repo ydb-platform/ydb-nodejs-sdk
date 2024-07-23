@@ -165,7 +165,7 @@ export function execute(this: QuerySession, opts: {
     this[sessionCurrentOperationSymbol] = {cancel};
 
 // Operation
-    responseStream = this[implSymbol].grpcClient!.makeServerStreamRequest(
+    responseStream = this[implSymbol].grpcServiceClient!.makeServerStreamRequest(
         '/Ydb.Query.V1.QueryService/ExecuteQuery',
         (v) => Ydb.Query.ExecuteQueryRequest.encode(v).finish() as Buffer,
         Ydb.Query.ExecuteQueryResponsePart.decode,

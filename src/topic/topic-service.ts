@@ -7,6 +7,7 @@ import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {TopicWriteStream, STREAM_DESTROYED, WriteStreamInitArgs} from "./topic-write-stream";
+import {TopicReadStream, ReadStreamInitArgs} from "./topic-read-stream";
 
 // TODO: Ensure required props in args and results
 type CommitOffsetArgs = Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
@@ -64,16 +65,16 @@ export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService
 
     }
 
-    // /** FromClient writeRequest */
-    //  writeRequest?: (Ydb.Topic.StreamWriteMessage.IWriteRequest|null);
-    //
-    //  /** FromClient updateTokenRequest */
-    //  updateTokenRequest?: (Ydb.Topic.IUpdateTokenRequest|null);
-
-
-    // public streamWrite(request: Ydb.Topic.StreamWriteMessage.IFromClient): Promise<Ydb.Topic.StreamWriteMessage.FromServer>;
-    //
-    // public streamRead(request: Ydb.Topic.StreamReadMessage.IFromClient): Promise<Ydb.Topic.StreamReadMessage.FromServer>;
+    public async openReadStream(opts: ReadStreamInitArgs) {
+        await this.updateMetadata(); // TODO: Check for update on every message
+        const readStream = new TopicReadStream(opts, this, this.logger);
+        readStream.events.once(STREAM_DESTROYED, (stream: { dispose: () => {} }) => {
+            const index = this.allStreams.findIndex(v => v === stream)
+            if (index >= 0) this.allStreams.splice(index, 1);
+        });
+        this.allStreams.push(readStream); // TODO: Is is possible to have multiple streams in a time? I.e. while server errors
+        return readStream;
+    }
 
     public async commitOffset(request: CommitOffsetArgs) {
         return (await this.api.commitOffset(request)) as CommitOffsetResult;

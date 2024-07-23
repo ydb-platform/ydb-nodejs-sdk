@@ -9,7 +9,7 @@ export async function attach(this:QuerySession, onStreamClosed: () => void) {
     let connected = false;
     await this[implSymbol].updateMetadata();
     return new Promise<void>((resolve, reject) => {
-        this[attachStreamSymbol] = this[implSymbol].grpcClient!.makeServerStreamRequest(
+        this[attachStreamSymbol] = this[implSymbol].grpcServiceClient!.makeServerStreamRequest(
             '/Ydb.Query.V1.QueryService/AttachSession',
             (v) => Ydb.Query.AttachSessionRequest.encode(v).finish() as Buffer,
             Ydb.Query.SessionState.decode,
