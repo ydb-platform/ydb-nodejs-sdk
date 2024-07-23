@@ -1,12 +1,10 @@
 import {Logger} from "../logger/simple-logger";
 import {Ydb} from "ydb-sdk-proto";
 import {TopicService} from "./topic-service";
-import FromClient = Ydb.Topic.StreamWriteMessage.FromClient;
-import FromServer = Ydb.Topic.StreamWriteMessage.FromServer;
-import {ClientWritableStream/*, ServiceError*/} from "@grpc/grpc-js/build/src/call";
 import EventEmitter from "events";
-import {TransportError, YdbError} from "../errors";
 import TypedEmitter from "typed-emitter/rxjs";
+import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
+import {TransportError, YdbError} from "../errors";
 
 // TODO: Typed events
 // TODO: Proper stream close/dispose and a reaction on end of stream from server
@@ -58,7 +56,7 @@ export const enum TopicWriteStreamState {
     Closed
 }
 
-export class TopicWriteStream extends EventEmitter /*implements TypedEmitter<WriteStreamEvents>*/ {
+export class TopicWriteStream {
     public events = new EventEmitter() as TypedEmitter<WriteStreamEvents>;
 
     private _state: TopicWriteStreamState = TopicWriteStreamState.Init;
@@ -66,48 +64,53 @@ export class TopicWriteStream extends EventEmitter /*implements TypedEmitter<Wri
         return this._state;
     }
 
-    public writeBidiStream?: ClientWritableStream<FromClient>;
+    public writeBidiStream?: ClientDuplexStream<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>;
 
     constructor(
         opts: WriteStreamInitArgs,
         private topicService: TopicService,
         // @ts-ignore
         private _logger: Logger) {
-        super();
         this.writeBidiStream = this.topicService.grpcServiceClient!
-            .makeClientStreamRequest<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>(
+            .makeBidiStreamRequest<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>(
                 '/Ydb.Topic.V1.TopicService/StreamWrite',
-                (v: FromClient) => FromClient.encode(v).finish() as Buffer,
-                FromServer.decode,
-                this.topicService.metadata,
-                (err: any /* ServiceError */, value?: FromServer) => {
-                    try {
-                        if (TransportError.isMember(err)) throw TransportError.convertToYdbError(err);
-                        if (err) throw err;
-                        YdbError.checkStatus(value!)
-                    } catch (err) {
-                        // TODO: Process end of stream
-                        this.emit('error', err);
-                        return;
-                    }
-                    if (value!.writeResponse) this.events.emit('writeResponse', value!.writeResponse!);
-                    else if (value!.initResponse) {
-                        this._state = TopicWriteStreamState.Active;
-                        this.events.emit('initResponse', value!.initResponse!);
-                    } else if (value!.updateTokenResponse) this.events.emit('writeResponse', value!.updateTokenResponse!);
+                (v: Ydb.Topic.StreamWriteMessage.FromClient) => Ydb.Topic.StreamWriteMessage.FromClient.encode(v).finish() as Buffer,
+                Ydb.Topic.StreamWriteMessage.FromServer.decode,
+                this.topicService.metadata);
 
-
-                    // end of stream
-                    // close / dispose()
-                });
-        this.initRequest(opts);
+        this.writeBidiStream.on('data', (value) => {
+            try {
+                YdbError.checkStatus(value!)
+            } catch (err) {
+                this.events.emit('error', err as Error);
+                return;
+            }
+            if (value!.writeResponse) this.events.emit('writeResponse', value!.writeResponse!);
+            else if (value!.initResponse) {
+                this._state = TopicWriteStreamState.Active;
+                this.events.emit('initResponse', value!.initResponse!);
+            } else if (value!.updateTokenResponse) this.events.emit('writeResponse', value!.updateTokenResponse!);
+        })
+        this.writeBidiStream.on('error', (err) => {
+            if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
+            this.events.emit('error', err);
+        })
+        // this.writeBidiStream.on('status', (v) => {
+        //     console.info(8200, v);
+        // })
+        // this.writeBidiStream.on('metadata', (v) => {
+        //     console.info(8000, v);
+        // })
+        // this.writeBidiStream.on('finish', (v: any) => {
+        //     console.info(8060, v);
+        // })
+       this.initRequest(opts); // TODO: Think of retry cycle
     };
 
     private initRequest(opts: WriteStreamInitArgs) {
         if (!this.writeBidiStream) throw new Error('Stream is not opened')
-        console.info(6000, Ydb.Topic.StreamWriteMessage.InitRequest.create(opts))
         this.writeBidiStream.write(
-            FromClient.create({
+            Ydb.Topic.StreamWriteMessage.FromClient.create({
                 initRequest: Ydb.Topic.StreamWriteMessage.InitRequest.create(opts),
             }));
     }
@@ -115,7 +118,7 @@ export class TopicWriteStream extends EventEmitter /*implements TypedEmitter<Wri
     public writeRequest(opts: WriteStreamWriteArgs) {
         if (!this.writeBidiStream) throw new Error('Stream is not opened')
         this.writeBidiStream.write(
-            FromClient.create({
+            Ydb.Topic.StreamWriteMessage.FromClient.create({
                 writeRequest: Ydb.Topic.StreamWriteMessage.WriteRequest.create(opts),
             }));
     }
@@ -123,7 +126,7 @@ export class TopicWriteStream extends EventEmitter /*implements TypedEmitter<Wri
     public updateTokenRequest(opts: WriteStreamUpdateTokenArgs) {
         if (!this.writeBidiStream) throw new Error('Stream is not opened')
         this.writeBidiStream.write(
-            FromClient.create({
+            Ydb.Topic.StreamWriteMessage.FromClient.create({
                 updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(opts),
             }));
     }
@@ -137,7 +140,7 @@ export class TopicWriteStream extends EventEmitter /*implements TypedEmitter<Wri
 
     public async dispose() {
         await this.close();
-        this.emit(STREAM_DESTROYED, this);
+        this.events.emit(STREAM_DESTROYED, this);
         this._state = TopicWriteStreamState.Closed;
     }
 

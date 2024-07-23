@@ -56,13 +56,12 @@ export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService
     public async openWriteStream(opts: WriteStreamInitArgs) {
         await this.updateMetadata(); // TODO: Check for update on every message
         const writerStream = new TopicWriteStream(opts, this, this.logger);
-        writerStream.once(STREAM_DESTROYED, (stream: { dispose: () => {} }) => {
+        writerStream.events.once(STREAM_DESTROYED, (stream: { dispose: () => {} }) => {
             const index = this.allStreams.findIndex(v => v === stream)
             if (index >= 0) this.allStreams.splice(index, 1);
         });
         this.allStreams.push(writerStream); // TODO: Is is possible to have multiple streams in a time? I.e. while server errors
         return writerStream;
-
     }
 
     public async openReadStream(opts: ReadStreamInitArgs) {

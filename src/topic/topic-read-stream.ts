@@ -1,44 +1,44 @@
 import {Logger} from "../logger/simple-logger";
 import {Ydb} from "ydb-sdk-proto";
-import {ClientWritableStream/*, ServiceError*/} from "@grpc/grpc-js/build/src/call";
 import EventEmitter from "events";
 import {TransportError, YdbError} from "../errors";
 import TypedEmitter from "typed-emitter/rxjs";
 import {TopicService} from "./topic-service";
+import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 
-export type ReadStreamInitArgs = Ydb.Topic.StreamReadMessage.InitRequest;
+export type ReadStreamInitArgs = Ydb.Topic.StreamReadMessage.IInitRequest;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamInitResult = Ydb.Topic.StreamReadMessage.InitResponse;
+export type ReadStreamInitResult = Ydb.Topic.StreamReadMessage.IInitResponse;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
 
-export type ReadStreamReadArgs = Ydb.Topic.StreamReadMessage.ReadRequest;
+export type ReadStreamReadArgs = Ydb.Topic.StreamReadMessage.IReadRequest;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamReadResult = Ydb.Topic.StreamReadMessage.ReadResponse;
+export type ReadStreamReadResult = Ydb.Topic.StreamReadMessage.IReadResponse;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
 
-export type ReadStreamCommitOffsetArgs = Ydb.Topic.StreamReadMessage.CommitOffsetRequest;
+export type ReadStreamCommitOffsetArgs = Ydb.Topic.StreamReadMessage.ICommitOffsetRequest;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamCommitOffsetResult = Ydb.Topic.StreamReadMessage.CommitOffsetResponse;
+export type ReadStreamCommitOffsetResult = Ydb.Topic.StreamReadMessage.ICommitOffsetResponse;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
 
-export type ReadStreamPartitionSessionStatusArgs = Ydb.Topic.StreamReadMessage.PartitionSessionStatusRequest;
+export type ReadStreamPartitionSessionStatusArgs = Ydb.Topic.StreamReadMessage.IPartitionSessionStatusRequest;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamPartitionSessionStatusResult = Ydb.Topic.StreamReadMessage.PartitionSessionStatusResponse;
+export type ReadStreamPartitionSessionStatusResult = Ydb.Topic.StreamReadMessage.IPartitionSessionStatusResponse;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
 
-export type ReadStreamUpdateTokenArgs = Ydb.Topic.UpdateTokenRequest;
+export type ReadStreamUpdateTokenArgs = Ydb.Topic.IUpdateTokenRequest;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamUpdateTokenResult = Ydb.Topic.UpdateTokenResponse;
+export type ReadStreamUpdateTokenResult = Ydb.Topic.IUpdateTokenResponse;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
 
-export type ReadStreamStartPartitionSessionArgs = Ydb.Topic.StreamReadMessage.StartPartitionSessionRequest;
+export type ReadStreamStartPartitionSessionArgs = Ydb.Topic.StreamReadMessage.IStartPartitionSessionRequest;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamStartPartitionSessionResult = Ydb.Topic.StreamReadMessage.StartPartitionSessionResponse;
+export type ReadStreamStartPartitionSessionResult = Ydb.Topic.StreamReadMessage.IStartPartitionSessionResponse;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
 
-export type ReadStreamStopPartitionSessionArgs = Ydb.Topic.StreamReadMessage.StopPartitionSessionRequest;
+export type ReadStreamStopPartitionSessionArgs = Ydb.Topic.StreamReadMessage.IStopPartitionSessionRequest;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamStopPartitionSessionResult = Ydb.Topic.StreamReadMessage.StopPartitionSessionResponse;
+export type ReadStreamStopPartitionSessionResult = Ydb.Topic.StreamReadMessage.IStopPartitionSessionResponse;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
 
 export const STREAM_DESTROYED = 'stream-destroyed';
@@ -73,7 +73,7 @@ export class TopicReadStream {
         return this._state;
     }
 
-    public readBidiStream?: ClientWritableStream<Ydb.Topic.StreamReadMessage.FromClient>;
+    public readBidiStream?: ClientDuplexStream<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>;
 
     constructor(
         opts: ReadStreamInitArgs,
@@ -81,33 +81,43 @@ export class TopicReadStream {
         // @ts-ignore
         private _logger: Logger) {
         this.readBidiStream = this.topicService.grpcServiceClient!
-            .makeClientStreamRequest<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>(
+            .makeBidiStreamRequest<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>(
                 '/Ydb.Topic.V1.TopicService/StreamRead',
                 (v: Ydb.Topic.StreamReadMessage.IFromClient) => Ydb.Topic.StreamReadMessage.FromClient.encode(v).finish() as Buffer,
                 Ydb.Topic.StreamReadMessage.FromServer.decode,
-                this.topicService.metadata,
-                (err: any /* ServiceError */, value?: Ydb.Topic.StreamReadMessage.FromServer) => {
-                    try {
-                        if (TransportError.isMember(err)) throw TransportError.convertToYdbError(err);
-                        if (err) throw err;
-                        YdbError.checkStatus(value!)
-                    } catch (err) {
-                        // TODO: Process end of stream
-                        this.events.emit('error', err as Error);
-                        return;
-                    }
+                this.topicService.metadata);
+        this.readBidiStream.on('data', (value) => {
+             console.info(2000, value)
+            try {
+                YdbError.checkStatus(value!)
+            } catch (err) {
+                this.events.emit('error', err as Error);
+                return;
+            }
+            if (value!.readResponse) this.events.emit('readResponse', value!.readResponse! as Ydb.Topic.StreamReadMessage.ReadResponse);
+            else if (value!.initResponse) {
+                this._state = TopicWriteStreamState.Active;
+                this.events.emit('initResponse', value!.initResponse! as Ydb.Topic.StreamReadMessage.InitResponse);
+            } else if (value!.commitOffsetResponse) this.events.emit('commitOffsetResponse', value!.commitOffsetResponse! as Ydb.Topic.StreamReadMessage.CommitOffsetResponse);
+            else if (value!.partitionSessionStatusResponse) this.events.emit('partitionSessionStatusResponse', value!.partitionSessionStatusResponse! as Ydb.Topic.StreamReadMessage.PartitionSessionStatusResponse);
+            else if (value!.startPartitionSessionRequest) this.events.emit('startPartitionSessionRequest', value!.startPartitionSessionRequest! as Ydb.Topic.StreamReadMessage.StartPartitionSessionRequest);
+            else if (value!.stopPartitionSessionRequest) this.events.emit('stopPartitionSessionRequest', value!.stopPartitionSessionRequest! as Ydb.Topic.StreamReadMessage.StopPartitionSessionRequest);
+            else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse! as Ydb.Topic.UpdateTokenResponse);
+        })
+        this.readBidiStream.on('error', (err) => {
+            if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
+            this.events.emit('error', err);
+        })
+        // this.writeBidiStream.on('status', (v) => {
+        //     console.info(8200, v);
+        // })
+        // this.writeBidiStream.on('metadata', (v) => {
+        //     console.info(8000, v);
+        // })
+        // this.writeBidiStream.on('finish', (v: any) => {
+        //     console.info(8060, v);
+        // })
 
-                    // TODO: Optimize selection
-                    if (value!.readResponse) this.events.emit('readResponse', value!.readResponse! as Ydb.Topic.StreamReadMessage.ReadResponse);
-                    else if (value!.initResponse) {
-                        this._state = TopicWriteStreamState.Active;
-                        this.events.emit('initResponse', value!.initResponse! as Ydb.Topic.StreamReadMessage.InitResponse);
-                    } else if (value!.commitOffsetResponse) this.events.emit('commitOffsetResponse', value!.commitOffsetResponse! as Ydb.Topic.StreamReadMessage.CommitOffsetResponse);
-                    else if (value!.partitionSessionStatusResponse) this.events.emit('partitionSessionStatusResponse', value!.partitionSessionStatusResponse! as Ydb.Topic.StreamReadMessage.PartitionSessionStatusResponse);
-                    else if (value!.startPartitionSessionRequest) this.events.emit('startPartitionSessionRequest', value!.startPartitionSessionRequest! as Ydb.Topic.StreamReadMessage.StartPartitionSessionRequest);
-                    else if (value!.stopPartitionSessionRequest) this.events.emit('stopPartitionSessionRequest', value!.stopPartitionSessionRequest! as Ydb.Topic.StreamReadMessage.StopPartitionSessionRequest);
-                    else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse! as Ydb.Topic.UpdateTokenResponse);
-                });
         this.initRequest(opts);
     };
 
@@ -182,14 +192,3 @@ export class TopicReadStream {
 
     // TODO: Update token when the auth provider returns a new one
 }
-
-// const obj = new InternalTopicWrite() as unknown as (TypedEmitter<WriteStreamEvents> & Omit<InternalTopicWrite, 'on' | 'off' | 'emit'>);
-//
-// obj.on('writeResponse', (args) => {
-//
-// });
-//
-// obj.on("test", () => {
-//
-// })
-//

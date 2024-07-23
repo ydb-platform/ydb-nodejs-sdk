@@ -3,7 +3,7 @@ import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
 import {TopicService} from "../../../topic";
-// import {google, Ydb} from "ydb-sdk-proto";
+import {google, Ydb} from "ydb-sdk-proto";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';
@@ -22,46 +22,100 @@ describe('Topic: General', () => {
     });
 
     it.only('write: simple', async () => {
-        console.info(1000);
+        let waitResolve: any, waitPromise: Promise<any>;
+
         await topicService.createTopic({
-            path: 'MyTopic',
+            path: 'myTopic2',
         });
+        console.info(`Service created`);
 
         const writer = await topicService.openWriteStream({
-            path: 'MyTopic',
+            path: 'myTopic2',
+        });
+        writer.events.on('error', (err) => {
+            console.error(err);
+        });
+        console.info(`Topic writer created`);
+
+        waitPromise = new Promise((resolve) => {
+            waitResolve = resolve;
+        });
+        writer.events.on('initResponse', (_v) => {
+            waitResolve();
+        });
+        await waitPromise;
+        console.info(`Writer initialized`);
+
+        await writer.writeRequest({
+            // tx:
+            codec: Ydb.Topic.Codec.CODEC_RAW,
+            messages: [{
+                data: Buffer.alloc(100, '1234567890'),
+                uncompressedSize: '1234567890'.length,
+                seqNo: 1,
+                createdAt: google.protobuf.Timestamp.create({
+                    seconds: Date.now() / 1000,
+                    nanos: Date.now() % 1000,
+                }),
+                messageGroupId: 'abc', // TODO: Check examples
+                partitionId: 1,
+                // metadataItems: // TODO: Should I use this?
+            }],
         });
 
-        // expect()
-
-        // writer.events.on('initResponse', (resp) => {
-        //     resp.
-        // })
-
-        // writer.write(Ydb.Topic.StreamWriteMessage.WriteRequest.create({
-        //     messages: [
-        //         Ydb.Topic.StreamWriteMessage.WriteRequest.MessageData.create({
-        //             seqNo: 1,
-        //             createdAt: google.protobuf.Timestamp.create({
-        //                 seconds: 100,
-        //                 nanos: 0,
-        //             }),
-        //             // metadataItems: [
-        //             //     Ydb.Topic.MetadataItem.create({
-        //             //         key: 'a',
-        //             //         value: [0, 1],
-        //             //     }),
-        //             // ]
-        //             // uncompressedSize: 100,
-        //             // data: new Buffer(),
-        //         }),
-        //     ],
-        // }));
-
-        await new Promise((resolve) => setTimeout(resolve, 4_000));
-
-        console.info(1300);
+        waitPromise = new Promise((resolve) => {
+            waitResolve = resolve;
+        });
+        writer.events.on("writeResponse", (_v) => {
+            waitResolve();
+        });
+        await waitPromise;
+        console.info(`Message sent`);
 
         await writer.dispose();
+        console.info(`Writer disposed`);
+
+        /////////////////////////////////////////////////
+        // Now read the message
+
+        const reader = await topicService.openReadStream({
+            readerName: 'reasder1',
+            consumer: 'testC',
+            topicsReadSettings: [{
+                path: 'myTopic2',
+                // partitionIds: [1],
+            }],
+        });
+        reader.events.on('error', (err) => {
+           console.error(err);
+        });
+
+        waitPromise = new Promise((resolve) => {
+            waitResolve = resolve;
+        });
+        reader.events.on('initResponse', (_v) => {
+            waitResolve();
+        });
+        await waitPromise;
+        console.info(`Topic reader created`);
+
+        // reader.readRequest({
+        // });
+        //
+        // waitPromise = new Promise((resolve) => {
+        //     waitResolve = resolve;
+        // });
+        // reader.events.on('readResponse', (v) => {
+        //     console.info(`Message read: ${v}`)
+        //     waitResolve();
+        // });
+        // await waitPromise;
+
+        await reader.dispose();
+        console.info(`Reader disposed`);
+
+        await topicService.dispose();
+        console.info(`Topic service disposed`);
     });
 
     it('read: simple', async () => {
