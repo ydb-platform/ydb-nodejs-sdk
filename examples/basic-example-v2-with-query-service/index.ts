@@ -143,6 +143,10 @@ async function selectWithParameters(driver: Driver, data: ThreeIds[], logger: Lo
                         '$episodeId': episode.getTypedValue('episodeId')
                     },
                     text: `
+                        DECLARE $seriesId AS Uint64;
+                        DECLARE $seasonId AS Uint64;
+                        DECLARE $episodeId AS Uint64;
+
                         SELECT title,
                                air_date
                         FROM episodes
@@ -173,6 +177,10 @@ async function explicitTcl(driver: Driver, ids: ThreeIds, logger: Logger) {
                     '$episodeId': episode.getTypedValue('episodeId')
                 },
                 text: `
+                    DECLARE $seriesId AS Uint64;
+                    DECLARE $seasonId AS Uint64;
+                    DECLARE $episodeId AS Uint64;
+
                     UPDATE episodes
                     SET air_date = CurrentUtcDate()
                     WHERE series_id = $seriesId
@@ -200,6 +208,10 @@ async function transactionPerWholeDo(driver: Driver, ids: ThreeIds, logger: Logg
                     '$episodeId': episode.getTypedValue('episodeId')
                 },
                 text: `
+                    DECLARE $seriesId AS Uint64;
+                    DECLARE $seasonId AS Uint64;
+                    DECLARE $episodeId AS Uint64;
+
                     UPDATE episodes
                     SET air_date = CurrentUtcDate()
                     WHERE series_id = $seriesId
@@ -221,6 +233,10 @@ async function fillTablesWithData(driver: Driver, _logger: Logger) {
                     '$episodesData': getEpisodesData()
                 },
                 text: `
+                    DECLARE $seriesData AS List<Struct<series_id: Uint64, title: Utf8, release_date: Date, series_info: Utf8>>;
+                    DECLARE $seasonsData AS List<Struct<series_id: Uint64, season_id: Uint64, title: Utf8, first_aired: Date, last_aired: Date>>;
+                    DECLARE $episodesData AS List<Struct<series_id: Uint64, season_id: Uint64, episode_id: Uint64, title: Utf8, air_date: Date>>;
+
                     REPLACE
                     INTO
                     ${SERIES_TABLE}
