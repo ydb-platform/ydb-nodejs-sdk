@@ -6,15 +6,6 @@ import TypedEmitter from "typed-emitter/rxjs";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 import {TransportError, YdbError} from "../errors";
 
-// TODO: Typed events
-// TODO: Proper stream close/dispose and a reaction on end of stream from server
-// TODO: Retries with the same options
-// TODO: Batches
-// TODO: Zip
-// TODO: Sync queue
-// TODO: Make as close as posible to pythone API
-// TODO: Regular auth token update
-
 export type WriteStreamInitArgs =
     Ydb.Topic.StreamWriteMessage.IInitRequest
     & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;

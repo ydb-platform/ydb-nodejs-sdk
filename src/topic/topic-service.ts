@@ -9,6 +9,16 @@ import {ISslCredentials} from "../utils/ssl-credentials";
 import {TopicWriteStream, STREAM_DESTROYED, WriteStreamInitArgs} from "./topic-write-stream";
 import {TopicReadStream, ReadStreamInitArgs} from "./topic-read-stream";
 
+// TODO: Typed events
+// TODO: Proper stream close/dispose and a reaction on end of stream from server
+// TODO: Retries with the same options
+// TODO: Batches
+// TODO: Zip
+// TODO: Sync queue
+// TODO: Make as close as posible to pythone API
+// TODO: Regular auth token update
+// TODO: Graceful shutdown and close
+
 // TODO: Ensure required props in args and results
 type CommitOffsetArgs = Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
 type CommitOffsetResult = Ydb.Topic.CommitOffsetResponse;
