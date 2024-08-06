@@ -40,6 +40,7 @@
     "long": "^4.0.0",
     "luxon": "^3.2.1",
     "reflect-metadata": "^0.1.13",
+    "typed-emitter": "^2.1.0",
     "uuid": "^8.3.2",
     "ydb-sdk-proto": "^1.1.0"
   },
