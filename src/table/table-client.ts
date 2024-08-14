@@ -51,4 +51,8 @@ export class TableClient extends EventEmitter {
     public async destroy(ctx: Context): Promise<void> {
         await this.pool.destroy(ctx);
     }
+
+    async [Symbol.asyncDispose]() {
+        return this.destroy();
+    }
 }

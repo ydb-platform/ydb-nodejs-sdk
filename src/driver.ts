@@ -126,8 +126,7 @@ export default class Driver {
         this.logger.debug('Driver has been destroyed.');
     }
 
-    // TODO: Upgrade project to TS 5.2+
-    // async [Symbol.asyncDispose]() {
-    //     return this.destroy();
-    // }
+    async [Symbol.asyncDispose]() {
+        return this.destroy();
+    }
 }

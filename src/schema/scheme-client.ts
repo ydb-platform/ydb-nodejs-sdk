@@ -72,4 +72,8 @@ export default class SchemeClient extends EventEmitter {
     public async destroy() {
         return;
     }
+
+    [Symbol.dispose]() {
+        return this.destroy();
+    }
 }

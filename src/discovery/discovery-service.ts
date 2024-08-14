@@ -148,4 +148,8 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         }
         return endpoint;
     }
+
+    [Symbol.dispose]() {
+        return this.destroy();
+    }
 }
