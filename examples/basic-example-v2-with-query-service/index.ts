@@ -1,6 +1,7 @@
 import {Driver, getCredentialsFromEnv, Logger, RowType} from 'ydb-sdk';
 import {Episode, getEpisodesData, getSeasonsData, getSeriesData, Series} from './data-helpers';
 import {main} from '../utils';
+import {SchemeError} from "../../src/errors";
 
 process.env.YDB_SDK_PRETTY_LOGS = '1';
 
@@ -12,12 +13,20 @@ async function createTables(driver: Driver, logger: Logger) {
     logger.info('Dropping old tables and create new ones...');
     await driver.queryClient.do({
         fn: async (session) => {
+
+            try {
+                await session.execute({
+                    text: `
+                        DROP TABLE ${SERIES_TABLE};
+                        DROP TABLE ${EPISODES_TABLE};
+                        DROP TABLE ${SEASONS_TABLE};`,
+                });
+            } catch (err) { // Ignore if tables are missing
+                if (err instanceof SchemeError) throw err;
+            }
+
             await session.execute({
                 text: `
-                    DROP TABLE IF EXISTS ${SERIES_TABLE};
-                    DROP TABLE IF EXISTS ${EPISODES_TABLE};
-                    DROP TABLE IF EXISTS ${SEASONS_TABLE};
-
                     CREATE TABLE ${SERIES_TABLE}
                     (
                         series_id    UInt64,
