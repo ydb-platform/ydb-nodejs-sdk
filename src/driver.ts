@@ -11,6 +11,7 @@ import {parseConnectionString} from "./utils/parse-connection-string";
 import {QueryClient} from "./query";
 import {Logger} from "./logger/simple-logger";
 import {getDefaultLogger} from "./logger/get-default-logger";
+import {TopicService} from "./topic";
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -38,10 +39,25 @@ export default class Driver {
     private clientOptions?: ClientOptions;
     private logger: Logger;
     private discoveryService: DiscoveryService;
+    private _topicClient?: TopicService;
 
-    public tableClient: TableClient;
-    public queryClient: QueryClient;
-    public schemeClient: SchemeService;
+    public readonly tableClient: TableClient;
+    public readonly queryClient: QueryClient;
+    public readonly schemeClient: SchemeService;
+
+    public async getTopicClient() {
+        if (!this._topicClient) {
+            this._topicClient = new TopicService(
+                await this.discoveryService.getEndpoint(),
+                this.database,
+                this.authService,
+                this.logger,
+                this.sslCredentials,
+                this.clientOptions,
+            );
+        }
+        return this._topicClient;
+    }
 
     constructor(settings: IDriverSettings) {
         this.logger = settings.logger || getDefaultLogger();

@@ -41,8 +41,6 @@ export type ReadStreamStopPartitionSessionArgs = Ydb.Topic.StreamReadMessage.ISt
 export type ReadStreamStopPartitionSessionResult = Ydb.Topic.StreamReadMessage.IStopPartitionSessionResponse;
 // & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
 
-export const STREAM_DESTROYED = 'stream-destroyed';
-
 type ReadStreamEvents = {
     initResponse: (resp: ReadStreamInitResult) => void,
     readResponse: (resp: ReadStreamReadResult) => void,
@@ -50,11 +48,8 @@ type ReadStreamEvents = {
     partitionSessionStatusResponse: (resp: ReadStreamPartitionSessionStatusResult) => void,
     startPartitionSessionRequest: (resp: ReadStreamStartPartitionSessionArgs) => void,
     stopPartitionSessionRequest: (resp: ReadStreamStopPartitionSessionArgs) => void,
-
     updateTokenResponse: (resp: ReadStreamUpdateTokenResult) => void,
-
     error: (err: Error) => void,
-    'stream-destroyed': (stream: { dispose: () => {} }) => void, // TODO: Is end is not enough
     end: (cause: any) => void,
 }
 
@@ -65,7 +60,7 @@ export const enum TopicWriteStreamState {
     Closed
 }
 
-export class TopicReadStream {
+export class TopicReadStreamWithEvent {
     public events = new EventEmitter() as TypedEmitter<ReadStreamEvents>;
 
     private _state: TopicWriteStreamState = TopicWriteStreamState.Init;
@@ -86,8 +81,16 @@ export class TopicReadStream {
                 (v: Ydb.Topic.StreamReadMessage.IFromClient) => Ydb.Topic.StreamReadMessage.FromClient.encode(v).finish() as Buffer,
                 Ydb.Topic.StreamReadMessage.FromServer.decode,
                 this.topicService.metadata);
+
+        //// Uncomment to see all events
+        const stream = this.readBidiStream;
+        const oldEmit = stream.emit;
+        stream.emit = ((...args) => {
+            console.info('read event:', args);
+            return oldEmit.apply(stream, args as unknown as ['readable']);
+        }) as typeof oldEmit;
+
         this.readBidiStream.on('data', (value) => {
-             console.info(2000, value)
             try {
                 YdbError.checkStatus(value!)
             } catch (err) {
@@ -108,29 +111,22 @@ export class TopicReadStream {
             if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
             this.events.emit('error', err);
         })
-        // this.writeBidiStream.on('status', (v) => {
-        //     console.info(8200, v);
-        // })
-        // this.writeBidiStream.on('metadata', (v) => {
-        //     console.info(8000, v);
-        // })
-        // this.writeBidiStream.on('finish', (v: any) => {
-        //     console.info(8060, v);
-        // })
-
+        this.readBidiStream.on('end', () => {
+            this._state = TopicWriteStreamState.Closed;
+            delete this.readBidiStream; // so there was no way to send more messages
+        });
         this.initRequest(opts);
     };
 
     private initRequest(opts: ReadStreamInitArgs) {
-        if (!this.readBidiStream) throw new Error('Stream is not opened')
-        this.readBidiStream.write(
+        this.readBidiStream!.write(
             Ydb.Topic.StreamReadMessage.create({
                 initRequest: Ydb.Topic.StreamReadMessage.InitRequest.create(opts),
             }));
     }
 
     public readRequest(opts: ReadStreamReadArgs) {
-        if (!this.readBidiStream) throw new Error('Stream is not opened')
+        if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 readRequest: Ydb.Topic.StreamReadMessage.ReadRequest.create(opts),
@@ -138,7 +134,7 @@ export class TopicReadStream {
     }
 
     public commitOffsetRequest(opts: ReadStreamCommitOffsetArgs) {
-        if (!this.readBidiStream) throw new Error('Stream is not opened')
+        if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 commitOffsetRequest: Ydb.Topic.StreamReadMessage.CommitOffsetRequest.create(opts),
@@ -146,7 +142,7 @@ export class TopicReadStream {
     }
 
     public partitionSessionStatusRequest(opts: ReadStreamPartitionSessionStatusArgs) {
-        if (!this.readBidiStream) throw new Error('Stream is not opened')
+        if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 partitionSessionStatusRequest: Ydb.Topic.StreamReadMessage.PartitionSessionStatusRequest.create(opts),
@@ -154,7 +150,7 @@ export class TopicReadStream {
     }
 
     public updateTokenRequest(opts: ReadStreamUpdateTokenArgs) {
-        if (!this.readBidiStream) throw new Error('Stream is not opened')
+        if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(opts),
@@ -162,7 +158,7 @@ export class TopicReadStream {
     }
 
     public startPartitionSessionResponse(opts: ReadStreamStartPartitionSessionResult) {
-        if (!this.readBidiStream) throw new Error('Stream is not opened')
+        if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 startPartitionSessionResponse: Ydb.Topic.StreamReadMessage.StartPartitionSessionResponse.create(opts),
@@ -170,7 +166,7 @@ export class TopicReadStream {
     }
 
     public stopPartitionSessionResponse(opts: ReadStreamStopPartitionSessionResult) {
-        if (!this.readBidiStream) throw new Error('Stream is not opened')
+        if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 stopPartitionSessionResponse: Ydb.Topic.StreamReadMessage.StopPartitionSessionResponse.create(opts),
@@ -178,15 +174,14 @@ export class TopicReadStream {
     }
 
     public async close() {
-        if (!this.readBidiStream) throw new Error('Stream is not opened')
+        if (!this.readBidiStream) throw new Error('Stream is closed')
+        this._state = TopicWriteStreamState.Closing;
         this.readBidiStream.end();
         delete this.readBidiStream; // so there was no way to send more messages
-        // TODO: Is there a way to keep waiting for later ACKs?
     }
 
     public async dispose() {
         await this.close();
-        this.events.emit(STREAM_DESTROYED, this);
         this._state = TopicWriteStreamState.Closed;
     }
 

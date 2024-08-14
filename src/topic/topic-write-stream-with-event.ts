@@ -27,17 +27,12 @@ export type WriteStreamUpdateTokenResult =
     Readonly<Ydb.Topic.UpdateTokenResponse>;
 // & Required<Pick<Ydb.Topic.UpdateTokenResponse, 'token'>>;
 
-export const STREAM_DESTROYED = 'stream-destroyed';
-
 type WriteStreamEvents = {
     initResponse: (resp: WriteStreamInitResult) => void,
     writeResponse: (resp: WriteStreamWriteResult) => void,
-
     updateTokenResponse: (resp: WriteStreamUpdateTokenResult) => void,
-
     error: (err: Error) => void,
-    'stream-destroyed': (stream: { dispose: () => {} }) => void, // TODO: Is end is not enough
-    end: (cause: any) => void,
+    end: () => void,
 }
 
 export const enum TopicWriteStreamState {
@@ -47,7 +42,7 @@ export const enum TopicWriteStreamState {
     Closed
 }
 
-export class TopicWriteStream {
+export class TopicWriteStreamWithEvent {
     public events = new EventEmitter() as TypedEmitter<WriteStreamEvents>;
 
     private _state: TopicWriteStreamState = TopicWriteStreamState.Init;
@@ -69,6 +64,14 @@ export class TopicWriteStream {
                 Ydb.Topic.StreamWriteMessage.FromServer.decode,
                 this.topicService.metadata);
 
+        //// Uncomment to see all events
+        const stream = this.writeBidiStream;
+        const oldEmit = stream.emit;
+        stream.emit = ((...args) => {
+            console.info('write event:', args);
+            return oldEmit.apply(stream, args as unknown as ['readable']);
+        }) as typeof oldEmit;
+
         this.writeBidiStream.on('data', (value) => {
             try {
                 YdbError.checkStatus(value!)
@@ -80,34 +83,30 @@ export class TopicWriteStream {
             else if (value!.initResponse) {
                 this._state = TopicWriteStreamState.Active;
                 this.events.emit('initResponse', value!.initResponse!);
-            } else if (value!.updateTokenResponse) this.events.emit('writeResponse', value!.updateTokenResponse!);
-        })
+            } else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse!);
+        });
         this.writeBidiStream.on('error', (err) => {
             if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
             this.events.emit('error', err);
-        })
-        // this.writeBidiStream.on('status', (v) => {
-        //     console.info(8200, v);
-        // })
-        // this.writeBidiStream.on('metadata', (v) => {
-        //     console.info(8000, v);
-        // })
-        // this.writeBidiStream.on('finish', (v: any) => {
-        //     console.info(8060, v);
-        // })
-       this.initRequest(opts); // TODO: Think of retry cycle
+        });
+        this.writeBidiStream.on('end', () => {
+            console.info(3000)
+            this._state = TopicWriteStreamState.Closed;
+            delete this.writeBidiStream; // so there was no way to send more messages
+            setTimeout(() => this.events.emit('end'), 0);
+        });
+       this.initRequest(opts);
     };
 
     private initRequest(opts: WriteStreamInitArgs) {
-        if (!this.writeBidiStream) throw new Error('Stream is not opened')
-        this.writeBidiStream.write(
+        this.writeBidiStream!.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
                 initRequest: Ydb.Topic.StreamWriteMessage.InitRequest.create(opts),
             }));
     }
 
     public writeRequest(opts: WriteStreamWriteArgs) {
-        if (!this.writeBidiStream) throw new Error('Stream is not opened')
+        if (!this.writeBidiStream) throw new Error('Stream is closed')
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
                 writeRequest: Ydb.Topic.StreamWriteMessage.WriteRequest.create(opts),
@@ -115,25 +114,22 @@ export class TopicWriteStream {
     }
 
     public updateTokenRequest(opts: WriteStreamUpdateTokenArgs) {
-        if (!this.writeBidiStream) throw new Error('Stream is not opened')
+        if (!this.writeBidiStream) throw new Error('Stream is closed')
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
                 updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(opts),
             }));
     }
 
-    public async close() {
-        if (!this.writeBidiStream) throw new Error('Stream is not opened')
+    public close() {
+        if (!this.writeBidiStream) return;
+        this._state = TopicWriteStreamState.Closing;
         this.writeBidiStream.end();
         delete this.writeBidiStream; // so there was no way to send more messages
-        // TODO: Is there a way to keep waiting for later ACKs?
+        // TODO: Should be a way to keep waiting for later ACKs?
     }
 
-    public async dispose() {
-        await this.close();
-        this.events.emit(STREAM_DESTROYED, this);
-        this._state = TopicWriteStreamState.Closed;
-    }
+    // TODO: Add [dispose] that call close()
 
     // TODO: Update token when the auth provider returns a new one
 }

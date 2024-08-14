@@ -21,30 +21,25 @@ describe('Topic: General', () => {
         if (topicService) topicService.dispose();
     });
 
-    it.only('write: simple', async () => {
-        let waitResolve: any, waitPromise: Promise<any>;
-
+    it('general', async () => {
         await topicService.createTopic({
-            path: 'myTopic2',
+            path: 'myTopic',
         });
         console.info(`Service created`);
 
-        const writer = await topicService.openWriteStream({
-            path: 'myTopic2',
+        const writer = await topicService.openWriteStreamWithEvent({
+            path: 'myTopic',
         });
         writer.events.on('error', (err) => {
-            console.error(err);
+            console.error('Writer error:', err);
         });
         console.info(`Topic writer created`);
 
-        waitPromise = new Promise((resolve) => {
-            waitResolve = resolve;
+        await stepResult(`Writer initialized`, (resolve) => {
+            writer.events.once('initResponse', (_v) => {
+                resolve(undefined);
+            });
         });
-        writer.events.on('initResponse', (_v) => {
-            waitResolve();
-        });
-        await waitPromise;
-        console.info(`Writer initialized`);
 
         await writer.writeRequest({
             // tx:
@@ -62,64 +57,63 @@ describe('Topic: General', () => {
                 // metadataItems: // TODO: Should I use this?
             }],
         });
-
-        waitPromise = new Promise((resolve) => {
-            waitResolve = resolve;
+        await stepResult(`Message sent`, (resolve) => {
+            writer.events.once("writeResponse", (_v) => {
+                resolve(undefined);
+            });
         });
-        writer.events.on("writeResponse", (_v) => {
-            waitResolve();
-        });
-        await waitPromise;
-        console.info(`Message sent`);
 
-        await writer.dispose();
-        console.info(`Writer disposed`);
+        writer.close();
+        await stepResult(`Writer closed`, (resolve) => {
+            writer.events.once("end", () => {
+                resolve(undefined);
+            });
+        });
 
         /////////////////////////////////////////////////
         // Now read the message
 
-        const reader = await topicService.openReadStream({
-            readerName: 'reasder1',
-            consumer: 'testC',
-            topicsReadSettings: [{
-                path: 'myTopic2',
-                // partitionIds: [1],
-            }],
-        });
-        reader.events.on('error', (err) => {
-           console.error(err);
-        });
-
-        waitPromise = new Promise((resolve) => {
-            waitResolve = resolve;
-        });
-        reader.events.on('initResponse', (_v) => {
-            waitResolve();
-        });
-        await waitPromise;
-        console.info(`Topic reader created`);
-
-        // reader.readRequest({
+        // const reader = await topicService.openReadStreamWithEvents({
+        //     readerName: 'reader1',
+        //     consumer: 'testC',
+        //     topicsReadSettings: [{
+        //         path: 'myTopic2',
+        //         partitionIds: [1],
+        //     }],
+        // });
+        // reader.events.on('error', (err) => {
+        //    console.error('Reader error:', err);
         // });
         //
-        // waitPromise = new Promise((resolve) => {
-        //     waitResolve = resolve;
+        // await stepResult(`Topic reader created`, (resolve) => {
+        //     reader.events.once("initResponse", () => {
+        //         resolve(undefined);
+        //     });
         // });
-        // reader.events.on('readResponse', (v) => {
-        //     console.info(`Message read: ${v}`)
-        //     waitResolve();
+        //
+        // await stepResult(`Start partition`, (resolve) => {
+        //     reader.events.once('startPartitionSessionRequest', (v) => {
+        //         console.info(`Partition: ${v}`)
+        //         reader.startPartitionSessionResponse({
+        //             partitionSessionId: v.partitionSession?.partitionSessionId,
+        //         });
+        //         resolve(undefined);
+        //     });
         // });
-        // await waitPromise;
-
-        await reader.dispose();
-        console.info(`Reader disposed`);
-
-        await topicService.dispose();
-        console.info(`Topic service disposed`);
-    });
-
-    it('read: simple', async () => {
-
+        //
+        // await stepResult(`Message read`, (resolve) => {
+        //     reader.events.once('readResponse', (v) => {
+        //         console.info(`Message: ${v}`)
+        //         resolve(undefined);
+        //     });
+        // });
+        //
+        // reader.close();
+        // await stepResult(`Reader closed`, (resolve) => {
+        //     reader.events.once("end", () => {
+        //         resolve(undefined);
+        //     });
+        // });
     });
 
     async function testOnOneSessionWithoutDriver() {
@@ -139,5 +133,17 @@ describe('Topic: General', () => {
             authService,
             logger,
         );
+    }
+
+    async function stepResult<T>(message: String, cb: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => T): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            try {
+                cb(resolve, reject);
+                console.info(message);
+            } catch (err) {
+                reject(err);
+                console.error('Step failed:', err);
+            }
+        });
     }
 });

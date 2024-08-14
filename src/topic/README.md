@@ -6,9 +6,8 @@ Notice: This API is EXPERIMENTAL and may be changed or removed in a later releas
 
 # TODO
 
-- Internal service implementation
-- Client
 - Retryer
-- Update token on streams
+- Promise like streams wrappers
+- Update auth token on streams
 - Compression
 - Transactions

@@ -6,14 +6,13 @@ import ICreateTopicResult = Ydb.Topic.ICreateTopicResult;
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {TopicWriteStream, STREAM_DESTROYED, WriteStreamInitArgs} from "./topic-write-stream";
-import {TopicReadStream, ReadStreamInitArgs} from "./topic-read-stream";
+import {TopicWriteStreamWithEvent, WriteStreamInitArgs} from "./topic-write-stream-with-event";
+import {TopicReadStreamWithEvent, ReadStreamInitArgs} from "./topic-read-stream-with-event";
 
-// TODO: Typed events
 // TODO: Proper stream close/dispose and a reaction on end of stream from server
 // TODO: Retries with the same options
 // TODO: Batches
-// TODO: Zip
+// TODO: Zip compression
 // TODO: Sync queue
 // TODO: Make as close as posible to pythone API
 // TODO: Regular auth token update
@@ -46,7 +45,7 @@ type DropTopicResult = Ydb.Topic.DropTopicResponse;
 export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
     public endpoint: Endpoint;
     private readonly logger: Logger;
-    private allStreams: { dispose(): void }[] = [];
+    private allStreams: { close(): void }[] = [];
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
@@ -55,30 +54,30 @@ export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService
         this.logger = logger;
     }
 
-    public dispose() {
+    public dispose() { // TODO: Should i name it destroy()
         const streams = this.allStreams;
         this.allStreams = [];
         streams.forEach(s => {
-            s.dispose()
+            s.close()
         });
     }
 
-    public async openWriteStream(opts: WriteStreamInitArgs) {
+    public async openWriteStreamWithEvent(opts: WriteStreamInitArgs) {
         await this.updateMetadata(); // TODO: Check for update on every message
-        const writerStream = new TopicWriteStream(opts, this, this.logger);
-        writerStream.events.once(STREAM_DESTROYED, (stream: { dispose: () => {} }) => {
-            const index = this.allStreams.findIndex(v => v === stream)
+        const writerStream = new TopicWriteStreamWithEvent(opts, this, this.logger);
+        writerStream.events.once('end', () => {
+            const index = this.allStreams.findIndex(v => v === writerStream)
             if (index >= 0) this.allStreams.splice(index, 1);
         });
         this.allStreams.push(writerStream); // TODO: Is is possible to have multiple streams in a time? I.e. while server errors
         return writerStream;
     }
 
-    public async openReadStream(opts: ReadStreamInitArgs) {
+    public async openReadStreamWithEvents(opts: ReadStreamInitArgs) {
         await this.updateMetadata(); // TODO: Check for update on every message
-        const readStream = new TopicReadStream(opts, this, this.logger);
-        readStream.events.once(STREAM_DESTROYED, (stream: { dispose: () => {} }) => {
-            const index = this.allStreams.findIndex(v => v === stream)
+        const readStream = new TopicReadStreamWithEvent(opts, this, this.logger);
+        readStream.events.once('end', () => {
+            const index = this.allStreams.findIndex(v => v === readStream)
             if (index >= 0) this.allStreams.splice(index, 1);
         });
         this.allStreams.push(readStream); // TODO: Is is possible to have multiple streams in a time? I.e. while server errors
