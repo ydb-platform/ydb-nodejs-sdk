@@ -50,7 +50,7 @@ type ReadStreamEvents = {
     stopPartitionSessionRequest: (resp: ReadStreamStopPartitionSessionArgs) => void,
     updateTokenResponse: (resp: ReadStreamUpdateTokenResult) => void,
     error: (err: Error) => void,
-    end: (cause: any) => void,
+    end: () => void,
 }
 
 export const enum TopicWriteStreamState {
@@ -114,6 +114,7 @@ export class TopicReadStreamWithEvent {
         this.readBidiStream.on('end', () => {
             this._state = TopicWriteStreamState.Closed;
             delete this.readBidiStream; // so there was no way to send more messages
+            this.events.emit('end');
         });
         this.initRequest(opts);
     };
@@ -174,15 +175,10 @@ export class TopicReadStreamWithEvent {
     }
 
     public async close() {
-        if (!this.readBidiStream) throw new Error('Stream is closed')
+        if (!this.readBidiStream) return;
         this._state = TopicWriteStreamState.Closing;
         this.readBidiStream.end();
         delete this.readBidiStream; // so there was no way to send more messages
-    }
-
-    public async dispose() {
-        await this.close();
-        this._state = TopicWriteStreamState.Closed;
     }
 
     // TODO: Update token when the auth provider returns a new one

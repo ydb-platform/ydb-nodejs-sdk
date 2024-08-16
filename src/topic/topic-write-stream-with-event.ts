@@ -90,10 +90,9 @@ export class TopicWriteStreamWithEvent {
             this.events.emit('error', err);
         });
         this.writeBidiStream.on('end', () => {
-            console.info(3000)
             this._state = TopicWriteStreamState.Closed;
             delete this.writeBidiStream; // so there was no way to send more messages
-            setTimeout(() => this.events.emit('end'), 0);
+            this.events.emit('end');
         });
        this.initRequest(opts);
     };
