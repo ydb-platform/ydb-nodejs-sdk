@@ -40,8 +40,8 @@ describe('Topic: Send messages', () => {
                 uncompressedSize: '1234567890'.length,
                 seqNo: 1,
                 createdAt: google.protobuf.Timestamp.create({
-                    seconds: 123 /*Date.now() / 1000*/,
-                    nanos: 456 /*Date.now() % 1000*/,
+                    seconds: 123 /* Math.trunc(Date.now() / 1000) */,
+                    nanos: 456 /* Date.now() % 1000 */,
                 }),
                 messageGroupId: 'abc', // TODO: Check examples
                 partitionId: 1,
