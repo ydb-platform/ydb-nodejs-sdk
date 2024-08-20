@@ -282,7 +282,7 @@ export class TransportError extends YdbError {
         return e instanceof Error && 'code' in e && 'details' in e && 'metadata' in e;
     }
 
-    static convertToYdbError(e: Error & GrpcStatusObject): YdbError {
+    static convertToYdbError(e: Error & GrpcStatusObject): Error {
         const ErrCls = TRANSPORT_ERROR_CODES.get(e.code);
 
         if (!ErrCls) {
@@ -290,7 +290,7 @@ export class TransportError extends YdbError {
             try {
                 errStr = JSON.stringify(e);
             } catch (error) {}
-            throw new Error(`Unexpected transport error code ${e.code}! Error itself: ${errStr}`);
+            return new Error(`Unexpected transport error code ${e.code}! Error itself: ${errStr}`);
         } else {
             return new ErrCls(
                 `${ErrCls.name} (code ${ErrCls.status}): ${e.name}: ${e.message}. ${e.details}`,

@@ -1,5 +1,5 @@
 import {Ydb} from "ydb-sdk-proto";
-export import QueryService = Ydb.Query.V1.QueryService;
+export import GrpcQueryService = Ydb.Query.V1.QueryService;
 import CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 import {Endpoint} from "../discovery";
 import {ISslCredentials} from "../utils/ssl-credentials";
@@ -26,22 +26,20 @@ import {
 } from './symbols';
 import {Logger} from "../logger/simple-logger";
 
-export class SessionBuilder extends AuthenticatedService<QueryService> {
+export class QueryService extends AuthenticatedService<GrpcQueryService> {
     public endpoint: Endpoint;
     private readonly logger: Logger;
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
-        super(host, database, 'Ydb.Query.V1.QueryService', QueryService, authService, sslCredentials, clientOptions,
-            ['AttachSession', 'ExecuteQuery'] // methods that return Stream
-        );
+        super(host, database, 'Ydb.Query.V1.QueryService', GrpcQueryService, authService, sslCredentials, clientOptions);
         this.endpoint = endpoint;
         this.logger = logger;
     }
 
     @retryable()
     @pessimizable
-    async create(): Promise<QuerySession> {
+    async createSession(): Promise<QuerySession> {
         const {sessionId} = ensureCallSucceeded(await this.api.createSession(CreateSessionRequest.create()));
         const session = QuerySession[createSymbol](this.api, this, this.endpoint, sessionId, this.logger/*, this.getResponseMetadata.bind(this)*/);
         await session[sessionAttachSymbol](() => {
@@ -67,7 +65,7 @@ export class QuerySessionPool extends EventEmitter {
     minLimit: number;
     private readonly maxLimit: number;
     private readonly sessions: Set<QuerySession>;
-    private readonly sessionBuilders: Map<Endpoint, SessionBuilder>;
+    private readonly queryServices: Map<Endpoint, QueryService>;
     private readonly discoveryService: DiscoveryService;
     private newSessionsRequested: number;
     private sessionsBeingDeleted: number;
@@ -90,10 +88,10 @@ export class QuerySessionPool extends EventEmitter {
         this.sessions = new Set();
         this.newSessionsRequested = 0;
         this.sessionsBeingDeleted = 0;
-        this.sessionBuilders = new Map();
+        this.queryServices = new Map();
         this.discoveryService = settings.discoveryService;
         this.discoveryService.on(Events.ENDPOINT_REMOVED, (endpoint: Endpoint) => {
-            this.sessionBuilders.delete(endpoint);
+            this.queryServices.delete(endpoint);
         });
         // this.prepopulateSessions();
     }
@@ -114,13 +112,13 @@ export class QuerySessionPool extends EventEmitter {
     //     _.forEach(_.range(this.minLimit), () => this.createSession());
     // }
 
-    private async getSessionBuilder(): Promise<SessionBuilder> {
+    private async getSessionBuilder(): Promise<QueryService> {
         const endpoint = await this.discoveryService.getEndpoint();
-        if (!this.sessionBuilders.has(endpoint)) {
-            const sessionService = new SessionBuilder(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
-            this.sessionBuilders.set(endpoint, sessionService);
+        if (!this.queryServices.has(endpoint)) {
+            const sessionService = new QueryService(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
+            this.queryServices.set(endpoint, sessionService);
         }
-        return this.sessionBuilders.get(endpoint) as SessionBuilder;
+        return this.queryServices.get(endpoint) as QueryService;
     }
 
     private maybeUseSession(session: QuerySession) {
@@ -136,7 +134,7 @@ export class QuerySessionPool extends EventEmitter {
 
     private async createSession(): Promise<QuerySession> {
         const sessionCreator = await this.getSessionBuilder();
-        const session = await sessionCreator.create();
+        const session = await sessionCreator.createSession();
         session.on(SessionEvent.SESSION_RELEASE, async () => {
             if (session[sessionIsClosingSymbol]()) {
                 await this.deleteSession(session);

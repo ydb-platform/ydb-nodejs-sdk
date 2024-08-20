@@ -156,7 +156,7 @@ async function selectWithParameters(driver: Driver, data: ThreeIds[], logger: Lo
                         DECLARE $seasonId AS Uint64;
                         DECLARE $episodeId AS Uint64;
 
-                        SELECT title,
+                        SELECT title,|
                                air_date
                         FROM episodes
                         WHERE series_id = $seriesId
