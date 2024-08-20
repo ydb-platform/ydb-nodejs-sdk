@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.3.4](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.3...v5.3.4) (2024-08-20)
+
+
+### Bug Fixes
+
+* initial version of topic service client ([2db4f42](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/2db4f424f8da9f8751a7efe847eb8cad3a02633d))
+
 ## [5.3.3](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.2...v5.3.3) (2024-07-04)
 
 
