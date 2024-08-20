@@ -42,15 +42,14 @@ export const enum TopicWriteStreamState {
     Closed
 }
 
-export class TopicWriteStreamWithEvent {
-    public events = new EventEmitter() as TypedEmitter<WriteStreamEvents>;
-
+export class TopicWriteStreamWithEvents {
     private _state: TopicWriteStreamState = TopicWriteStreamState.Init;
+    private writeBidiStream?: ClientDuplexStream<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>;
+
     public get state() {
         return this._state;
     }
-
-    public writeBidiStream?: ClientDuplexStream<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>;
+    public readonly events = new EventEmitter() as TypedEmitter<WriteStreamEvents>;
 
     constructor(
         opts: WriteStreamInitArgs,
@@ -65,12 +64,12 @@ export class TopicWriteStreamWithEvent {
                 this.topicService.metadata);
 
         //// Uncomment to see all events
-        const stream = this.writeBidiStream;
-        const oldEmit = stream.emit;
-        stream.emit = ((...args) => {
-            console.info('write event:', args);
-            return oldEmit.apply(stream, args as unknown as ['readable']);
-        }) as typeof oldEmit;
+        // const stream = this.writeBidiStream;
+        // const oldEmit = stream.emit;
+        // stream.emit = ((...args) => {
+        //     console.info('write event:', args);
+        //     return oldEmit.apply(stream, args as unknown as ['readable']);
+        // }) as typeof oldEmit;
 
         this.writeBidiStream.on('data', (value) => {
             try {
@@ -128,7 +127,7 @@ export class TopicWriteStreamWithEvent {
         // TODO: Should be a way to keep waiting for later ACKs?
     }
 
-    // TODO: Add [dispose] that call close()
+    // TODO: Add [dispose] that calls close()
 
     // TODO: Update token when the auth provider returns a new one
 }

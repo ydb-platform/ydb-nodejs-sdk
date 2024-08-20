@@ -13,3 +13,4 @@ Notice: This API is EXPERIMENTAL and may be changed or removed in a later releas
 - Compression
 - Transactions
 - Add context
+- Graceful shutdown

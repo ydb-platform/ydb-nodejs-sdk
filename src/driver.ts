@@ -1,8 +1,8 @@
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {TimeoutExpired} from './errors';
-import {makeSslCredentials, ISslCredentials} from './utils/ssl-credentials';
+import {ISslCredentials, makeSslCredentials} from './utils/ssl-credentials';
 import DiscoveryService from "./discovery/discovery-service";
-import {TableClient} from "./table";
+import {IClientSettings, TableClient} from "./table";
 import {ClientOptions} from "./utils";
 import {IAuthService} from "./credentials/i-auth-service";
 import SchemeService from "./schema/scheme-client";
@@ -11,7 +11,7 @@ import {parseConnectionString} from "./utils/parse-connection-string";
 import {QueryClient} from "./query";
 import {Logger} from "./logger/simple-logger";
 import {getDefaultLogger} from "./logger/get-default-logger";
-import {TopicService} from "./topic";
+import {TopicClient} from "./topic/topic-client";
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -31,90 +31,59 @@ export interface IDriverSettings {
 }
 
 export default class Driver {
-    private endpoint: string;
-    private database: string;
-    private authService: IAuthService;
-    private sslCredentials?: ISslCredentials;
-    private poolSettings?: IPoolSettings;
-    private clientOptions?: ClientOptions;
     private logger: Logger;
     private discoveryService: DiscoveryService;
-    private _topicClient?: TopicService;
+    private _topicClient?: TopicClient;
 
+    private clientSettings: IClientSettings;
+
+    // TODO: Make lazy intialized
     public readonly tableClient: TableClient;
     public readonly queryClient: QueryClient;
     public readonly schemeClient: SchemeService;
 
-    public async getTopicClient() {
-        if (!this._topicClient) {
-            this._topicClient = new TopicService(
-                await this.discoveryService.getEndpoint(),
-                this.database,
-                this.authService,
-                this.logger,
-                this.sslCredentials,
-                this.clientOptions,
-            );
-        }
+    public get topic() {
+        if (!this._topicClient) this._topicClient = new TopicClient(this.clientSettings);
         return this._topicClient;
     }
 
     constructor(settings: IDriverSettings) {
         this.logger = settings.logger || getDefaultLogger();
-
+        let endpoint: string, database: string;
         if (settings.connectionString) {
-            const {endpoint, database} = parseConnectionString(settings.connectionString);
-            this.endpoint = endpoint;
-            this.database = database;
+            ({endpoint, database} = parseConnectionString(settings.connectionString));
         } else if (!settings.endpoint) {
             throw new Error('The "endpoint" is a required field in driver settings');
         } else if (!settings.database) {
             throw new Error('The "database" is a required field in driver settings');
         } else {
-            this.endpoint = settings.endpoint;
-            this.database = settings.database;
+            endpoint = settings.endpoint;
+            database = settings.database;
         }
 
-        this.sslCredentials = makeSslCredentials(this.endpoint, this.logger, settings.sslCredentials);
-
-        this.authService = settings.authService;
-        this.poolSettings = settings.poolSettings;
-        this.clientOptions = settings.clientOptions;
+        const sslCredentials = makeSslCredentials(endpoint, this.logger, settings.sslCredentials);
 
         this.discoveryService = new DiscoveryService({
-            endpoint: this.endpoint,
-            database: this.database,
-            authService: this.authService,
-            sslCredentials: this.sslCredentials,
+            endpoint,
+            database,
+            authService: settings.authService,
+            sslCredentials: sslCredentials,
             discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
             logger: this.logger,
         });
-        this.tableClient = new TableClient({
-            database: this.database,
-            authService: this.authService,
-            sslCredentials: this.sslCredentials,
-            poolSettings: this.poolSettings,
-            clientOptions: this.clientOptions,
+
+        this.clientSettings = {
+            database,
+            authService: settings.authService,
+            sslCredentials,
+            poolSettings: settings.poolSettings,
+            clientOptions: settings.clientOptions,
             discoveryService: this.discoveryService,
             logger: this.logger,
-        });
-        this.queryClient = new QueryClient({
-            database: this.database,
-            authService: this.authService,
-            sslCredentials: this.sslCredentials,
-            poolSettings: this.poolSettings,
-            clientOptions: this.clientOptions,
-            discoveryService: this.discoveryService,
-            logger: this.logger,
-        });
-        this.schemeClient = new SchemeClient({
-            database: this.database,
-            authService: this.authService,
-            sslCredentials: this.sslCredentials,
-            clientOptions: this.clientOptions,
-            discoveryService: this.discoveryService,
-            logger: this.logger,
-        });
+        };
+        this.tableClient = new TableClient(this.clientSettings);
+        this.queryClient = new QueryClient(this.clientSettings);
+        this.schemeClient = new SchemeClient(this.clientSettings);
     }
 
     public async ready(timeout: number): Promise<boolean> {
@@ -138,6 +107,7 @@ export default class Driver {
             this.tableClient.destroy(),
             this.queryClient.destroy(),
             this.schemeClient.destroy(),
+            this._topicClient?.destroy(),
         ]);
         this.logger.debug('Driver has been destroyed.');
     }

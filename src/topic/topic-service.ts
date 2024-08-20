@@ -6,8 +6,8 @@ import ICreateTopicResult = Ydb.Topic.ICreateTopicResult;
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
-import {TopicWriteStreamWithEvent, WriteStreamInitArgs} from "./topic-write-stream-with-event";
-import {TopicReadStreamWithEvent, ReadStreamInitArgs} from "./topic-read-stream-with-event";
+import {TopicWriteStreamWithEvents, WriteStreamInitArgs} from "./topic-write-stream-with-events";
+import {TopicReadStreamWithEvents, ReadStreamInitArgs} from "./topic-read-stream-with-events";
 import {openReadStreamWithEvents, openWriteStreamWithEvents} from "./symbols";
 
 // TODO: Proper stream close/dispose and a reaction on end of stream from server
@@ -20,33 +20,35 @@ import {openReadStreamWithEvents, openWriteStreamWithEvents} from "./symbols";
 // TODO: Graceful shutdown and close
 
 // TODO: Ensure required props in args and results
-type CommitOffsetArgs = Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
-type CommitOffsetResult = Ydb.Topic.CommitOffsetResponse;
+// TODO: should not go this types decls to separtated file, cause they are also are used in topic-client
+export type CommitOffsetArgs = Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
+export type CommitOffsetResult = Ydb.Topic.CommitOffsetResponse;
 
-type UpdateOffsetsInTransactionArgs = Ydb.Topic.IUpdateOffsetsInTransactionRequest;
-type UpdateOffsetsInTransactionResult = Ydb.Topic.UpdateOffsetsInTransactionResponse;
+export type UpdateOffsetsInTransactionArgs = Ydb.Topic.IUpdateOffsetsInTransactionRequest;
+export type UpdateOffsetsInTransactionResult = Ydb.Topic.UpdateOffsetsInTransactionResponse;
 
-type CreateTopicArgs = Ydb.Topic.ICreateTopicRequest & Required<Pick<Ydb.Topic.ICreateTopicRequest, 'path'>>;
-type CreateTopicResult = Ydb.Topic.CreateTopicResponse;
+export type CreateTopicArgs = Ydb.Topic.ICreateTopicRequest & Required<Pick<Ydb.Topic.ICreateTopicRequest, 'path'>>;
+export type CreateTopicResult = Ydb.Topic.CreateTopicResponse;
 
-type DescribeTopicArgs = Ydb.Topic.IDescribeTopicRequest & Required<Pick<Ydb.Topic.IDescribeTopicRequest, 'path'>>;
-type DescribeTopicResult = Ydb.Topic.DescribeTopicResponse;
+export type DescribeTopicArgs = Ydb.Topic.IDescribeTopicRequest & Required<Pick<Ydb.Topic.IDescribeTopicRequest, 'path'>>;
+export type DescribeTopicResult = Ydb.Topic.DescribeTopicResponse;
 
-type DescribeConsumerArgs =
+export type DescribeConsumerArgs =
     Ydb.Topic.IDescribeConsumerRequest
     & Required<Pick<Ydb.Topic.IDescribeConsumerRequest, 'path'>>;
-type DescribeConsumerResult = Ydb.Topic.DescribeConsumerResponse;
+export type DescribeConsumerResult = Ydb.Topic.DescribeConsumerResponse;
 
-type AlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;
-type AlterTopicResult = Ydb.Topic.AlterTopicResponse;
+export type AlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;
+export type AlterTopicResult = Ydb.Topic.AlterTopicResponse;
 
-type DropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;
-type DropTopicResult = Ydb.Topic.DropTopicResponse;
+export type DropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;
+export type DropTopicResult = Ydb.Topic.DropTopicResponse;
 
 export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
     public endpoint: Endpoint;
     private readonly logger: Logger;
     private allStreams: { close(): void }[] = [];
+    private destroyResolve?: (value: unknown) => void;
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
@@ -55,20 +57,28 @@ export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService
         this.logger = logger;
     }
 
-    public dispose() { // TODO: Should i name it destroy()
-        const streams = this.allStreams;
-        this.allStreams = [];
-        streams.forEach(s => {
-            s.close()
-        });
+    public /*async*/ destroy() {
+        let destroyPromise;
+        if (this.allStreams.length > 0) { // TODO: Should not i allow destroy only once?
+            destroyPromise = new Promise((resolve) => {
+                this.destroyResolve = resolve;
+            }) ;
+            this.allStreams.forEach(s => {
+                s.close()
+            });
+            this.allStreams = [];
+        }
+        return destroyPromise;
     }
 
-    public async [openWriteStreamWithEvents](opts: WriteStreamInitArgs) {
+    public async [openWriteStreamWithEvents](opts: WriteStreamInitArgs) { // TODO: Why it's made thru symbols
         await this.updateMetadata(); // TODO: Check for update on every message
-        const writerStream = new TopicWriteStreamWithEvent(opts, this, this.logger);
+        const writerStream = new TopicWriteStreamWithEvents(opts, this, this.logger);
+        // TODO: Use external writer
         writerStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === writerStream)
             if (index >= 0) this.allStreams.splice(index, 1);
+            if (this.destroyResolve && this.allStreams.length === 0) this.destroyResolve(undefined);
         });
         this.allStreams.push(writerStream); // TODO: Is is possible to have multiple streams in a time? I.e. while server errors
         return writerStream;
@@ -76,10 +86,12 @@ export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService
 
     public async [openReadStreamWithEvents](opts: ReadStreamInitArgs) {
         await this.updateMetadata(); // TODO: Check for update on every message
-        const readStream = new TopicReadStreamWithEvent(opts, this, this.logger);
+        const readStream = new TopicReadStreamWithEvents(opts, this, this.logger);
+        // TODO: Use external reader
         readStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === readStream)
             if (index >= 0) this.allStreams.splice(index, 1);
+            if (this.destroyResolve && this.allStreams.length === 0) this.destroyResolve(undefined);
         });
         this.allStreams.push(readStream); // TODO: Is is possible to have multiple streams in a time? I.e. while server errors
         return readStream;

@@ -60,7 +60,7 @@ export const enum TopicWriteStreamState {
     Closed
 }
 
-export class TopicReadStreamWithEvent {
+export class TopicReadStreamWithEvents {
     public events = new EventEmitter() as TypedEmitter<ReadStreamEvents>;
 
     private _state: TopicWriteStreamState = TopicWriteStreamState.Init;
@@ -68,7 +68,7 @@ export class TopicReadStreamWithEvent {
         return this._state;
     }
 
-    public readBidiStream?: ClientDuplexStream<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>;
+    private readBidiStream?: ClientDuplexStream<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>;
 
     constructor(
         opts: ReadStreamInitArgs,
@@ -83,12 +83,12 @@ export class TopicReadStreamWithEvent {
                 this.topicService.metadata);
 
         //// Uncomment to see all events
-        const stream = this.readBidiStream;
-        const oldEmit = stream.emit;
-        stream.emit = ((...args) => {
-            console.info('read event:', args);
-            return oldEmit.apply(stream, args as unknown as ['readable']);
-        }) as typeof oldEmit;
+        // const stream = this.readBidiStream;
+        // const oldEmit = stream.emit;
+        // stream.emit = ((...args) => {
+        //     console.info('read event:', args);
+        //     return oldEmit.apply(stream, args as unknown as ['readable']);
+        // }) as typeof oldEmit;
 
         this.readBidiStream.on('data', (value) => {
             try {

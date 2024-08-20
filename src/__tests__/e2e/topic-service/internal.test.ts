@@ -19,7 +19,7 @@ describe('Topic: General', () => {
 
     afterEach(async () => {
         discoveryService.destroy();
-        if (topicService) topicService.dispose();
+        if (topicService) await topicService.destroy();
     });
 
     it('general', async () => {
