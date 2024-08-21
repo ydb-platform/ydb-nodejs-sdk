@@ -9,9 +9,14 @@ describe('using keyword', () => {
 
         const res = await ydb.queryClient.do({
             fn: async (session) => {
-                return session.execute({
+                const rs = await session.execute({
                     text: 'SELECT 1;'
-                })
+                });
+                for await (const s of rs.resultSets) {
+                    for await (const r of s.rows) {
+                        return r;
+                    }
+                }
             }
         });
 
