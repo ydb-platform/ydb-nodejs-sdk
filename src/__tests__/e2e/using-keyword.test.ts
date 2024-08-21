@@ -7,9 +7,9 @@ describe('using keyword', () => {
             connectionString: 'grpc://localhost:2136/?database=local',
         });
 
-        const res = ydb.queryClient.do({
+        const res = await ydb.queryClient.do({
             fn: async (session) => {
-                session.execute({
+                return session.execute({
                     text: 'SELECT 1;'
                 })
             }
