@@ -8,7 +8,9 @@ describe('using keyword', () => {
         });
 
         const res = await ydb.queryClient.do({
+            // @ts-ignore
             fn: async (session) => {
+                // @ts-ignore
                 const rs = await session.execute({
                     text: 'SELECT 1;'
                 });
