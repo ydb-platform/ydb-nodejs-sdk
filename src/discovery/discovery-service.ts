@@ -129,8 +129,10 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         return withTimeout<void>(this.endpointsPromise, timeout);
     }
 
+    // TODO: Add find by nodeid
     private async getEndpointRR(): Promise<Endpoint> {
         await this.endpointsPromise;
+        // TODO: Consider taken a node with already opened grpc connection
         const endpoint = this.endpoints[this.currentEndpointIndex++ % this.endpoints.length];
         this.logger.trace('getEndpointRR result: %o', endpoint);
         return endpoint;

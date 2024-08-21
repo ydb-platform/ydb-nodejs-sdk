@@ -13,7 +13,7 @@ import _ from "lodash";
 import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
 
 import {TableSession} from "./table-session";
-import {ITableClientSettings} from "./table-client";
+import {IClientSettings} from "./table-client";
 import {pessimizable} from "../utils";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
@@ -68,7 +68,7 @@ export class TableSessionPool extends EventEmitter {
     private static SESSION_MIN_LIMIT = 1; // TODO: Return back to 5
     private static SESSION_MAX_LIMIT = 20;
 
-    constructor(settings: ITableClientSettings) {
+    constructor(settings: IClientSettings) {
         super();
         this.database = settings.database;
         this.authService = settings.authService;

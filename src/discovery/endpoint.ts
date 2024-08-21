@@ -4,9 +4,13 @@ import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 
 export type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
 
+
+// TODO: Keep node ID
+// TODO: Keep lazy GRPC connection
+// TODO: ? drop grpc connection on end
 export class Endpoint extends Ydb.Discovery.EndpointInfo {
     static HOST_RE = /^([^:]+):?(\d)*$/;
-    static PESSIMIZATION_WEAR_OFF_PERIOD = 60 * 1000;
+    static PESSIMIZATION_WEAR_OFF_PERIOD = 60 * 1000; //  TODO: wher off once new list of nodes was received
 
     private pessimizedAt: DateTime | null;
 
@@ -32,7 +36,7 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     /*
      Update current endpoint with the attributes taken from another endpoint.
      */
-    public update(_endpoint: Endpoint) {
+    public update(_endpoint: Endpoint) { // TODO: ???
         // do nothing for now
         return this;
     }

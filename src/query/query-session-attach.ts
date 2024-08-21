@@ -2,15 +2,15 @@ import {Ydb} from "ydb-sdk-proto";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
 import {TransportError} from "../errors";
-import {attachStreamSymbol, implSymbol, Query_V1, QuerySession} from "./query-session";
+import {attachStreamSymbol, implSymbol, QuerySession} from "./query-session";
 
 export async function attach(this:QuerySession, onStreamClosed: () => void) {
     if (this[attachStreamSymbol]) throw new Error('Already attached');
     let connected = false;
     await this[implSymbol].updateMetadata();
     return new Promise<void>((resolve, reject) => {
-        this[attachStreamSymbol] = this[implSymbol].grpcClient!.makeServerStreamRequest(
-            Query_V1.AttachSession,
+        this[attachStreamSymbol] = this[implSymbol].grpcServiceClient!.makeServerStreamRequest(
+            '/Ydb.Query.V1.QueryService/AttachSession',
             (v) => Ydb.Query.AttachSessionRequest.encode(v).finish() as Buffer,
             Ydb.Query.SessionState.decode,
             Ydb.Query.AttachSessionRequest.create({sessionId: this.sessionId}),

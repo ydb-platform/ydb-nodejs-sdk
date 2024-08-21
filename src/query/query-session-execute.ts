@@ -1,22 +1,24 @@
 import {Ydb} from "ydb-sdk-proto";
 import {
+    isIdempotentDoLevelSymbol,
+    isIdempotentSymbol,
     resultsetYdbColumnsSymbol,
+    sessionCurrentOperationSymbol,
     sessionTxIdSymbol,
     sessionTxSettingsSymbol,
-    sessionCurrentOperationSymbol, isIdempotentDoLevelSymbol, isIdempotentSymbol,
 } from "./symbols";
 import {buildAsyncQueueIterator, IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
-import {ResultSet} from "./ResultSet";
+import {ResultSet} from "./result-set";
 import {ClientReadableStream} from "@grpc/grpc-js";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import Long from "long";
 import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
 import {TransportError} from "../errors";
-import {implSymbol, Query_V1, QuerySession} from "./query-session";
-import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
-import IColumn = Ydb.IColumn;
+import {implSymbol, QuerySession} from "./query-session";
 import {convertYdbValueToNative, snakeToCamelCaseConversion} from "../types";
 import {CtxUnsubcribe} from "../context";
+import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
+import IColumn = Ydb.IColumn;
 
 export type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
@@ -163,8 +165,8 @@ export function execute(this: QuerySession, opts: {
     this[sessionCurrentOperationSymbol] = {cancel};
 
 // Operation
-    responseStream = this[implSymbol].grpcClient!.makeServerStreamRequest(
-        Query_V1.ExecuteQuery,
+    responseStream = this[implSymbol].grpcServiceClient!.makeServerStreamRequest(
+        '/Ydb.Query.V1.QueryService/ExecuteQuery',
         (v) => Ydb.Query.ExecuteQueryRequest.encode(v).finish() as Buffer,
         Ydb.Query.ExecuteQueryResponsePart.decode,
         Ydb.Query.ExecuteQueryRequest.create(executeQueryRequest),

@@ -1,6 +1,6 @@
 {
   "name": "ydb-sdk",
-  "version": "5.3.3",
+  "version": "5.3.4",
   "description": "Node.js bindings for working with YDB API over gRPC",
   "main": "build/cjs/src/index.js",
   "module": "build/esm/src/index.js",
@@ -40,6 +40,7 @@
     "long": "^4.0.0",
     "luxon": "^3.2.1",
     "reflect-metadata": "^0.1.13",
+    "typed-emitter": "^2.1.0",
     "uuid": "^8.3.2",
     "ydb-sdk-proto": "^1.1.0"
   },

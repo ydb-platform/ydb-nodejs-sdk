@@ -1,7 +1,7 @@
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
-import {SessionBuilder} from "../../../query/query-session-pool";
+import {QueryService} from "../../../query/query-session-pool";
 import {QuerySession, IExecuteResult} from "../../../query";
 import * as symbols from "../../../query/symbols";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
@@ -126,14 +126,14 @@ describe('Query service transactions', () => {
 
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
 
-        const sessionBuilder = new SessionBuilder(
+        const sessionBuilder = new QueryService(
             await discoveryService.getEndpoint(),
             DATABASE,
             authService,
             logger,
         );
 
-        session = await sessionBuilder.create();
+        session = await sessionBuilder.createSession();
         session[ctxSymbol] = Context.createNew().ctx;
     }
 });

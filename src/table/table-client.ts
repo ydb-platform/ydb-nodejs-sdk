@@ -10,7 +10,7 @@ import {IAuthService} from "../credentials/i-auth-service";
 import {Context, ensureContext} from "../context";
 import {Logger} from "../logger/simple-logger";
 
-export interface ITableClientSettings {
+export interface IClientSettings {
     database: string;
     authService: IAuthService;
     sslCredentials?: ISslCredentials;
@@ -23,7 +23,7 @@ export interface ITableClientSettings {
 export class TableClient extends EventEmitter {
     private pool: TableSessionPool;
 
-    constructor(settings: ITableClientSettings) {
+    constructor(settings: IClientSettings) {
         super();
         this.pool = new TableSessionPool(settings);
     }
