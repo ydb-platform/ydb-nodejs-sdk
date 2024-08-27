@@ -8,7 +8,6 @@ import {IAuthService} from "../credentials/i-auth-service";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {TopicWriteStreamWithEvents, WriteStreamInitArgs} from "./topic-write-stream-with-events";
 import {TopicReadStreamWithEvents, ReadStreamInitArgs} from "./topic-read-stream-with-events";
-import {openReadStreamWithEvents, openWriteStreamWithEvents} from "./symbols";
 
 // TODO: Proper stream close/dispose and a reaction on end of stream from server
 // TODO: Retries with the same options
@@ -71,7 +70,7 @@ export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService
         return destroyPromise;
     }
 
-    public async [openWriteStreamWithEvents](opts: WriteStreamInitArgs) { // TODO: Why it's made thru symbols
+    public async openWriteStreamWithEvents(opts: WriteStreamInitArgs) { // TODO: Why it's made thru symbols
         await this.updateMetadata(); // TODO: Check for update on every message
         const writerStream = new TopicWriteStreamWithEvents(opts, this, this.logger);
         // TODO: Use external writer
@@ -84,7 +83,7 @@ export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService
         return writerStream;
     }
 
-    public async [openReadStreamWithEvents](opts: ReadStreamInitArgs) {
+    public async openReadStreamWithEvents(opts: ReadStreamInitArgs) {
         await this.updateMetadata(); // TODO: Check for update on every message
         const readStream = new TopicReadStreamWithEvents(opts, this, this.logger);
         // TODO: Use external reader

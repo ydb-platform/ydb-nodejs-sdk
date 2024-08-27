@@ -4,7 +4,14 @@ import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service"
 import {getDefaultLogger} from "../../../logger/get-default-logger";
 import {TopicService} from "../../../topic";
 import {google, Ydb} from "ydb-sdk-proto";
-import {openReadStreamWithEvents, openWriteStreamWithEvents} from "../../../topic/symbols";
+import Long from "long";
+import {
+    ReadStreamCommitOffsetResult,
+    ReadStreamInitResult,
+    ReadStreamReadResult,
+    ReadStreamStartPartitionSessionArgs
+} from "../../../topic/topic-read-stream-with-events";
+import {WriteStreamInitResult, WriteStreamWriteResult} from "../../../topic/topic-write-stream-with-events";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';
@@ -33,19 +40,29 @@ describe('Topic: General', () => {
         });
         console.info(`Service created`);
 
-        const writer = await topicService[openWriteStreamWithEvents]({
+        const writer = await topicService.openWriteStreamWithEvents({
             path: 'myTopic',
+            // producerId: 'testProducer',
+            producerId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642d',
+            messageGroupId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642d',
+            getLastSeqNo: true,
+            writeSessionMeta: {
+                keyA: 'valueA',
+                keyB: 'valueB'
+            },
+            // partitionId: 1,
         });
         writer.events.on('error', (err) => {
             console.error('Writer error:', err);
         });
         console.info(`Topic writer created`);
 
-        await stepResult(`Writer initialized`, (resolve) => {
-            writer.events.once('initResponse', (_v) => {
-                resolve(undefined);
+        const initRes = await stepResult<WriteStreamInitResult>(`Writer initialized`, (resolve) => {
+            writer.events.once('initResponse', (v) => {
+                resolve(v);
             });
         });
+        console.info(`initRes:`, initRes);
 
         await writer.writeRequest({
             // tx:
@@ -53,21 +70,26 @@ describe('Topic: General', () => {
             messages: [{
                 data: Buffer.alloc(10, '1234567890'),
                 uncompressedSize: '1234567890'.length,
-                seqNo: 1,
+                seqNo: initRes.lastSeqNo ? Long.fromValue(initRes.lastSeqNo!).add(1) : 1,
                 createdAt: google.protobuf.Timestamp.create({
                     seconds: 123 /*Date.now() / 1000*/,
                     nanos: 456 /*Date.now() % 1000*/,
                 }),
-                messageGroupId: 'abc', // TODO: Check examples
+                messageGroupId: 'testProducer',
                 partitionId: 1,
+                metadataItems: [{
+                    key: 'key1',
+                    value: new TextEncoder().encode('value1')
+                }]
                 // metadataItems: // TODO: Should I use this?
             }],
         });
-        await stepResult(`Message sent`, (resolve) => {
-            writer.events.once("writeResponse", (_v) => {
-                resolve(undefined);
+        const sentRes = await stepResult<WriteStreamWriteResult>(`Message sent`, (resolve) => {
+            writer.events.once("writeResponse", (v) => {
+                resolve(v);
             });
         });
+        console.info('sentRes:', sentRes);
 
         writer.close();
         await stepResult(`Writer closed`, (resolve) => {
@@ -79,7 +101,7 @@ describe('Topic: General', () => {
         /////////////////////////////////////////////////
         // Now read the message
 
-        const reader= await topicService[openReadStreamWithEvents]({
+        const reader= await topicService.openReadStreamWithEvents({
             readerName: 'reader1',
             consumer: 'testC',
             topicsReadSettings: [{
@@ -91,47 +113,57 @@ describe('Topic: General', () => {
            console.error('Reader error:', err);
         });
 
-        await stepResult(`Topic reader created`, (resolve) => {
-            reader.events.once("initResponse", () => {
-                resolve(undefined);
+        const topicRes = await stepResult<ReadStreamInitResult>(`Topic reader created`, (resolve) => {
+            reader.events.once("initResponse", (v) => {
+                resolve(v);
             });
         });
+        console.info('topicRes:', topicRes);
 
-        await stepResult(`Start partition`, (resolve) => {
+        const partitionRes = await stepResult<ReadStreamStartPartitionSessionArgs>(`Start partition`, (resolve) => {
             reader.events.once('startPartitionSessionRequest', async (v) => {
-                console.info(`Partition: ${v}`)
                 await reader.startPartitionSessionResponse({
                     partitionSessionId: v.partitionSession?.partitionSessionId,
                 });
-                resolve(undefined);
+                resolve(v);
             });
         });
+        console.info(`partitionRes:`, partitionRes);
 
         await reader.readRequest({
             bytesSize: 10000,
         })
-        /*const message =*/ await stepResult(`Message read`, (resolve) => {
+        const message = await stepResult<ReadStreamReadResult>(`Message read`, (resolve) => {
             reader.events.once('readResponse', (v) => {
                 resolve(v);
             });
         });
+        console.info('message:', message);
         // expect(message).toEqual({
         //
         // });
 
-        // reader.commitOffsetRequest({
-        //     commitOffsets: [{
-        //         partitionSessionId: ,
-        //         offsets: [
-        //             {
+        await reader.commitOffsetRequest({
+            commitOffsets: [{
+                partitionSessionId: message.partitionData![0].partitionSessionId,
+                offsets: [
+                    {
+                        start: message.partitionData![0].batches![0].messageData![0].offset!,
+                        end: Long.fromValue(message.partitionData![0].batches![0].messageData![0].offset!).add(1),
+                    }
+                ]
+            }],
+        });
+        const commitRes = await stepResult<ReadStreamCommitOffsetResult>(`Message read commit`, (resolve) => {
+            reader.events.once('commitOffsetResponse', (v) => {
+                resolve(v);
+
+            });
+        });
+        console.info('commitRes:', commitRes);
+        // expect(commitRes).toEqual({
         //
-        //             }
-        //         ]
-        //     }],
-        // })
-
-        // TODO: Add commit
-
+        // });
 
         reader.close();
         await stepResult(`Reader closed !!!`, (resolve) => {
@@ -160,14 +192,14 @@ describe('Topic: General', () => {
         );
     }
 
-    async function stepResult<T>(message: String, cb: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => T): Promise<T> {
+    async function stepResult<T>(message: String, cb: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void): Promise<T> {
         return new Promise<T>((resolve, reject) => {
             try {
-                cb(resolve, reject);
                 console.info(message);
+                cb(resolve, reject);
             } catch (err) {
-                reject(err);
                 console.error('Step failed:', err);
+                reject(err);
             }
         });
     }

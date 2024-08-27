@@ -1,4 +1,4 @@
-import {Logger} from "../logger/simple-logger";
+ import {Logger} from "../logger/simple-logger";
 import {Ydb} from "ydb-sdk-proto";
 import {TopicService} from "./topic-service";
 import EventEmitter from "events";

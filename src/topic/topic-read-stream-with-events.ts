@@ -113,7 +113,7 @@ export class TopicReadStreamWithEvents {
         })
         this.readBidiStream.on('end', () => {
             this._state = TopicWriteStreamState.Closed;
-            delete this.readBidiStream; // so there was no way to send more messages
+            delete this.readBidiStream; // so there will be no way to send more messages
             this.events.emit('end');
         });
         this.initRequest(opts);
