@@ -1,19 +1,20 @@
 import {
-    AlterTopicArgs,
-    CommitOffsetArgs,
-    CreateTopicArgs, DescribeConsumerArgs,
-    DescribeTopicArgs, DropTopicArgs,
-    TopicService,
-    UpdateOffsetsInTransactionArgs
-} from "./topic-service";
+    TopicNodeClient,
+    AlterTopicArgs, AlterTopicResult,
+    CommitOffsetArgs, CommitOffsetResult,
+    CreateTopicArgs, CreateTopicResult,
+    DescribeConsumerArgs, DescribeConsumerResult,
+    DescribeTopicArgs, DescribeTopicResult,
+    DropTopicArgs, DropTopicResult,
+    UpdateOffsetsInTransactionArgs, UpdateOffsetsInTransactionResult
+} from "./internal/topic-node-client";
 import {IClientSettings} from "../table";
 import EventEmitter from "events";
-import {WriteStreamInitArgs} from "./topic-write-stream-with-events";
+import {WriteStreamInitArgs} from "./internal/topic-write-stream-with-events";
 import {TopicWriter} from "./topic-writer";
-import {openWriteStreamWithEvents} from "./symbols";
 
 export class TopicClient extends EventEmitter { // TODO: Reconsider why I need to have EventEmitter in any client
-    private service?: TopicService;
+    private service?: TopicNodeClient;
 
     constructor(private settings: IClientSettings) {
         super();
@@ -23,14 +24,9 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
      * A temporary solution while a retrier is not in the place. That whould be a pool of services on different endpoins.
      */
     private async ensureService() {
-        if (!this.service) this.service = new TopicService(
-            await this.settings.discoveryService.getEndpoint(),
-            this.settings.database,
-            this.settings.authService,
-            this.settings.logger,
-            this.settings.sslCredentials,
-            this.settings.clientOptions,
-        );
+        if (!this.service) {
+            this.service = await this.settings.discoveryService.getNextTopicNodeClient();
+        }
         return this.service;
     }
 
@@ -38,35 +34,35 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
         if (this.service) await this.service.destroy();
     }
 
-    public async createWriter(opts: WriteStreamInitArgs) {
-        return new TopicWriter(await (await this.ensureService())[openWriteStreamWithEvents](opts));
+    public async createWriter(args: WriteStreamInitArgs) {
+        return new TopicWriter(args, await (await this.ensureService()).openWriteStreamWithEvents(args));
     }
 
-    public async commitOffset(request: CommitOffsetArgs) {
+    public async commitOffset(request: CommitOffsetArgs): Promise<CommitOffsetResult> {
         return (await this.ensureService()).commitOffset(request);
     }
 
-    public async updateOffsetsInTransaction(request: UpdateOffsetsInTransactionArgs) {
+    public async updateOffsetsInTransaction(request: UpdateOffsetsInTransactionArgs): Promise<UpdateOffsetsInTransactionResult> {
         return (await this.ensureService()).updateOffsetsInTransaction(request);
     }
 
-    public async createTopic(request: CreateTopicArgs) {
+    public async createTopic(request: CreateTopicArgs): Promise<CreateTopicResult> {
         return (await this.ensureService()).createTopic(request);
     }
 
-    public async describeTopic(request: DescribeTopicArgs) {
+    public async describeTopic(request: DescribeTopicArgs): Promise<DescribeTopicResult> {
         return (await this.ensureService()).describeTopic(request);
     }
 
-    public async describeConsumer(request: DescribeConsumerArgs) {
+    public async describeConsumer(request: DescribeConsumerArgs): Promise<DescribeConsumerResult> {
         return (await this.ensureService()).describeConsumer(request);
     }
 
-    public async alterTopic(request: AlterTopicArgs) {
+    public async alterTopic(request: AlterTopicArgs): Promise<AlterTopicResult> {
         return (await this.ensureService()).alterTopic(request);
     }
 
-    public async dropTopic(request: DropTopicArgs) {
+    public async dropTopic(request: DropTopicArgs): Promise<DropTopicResult> {
         return (await this.ensureService()).dropTopic(request);
     }
 }

@@ -66,9 +66,10 @@ export default class Driver {
         this.discoveryService = new DiscoveryService({
             endpoint,
             database,
+            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
             authService: settings.authService,
             sslCredentials: sslCredentials,
-            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
+            clientOptions: settings.clientOptions,
             logger: this.logger,
         });
 

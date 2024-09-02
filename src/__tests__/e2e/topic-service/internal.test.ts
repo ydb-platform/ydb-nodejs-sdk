@@ -2,7 +2,7 @@ import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
-import {TopicService} from "../../../topic";
+import {TopicNodeClient} from "../../../topic";
 import {google, Ydb} from "ydb-sdk-proto";
 import Long from "long";
 import {
@@ -10,15 +10,15 @@ import {
     ReadStreamInitResult,
     ReadStreamReadResult,
     ReadStreamStartPartitionSessionArgs
-} from "../../../topic/topic-read-stream-with-events";
-import {WriteStreamInitResult, WriteStreamWriteResult} from "../../../topic/topic-write-stream-with-events";
+} from "../../../topic/internal/topic-read-stream-with-events";
+import {WriteStreamInitResult, WriteStreamWriteResult} from "../../../topic/internal/topic-write-stream-with-events";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';
 
 describe('Topic: General', () => {
     let discoveryService: DiscoveryService;
-    let topicService: TopicService;
+    let topicService: TopicNodeClient;
 
     beforeEach(async () => {
         await testOnOneSessionWithoutDriver();
@@ -42,7 +42,6 @@ describe('Topic: General', () => {
 
         const writer = await topicService.openWriteStreamWithEvents({
             path: 'myTopic',
-            // producerId: 'testProducer',
             producerId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642d',
             messageGroupId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642d',
             getLastSeqNo: true,
@@ -72,8 +71,8 @@ describe('Topic: General', () => {
                 uncompressedSize: '1234567890'.length,
                 seqNo: initRes.lastSeqNo ? Long.fromValue(initRes.lastSeqNo!).add(1) : 1,
                 createdAt: google.protobuf.Timestamp.create({
-                    seconds: 123 /*Date.now() / 1000*/,
-                    nanos: 456 /*Date.now() % 1000*/,
+                    seconds: 123 /* Math.trunk(Date.now() / 1000) */,
+                    nanos: 456 /* (Date.now() % 1000) * 1000 */,
                 }),
                 messageGroupId: 'testProducer',
                 partitionId: 1,
@@ -157,7 +156,6 @@ describe('Topic: General', () => {
         const commitRes = await stepResult<ReadStreamCommitOffsetResult>(`Message read commit`, (resolve) => {
             reader.events.once('commitOffsetResponse', (v) => {
                 resolve(v);
-
             });
         });
         console.info('commitRes:', commitRes);
@@ -184,7 +182,7 @@ describe('Topic: General', () => {
             logger,
         });
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
-        topicService = new TopicService(
+        topicService = new TopicNodeClient(
             await discoveryService.getEndpoint(), // TODO: Should be one per endpoint
             DATABASE,
             authService,

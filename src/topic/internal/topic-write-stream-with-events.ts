@@ -1,10 +1,10 @@
- import {Logger} from "../logger/simple-logger";
+ import {Logger} from "../../logger/simple-logger";
 import {Ydb} from "ydb-sdk-proto";
-import {TopicService} from "./topic-service";
+import {TopicNodeClient} from "./topic-node-client";
 import EventEmitter from "events";
 import TypedEmitter from "typed-emitter/rxjs";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
-import {TransportError, YdbError} from "../errors";
+import {TransportError, YdbError} from "../../errors";
 
 export type WriteStreamInitArgs =
     Ydb.Topic.StreamWriteMessage.IInitRequest
@@ -53,9 +53,10 @@ export class TopicWriteStreamWithEvents {
 
     constructor(
         opts: WriteStreamInitArgs,
-        private topicService: TopicService,
+        private topicService: TopicNodeClient,
         // @ts-ignore
         private _logger: Logger) {
+        this.topicService.updateMetadata();
         this.writeBidiStream = this.topicService.grpcServiceClient!
             .makeBidiStreamRequest<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>(
                 '/Ydb.Topic.V1.TopicService/StreamWrite',
@@ -85,7 +86,7 @@ export class TopicWriteStreamWithEvents {
             } else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse!);
         });
         this.writeBidiStream.on('error', (err) => {
-            if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
+            if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err); // TODO: As far as I understand the only error here might be a transport error
             this.events.emit('error', err);
         });
         this.writeBidiStream.on('end', () => {

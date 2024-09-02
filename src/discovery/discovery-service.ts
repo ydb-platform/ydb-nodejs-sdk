@@ -10,18 +10,20 @@ import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, withTimeout} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Logger} from "../logger/simple-logger";
+import {IClientSettingsBase} from "../table";
+import {TopicNodeClient} from "../topic";
 
 type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {
 };
 
-interface IDiscoverySettings {
+interface IDiscoverySettings extends IClientSettingsBase {
     endpoint: string;
     database: string;
-    discoveryPeriod: number;
     authService: IAuthService;
-    logger: Logger;
     sslCredentials?: ISslCredentials,
+    discoveryPeriod: number;
+    logger: Logger;
 }
 
 export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
@@ -47,6 +49,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
             DiscoveryServiceAPI,
             settings.authService,
             settings.sslCredentials,
+            settings.clientOptions
         );
         this.database = settings.database;
         this.discoveryPeriod = settings.discoveryPeriod;
@@ -92,7 +95,10 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         this.logger.trace('Endpoints to remove %o', endpointsToRemove);
         this.logger.trace('Endpoints to update %o', endpointsToUpdate);
 
-        _.forEach(endpointsToRemove, (endpoint) => this.emit(Events.ENDPOINT_REMOVED, endpoint));
+        _.forEach(endpointsToRemove, (endpoint) => {
+            endpoint.closeGrpcClient();
+            this.emit(Events.ENDPOINT_REMOVED, endpoint);
+        });
 
         for (const current of endpointsToUpdate) {
             const newEndpoint =
@@ -149,5 +155,13 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
             this.logger.debug('All endpoints are pessimized, returning original endpoint');
         }
         return endpoint;
+    }
+
+    public async getNextTopicNodeClient() {
+        const endpoint = await this.getEndpoint();
+        if (!endpoint.topicNodeClient) {
+            endpoint.topicNodeClient = new TopicNodeClient(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
+        }
+        return endpoint.topicNodeClient;
     }
 }

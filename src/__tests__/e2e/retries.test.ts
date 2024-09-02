@@ -17,6 +17,7 @@ import {
     Unavailable,
     Undetermined,
     YdbError,
+    // ExternalError // TODO: Add test for this error
 } from '../../errors';
 import {retryable, RetryParameters} from '../../retries_obsoleted';
 import {Endpoint} from "../../discovery";
@@ -24,12 +25,14 @@ import {pessimizable} from "../../utils";
 import {destroyDriver, initDriver} from "../../utils/test";
 import {LogLevel, SimpleLogger} from "../../logger/simple-logger";
 
+const MAX_RETRIES = 3;
+
 const logger = new SimpleLogger({level: LogLevel.error});
 class ErrorThrower {
     constructor(public endpoint: Endpoint) {}
 
     @retryable(
-        new RetryParameters({maxRetries: 3, backoffCeiling: 3, backoffSlotDuration: 5}),
+        new RetryParameters({maxRetries: MAX_RETRIES, backoffCeiling: 3, backoffSlotDuration: 5}),
         logger,
     )
     @pessimizable
@@ -38,6 +41,7 @@ class ErrorThrower {
     }
 }
 
+// TODO: Remake for new retry policy - no attempts limit, only optional timeout
 describe('Retries on errors', () => {
     let driver: Driver;
 
@@ -69,20 +73,21 @@ describe('Retries on errors', () => {
 
     createError(BadRequest);
     createError(InternalError);
-    createError(Aborted, 3); // have retries
+    createError(Aborted, MAX_RETRIES); // have retries
     createError(Unauthenticated);
     createError(Unauthorized);
-    createError(Unavailable, 3); // have retries
+    createError(Unavailable, MAX_RETRIES); // have retries
     createError(Undetermined); // TODO: have retries for idempotent queries
-    createError(Overloaded, 3); // have retries
+    // createError(ExternalError); // TODO: have retries for idempotent queries
+    createError(Overloaded, MAX_RETRIES); // have retries
     createError(SchemeError);
     createError(GenericError);
     createError(Timeout); // TODO: have retries for idempotent queries
     createError(BadSession); // WHY?
     createError(PreconditionFailed);
     // Transport/Client errors
-    createError(TransportUnavailable, 3); // TODO: have retries for idempotent queries, BUT now always have retries
-    createError(ClientResourceExhausted, 3);
-    createError(ClientDeadlineExceeded, 3);
+    createError(TransportUnavailable, MAX_RETRIES); // TODO: have retries for idempotent queries, BUT now always have retries
+    createError(ClientResourceExhausted, MAX_RETRIES);
+    createError(ClientDeadlineExceeded, MAX_RETRIES);
     // TODO: Add EXTERNAL ERROR
 });

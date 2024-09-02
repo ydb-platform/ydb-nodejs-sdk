@@ -1,49 +1,42 @@
-import {Endpoint} from "../discovery";
+import {Endpoint} from "../../discovery";
 import {Ydb} from "ydb-sdk-proto";
 
-import {Logger} from "../logger/simple-logger";
+import {Logger} from "../../logger/simple-logger";
 import ICreateTopicResult = Ydb.Topic.ICreateTopicResult;
-import {AuthenticatedService, ClientOptions} from "../utils";
-import {IAuthService} from "../credentials/i-auth-service";
-import {ISslCredentials} from "../utils/ssl-credentials";
+import {AuthenticatedService, ClientOptions} from "../../utils";
+import {IAuthService} from "../../credentials/i-auth-service";
+import {ISslCredentials} from "../../utils/ssl-credentials";
 import {TopicWriteStreamWithEvents, WriteStreamInitArgs} from "./topic-write-stream-with-events";
 import {TopicReadStreamWithEvents, ReadStreamInitArgs} from "./topic-read-stream-with-events";
 
-// TODO: Proper stream close/dispose and a reaction on end of stream from server
 // TODO: Retries with the same options
 // TODO: Batches
 // TODO: Zip compression
-// TODO: Sync queue
-// TODO: Make as close as posible to pythone API
 // TODO: Regular auth token update
 // TODO: Graceful shutdown and close
 
-// TODO: Ensure required props in args and results
-// TODO: should not go this types decls to separtated file, cause they are also are used in topic-client
-export type CommitOffsetArgs = Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path'>>;
-export type CommitOffsetResult = Ydb.Topic.CommitOffsetResponse;
+export type CommitOffsetArgs = Ydb.Topic.ICommitOffsetRequest & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path' | 'consumer' | 'offset'>>;
+export type CommitOffsetResult = Readonly<Ydb.Topic.CommitOffsetResponse>;
 
-export type UpdateOffsetsInTransactionArgs = Ydb.Topic.IUpdateOffsetsInTransactionRequest;
-export type UpdateOffsetsInTransactionResult = Ydb.Topic.UpdateOffsetsInTransactionResponse;
+export type UpdateOffsetsInTransactionArgs = Ydb.Topic.IUpdateOffsetsInTransactionRequest  & Required<Pick<Ydb.Topic.UpdateOffsetsInTransactionRequest, 'topics' | 'consumer'>>;
+export type UpdateOffsetsInTransactionResult = Readonly<Ydb.Topic.UpdateOffsetsInTransactionResponse>;
 
 export type CreateTopicArgs = Ydb.Topic.ICreateTopicRequest & Required<Pick<Ydb.Topic.ICreateTopicRequest, 'path'>>;
-export type CreateTopicResult = Ydb.Topic.CreateTopicResponse;
+export type CreateTopicResult = Readonly<Ydb.Topic.CreateTopicResponse>;
 
 export type DescribeTopicArgs = Ydb.Topic.IDescribeTopicRequest & Required<Pick<Ydb.Topic.IDescribeTopicRequest, 'path'>>;
-export type DescribeTopicResult = Ydb.Topic.DescribeTopicResponse;
+export type DescribeTopicResult = Readonly<Ydb.Topic.DescribeTopicResponse>;
 
-export type DescribeConsumerArgs =
-    Ydb.Topic.IDescribeConsumerRequest
-    & Required<Pick<Ydb.Topic.IDescribeConsumerRequest, 'path'>>;
-export type DescribeConsumerResult = Ydb.Topic.DescribeConsumerResponse;
+export type DescribeConsumerArgs = Ydb.Topic.IDescribeConsumerRequest & Required<Pick<Ydb.Topic.IDescribeConsumerRequest, 'path' | 'consumer'>>;
+export type DescribeConsumerResult = Readonly<Ydb.Topic.DescribeConsumerResponse>;
 
 export type AlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;
-export type AlterTopicResult = Ydb.Topic.AlterTopicResponse;
+export type AlterTopicResult = Readonly<Ydb.Topic.AlterTopicResponse>;
 
 export type DropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;
-export type DropTopicResult = Ydb.Topic.DropTopicResponse;
+export type DropTopicResult = Readonly<Ydb.Topic.DropTopicResponse>;
 
-export class TopicService extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
+export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
     public endpoint: Endpoint;
     private readonly logger: Logger;
     private allStreams: { close(): void }[] = [];

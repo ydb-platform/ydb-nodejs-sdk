@@ -1,9 +1,9 @@
-import {Logger} from "../logger/simple-logger";
+import {Logger} from "../../logger/simple-logger";
 import {Ydb} from "ydb-sdk-proto";
 import EventEmitter from "events";
-import {TransportError, YdbError} from "../errors";
+import {TransportError, YdbError} from "../../errors";
 import TypedEmitter from "typed-emitter/rxjs";
-import {TopicService} from "./topic-service";
+import {TopicNodeClient} from "./topic-node-client";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 
 export type ReadStreamInitArgs = Ydb.Topic.StreamReadMessage.IInitRequest;
@@ -72,9 +72,10 @@ export class TopicReadStreamWithEvents {
 
     constructor(
         opts: ReadStreamInitArgs,
-        private topicService: TopicService,
+        private topicService: TopicNodeClient,
         // @ts-ignore
         private _logger: Logger) {
+        this.topicService.updateMetadata();
         this.readBidiStream = this.topicService.grpcServiceClient!
             .makeBidiStreamRequest<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>(
                 '/Ydb.Topic.V1.TopicService/StreamRead',

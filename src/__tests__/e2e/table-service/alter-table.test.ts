@@ -126,7 +126,7 @@ describe('Alter table', () => {
             alterTableDescription.addIndexes = [idxOverTestBool];
 
             await session.alterTable(TABLE_NAME, alterTableDescription);
-            await new Promise((resolve) => setTimeout(resolve, 200)); // wait 200ms
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // wait 1000ms
             const alteredTableDescription = await session.describeTable(TABLE_NAME);
 
             expect(JSON.stringify(alteredTableDescription.indexes)).toBe(

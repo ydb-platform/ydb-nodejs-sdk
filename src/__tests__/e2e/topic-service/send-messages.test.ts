@@ -30,23 +30,22 @@ describe('Topic: Send messages', () => {
 
         const writer = await topicClient.createWriter({
             path: 'testTopic',
-            producerId: 'testApp' // last seqNo recall for specific producer
+            producerId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642e',
+            messageGroupId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642e',
+            getLastSeqNo: true,
         });
 
+        // if getLastSeqNo: true wate till init be accomplished
+
         const res1 = await writer.sendMessages({
-            // tx:
             codec: Ydb.Topic.Codec.CODEC_RAW,
             messages: [{
                 data: Buffer.alloc(10, '1234567890'),
                 uncompressedSize: '1234567890'.length,
-                seqNo: 1,
                 createdAt: google.protobuf.Timestamp.create({
                     seconds: 123 /*Date.now() / 1000*/,
                     nanos: 456 /*Date.now() % 1000*/,
                 }),
-                messageGroupId: 'abc', // TODO: Check examples
-                partitionId: 1,
-                // metadataItems: // TODO: Should I use this?
             }],
         });
 
@@ -58,7 +57,6 @@ describe('Topic: Send messages', () => {
             messages: [{
                 data: Buffer.alloc(10, '1234567890'),
                 uncompressedSize: '1234567890'.length,
-                seqNo: 1,
                 createdAt: google.protobuf.Timestamp.create({
                     seconds: 123 /*Date.now() / 1000*/,
                     nanos: 456 /*Date.now() % 1000*/,
@@ -77,7 +75,6 @@ describe('Topic: Send messages', () => {
             messages: [{
                 data: Buffer.alloc(10, '1234567890'),
                 uncompressedSize: '1234567890'.length,
-                seqNo: 1, // must be unique and more then previouse one for given producer
                 // createdAt: google.protobuf.Timestamp.create({
                 //     seconds: 123 /* Math.trunk(Date.now() / 1000) */,
                 //     nanos: 456 /* (Date.now() % 1000) * 1000 */,

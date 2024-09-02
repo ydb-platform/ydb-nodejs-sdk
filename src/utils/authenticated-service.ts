@@ -72,19 +72,19 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     }
 
     protected constructor(
-        host: string,
+        hostOrGrpcClient: string | grpc.Client,
         database: string,
         private name: string,
         private apiCtor: ServiceFactory<Api>,
         protected authService: IAuthService,
-        private sslCredentials?: ISslCredentials,
-        clientOptions?: ClientOptions,
+        protected sslCredentials?: ISslCredentials,
+        protected clientOptions?: ClientOptions,
     ) {
         this.headers = new Map([getVersionHeader(), getDatabaseHeader(database)]);
         this.metadata = new grpc.Metadata();
         this.responseMetadata = new WeakMap();
         this.api = new Proxy(
-            this.getClient(removeProtocol(host), this.sslCredentials, clientOptions),
+            this.getClient(typeof hostOrGrpcClient === 'string' ? removeProtocol(hostOrGrpcClient) : hostOrGrpcClient, this.sslCredentials, clientOptions),
             {
                 get: (target, prop, receiver) => {
                     const property = Reflect.get(target, prop, receiver);
@@ -115,10 +115,13 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
         }
     }
 
-    protected getClient(host: string, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
-        const client = this.grpcServiceClient = sslCredentials ?
-            new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions) :
-            new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
+    protected getClient(hostOrGrpcClient: string | grpc.Client, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
+        const client = this.grpcServiceClient =
+            typeof hostOrGrpcClient !== 'string'
+                ? hostOrGrpcClient
+                : sslCredentials
+                    ? new grpc.Client(hostOrGrpcClient, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions)
+                    : new grpc.Client(hostOrGrpcClient, grpc.credentials.createInsecure(), clientOptions);
         const rpcImpl: $protobuf.RPCImpl = (method, requestData, callback) => {
             const path = `/${this.name}/${method.name}`;
             if (method.name.startsWith('Stream')) {
