@@ -71,7 +71,7 @@ export class TopicReadStreamWithEvents {
     private readBidiStream?: ClientDuplexStream<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>;
 
     constructor(
-        opts: ReadStreamInitArgs,
+        args: ReadStreamInitArgs,
         private topicService: TopicNodeClient,
         // @ts-ignore
         private _logger: Logger) {
@@ -117,61 +117,61 @@ export class TopicReadStreamWithEvents {
             delete this.readBidiStream; // so there will be no way to send more messages
             this.events.emit('end');
         });
-        this.initRequest(opts);
+        this.initRequest(args);
     };
 
-    private initRequest(opts: ReadStreamInitArgs) {
+    private initRequest(args: ReadStreamInitArgs) {
         this.readBidiStream!.write(
             Ydb.Topic.StreamReadMessage.create({
-                initRequest: Ydb.Topic.StreamReadMessage.InitRequest.create(opts),
+                initRequest: Ydb.Topic.StreamReadMessage.InitRequest.create(args),
             }));
     }
 
-    public readRequest(opts: ReadStreamReadArgs) {
+    public readRequest(args: ReadStreamReadArgs) {
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
-                readRequest: Ydb.Topic.StreamReadMessage.ReadRequest.create(opts),
+                readRequest: Ydb.Topic.StreamReadMessage.ReadRequest.create(args),
             }));
     }
 
-    public commitOffsetRequest(opts: ReadStreamCommitOffsetArgs) {
+    public commitOffsetRequest(args: ReadStreamCommitOffsetArgs) {
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
-                commitOffsetRequest: Ydb.Topic.StreamReadMessage.CommitOffsetRequest.create(opts),
+                commitOffsetRequest: Ydb.Topic.StreamReadMessage.CommitOffsetRequest.create(args),
             }));
     }
 
-    public partitionSessionStatusRequest(opts: ReadStreamPartitionSessionStatusArgs) {
+    public partitionSessionStatusRequest(args: ReadStreamPartitionSessionStatusArgs) {
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
-                partitionSessionStatusRequest: Ydb.Topic.StreamReadMessage.PartitionSessionStatusRequest.create(opts),
+                partitionSessionStatusRequest: Ydb.Topic.StreamReadMessage.PartitionSessionStatusRequest.create(args),
             }));
     }
 
-    public updateTokenRequest(opts: ReadStreamUpdateTokenArgs) {
+    public updateTokenRequest(args: ReadStreamUpdateTokenArgs) {
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
-                updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(opts),
+                updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(args),
             }));
     }
 
-    public startPartitionSessionResponse(opts: ReadStreamStartPartitionSessionResult) {
+    public startPartitionSessionResponse(args: ReadStreamStartPartitionSessionResult) {
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
-                startPartitionSessionResponse: Ydb.Topic.StreamReadMessage.StartPartitionSessionResponse.create(opts),
+                startPartitionSessionResponse: Ydb.Topic.StreamReadMessage.StartPartitionSessionResponse.create(args),
             }));
     }
 
-    public stopPartitionSessionResponse(opts: ReadStreamStopPartitionSessionResult) {
+    public stopPartitionSessionResponse(args: ReadStreamStopPartitionSessionResult) {
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
-                stopPartitionSessionResponse: Ydb.Topic.StreamReadMessage.StopPartitionSessionResponse.create(opts),
+                stopPartitionSessionResponse: Ydb.Topic.StreamReadMessage.StopPartitionSessionResponse.create(args),
             }));
     }
 

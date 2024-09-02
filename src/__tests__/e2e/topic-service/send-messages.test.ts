@@ -31,7 +31,7 @@ describe('Topic: Send messages', () => {
         const writer = await topicClient.createWriter({
             path: 'testTopic',
             producerId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642e',
-            messageGroupId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642e',
+            // messageGroupId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642e',
             getLastSeqNo: true,
         });
 

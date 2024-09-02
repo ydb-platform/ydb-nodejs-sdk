@@ -73,13 +73,13 @@ export class TopicWriter {
         }
         args.messages?.forEach((msg) => {
             if (this.getLastSeqNo) {
-                if (!(msg.seqNo === undefined || msg.seqNo === null)) throw new Error('Writer was created with lastSeqNo = true, explicit seqNo not supported');
+                if (!(msg.seqNo === undefined || msg.seqNo === null)) throw new Error('Writer was created with getLastSeqNo = true, explicit seqNo not supported');
                 if (this.lastSeqNo) { // else wait till initResponse will be received
                     msg.seqNo = this.lastSeqNo = this.lastSeqNo.add(1);
                     this.stream.writeRequest(args);
                 }
             } else {
-                if (msg.seqNo === undefined || msg.seqNo === null) throw new Error('Writer was created without lastSeqNo = true, explicit seqNo must be provided');
+                if (msg.seqNo === undefined || msg.seqNo === null) throw new Error('Writer was created without getLastSeqNo = true, explicit seqNo must be provided');
                 this.stream.writeRequest(args);
             }
         });

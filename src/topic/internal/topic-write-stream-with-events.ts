@@ -7,7 +7,7 @@ import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 import {TransportError, YdbError} from "../../errors";
 
 export type WriteStreamInitArgs =
-    Ydb.Topic.StreamWriteMessage.IInitRequest
+    Omit<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'> // Currently, messageGroupId must always equal producerId. this enforced in the TopicNodeClient.openWriteStreamWithEvents method
     & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
 export type WriteStreamInitResult =
     Readonly<Ydb.Topic.StreamWriteMessage.IInitResponse>;
@@ -52,7 +52,7 @@ export class TopicWriteStreamWithEvents {
     public readonly events = new EventEmitter() as TypedEmitter<WriteStreamEvents>;
 
     constructor(
-        opts: WriteStreamInitArgs,
+        args: WriteStreamInitArgs,
         private topicService: TopicNodeClient,
         // @ts-ignore
         private _logger: Logger) {
@@ -94,29 +94,29 @@ export class TopicWriteStreamWithEvents {
             delete this.writeBidiStream; // so there was no way to send more messages
             this.events.emit('end');
         });
-       this.initRequest(opts);
+       this.initRequest(args);
     };
 
-    private initRequest(opts: WriteStreamInitArgs) {
+    private initRequest(args: WriteStreamInitArgs) {
         this.writeBidiStream!.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
-                initRequest: Ydb.Topic.StreamWriteMessage.InitRequest.create(opts),
+                initRequest: Ydb.Topic.StreamWriteMessage.InitRequest.create(args),
             }));
     }
 
-    public writeRequest(opts: WriteStreamWriteArgs) {
+    public writeRequest(args: WriteStreamWriteArgs) {
         if (!this.writeBidiStream) throw new Error('Stream is closed')
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
-                writeRequest: Ydb.Topic.StreamWriteMessage.WriteRequest.create(opts),
+                writeRequest: Ydb.Topic.StreamWriteMessage.WriteRequest.create(args),
             }));
     }
 
-    public updateTokenRequest(opts: WriteStreamUpdateTokenArgs) {
+    public updateTokenRequest(args: WriteStreamUpdateTokenArgs) {
         if (!this.writeBidiStream) throw new Error('Stream is closed')
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
-                updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(opts),
+                updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(args),
             }));
     }
 

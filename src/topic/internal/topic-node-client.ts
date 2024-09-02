@@ -63,9 +63,15 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
         return destroyPromise;
     }
 
-    public async openWriteStreamWithEvents(opts: WriteStreamInitArgs) { // TODO: Why it's made thru symbols
+    public async openWriteStreamWithEvents(args: WriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) { // TODO: Why it's made thru symbols
+        if (args.producerId === undefined || args.producerId === null) {
+            const  newGUID = crypto.randomUUID();
+            args = {...args, producerId: newGUID, messageGroupId: newGUID}
+        } else if (args.messageGroupId === undefined || args.messageGroupId === null) {
+            args = {...args, messageGroupId: args.producerId};
+        }
         await this.updateMetadata(); // TODO: Check for update on every message
-        const writerStream = new TopicWriteStreamWithEvents(opts, this, this.logger);
+        const writerStream = new TopicWriteStreamWithEvents(args, this, this.logger);
         // TODO: Use external writer
         writerStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === writerStream)
@@ -76,9 +82,9 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
         return writerStream;
     }
 
-    public async openReadStreamWithEvents(opts: ReadStreamInitArgs) {
+    public async openReadStreamWithEvents(args: ReadStreamInitArgs) {
         await this.updateMetadata(); // TODO: Check for update on every message
-        const readStream = new TopicReadStreamWithEvents(opts, this, this.logger);
+        const readStream = new TopicReadStreamWithEvents(args, this, this.logger);
         // TODO: Use external reader
         readStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === readStream)

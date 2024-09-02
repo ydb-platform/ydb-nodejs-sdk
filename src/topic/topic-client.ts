@@ -34,7 +34,7 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
         if (this.service) await this.service.destroy();
     }
 
-    public async createWriter(args: WriteStreamInitArgs) {
+    public async createWriter(args:  WriteStreamInitArgs) {
         return new TopicWriter(args, await (await this.ensureService()).openWriteStreamWithEvents(args));
     }
 
