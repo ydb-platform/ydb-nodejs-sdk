@@ -5,6 +5,7 @@ import {
 } from "./internal/topic-write-stream-with-events";
 import {Ydb} from "ydb-sdk-proto";
 import Long from "long";
+import {stream} from "./symbols";
 
 export const enum TopicWriterState {
     Init,
@@ -28,13 +29,16 @@ export class TopicWriter {
     private getLastSeqNo?: boolean; // true if client to proceed sequence based on last known seqNo
     private lastSeqNo?: Long.Long;
 
+    private [stream]: TopicWriteStreamWithEvents;
+
     public get state() {
         return this._state;
     }
 
-    constructor(args: WriteStreamInitArgs, private stream: TopicWriteStreamWithEvents) {
-        if (args.getLastSeqNo) this.getLastSeqNo = true;
-        this.stream.events.on('initResponse', (response) => {
+    constructor(args: WriteStreamInitArgs, _stream: TopicWriteStreamWithEvents) {
+        this[stream] = _stream;
+        this.getLastSeqNo = !!args.getLastSeqNo;
+        this[stream].events.on('initResponse', (response) => {
             console.info(1100, response);
             if (this.getLastSeqNo) {
                 this.lastSeqNo = (response.lastSeqNo || response.lastSeqNo === 0) ? Long.fromValue(response.lastSeqNo) : Long.fromValue(1);
@@ -42,18 +46,18 @@ export class TopicWriter {
                     queueItem.sendMessagesOpts.messages?.forEach((msg) => {
                         msg.seqNo = this.lastSeqNo = this.lastSeqNo!.add(1);
                     });
-                    this.stream.writeRequest(queueItem.sendMessagesOpts);
+                    this[stream].writeRequest(queueItem.sendMessagesOpts);
                 });
             }
         });
-        this.stream.events.on('writeResponse', (response) => {
+        this[stream].events.on('writeResponse', (response) => {
             this.messageQueue.shift()!.resolve(response); // TODO: It's so simple cause retrier is not in place yet
             if (this._state === TopicWriterState.Closing && this.messageQueue.length === 0) {
-                this.stream.close();
+                this[stream].close();
                 this._state = TopicWriterState.Closed;
             }
         });
-        this.stream.events.on('error', (err) => {
+        this[stream].events.on('error', (err) => {
             this.closingReason = err;
             this._state = TopicWriterState.Closing;
             this.messageQueue.forEach((item) => {
@@ -76,11 +80,11 @@ export class TopicWriter {
                 if (!(msg.seqNo === undefined || msg.seqNo === null)) throw new Error('Writer was created with getLastSeqNo = true, explicit seqNo not supported');
                 if (this.lastSeqNo) { // else wait till initResponse will be received
                     msg.seqNo = this.lastSeqNo = this.lastSeqNo.add(1);
-                    this.stream.writeRequest(args);
+                    this[stream].writeRequest(args);
                 }
             } else {
                 if (msg.seqNo === undefined || msg.seqNo === null) throw new Error('Writer was created without getLastSeqNo = true, explicit seqNo must be provided');
-                this.stream.writeRequest(args);
+                this[stream].writeRequest(args);
             }
         });
         return new Promise<WriteStreamWriteResult>((resolve, reject) => {
@@ -101,7 +105,7 @@ export class TopicWriter {
         this.closingReason = new Error('Closing'); // to have the call stack
 
         if (this.messageQueue.length === 0) {
-            this.stream.close();
+            this[stream].close();
             this._state = TopicWriterState.Closed;
             return Promise.resolve();
         } else {
@@ -113,7 +117,7 @@ export class TopicWriter {
                 closeResolve = resolve;
             });
             //
-            this.stream.events.once('end', () => {
+            this[stream].events.once('end', () => {
                 this._state = TopicWriterState.Closed;
                 closeResolve(undefined);
             });

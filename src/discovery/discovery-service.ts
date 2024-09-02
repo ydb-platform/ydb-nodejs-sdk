@@ -11,7 +11,7 @@ import {AuthenticatedService, withTimeout} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Logger} from "../logger/simple-logger";
 import {IClientSettingsBase} from "../table";
-import {TopicNodeClient} from "../topic";
+import {TopicNodeClient} from "../topic/internal/topic-node-client";
 
 type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {

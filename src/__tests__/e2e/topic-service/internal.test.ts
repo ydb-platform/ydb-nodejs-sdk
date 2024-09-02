@@ -2,7 +2,6 @@ import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
-import {TopicNodeClient} from "../../../topic";
 import {google, Ydb} from "ydb-sdk-proto";
 import Long from "long";
 import {
@@ -12,6 +11,7 @@ import {
     ReadStreamStartPartitionSessionArgs
 } from "../../../topic/internal/topic-read-stream-with-events";
 import {WriteStreamInitResult, WriteStreamWriteResult} from "../../../topic/internal/topic-write-stream-with-events";
+import {TopicNodeClient} from "../../../topic/internal/topic-node-client";
 
 const DATABASE = '/local';
 const ENDPOINT = 'grpc://localhost:2136';

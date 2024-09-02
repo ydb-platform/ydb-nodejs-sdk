@@ -1,1 +1,1 @@
-export * from './internal/topic-node-client';
+export * from './topic-client';

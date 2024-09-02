@@ -4,7 +4,7 @@ import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 import * as grpc from "@grpc/grpc-js";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {ClientOptions} from "../utils";
-import {TopicNodeClient} from "../topic";
+import {TopicNodeClient} from "../topic/internal/topic-node-client";
 
 export type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
 
