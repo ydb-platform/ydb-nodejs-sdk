@@ -35,6 +35,7 @@ Closed --> [*]
 ```mermaid
 stateDiagram
 direction TB
+
 state "Init" as init
 state "Init Stream" as initStream
 state "Retriable Error" as retriableError
@@ -42,6 +43,7 @@ state "Non Retriable Error" as nonRetriableError
 state "Closing" as closing
 state "Closed" as closed
 state "Forcebly Close Existing Stream" as forceblyCloseExistingStream
+
 [*] --> init
 init --> initStream
 initStream --> active
@@ -49,8 +51,7 @@ active --> retriableError
 active --> nonRetriableError
 active --> closing
 closing --> closed
-retriableError --> reinitStream
-reinitStream --> forceblyCloseExistingStream
+retriableError --> forceblyCloseExistingStream
 forceblyCloseExistingStream --> initStream
 nonRetriableError --> closed
 closed --> [*]
