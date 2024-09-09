@@ -31,8 +31,7 @@ export type DescribeConsumerArgs = Ydb.Topic.IDescribeConsumerRequest & Required
 export type DescribeConsumerResult = Readonly<Ydb.Topic.DescribeConsumerResponse>;
 
 export type AlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;
-export type AlterTopicResult = Readonly<Ydb.Topic.AlterTopicResponse>;
-
+export type AlterTopicResult = Readonly<Ydb.Topic.AlterTopicResponse>
 export type DropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;
 export type DropTopicResult = Readonly<Ydb.Topic.DropTopicResponse>;
 

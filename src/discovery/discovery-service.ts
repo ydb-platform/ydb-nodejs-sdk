@@ -157,7 +157,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         return endpoint;
     }
 
-    public async getNextTopicNodeClient() {
+    public async getTopicNodeClient() {
         const endpoint = await this.getEndpoint();
         if (!endpoint.topicNodeClient) {
             endpoint.topicNodeClient = new TopicNodeClient(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);

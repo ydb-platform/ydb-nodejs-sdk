@@ -5,8 +5,7 @@ import {
 } from "./internal/topic-write-stream-with-events";
 import {Ydb} from "ydb-sdk-proto";
 import Long from "long";
-import {innerStreamSymbol} from "./symbols";
-import DiscoveryService from "../discovery/discovery-service";
+import {streamSymbol} from "./symbols";
 
 export const enum TopicWriterState {
     Init,
@@ -28,16 +27,16 @@ export class TopicWriter {
     private getLastSeqNo?: boolean; // true if client to proceed sequence based on last known seqNo
     private lastSeqNo?: Long.Long;
 
-    private [innerStreamSymbol]: TopicWriteStreamWithEvents;
+    private [streamSymbol]: TopicWriteStreamWithEvents;
 
     public get state() {
         return this._state;
     }
 
-    constructor(args: WriteStreamInitArgs, discovery: DiscoveryService) {
-        this[innerStreamSymbol] = _stream;
+    constructor(args: WriteStreamInitArgs, _stream: TopicWriteStreamWithEvents) {
+        this[streamSymbol] = _stream;
         this.getLastSeqNo = !!args.getLastSeqNo;
-        this[innerStreamSymbol].events.on('initResponse', (response) => {
+        this[streamSymbol].events.on('initResponse', (response) => {
             console.info(1100, response);
             if (this.getLastSeqNo) {
                 this.lastSeqNo = (response.lastSeqNo || response.lastSeqNo === 0) ? Long.fromValue(response.lastSeqNo) : Long.fromValue(1);
@@ -45,18 +44,18 @@ export class TopicWriter {
                     queueItem.sendMessagesOpts.messages?.forEach((msg) => {
                         msg.seqNo = this.lastSeqNo = this.lastSeqNo!.add(1);
                     });
-                    this[innerStreamSymbol].writeRequest(queueItem.sendMessagesOpts);
+                    this[streamSymbol].writeRequest(queueItem.sendMessagesOpts);
                 });
             }
         });
-        this[innerStreamSymbol].events.on('writeResponse', (response) => {
+        this[streamSymbol].events.on('writeResponse', (response) => {
             this.messageQueue.shift()!.resolve(response); // TODO: It's so simple cause retrier is not in place yet
             if (this._state === TopicWriterState.Closing && this.messageQueue.length === 0) {
-                this[innerStreamSymbol].close();
+                this[streamSymbol].close();
                 this._state = TopicWriterState.Closed;
             }
         });
-        this[innerStreamSymbol].events.on('error', (err) => {
+        this[streamSymbol].events.on('error', (err) => {
             this.closingReason = err;
             this._state = TopicWriterState.Closing;
             this.messageQueue.forEach((item) => {
@@ -79,11 +78,11 @@ export class TopicWriter {
                 if (!(msg.seqNo === undefined || msg.seqNo === null)) throw new Error('Writer was created with getLastSeqNo = true, explicit seqNo not supported');
                 if (this.lastSeqNo) { // else wait till initResponse will be received
                     msg.seqNo = this.lastSeqNo = this.lastSeqNo.add(1);
-                    this[innerStreamSymbol].writeRequest(args);
+                    this[streamSymbol].writeRequest(args);
                 }
             } else {
                 if (msg.seqNo === undefined || msg.seqNo === null) throw new Error('Writer was created without getLastSeqNo = true, explicit seqNo must be provided');
-                this[innerStreamSymbol].writeRequest(args);
+                this[streamSymbol].writeRequest(args);
             }
         });
         return new Promise<WriteStreamWriteResult>((resolve, reject) => {
@@ -104,7 +103,7 @@ export class TopicWriter {
         this.closingReason = new Error('Closing'); // to have the call stack
 
         if (this.messageQueue.length === 0) {
-            this[innerStreamSymbol].close();
+            this[streamSymbol].close();
             this._state = TopicWriterState.Closed;
             return Promise.resolve();
         } else {
@@ -115,7 +114,7 @@ export class TopicWriter {
             const closePromise = new Promise((resolve) => {
                 closeResolve = resolve; // TODO: Should close return error, if one had to happend on stream?  Ок it should be handled by the retrier
             });
-            this[innerStreamSymbol].events.once('end', () => {
+            this[streamSymbol].events.once('end', () => {
                 this._state = TopicWriterState.Closed;
                 closeResolve(undefined);
             });

@@ -7,41 +7,27 @@ import {TopicNodeClient} from "./topic-node-client";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 
 export type ReadStreamInitArgs = Ydb.Topic.StreamReadMessage.IInitRequest;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamInitResult = Ydb.Topic.StreamReadMessage.IInitResponse;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
+export type ReadStreamInitResult = Readonly<Ydb.Topic.StreamReadMessage.IInitResponse>;
 
 export type ReadStreamReadArgs = Ydb.Topic.StreamReadMessage.IReadRequest;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamReadResult = Ydb.Topic.StreamReadMessage.IReadResponse;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
+export type ReadStreamReadResult = Readonly<Ydb.Topic.StreamReadMessage.IReadResponse>;
 
 export type ReadStreamCommitOffsetArgs = Ydb.Topic.StreamReadMessage.ICommitOffsetRequest;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamCommitOffsetResult = Ydb.Topic.StreamReadMessage.ICommitOffsetResponse;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
+export type ReadStreamCommitOffsetResult = Readonly<Ydb.Topic.StreamReadMessage.ICommitOffsetResponse>;
 
 export type ReadStreamPartitionSessionStatusArgs = Ydb.Topic.StreamReadMessage.IPartitionSessionStatusRequest;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamPartitionSessionStatusResult = Ydb.Topic.StreamReadMessage.IPartitionSessionStatusResponse;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
+export type ReadStreamPartitionSessionStatusResult = Readonly<Ydb.Topic.StreamReadMessage.IPartitionSessionStatusResponse>;
 
 export type ReadStreamUpdateTokenArgs = Ydb.Topic.IUpdateTokenRequest;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamUpdateTokenResult = Ydb.Topic.IUpdateTokenResponse;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
+export type ReadStreamUpdateTokenResult = Readonly<Ydb.Topic.IUpdateTokenResponse>;
 
 export type ReadStreamStartPartitionSessionArgs = Ydb.Topic.StreamReadMessage.IStartPartitionSessionRequest;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamStartPartitionSessionResult = Ydb.Topic.StreamReadMessage.IStartPartitionSessionResponse;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
+export type ReadStreamStartPartitionSessionResult = Readonly<Ydb.Topic.StreamReadMessage.IStartPartitionSessionResponse>;
 
 export type ReadStreamStopPartitionSessionArgs = Ydb.Topic.StreamReadMessage.IStopPartitionSessionRequest;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type ReadStreamStopPartitionSessionResult = Ydb.Topic.StreamReadMessage.IStopPartitionSessionResponse;
-// & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitResponse, 'path'>>;
+export type ReadStreamStopPartitionSessionResult = Readonly<Ydb.Topic.StreamReadMessage.IStopPartitionSessionResponse>;
 
-type ReadStreamEvents = {
+export type ReadStreamEvents = {
     initResponse: (resp: ReadStreamInitResult) => void,
     readResponse: (resp: ReadStreamReadResult) => void,
     commitOffsetResponse: (resp: ReadStreamCommitOffsetResult) => void,
@@ -113,10 +99,10 @@ export class TopicReadStreamWithEvents {
             this.events.emit('error', err);
         })
         this.readBidiStream.on('end', () => {
-            this._state = TopicWriteStreamState.Closed;
-            delete this.readBidiStream; // so there will be no way to send more messages
+            this._state = TopicWriteStreamState.Closed;no way to send more messages
             this.events.emit('end');
-        });
+        }
+            delete this.readBidiStream; // so there will be );
         this.initRequest(args);
     };
 
