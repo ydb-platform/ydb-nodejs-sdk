@@ -17,11 +17,12 @@ Notice: This API is EXPERIMENTAL and may be changed or removed in a later releas
 
 # State machine
 
-## Stream
+## Inner (private) Stream states
 
 ```mermaid
 stateDiagram
 direction LR
+
 [*] --> Init
 Init --> Active
 Active --> Closing
@@ -30,29 +31,30 @@ Active --> Closed
 Closed --> [*]
 ```
 
-## Retryer
+## Retriable (public) Stream states
 
 ```mermaid
 stateDiagram
 direction TB
 
 state "Init" as init
-state "Init Stream" as initStream
+state "Init Inner Stream" as initInnerStream
+state "Active" as active
 state "Retriable Error" as retriableError
 state "Non Retriable Error" as nonRetriableError
 state "Closing" as closing
 state "Closed" as closed
-state "Forcebly Close Existing Stream" as forceblyCloseExistingStream
+state "Forcebly Close Inner Stream" as forceblyCloseInnerStream
 
 [*] --> init
-init --> initStream
-initStream --> active
+init --> initInnerStream
+initInnerStream --> active
 active --> retriableError
 active --> nonRetriableError
 active --> closing
 closing --> closed
-retriableError --> forceblyCloseExistingStream
-forceblyCloseExistingStream --> initStream
+retriableError --> forceblyCloseInnerStream
+forceblyCloseInnerStream --> initInnerStream
 nonRetriableError --> closed
 closed --> [*]
 note right of nonRetriableError : <font color="#333333">One of the possible causes of the error is the context timeout</font><br>
