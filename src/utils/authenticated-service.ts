@@ -116,7 +116,6 @@ export abstract class AuthenticatedService<Api extends $protobuf.rpc.Service> {
     }
 
     protected getClient(hostOrGrpcClient: string | grpc.Client, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions): Api {
-        console.info(1000, hostOrGrpcClient);
         const client = this.grpcServiceClient =
             typeof hostOrGrpcClient !== 'string'
                 ? hostOrGrpcClient

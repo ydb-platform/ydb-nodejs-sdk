@@ -77,6 +77,7 @@ export class TopicWriter {
         }
         delete this.firstInnerStreamInitResp;
         const stream = new TopicWriteStreamWithEvents(ctx, this.writeStreamArgs, this.topicService, this.logger);
+        // TODO: Wrap callback
         stream.events.on('initResponse', (resp) => {
             this.logger.debug('%s: on initResponse: %o', ctx, resp);
             // if received lastSeqNo in mode this.getLastSeqNo === true

@@ -25,7 +25,8 @@ jobs:
 
     services:
       ydb:
-        image: ghcr.io/ydb-platform/local-ydb:nightly
+        # image: ghcr.io/ydb-platform/local-ydb:nightly
+        image: ydbplatform/local-ydb:24.1
         ports:
           - 2135:2135
           - 2136:2136
