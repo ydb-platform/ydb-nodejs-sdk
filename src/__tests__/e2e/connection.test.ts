@@ -1,8 +1,9 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import {initDriver, destroyDriver} from "../../utils/test";
 
 describe('Connection', () => {
     it('Test GRPC connection', async () => {
-        let driver = await initDriver({endpoint: 'grpc://localhost:2136'});
+        let driver = await initDriver({endpoint: process.env.YDB_ENDPOINT || 'grpc://localhost:2136'});
         await driver.tableClient.withSession(async (session) => {
             await session.executeQuery('SELECT 1');
         });
@@ -10,7 +11,7 @@ describe('Connection', () => {
     });
 
     it('Test GRPCS connection', async () => {
-        let driver = await initDriver({endpoint: 'grpcs://localhost:2135'});
+        let driver = await initDriver({endpoint: process.env.YDB_ENDPOINT || 'grpcs://localhost:2135'});
         await driver.tableClient.withSession(async (session) => {
             await session.executeQuery('SELECT 1');
         });

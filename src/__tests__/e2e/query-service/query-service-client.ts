@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import Driver from "../../../driver";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import * as errors from "../../../errors";
@@ -7,7 +8,7 @@ import {AUTO_TX} from "../../../table";
 import {QuerySession, IExecuteResult} from "../../../query";
 
 const DATABASE = '/local';
-const ENDPOINT = 'grpcs://localhost:2135';
+const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 
 describe('Query client', () => {
 

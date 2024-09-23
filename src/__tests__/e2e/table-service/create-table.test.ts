@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import Driver from '../../../driver';
 import {TypedValues, Types} from '../../../types';
 import Long from 'long';

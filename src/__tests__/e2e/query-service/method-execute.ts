@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
@@ -10,9 +11,11 @@ import {Context} from "../../../context";
 import {ctxSymbol} from "../../../query/symbols";
 import StatsMode = Ydb.Query.StatsMode;
 import ExecMode = Ydb.Query.ExecMode;
+import {RetryParameters} from "../../../retries/retryParameters";
+import {RetryStrategy} from "../../../retries/retryStrategy";
 
 const DATABASE = '/local';
-const ENDPOINT = 'grpc://localhost:2136';
+const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 const TABLE_NAME = 'test_table_1'
 
 describe('Query.execute()', () => {
@@ -236,6 +239,7 @@ describe('Query.execute()', () => {
             database: DATABASE,
             authService,
             discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
+            retrier: new RetryStrategy(new RetryParameters(), logger),
             logger,
         });
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);

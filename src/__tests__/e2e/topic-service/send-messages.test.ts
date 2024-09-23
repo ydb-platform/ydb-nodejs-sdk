@@ -1,15 +1,18 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import {AnonymousAuthService, Driver as YDB} from '../../../index';
 import {google, Ydb} from "ydb-sdk-proto";
 
-
 // create topic
+
+const DATABASE = '/local';
+const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 
 describe('Topic: Send messages', () => {
     let ydb: YDB | undefined;
 
     beforeEach(async () => {
         ydb = new YDB({
-            connectionString: 'grpc://localhost:2136/?database=local',
+            connectionString: `grpc://${ENDPOINT}/?database=${DATABASE}`,
             authService: new AnonymousAuthService(),
         });
     });

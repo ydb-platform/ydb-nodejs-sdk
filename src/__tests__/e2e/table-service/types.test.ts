@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import Long from 'long';
 import {google, Ydb} from 'ydb-sdk-proto';
 import Driver from '../../../driver';

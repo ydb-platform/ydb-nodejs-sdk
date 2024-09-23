@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
@@ -12,9 +13,12 @@ import {
 } from "../../../topic/internal/topic-read-stream-with-events";
 import {WriteStreamInitResult, WriteStreamWriteResult} from "../../../topic/internal/topic-write-stream-with-events";
 import {TopicNodeClient} from "../../../topic/internal/topic-node-client";
+import {Context} from "../../../context";
+import {RetryParameters} from "../../../retries/retryParameters";
+import {RetryStrategy} from "../../../retries/retryStrategy";
 
 const DATABASE = '/local';
-const ENDPOINT = 'grpc://localhost:2136';
+const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 
 describe('Topic: General', () => {
     let discoveryService: DiscoveryService;
@@ -40,7 +44,7 @@ describe('Topic: General', () => {
         });
         console.info(`Service created`);
 
-        const writer = await topicService.openWriteStreamWithEvents({
+        const writer = await topicService.openWriteStreamWithEvents(Context.createNew().ctx, {
             path: 'myTopic',
             producerId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642d',
             messageGroupId: 'cd9e8767-f391-4f97-b4ea-75faa7b0642d',
@@ -179,6 +183,7 @@ describe('Topic: General', () => {
             database: DATABASE,
             authService,
             discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
+            retrier: new RetryStrategy(new RetryParameters(), logger),
             logger,
         });
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
