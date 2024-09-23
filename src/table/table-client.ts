@@ -1,30 +1,13 @@
 import EventEmitter from "events";
 import {TableSessionPool} from "./table-session-pool";
-import {ISslCredentials} from "../utils/ssl-credentials";
-import {IPoolSettings} from "../driver";
-import DiscoveryService from "../discovery/discovery-service";
 
 import {TableSession} from "./table-session";
-import {ClientOptions} from "../utils";
-import {IAuthService} from "../credentials/i-auth-service";
 import {Context, ensureContext} from "../context";
-import {Logger} from "../logger/simple-logger";
+import {IClientSettings} from "../client/settings";
 
 /**
  * Version settings for service clients that are created by the discovery service method - one per endpoint. Like Topic client.
  */
-export interface IClientSettingsBase {
-    database: string;
-    authService: IAuthService;
-    sslCredentials?: ISslCredentials;
-    poolSettings?: IPoolSettings;
-    clientOptions?: ClientOptions;
-    logger: Logger;
-}
-
-export interface IClientSettings extends IClientSettingsBase {
-    discoveryService: DiscoveryService;
-}
 
 export class TableClient extends EventEmitter {
     private pool: TableSessionPool;

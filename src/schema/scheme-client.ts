@@ -11,25 +11,12 @@ import {
     RemoveDirectorySettings,
     SchemeService
 } from "./scheme-service";
-import {IAuthService} from "../credentials/i-auth-service";
-import {ISslCredentials} from "../utils/ssl-credentials";
-import {ClientOptions} from "../utils";
-import DiscoveryService from "../discovery/discovery-service";
-import {Logger} from "../logger/simple-logger";
-
-interface ISchemeClientSettings {
-    database: string;
-    authService: IAuthService;
-    sslCredentials?: ISslCredentials;
-    clientOptions?: ClientOptions;
-    discoveryService: DiscoveryService;
-    logger: Logger;
-}
+import {IClientSettings} from "../client/settings";
 
 export default class SchemeClient extends EventEmitter {
     private schemeServices: Map<Endpoint, SchemeService>;
 
-    constructor(private settings: ISchemeClientSettings) {
+    constructor(private settings: IClientSettings) {
         super();
         this.schemeServices = new Map();
     }

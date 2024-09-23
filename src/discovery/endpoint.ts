@@ -59,6 +59,12 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     }
 
     public toString(): string {
+        // TODO: Find out how to specify a host ip/name for local development
+        if (process.env.YDB_ENDPOINT) {
+            const str = process.env.YDB_ENDPOINT;
+            const n = str.indexOf('://'); // remove grpc(s)?://
+            return n > 0 ? str.substr(n + 3) : str;
+        } // for development only
         let result = this.address;
         if (this.port) {
             result += ':' + this.port;
@@ -68,6 +74,7 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
 
     private grpcClient?: grpc.Client;
 
+    // TODO: Close the client if it was not used for a time
     public getGrpcClient(sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         if (!this.grpcClient) {
             this.grpcClient = sslCredentials ?

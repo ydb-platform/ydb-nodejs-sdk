@@ -99,10 +99,10 @@ export class TopicReadStreamWithEvents {
             this.events.emit('error', err);
         })
         this.readBidiStream.on('end', () => {
-            this._state = TopicWriteStreamState.Closed;no way to send more messages
+            this._state = TopicWriteStreamState.Closed;
+            delete this.readBidiStream; // so there will be no way to send more messages
             this.events.emit('end');
-        }
-            delete this.readBidiStream; // so there will be );
+        });
         this.initRequest(args);
     };
 

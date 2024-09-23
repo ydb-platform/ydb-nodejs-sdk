@@ -8,6 +8,9 @@ import {IAuthService} from "../../credentials/i-auth-service";
 import {ISslCredentials} from "../../utils/ssl-credentials";
 import {TopicWriteStreamWithEvents, WriteStreamInitArgs} from "./topic-write-stream-with-events";
 import {TopicReadStreamWithEvents, ReadStreamInitArgs} from "./topic-read-stream-with-events";
+import {v4 as uuid_v4} from 'uuid';
+import {Context} from "../../context";
+import * as grpc from "@grpc/grpc-js";
 
 // TODO: Retries with the same options
 // TODO: Batches
@@ -43,7 +46,10 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
 
     constructor(endpoint: Endpoint, database: string, authService: IAuthService, logger: Logger, sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
         const host = endpoint.toString();
-        super(host, database, 'Ydb.Topic.V1.TopicService', Ydb.Topic.V1.TopicService, authService, sslCredentials, clientOptions);
+        const nodeClient = sslCredentials
+            ? new grpc.Client(host, grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions)
+            : new grpc.Client(host, grpc.credentials.createInsecure(), clientOptions);
+        super(nodeClient, database, 'Ydb.Topic.V1.TopicService', Ydb.Topic.V1.TopicService, authService, sslCredentials, clientOptions);
         this.endpoint = endpoint;
         this.logger = logger;
     }
@@ -62,15 +68,15 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
         return destroyPromise;
     }
 
-    public async openWriteStreamWithEvents(args: WriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) { // TODO: Why it's made thru symbols
+    public async openWriteStreamWithEvents(ctx: Context, args: WriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) { // TODO: Why it's made thru symbols
         if (args.producerId === undefined || args.producerId === null) {
-            const  newGUID = crypto.randomUUID();
+            const  newGUID = uuid_v4();
             args = {...args, producerId: newGUID, messageGroupId: newGUID}
         } else if (args.messageGroupId === undefined || args.messageGroupId === null) {
             args = {...args, messageGroupId: args.producerId};
         }
-        await this.updateMetadata(); // TODO: Check for update on every message
-        const writerStream = new TopicWriteStreamWithEvents(args, this, this.logger);
+        await this.updateMetadata();
+        const writerStream = new TopicWriteStreamWithEvents(ctx, args, this, this.logger);
         // TODO: Use external writer
         writerStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === writerStream)

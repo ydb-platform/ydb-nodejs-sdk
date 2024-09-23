@@ -10,7 +10,6 @@ import {Events} from "../constants";
 import _ from "lodash";
 import {/*BadSession, SessionBusy,*/ SessionPoolEmpty} from "../errors";
 import {QuerySession} from "./query-session";
-import {IQueryClientSettings} from "./query-client";
 import {pessimizable} from "../utils";
 import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
@@ -25,6 +24,7 @@ import {
     sessionIsDeletedSymbol
 } from './symbols';
 import {Logger} from "../logger/simple-logger";
+import {IClientSettings} from "../client/settings";
 
 export class QueryService extends AuthenticatedService<GrpcQueryService> {
     public endpoint: Endpoint;
@@ -75,7 +75,7 @@ export class QuerySessionPool extends EventEmitter {
     private static SESSION_MIN_LIMIT = 5;
     private static SESSION_MAX_LIMIT = 20;
 
-    constructor(settings: IQueryClientSettings) {
+    constructor(settings: IClientSettings) {
         super();
         this.database = settings.database;
         this.authService = settings.authService;

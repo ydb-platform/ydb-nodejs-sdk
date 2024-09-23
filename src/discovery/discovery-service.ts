@@ -5,26 +5,15 @@ import EventEmitter from "events";
 import _ from "lodash";
 import {Events} from "../constants";
 import {retryable} from "../retries_obsoleted";
-import {ISslCredentials} from "../utils/ssl-credentials";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, withTimeout} from "../utils";
-import {IAuthService} from "../credentials/i-auth-service";
 import {Logger} from "../logger/simple-logger";
-import {IClientSettingsBase} from "../table";
 import {TopicNodeClient} from "../topic/internal/topic-node-client";
+import {IDiscoverySettings} from "../client/settings";
 
 type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {
 };
-
-interface IDiscoverySettings extends IClientSettingsBase {
-    endpoint: string;
-    database: string;
-    authService: IAuthService;
-    sslCredentials?: ISslCredentials,
-    discoveryPeriod: number;
-    logger: Logger;
-}
 
 export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
     private readonly database: string;
@@ -38,8 +27,6 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
     private currentEndpointIndex: number = 0;
     private events: EventEmitter = new EventEmitter();
     private logger: Logger;
-
-    // private selfLocation: string = '';
 
     constructor(settings: IDiscoverySettings) {
         super(
