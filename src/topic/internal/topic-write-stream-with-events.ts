@@ -6,6 +6,7 @@ import TypedEmitter from "typed-emitter/rxjs";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 import {TransportError, YdbError} from "../../errors";
 import {Context} from "../../context";
+import {getCredentialsFromMetadata} from "../../credentials/add-credentials-to-metadata";
 
 export type WriteStreamInitArgs =
     // Currently, messageGroupId must always equal producerId. This enforced in the TopicNodeClient.openWriteStreamWithEvents method
@@ -21,10 +22,10 @@ export type WriteStreamWriteResult =
     Ydb.Topic.StreamWriteMessage.IWriteResponse;
 
 export type WriteStreamUpdateTokenArgs =
-    Ydb.Topic.UpdateTokenRequest
-    & Required<Pick<Ydb.Topic.UpdateTokenRequest, 'token'>>;
+    Ydb.Topic.IUpdateTokenRequest
+    & Required<Pick<Ydb.Topic.IUpdateTokenRequest, 'token'>>;
 export type WriteStreamUpdateTokenResult =
-    Readonly<Ydb.Topic.UpdateTokenResponse>;
+    Readonly<Ydb.Topic.IUpdateTokenResponse>;
 
 export type WriteStreamEvents = {
     initResponse: (resp: WriteStreamInitResult) => void,
@@ -66,12 +67,12 @@ export class TopicWriteStreamWithEvents {
         // const stream = this.writeBidiStream;
         // const oldEmit = stream.emit;
         // stream.emit = ((...args) => {
-        //     this.logger.debug('write event: %o', args);
+        //     this.logger.trace('write event: %o', args);
         //     return oldEmit.apply(stream, args as unknown as ['readable']);
         // }) as typeof oldEmit;
 
         this.writeBidiStream.on('data', (value) => {
-            this.logger.debug('%s: event "data": %o', ctx, value);
+            this.logger.trace('%s: event "data": %o', ctx, value);
             try {
                 YdbError.checkStatus(value!)
             } catch (err) {
@@ -85,19 +86,20 @@ export class TopicWriteStreamWithEvents {
             } else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse!);
         });
         this.writeBidiStream.on('error', (err) => {
-            this.logger.debug('%s: event "error": %s', ctx, err);
+            this.logger.trace('%s: event "error": %s', ctx, err);
             if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err); // TODO: As far as I understand the only error here might be a transport error
             this.events.emit('error', err);
         });
         this.writeBidiStream.on('end', () => {
-            this.logger.debug('%s: event "end"', ctx);
+            this.logger.trace('%s: event "end"', ctx);
             this.state = TopicWriteStreamState.Closed;
             this.events.emit('end');
         });
-        this.initRequest(args);
+        this.initRequest(ctx, args);
     };
 
-    private initRequest(args: WriteStreamInitArgs) {
+    private initRequest(ctx: Context, args: WriteStreamInitArgs) {
+        this.logger.trace('%s: TopicWriteStreamWithEvents.initRequest()', ctx);
         // TODO: Consider zod.js
         this.writeBidiStream!.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
@@ -108,15 +110,18 @@ export class TopicWriteStreamWithEvents {
             }));
     }
 
-    public writeRequest(args: WriteStreamWriteArgs) {
+    public async writeRequest(ctx: Context, args: WriteStreamWriteArgs) {
+        this.logger.trace('%s: TopicWriteStreamWithEvents.writeRequest()', ctx);
         if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
+        await this.updateToken(ctx);
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
                 writeRequest: Ydb.Topic.StreamWriteMessage.WriteRequest.create(args),
             }));
     }
 
-    public updateTokenRequest(args: WriteStreamUpdateTokenArgs) {
+    public updateTokenRequest(ctx: Context, args: WriteStreamUpdateTokenArgs) {
+        this.logger.trace('%s: TopicWriteStreamWithEvents.updateTokenRequest()', ctx);
         if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
@@ -124,8 +129,10 @@ export class TopicWriteStreamWithEvents {
             }));
     }
 
-    public close() {
+    public close(ctx: Context, fakeError?: Error) {
+        this.logger.trace('%s: TopicWriteStreamWithEvents.close()', ctx);
         if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
+        if (fakeError) this.events.emit('error', fakeError);
         this.state = TopicWriteStreamState.Closing;
         this.writeBidiStream.end();
     }
@@ -133,4 +140,12 @@ export class TopicWriteStreamWithEvents {
     // TODO: Add [dispose] that calls close()
 
     // TODO: Update token when the auth provider returns a new one
+    private async updateToken(ctx: Context) {
+        const oldVal = getCredentialsFromMetadata(this.topicService.metadata);
+        this.topicService.updateMetadata();
+        const newVal = getCredentialsFromMetadata(this.topicService.metadata);
+        if (newVal && oldVal !== newVal) await this.updateTokenRequest(ctx, {
+            token: newVal
+        });
+    }
 }

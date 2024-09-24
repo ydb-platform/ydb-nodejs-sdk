@@ -1,5 +1,5 @@
 if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
-import {google, Ydb} from "ydb-sdk-proto";
+// import {google, Ydb} from "ydb-sdk-proto";
 import {sleep} from "../../../utils";
 import {AnonymousAuthService, Driver as YDB, Logger} from "../../../index";
 import {SimpleLogger} from "../../../logger/simple-logger";
@@ -19,6 +19,7 @@ describe('internal stream', () => {
             authService: new AnonymousAuthService(),
             logger: new SimpleLogger({
                 showTimestamp: false,
+                envKey: 'YDB_TEST_LOG_LEVEL'
             })
         });
         await ydb.ready(3000);
@@ -57,22 +58,24 @@ describe('internal stream', () => {
 
         logger.info('before sleep')
 
-        await sleep(30_000)
+        // await sleep(10_000)
+        await sleep(2_000)
 
         logger.info('after sleep')
 
-        stream.writeRequest({
-            codec: Ydb.Topic.Codec.CODEC_RAW,
-            messages: [{
-                data: Buffer.alloc(10, '1234567890'),
-                uncompressedSize: '1234567890'.length,
-                createdAt: google.protobuf.Timestamp.create({
-                    seconds: 123,
-                    nanos: 456,
-                }),
-            }],
-        });
+        // stream.writeRequest({
+        //     codec: Ydb.Topic.Codec.CODEC_RAW,
+        //     messages: [{
+        //         data: Buffer.alloc(10, '1234567890'),
+        //         uncompressedSize: '1234567890'.length,
+        //         createdAt: google.protobuf.Timestamp.create({
+        //             seconds: 123,
+        //             nanos: 456,
+        //         }),
+        //     }],
+        // });
 
-        // stream.close();
+        stream.close();
+        // stream.close(true);
     }, 60_000);
 });

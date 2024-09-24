@@ -23,6 +23,7 @@ const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 describe('Topic: General', () => {
     let discoveryService: DiscoveryService;
     let topicService: TopicNodeClient;
+    const ctx = Context.createNew().ctx;
 
     beforeEach(async () => {
         await testOnOneSessionWithoutDriver();
@@ -34,7 +35,7 @@ describe('Topic: General', () => {
     });
 
     it('general', async () => {
-        await topicService.createTopic({
+        await topicService.createTopic(ctx,{
             path: 'myTopic',
             consumers: [
                 {
@@ -67,7 +68,7 @@ describe('Topic: General', () => {
         });
         console.info(`initRes:`, initRes);
 
-        await writer.writeRequest({
+        await writer.writeRequest(ctx,{
             // tx:
             codec: Ydb.Topic.Codec.CODEC_RAW,
             messages: [{
@@ -94,7 +95,7 @@ describe('Topic: General', () => {
         });
         console.info('sentRes:', sentRes);
 
-        writer.close();
+        writer.close(ctx);
         await stepResult(`Writer closed`, (resolve) => {
             writer.events.once("end", () => {
                 resolve(undefined);
@@ -104,7 +105,7 @@ describe('Topic: General', () => {
         /////////////////////////////////////////////////
         // Now read the message
 
-        const reader= await topicService.openReadStreamWithEvents({
+        const reader= await topicService.openReadStreamWithEvents(ctx, {
             readerName: 'reader1',
             consumer: 'testC',
             topicsReadSettings: [{
@@ -125,7 +126,7 @@ describe('Topic: General', () => {
 
         const partitionRes = await stepResult<ReadStreamStartPartitionSessionArgs>(`Start partition`, (resolve) => {
             reader.events.once('startPartitionSessionRequest', async (v) => {
-                await reader.startPartitionSessionResponse({
+                await reader.startPartitionSessionResponse(ctx,{
                     partitionSessionId: v.partitionSession?.partitionSessionId,
                 });
                 resolve(v);
@@ -133,7 +134,7 @@ describe('Topic: General', () => {
         });
         console.info(`partitionRes:`, partitionRes);
 
-        await reader.readRequest({
+        await reader.readRequest(ctx,{
             bytesSize: 10000,
         })
         const message = await stepResult<ReadStreamReadResult>(`Message read`, (resolve) => {
@@ -146,7 +147,7 @@ describe('Topic: General', () => {
         //
         // });
 
-        await reader.commitOffsetRequest({
+        await reader.commitOffsetRequest(ctx,{
             commitOffsets: [{
                 partitionSessionId: message.partitionData![0].partitionSessionId,
                 offsets: [
@@ -167,7 +168,7 @@ describe('Topic: General', () => {
         //
         // });
 
-        reader.close();
+        reader.close(ctx);
         await stepResult(`Reader closed !!!`, (resolve) => {
             reader.events.once("end", () => {
                 resolve(undefined);

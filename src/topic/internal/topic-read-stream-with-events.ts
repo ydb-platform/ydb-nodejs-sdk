@@ -5,6 +5,7 @@ import {TransportError, YdbError} from "../../errors";
 import TypedEmitter from "typed-emitter/rxjs";
 import {TopicNodeClient} from "./topic-node-client";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
+import {Context} from "../../context";
 
 export type ReadStreamInitArgs = Ydb.Topic.StreamReadMessage.IInitRequest;
 export type ReadStreamInitResult = Readonly<Ydb.Topic.StreamReadMessage.IInitResponse>;
@@ -57,10 +58,11 @@ export class TopicReadStreamWithEvents {
     private readBidiStream?: ClientDuplexStream<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>;
 
     constructor(
+        ctx: Context,
         args: ReadStreamInitArgs,
         private topicService: TopicNodeClient,
         // @ts-ignore
-        private _logger: Logger) {
+        private logger: Logger) {
         this.topicService.updateMetadata();
         this.readBidiStream = this.topicService.grpcServiceClient!
             .makeBidiStreamRequest<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>(
@@ -79,20 +81,24 @@ export class TopicReadStreamWithEvents {
 
         this.readBidiStream.on('data', (value) => {
             try {
-                YdbError.checkStatus(value!)
+                try {
+                    YdbError.checkStatus(value!)
+                } catch (err) {
+                    this.events.emit('error', err as Error);
+                    return;
+                }
+                if (value!.readResponse) this.events.emit('readResponse', value!.readResponse! as Ydb.Topic.StreamReadMessage.ReadResponse);
+                else if (value!.initResponse) {
+                    this._state = TopicWriteStreamState.Active;
+                    this.events.emit('initResponse', value!.initResponse! as Ydb.Topic.StreamReadMessage.InitResponse);
+                } else if (value!.commitOffsetResponse) this.events.emit('commitOffsetResponse', value!.commitOffsetResponse! as Ydb.Topic.StreamReadMessage.CommitOffsetResponse);
+                else if (value!.partitionSessionStatusResponse) this.events.emit('partitionSessionStatusResponse', value!.partitionSessionStatusResponse! as Ydb.Topic.StreamReadMessage.PartitionSessionStatusResponse);
+                else if (value!.startPartitionSessionRequest) this.events.emit('startPartitionSessionRequest', value!.startPartitionSessionRequest! as Ydb.Topic.StreamReadMessage.StartPartitionSessionRequest);
+                else if (value!.stopPartitionSessionRequest) this.events.emit('stopPartitionSessionRequest', value!.stopPartitionSessionRequest! as Ydb.Topic.StreamReadMessage.StopPartitionSessionRequest);
+                else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse! as Ydb.Topic.UpdateTokenResponse);
             } catch (err) {
                 this.events.emit('error', err as Error);
-                return;
             }
-            if (value!.readResponse) this.events.emit('readResponse', value!.readResponse! as Ydb.Topic.StreamReadMessage.ReadResponse);
-            else if (value!.initResponse) {
-                this._state = TopicWriteStreamState.Active;
-                this.events.emit('initResponse', value!.initResponse! as Ydb.Topic.StreamReadMessage.InitResponse);
-            } else if (value!.commitOffsetResponse) this.events.emit('commitOffsetResponse', value!.commitOffsetResponse! as Ydb.Topic.StreamReadMessage.CommitOffsetResponse);
-            else if (value!.partitionSessionStatusResponse) this.events.emit('partitionSessionStatusResponse', value!.partitionSessionStatusResponse! as Ydb.Topic.StreamReadMessage.PartitionSessionStatusResponse);
-            else if (value!.startPartitionSessionRequest) this.events.emit('startPartitionSessionRequest', value!.startPartitionSessionRequest! as Ydb.Topic.StreamReadMessage.StartPartitionSessionRequest);
-            else if (value!.stopPartitionSessionRequest) this.events.emit('stopPartitionSessionRequest', value!.stopPartitionSessionRequest! as Ydb.Topic.StreamReadMessage.StopPartitionSessionRequest);
-            else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse! as Ydb.Topic.UpdateTokenResponse);
         })
         this.readBidiStream.on('error', (err) => {
             if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
@@ -103,17 +109,19 @@ export class TopicReadStreamWithEvents {
             delete this.readBidiStream; // so there will be no way to send more messages
             this.events.emit('end');
         });
-        this.initRequest(args);
+        this.initRequest(ctx, args);
     };
 
-    private initRequest(args: ReadStreamInitArgs) {
+    private initRequest(ctx: Context, args: ReadStreamInitArgs) {
+        this.logger.trace('%s: TopicReadStreamWithEvents.initRequest()', ctx);
         this.readBidiStream!.write(
             Ydb.Topic.StreamReadMessage.create({
                 initRequest: Ydb.Topic.StreamReadMessage.InitRequest.create(args),
             }));
     }
 
-    public readRequest(args: ReadStreamReadArgs) {
+    public readRequest(ctx: Context, args: ReadStreamReadArgs) {
+        this.logger.trace('%s: TopicReadStreamWithEvents.readRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
@@ -121,7 +129,8 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public commitOffsetRequest(args: ReadStreamCommitOffsetArgs) {
+    public commitOffsetRequest(ctx: Context, args: ReadStreamCommitOffsetArgs) {
+        this.logger.trace('%s: TopicReadStreamWithEvents.commitOffsetRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
@@ -129,7 +138,8 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public partitionSessionStatusRequest(args: ReadStreamPartitionSessionStatusArgs) {
+    public partitionSessionStatusRequest(ctx: Context, args: ReadStreamPartitionSessionStatusArgs) {
+        this.logger.trace('%s: TopicReadStreamWithEvents.partitionSessionStatusRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
@@ -137,7 +147,8 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public updateTokenRequest(args: ReadStreamUpdateTokenArgs) {
+    public updateTokenRequest(ctx: Context, args: ReadStreamUpdateTokenArgs) {
+        this.logger.trace('%s: TopicReadStreamWithEvents.updateTokenRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
@@ -145,7 +156,8 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public startPartitionSessionResponse(args: ReadStreamStartPartitionSessionResult) {
+    public startPartitionSessionResponse(ctx: Context, args: ReadStreamStartPartitionSessionResult) {
+        this.logger.trace('%s: TopicReadStreamWithEvents.startPartitionSessionResponse()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
@@ -153,7 +165,8 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public stopPartitionSessionResponse(args: ReadStreamStopPartitionSessionResult) {
+    public stopPartitionSessionResponse(ctx: Context, args: ReadStreamStopPartitionSessionResult) {
+        this.logger.trace('%s: TopicReadStreamWithEvents.stopPartitionSessionResponse()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
@@ -161,9 +174,11 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public async close() {
+    public async close(ctx: Context, fakeError?: Error) {
+        this.logger.trace('%s: TopicReadStreamWithEvents.close()', ctx);
         if (!this.readBidiStream) return;
         this._state = TopicWriteStreamState.Closing;
+        if (fakeError) this.readBidiStream.emit('error', fakeError);
         this.readBidiStream.end();
         delete this.readBidiStream; // so there was no way to send more messages
     }
