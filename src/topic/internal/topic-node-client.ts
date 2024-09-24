@@ -78,16 +78,14 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
         return destroyPromise;
     }
 
-    public async openWriteStreamWithEvents(ctx: Context, args: WriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) { // TODO: Why it's made thru symbols
+    public async openWriteStreamWithEvents(ctx: Context, args: WriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) {
         if (args.producerId === undefined || args.producerId === null) {
             const newGUID = uuid_v4();
             args = {...args, producerId: newGUID, messageGroupId: newGUID}
         } else if (args.messageGroupId === undefined || args.messageGroupId === null) {
             args = {...args, messageGroupId: args.producerId};
         }
-        await this.updateMetadata();
         const writerStream = new TopicWriteStreamWithEvents(ctx, args, this, this.logger);
-        // TODO: Use external writer
         writerStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === writerStream)
             if (index >= 0) this.allStreams.splice(index, 1);
@@ -98,9 +96,7 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
     }
 
     public async openReadStreamWithEvents(ctx: Context, args: ReadStreamInitArgs) {
-        await this.updateMetadata(); // TODO: Check for update on every message
         const readStream = new TopicReadStreamWithEvents(ctx, args, this, this.logger);
-        // TODO: Use external reader
         readStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === readStream)
             if (index >= 0) this.allStreams.splice(index, 1);

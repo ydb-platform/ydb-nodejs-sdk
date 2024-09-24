@@ -54,7 +54,7 @@ export class TopicWriter {
             await this.initInnerStream(ctx);
             return attemptPromise
                 .catch((err) => {
-                    logger.trace('%s: error: %o', ctx, err);
+                    logger.trace('%s: retrier error: %o', ctx, err);
                     if (this.messageQueue.length > 0) {
                         return {
                             err: err as Error,
@@ -72,8 +72,7 @@ export class TopicWriter {
                     this.closeInnerStream(ctx);
                 });
         })
-            .then((cause) => {
-                logger.debug('%s: cause: %o', ctx, cause);
+            .then(() => {
                 logger.debug('%s: closed successfully', ctx);
             })
             .catch((err) => {
@@ -82,7 +81,7 @@ export class TopicWriter {
                 this.spreadError(ctx, err);
             })
             .finally(() => {
-                onCancelUnsub();
+                if (onCancelUnsub) onCancelUnsub();
             });
 
     }
@@ -139,16 +138,11 @@ export class TopicWriter {
         });
         stream.events.on('error', (err) => {
             this.logger.trace('%s: TopicWriter.on "error": %o', ctx, err);
-            try {
-                this.closingReason = err;
-                this.spreadError(ctx, err);
-            } catch (err) {
-                if (!this.attemptPromiseReject) throw err;
-                this.attemptPromiseReject(err)
-            }
+            this.closingReason = err;
+            this.spreadError(ctx, err);
         });
         stream.events.on('end', () => {
-            this.logger.trace('%s: TopicWriter.on "end": %o', ctx);
+            this.logger.trace('%s: TopicWriter.on "end"', ctx);
             try {
                 delete this.innerWriteStream;
                 if (this.closeResolve) this.closeResolve();

@@ -6,7 +6,7 @@ import TypedEmitter from "typed-emitter/rxjs";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 import {TransportError, YdbError} from "../../errors";
 import {Context} from "../../context";
-import {getCredentialsFromMetadata} from "../../credentials/add-credentials-to-metadata";
+import {getTokenFromMetadata} from "../../credentials/add-credentials-to-metadata";
 
 export type WriteStreamInitArgs =
     // Currently, messageGroupId must always equal producerId. This enforced in the TopicNodeClient.openWriteStreamWithEvents method
@@ -54,7 +54,7 @@ export class TopicWriteStreamWithEvents {
         private topicService: TopicNodeClient,
         // @ts-ignore
         private logger: Logger) {
-
+        this.logger.trace('%s: new TopicWriteStreamWithEvents|()', ctx);
         this.topicService.updateMetadata();
         this.writeBidiStream = this.topicService.grpcServiceClient!
             .makeBidiStreamRequest<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>(
@@ -72,7 +72,7 @@ export class TopicWriteStreamWithEvents {
         // }) as typeof oldEmit;
 
         this.writeBidiStream.on('data', (value) => {
-            // this.logger.trace('%s: event "data": %o', ctx, value);
+            this.logger.trace('%s: TopicWriteStreamWithEvents.on "data"', ctx);
             try {
                 YdbError.checkStatus(value!)
             } catch (err) {
@@ -86,12 +86,12 @@ export class TopicWriteStreamWithEvents {
             } else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse!);
         });
         this.writeBidiStream.on('error', (err) => {
-            // this.logger.trace('%s: event "error": %s', ctx, err);
-            if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err); // TODO: As far as I understand the only error here might be a transport error
+            this.logger.trace('%s: TopicWriteStreamWithEvents.on "error"', ctx);
+            if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
             this.events.emit('error', err);
         });
         this.writeBidiStream.on('end', () => {
-            // this.logger.trace('%s: event "end"', ctx);
+            this.logger.trace('%s: TopicWriteStreamWithEvents.on "end"', ctx);
             this.state = TopicWriteStreamState.Closed;
             this.events.emit('end');
         });
@@ -120,9 +120,10 @@ export class TopicWriteStreamWithEvents {
             }));
     }
 
-    public updateTokenRequest(ctx: Context, args: WriteStreamUpdateTokenArgs) {
+    public async updateTokenRequest(ctx: Context, args: WriteStreamUpdateTokenArgs) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.updateTokenRequest()', ctx);
         if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
+        await this.updateToken(ctx);
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
                 updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(args),
@@ -131,7 +132,6 @@ export class TopicWriteStreamWithEvents {
 
     public close(ctx: Context, fakeError?: Error) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.close()', ctx);
-        console.info(1000, this.state)
         if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
         if (fakeError) this.events.emit('error', fakeError);
         this.state = TopicWriteStreamState.Closing;
@@ -140,12 +140,11 @@ export class TopicWriteStreamWithEvents {
 
     // TODO: Add [dispose] that calls close()
 
-    // TODO: Update token when the auth provider returns a new one
     private async updateToken(ctx: Context) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.updateToken()', ctx);
-        const oldVal = getCredentialsFromMetadata(this.topicService.metadata);
+        const oldVal = getTokenFromMetadata(this.topicService.metadata);
         this.topicService.updateMetadata();
-        const newVal = getCredentialsFromMetadata(this.topicService.metadata);
+        const newVal = getTokenFromMetadata(this.topicService.metadata);
         if (newVal && oldVal !== newVal) await this.updateTokenRequest(ctx, {
             token: newVal
         });

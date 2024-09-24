@@ -6,7 +6,7 @@ export function addCredentialsToMetadata(token: string): grpc.Metadata {
     return metadata;
 }
 
-export function getCredentialsFromMetadata(metadata: grpc.Metadata): string | undefined {
+export function getTokenFromMetadata(metadata: grpc.Metadata): string | undefined {
     const array = metadata.get('x-ydb-auth-ticket');
     return array ? array[0] as string : undefined;
 }

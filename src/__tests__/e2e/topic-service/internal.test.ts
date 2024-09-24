@@ -106,6 +106,7 @@ describe('Topic: General', () => {
         // Now read the message
 
         const reader= await topicService.openReadStreamWithEvents(ctx, {
+            receivingBytesSize: 10_000_000,
             readerName: 'reader1',
             consumer: 'testC',
             topicsReadSettings: [{

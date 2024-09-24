@@ -3,4 +3,4 @@
  */
 
 export const closeSymbol = Symbol('close');
-export const closedForCommitsSymbol = Symbol('openForCommits');
+export const innerStreamClosedSymbol = Symbol('innerStreamClosed');

@@ -6,9 +6,10 @@ import TypedEmitter from "typed-emitter/rxjs";
 import {TopicNodeClient} from "./topic-node-client";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 import {Context} from "../../context";
-import {closedForCommitsSymbol} from "../symbols";
+import {innerStreamClosedSymbol} from "../symbols";
+import {getTokenFromMetadata} from "../../credentials/add-credentials-to-metadata";
 
-export type ReadStreamInitArgs = Ydb.Topic.StreamReadMessage.IInitRequest;
+export type ReadStreamInitArgs = Ydb.Topic.StreamReadMessage.IInitRequest & {receivingBytesSize: number};
 export type ReadStreamInitResult = Readonly<Ydb.Topic.StreamReadMessage.IInitResponse>;
 
 export type ReadStreamReadArgs = Ydb.Topic.StreamReadMessage.IReadRequest;
@@ -51,8 +52,6 @@ export const enum TopicWriteStreamState {
 export class TopicReadStreamWithEvents {
     public events = new EventEmitter() as TypedEmitter<ReadStreamEvents>;
 
-    [closedForCommitsSymbol]?: boolean;
-
     private readBidiStream?: ClientDuplexStream<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>;
 
     constructor(
@@ -61,6 +60,7 @@ export class TopicReadStreamWithEvents {
         private topicService: TopicNodeClient,
         // @ts-ignore
         public readonly logger: Logger) {
+        this.logger.trace('%s: new TopicReadStreamWithEvents()', ctx);
         this.topicService.updateMetadata();
         this.readBidiStream = this.topicService.grpcServiceClient!
             .makeBidiStreamRequest<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>(
@@ -77,6 +77,7 @@ export class TopicReadStreamWithEvents {
         // }) as typeof oldEmit;
 
         this.readBidiStream.on('data', (value) => {
+            this.logger.trace('%s: TopicReadStreamWithEvents.on "data"', ctx);
             try {
                 try {
                     YdbError.checkStatus(value!)
@@ -97,11 +98,12 @@ export class TopicReadStreamWithEvents {
             }
         })
         this.readBidiStream.on('error', (err) => {
+            this.logger.trace('%s: TopicReadStreamWithEvents.on "error"', ctx);
             if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
             this.events.emit('error', err);
         })
         this.readBidiStream.on('end', () => {
-            this[closedForCommitsSymbol] = true;
+            this.logger.trace('%s: TopicReadStreamWithEvents.on "end"', ctx);
             delete this.readBidiStream; // so there will be no way to send more messages
             this.events.emit('end');
         });
@@ -116,54 +118,65 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public readRequest(ctx: Context, args: ReadStreamReadArgs) {
+    public async readRequest(ctx: Context, args: ReadStreamReadArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.readRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
+        await this.updateToken(ctx);
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 readRequest: Ydb.Topic.StreamReadMessage.ReadRequest.create(args),
             }));
     }
 
-    public commitOffsetRequest(ctx: Context, args: ReadStreamCommitOffsetArgs) {
+    public async commitOffsetRequest(ctx: Context, args: ReadStreamCommitOffsetArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.commitOffsetRequest()', ctx);
-        if (!this.readBidiStream) throw new Error('Stream is closed')
+        if (!this.readBidiStream) {
+            const err = new Error('Inner stream where from the message was received is closed. The message needs to be re-processed.');
+            (err as any).cause = innerStreamClosedSymbol;
+            throw err;
+        }
+        await this.updateToken(ctx);
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 commitOffsetRequest: Ydb.Topic.StreamReadMessage.CommitOffsetRequest.create(args),
             }));
     }
 
-    public partitionSessionStatusRequest(ctx: Context, args: ReadStreamPartitionSessionStatusArgs) {
+    public async partitionSessionStatusRequest(ctx: Context, args: ReadStreamPartitionSessionStatusArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.partitionSessionStatusRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
+        await this.updateToken(ctx);
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 partitionSessionStatusRequest: Ydb.Topic.StreamReadMessage.PartitionSessionStatusRequest.create(args),
             }));
     }
 
-    public updateTokenRequest(ctx: Context, args: ReadStreamUpdateTokenArgs) {
+    public async updateTokenRequest(ctx: Context, args: ReadStreamUpdateTokenArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.updateTokenRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
+        await this.updateToken(ctx);
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(args),
             }));
+        // TODO: process response
     }
 
-    public startPartitionSessionResponse(ctx: Context, args: ReadStreamStartPartitionSessionResult) {
+    public async startPartitionSessionResponse(ctx: Context, args: ReadStreamStartPartitionSessionResult) {
         this.logger.trace('%s: TopicReadStreamWithEvents.startPartitionSessionResponse()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
+        await this.updateToken(ctx);
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 startPartitionSessionResponse: Ydb.Topic.StreamReadMessage.StartPartitionSessionResponse.create(args),
             }));
     }
 
-    public stopPartitionSessionResponse(ctx: Context, args: ReadStreamStopPartitionSessionResult) {
+    public async stopPartitionSessionResponse(ctx: Context, args: ReadStreamStopPartitionSessionResult) {
         this.logger.trace('%s: TopicReadStreamWithEvents.stopPartitionSessionResponse()', ctx);
-        if (!this.readBidiStream) throw new Error('Stream is closed')
+        if (!this.readBidiStream) throw new Error('Stream is closed');
+        await this.updateToken(ctx);
         this.readBidiStream.write(
             Ydb.Topic.StreamReadMessage.FromClient.create({
                 stopPartitionSessionResponse: Ydb.Topic.StreamReadMessage.StopPartitionSessionResponse.create(args),
@@ -178,5 +191,13 @@ export class TopicReadStreamWithEvents {
         delete this.readBidiStream; // so there was no way to send more messages
     }
 
-    // TODO: Update token when the auth provider returns a new one
+    private async updateToken(ctx: Context) {
+        this.logger.trace('%s: TopicWriteStreamWithEvents.updateToken()', ctx);
+        const oldVal = getTokenFromMetadata(this.topicService.metadata);
+        this.topicService.updateMetadata();
+        const newVal = getTokenFromMetadata(this.topicService.metadata);
+        if (newVal && oldVal !== newVal) await this.updateTokenRequest(ctx, {
+            token: newVal
+        });
+    }
 }

@@ -62,12 +62,12 @@ describe('topic: read-write', () => {
         // });
 
         const reader = await ydb!.topic.createReader(Context.createNew({
-            timeout: 10_000,
+            // timeout: 10_000,
         }).ctx, {
-            // TODO: Set initial free memory for messages
-            // TODO: Start send readRequest to requests
+            // readerName: 'reader1',
             consumer: 'testConsumer',
-            topicsReadSettings: [{path: 'myTopic'}],
+            topicsReadSettings: [{path: 'testTopic'}],
+            receivingBytesSize: 10_000_000,
         });
 
         // try {
@@ -80,7 +80,7 @@ describe('topic: read-write', () => {
         //     expect(Context.isTimeout(err)).toBe(true);
         // }
 
-        await reader.close();
+        await reader.close(true);
     }, 30_000);
 
     it.todo('retries', /*async () => {
