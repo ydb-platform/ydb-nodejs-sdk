@@ -6,6 +6,7 @@ import TypedEmitter from "typed-emitter/rxjs";
 import {TopicNodeClient} from "./topic-node-client";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 import {Context} from "../../context";
+import {closedForCommitsSymbol} from "../symbols";
 
 export type ReadStreamInitArgs = Ydb.Topic.StreamReadMessage.IInitRequest;
 export type ReadStreamInitResult = Readonly<Ydb.Topic.StreamReadMessage.IInitResponse>;
@@ -50,10 +51,7 @@ export const enum TopicWriteStreamState {
 export class TopicReadStreamWithEvents {
     public events = new EventEmitter() as TypedEmitter<ReadStreamEvents>;
 
-    private _state: TopicWriteStreamState = TopicWriteStreamState.Init;
-    public get state() {
-        return this._state;
-    }
+    [closedForCommitsSymbol]?: boolean;
 
     private readBidiStream?: ClientDuplexStream<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>;
 
@@ -62,7 +60,7 @@ export class TopicReadStreamWithEvents {
         args: ReadStreamInitArgs,
         private topicService: TopicNodeClient,
         // @ts-ignore
-        private logger: Logger) {
+        public readonly logger: Logger) {
         this.topicService.updateMetadata();
         this.readBidiStream = this.topicService.grpcServiceClient!
             .makeBidiStreamRequest<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>(
@@ -72,7 +70,6 @@ export class TopicReadStreamWithEvents {
                 this.topicService.metadata);
 
         //// Uncomment to see all events
-        // const stream = this.readBidiStream;
         // const oldEmit = stream.emit;
         // stream.emit = ((...args) => {
         //     console.info('read event:', args);
@@ -89,7 +86,6 @@ export class TopicReadStreamWithEvents {
                 }
                 if (value!.readResponse) this.events.emit('readResponse', value!.readResponse! as Ydb.Topic.StreamReadMessage.ReadResponse);
                 else if (value!.initResponse) {
-                    this._state = TopicWriteStreamState.Active;
                     this.events.emit('initResponse', value!.initResponse! as Ydb.Topic.StreamReadMessage.InitResponse);
                 } else if (value!.commitOffsetResponse) this.events.emit('commitOffsetResponse', value!.commitOffsetResponse! as Ydb.Topic.StreamReadMessage.CommitOffsetResponse);
                 else if (value!.partitionSessionStatusResponse) this.events.emit('partitionSessionStatusResponse', value!.partitionSessionStatusResponse! as Ydb.Topic.StreamReadMessage.PartitionSessionStatusResponse);
@@ -105,7 +101,7 @@ export class TopicReadStreamWithEvents {
             this.events.emit('error', err);
         })
         this.readBidiStream.on('end', () => {
-            this._state = TopicWriteStreamState.Closed;
+            this[closedForCommitsSymbol] = true;
             delete this.readBidiStream; // so there will be no way to send more messages
             this.events.emit('end');
         });
@@ -177,7 +173,6 @@ export class TopicReadStreamWithEvents {
     public async close(ctx: Context, fakeError?: Error) {
         this.logger.trace('%s: TopicReadStreamWithEvents.close()', ctx);
         if (!this.readBidiStream) return;
-        this._state = TopicWriteStreamState.Closing;
         if (fakeError) this.readBidiStream.emit('error', fakeError);
         this.readBidiStream.end();
         delete this.readBidiStream; // so there was no way to send more messages

@@ -127,7 +127,6 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         await this.endpointsPromise;
         // TODO: Consider taken a node with already opened grpc connection
         const endpoint = this.endpoints[this.currentEndpointIndex++ % this.endpoints.length];
-        this.logger.trace('getEndpointRR result: %o', endpoint);
         return endpoint;
     }
 

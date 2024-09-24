@@ -24,13 +24,10 @@ type messageQueueItem = {
 export class TopicWriter {
     private messageQueue: messageQueueItem[] = [];
     private closingReason?: Error;
+    private closeResolve?: () => void;
     private firstInnerStreamInitResp? = true;
     private getLastSeqNo?: boolean; // true if client to proceed sequence based on last known seqNo
     private lastSeqNo?: Long.Long;
-    private attemptPromise?: Promise<RetryLambdaResult<void>>;
-    // @ts-ignore
-    private attemptPromiseResolve?: (value: (PromiseLike<RetryLambdaResult<void>> | RetryLambdaResult<void>)) => void;
-    // @ts-ignore
     private attemptPromiseReject?: (value: any) => void;
     private innerWriteStream?: TopicWriteStreamWithEvents;
 
@@ -41,7 +38,7 @@ export class TopicWriter {
         private discovery: DiscoveryService,
         private logger: Logger) {
         this.getLastSeqNo = !!writeStreamArgs.getLastSeqNo;
-        logger.trace('%s: new TopicWriter: %o', ctx, writeStreamArgs);
+        logger.trace('%s: new TopicWriter', ctx);
         let onCancelUnsub: CtxUnsubcribe;
         if (ctx.onCancel) onCancelUnsub = ctx.onCancel((cause) => {
             if (this.closingReason) return;
@@ -51,12 +48,11 @@ export class TopicWriter {
         // background process of sending and retrying
         this.retrier.retry<void>(ctx, async (ctx, logger, attemptsCount) => {
             logger.trace('%s: retry %d', ctx, attemptsCount);
-            this.attemptPromise = new Promise<RetryLambdaResult<void>>((resolve, reject) => {
-                this.attemptPromiseResolve = resolve;
+            const attemptPromise = new Promise<RetryLambdaResult<void>>((_, reject) => {
                 this.attemptPromiseReject = reject;
             });
             await this.initInnerStream(ctx);
-            return this.attemptPromise
+            return attemptPromise
                 .catch((err) => {
                     logger.trace('%s: error: %o', ctx, err);
                     if (this.messageQueue.length > 0) {
@@ -76,7 +72,8 @@ export class TopicWriter {
                     this.closeInnerStream(ctx);
                 });
         })
-            .then(() => {
+            .then((cause) => {
+                logger.debug('%s: cause: %o', ctx, cause);
                 logger.debug('%s: closed successfully', ctx);
             })
             .catch((err) => {
@@ -99,9 +96,8 @@ export class TopicWriter {
         }
         delete this.firstInnerStreamInitResp;
         const stream = new TopicWriteStreamWithEvents(ctx, this.writeStreamArgs, await this.discovery.getTopicNodeClient(), this.logger);
-        // TODO: Wrap callback
         stream.events.on('initResponse', (resp) => {
-            this.logger.trace('%s: on initResponse: %o', ctx, resp);
+            this.logger.trace('%s: TopicWriter.on "initResponse"', ctx);
             try {
                 // if received lastSeqNo in mode this.getLastSeqNo === true
                 if (resp.lastSeqNo || resp.lastSeqNo === 0) {
@@ -125,7 +121,7 @@ export class TopicWriter {
             }
         });
         stream.events.on('writeResponse', (resp) => {
-            this.logger.trace('%s: on writeResponse: %o', ctx, resp);
+            this.logger.trace('%s: TopicWriter.on "writeResponse"', ctx);
             try {
                 const {acks, ...shortResp} = resp;
                 resp.acks!.forEach((ack) => {
@@ -154,8 +150,8 @@ export class TopicWriter {
         stream.events.on('end', () => {
             this.logger.trace('%s: TopicWriter.on "end": %o', ctx);
             try {
-                stream.close(ctx);
                 delete this.innerWriteStream;
+                if (this.closeResolve) this.closeResolve();
             } catch (err) {
                 if (!this.attemptPromiseReject) throw err;
                 this.attemptPromiseReject(err)
@@ -164,7 +160,7 @@ export class TopicWriter {
     }
 
     private closeInnerStream(ctx: Context) {
-        this.logger.trace('%s: closeInnerStream()', ctx);
+        this.logger.trace('%s: TopicWriter.closeInnerStream()', ctx);
         this.innerWriteStream?.close(ctx);
         delete this.innerWriteStream;
     }
@@ -173,8 +169,8 @@ export class TopicWriter {
     public close(force?: boolean): void;
     public close(ctx: Context, force?: boolean): void;
     @ensureContext(true)
-    public close(ctx: Context, force?: boolean) {
-        this.logger.trace('%s: close(): %o', ctx, force);
+    public async close(ctx: Context, force?: boolean) {
+        this.logger.trace('%s: TopicWriter.close(force: %o)', ctx, !!force);
         if (this.closingReason) return;
         this.closingReason = new Error('close invoked');
         (this.closingReason as any).cause = closeSymbol;
@@ -182,6 +178,11 @@ export class TopicWriter {
             this.innerWriteStream?.close(ctx);
             this.spreadError(ctx, this.closingReason);
             this.messageQueue.length = 0; // drop queue
+            return;
+        } else {
+            return new Promise<void>((resolve) => {
+                this.closeResolve = resolve;
+            });
         }
     }
 
@@ -190,7 +191,7 @@ export class TopicWriter {
     public sendMessages(ctx: Context, sendMessagesArgs: WriteStreamWriteArgs): Promise<WriteStreamWriteResult>;
     @ensureContext(true)
     public sendMessages(ctx: Context, sendMessagesArgs: WriteStreamWriteArgs): Promise<WriteStreamWriteResult> {
-        this.logger.trace('%s: sendMessages(): %o', ctx, sendMessagesArgs);
+        this.logger.trace('%s: TopicWriter.sendMessages()', ctx);
         if (this.closingReason) return Promise.reject(this.closingReason);
         sendMessagesArgs.messages?.forEach((msg) => {
             if (this.getLastSeqNo) {
@@ -211,7 +212,8 @@ export class TopicWriter {
     /**
      * Notify all incomplete Promise that an error has occurred.
      */
-    private spreadError(_ctx: Context, err: any) {
+    private spreadError(ctx: Context, err: any) {
+        this.logger.trace('%s: TopicWriter.spreadError()', ctx);
         this.messageQueue.forEach((item) => {
             item.reject(err);
         });

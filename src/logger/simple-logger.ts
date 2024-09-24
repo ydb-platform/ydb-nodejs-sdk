@@ -64,16 +64,16 @@ const simpleLogFnBuilder = (level: LogLevel): LogFn => {
             if (typeof args[0] === 'string') {
                 // @ts-ignore
                 // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                consoleOrMock[level](`${prefixStr}%o ${args[0]}`, ...args.splice(1), objOrMsg);
+                consoleOrMock[level === 'trace' ? 'info' : level](`${prefixStr}%o ${args[0]}`, ...args.splice(1), objOrMsg);
             } else {
                 // @ts-ignore
                 // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                consoleOrMock[level](prefix.length > 0 ? `${prefixStr}%o` : '%o', objOrMsg);
+                consoleOrMock[level === 'trace' ? 'info' : level](prefix.length > 0 ? `${prefixStr}%o` : '%o', objOrMsg);
             }
         } else {
             // @ts-ignore
             // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            consoleOrMock[level](`${prefixStr}${objOrMsg}`, ...args);
+            consoleOrMock[level === 'trace' ? 'info' : level](`${prefixStr}${objOrMsg}`, ...args);
         }
     };
 };

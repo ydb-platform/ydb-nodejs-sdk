@@ -12,7 +12,7 @@ describe('Topic: Send messages', () => {
 
     beforeEach(async () => {
         ydb = new YDB({
-            connectionString: `grpc://${ENDPOINT}/?database=${DATABASE}`,
+            connectionString: `${ENDPOINT}/?database=${DATABASE}`,
             authService: new AnonymousAuthService(),
         });
     });

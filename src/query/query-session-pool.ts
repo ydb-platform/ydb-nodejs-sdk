@@ -99,7 +99,7 @@ export class QuerySessionPool extends EventEmitter {
     public async destroy(): Promise<void> {
         this.logger.debug('Destroying query pool...');
         await Promise.all(_.map([...this.sessions], (session: QuerySession) => this.deleteSession(session)));
-        this.logger.debug('Query pool has been destroyed.');
+        this.logger.debug('Query pool has been destroyed');
     }
 
     // TODO: Uncomment after switch to TS 5.3

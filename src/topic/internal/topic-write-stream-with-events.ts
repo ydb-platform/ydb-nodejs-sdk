@@ -72,7 +72,7 @@ export class TopicWriteStreamWithEvents {
         // }) as typeof oldEmit;
 
         this.writeBidiStream.on('data', (value) => {
-            this.logger.trace('%s: event "data": %o', ctx, value);
+            // this.logger.trace('%s: event "data": %o', ctx, value);
             try {
                 YdbError.checkStatus(value!)
             } catch (err) {
@@ -86,12 +86,12 @@ export class TopicWriteStreamWithEvents {
             } else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse!);
         });
         this.writeBidiStream.on('error', (err) => {
-            this.logger.trace('%s: event "error": %s', ctx, err);
+            // this.logger.trace('%s: event "error": %s', ctx, err);
             if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err); // TODO: As far as I understand the only error here might be a transport error
             this.events.emit('error', err);
         });
         this.writeBidiStream.on('end', () => {
-            this.logger.trace('%s: event "end"', ctx);
+            // this.logger.trace('%s: event "end"', ctx);
             this.state = TopicWriteStreamState.Closed;
             this.events.emit('end');
         });
@@ -131,6 +131,7 @@ export class TopicWriteStreamWithEvents {
 
     public close(ctx: Context, fakeError?: Error) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.close()', ctx);
+        console.info(1000, this.state)
         if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
         if (fakeError) this.events.emit('error', fakeError);
         this.state = TopicWriteStreamState.Closing;
@@ -141,6 +142,7 @@ export class TopicWriteStreamWithEvents {
 
     // TODO: Update token when the auth provider returns a new one
     private async updateToken(ctx: Context) {
+        this.logger.trace('%s: TopicWriteStreamWithEvents.updateToken()', ctx);
         const oldVal = getCredentialsFromMetadata(this.topicService.metadata);
         this.topicService.updateMetadata();
         const newVal = getCredentialsFromMetadata(this.topicService.metadata);

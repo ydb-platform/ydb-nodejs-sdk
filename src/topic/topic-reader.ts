@@ -7,26 +7,96 @@ import {RetryLambdaResult, RetryStrategy} from "../retries/retryStrategy";
 import {Context, CtxUnsubcribe, ensureContext} from "../context";
 import {Logger} from "../logger/simple-logger";
 import {closeSymbol} from "./symbols";
+import {google, Ydb} from "ydb-sdk-proto";
+import Long from "long";
+
+type IDataFields = Omit<Ydb.Topic.StreamReadMessage.ReadResponse.IPartitionData, 'batches'>;
+type IBatchFields = Omit<Ydb.Topic.StreamReadMessage.ReadResponse.IBatch, 'messageData'>;
+export class Message implements
+    IDataFields,
+    IBatchFields,
+    Ydb.Topic.StreamReadMessage.ReadResponse.IMessageData
+{
+    // from IPartitionData
+    partitionSessionId?: number | Long | null;
+
+    // from IBatch
+    codec?: number | null;
+    producerId?: string | null;
+    writeSessionMeta?: { [p: string]: string } | null;
+    writtenAt?: google.protobuf.ITimestamp | null;
+
+    // from IMessageData
+    createdAt?: google.protobuf.ITimestamp | null;
+    data?: Uint8Array | null;
+    messageGroupId?: string | null;
+    metadataItems?: Ydb.Topic.IMetadataItem[] | null;
+    offset?: number | Long | null;
+    seqNo?: number | Long | null;
+    uncompressedSize?: number | Long | null;
+
+    constructor(
+        private innerReader: TopicReadStreamWithEvents,
+        partition: Ydb.Topic.StreamReadMessage.ReadResponse.IPartitionData,
+        batch: Ydb.Topic.StreamReadMessage.ReadResponse.IBatch,
+        message: Ydb.Topic.StreamReadMessage.ReadResponse.IMessageData,
+    ) {
+        // TODO: Decode
+        // TODO: Uint8Array to string ???
+        Object.assign(this, partition, batch, message);
+        delete (this as any).batches;
+        delete (this as any).messageData;
+    }
+
+    // @ts-ignore
+    public async commit(): Promise<void>;
+    public async commit(ctx: Context): Promise<void>;
+    @ensureContext(true)
+    public async commit(ctx: Context) {
+        this.innerReader.logger.trace('%s: TopicReader.commit()', ctx);
+        await this.innerReader.commitOffsetRequest(ctx,{
+            commitOffsets: [{
+                partitionSessionId: this.partitionSessionId,
+                offsets: [
+                    {
+                        start: this.offset!,
+                        end: Long.fromValue(this.offset!).add(1),
+                    }
+                ]
+            }],
+        });
+        // TODO: Wait for response
+    }
+};
 
 export class TopicReader {
-    private attemptPromise?: Promise<RetryLambdaResult<void>>;
+    private closeResolve?: () => void;
     private closingReason?: Error;
-    private attemptPromiseResolve?: (value: (PromiseLike<RetryLambdaResult<void>> | RetryLambdaResult<void>)) => void;
     private attemptPromiseReject?: (value: any) => void;
     private queue: ReadStreamReadResult[] = [];
     private waitNextResolve?: (value: unknown) => void;
     private innerReadStream?: TopicReadStreamWithEvents;
 
-    private _messages?: { [Symbol.asyncIterator]: () => AsyncGenerator<ReadStreamReadResult, void> };
+    private _messages?: { [Symbol.asyncIterator]: () => AsyncGenerator<Message, void> };
 
     public get messages() {
-        if (this._messages) {
+        this.innerReadStream!.logger.trace('%s: TopicReader.commit()', this.ctx);
+        if (!this._messages) {
             const self = this;
             this._messages = {
                 async* [Symbol.asyncIterator]() {
                     while (true) {
+                        // TODO: fix empty amount
                         while (self.queue.length > 0) {
-                            yield self.queue.shift() as ReadStreamReadResult; // TODO: Add commit method by prototype
+                            const resp = self.queue.shift() as ReadStreamReadResult; // TODO: Add commit method by prototype
+                            for (const data of resp.partitionData!) {
+                                for (const batch of data.batches!) {
+                                    for (const msg of batch.messageData!) {
+                                        // TODO: Be ready to commit on another stream
+                                        yield new Message(self.innerReadStream!, data, batch, msg);
+                                    }
+                                }
+                            }
                         }
                         if (self.closingReason) {
                             if ((self.closingReason as any).cause !== closeSymbol) throw self.closingReason;
@@ -43,8 +113,8 @@ export class TopicReader {
         return this._messages!;
     }
 
-    constructor(ctx: Context, private readStreamArgs: ReadStreamInitArgs, private retrier: RetryStrategy, private discovery: DiscoveryService, private logger: Logger) {
-        logger.trace('%s: new TopicReader: %o', ctx, readStreamArgs);
+    constructor(private ctx: Context, private readStreamArgs: ReadStreamInitArgs, private retrier: RetryStrategy, private discovery: DiscoveryService, private logger: Logger) {
+        logger.trace('%s: new TopicReader', ctx);
         let onCancelUnsub: CtxUnsubcribe;
         if (ctx.onCancel) onCancelUnsub = ctx.onCancel((cause) => {
             if (this.closingReason) return;
@@ -54,12 +124,11 @@ export class TopicReader {
         // background process of sending and retrying
         this.retrier.retry<void>(ctx, async (ctx, logger, attemptsCount) => {
             logger.trace('%s: retry %d', ctx, attemptsCount);
-            this.attemptPromise = new Promise<RetryLambdaResult<void>>((resolve, reject) => {
-                this.attemptPromiseResolve = resolve;
+            const attemptPromise = new Promise<RetryLambdaResult<void>>((_, reject) => {
                 this.attemptPromiseReject = reject;
             });
             await this.initInnerStream(ctx);
-            return this.attemptPromise
+            return attemptPromise
                 .catch((err) => {
                     logger.trace('%s: error: %o', ctx, err);
                     if (this.waitNextResolve) this.waitNextResolve(undefined);
@@ -88,13 +157,12 @@ export class TopicReader {
     }
 
     private async initInnerStream(ctx: Context) {
-        if (this.innerReadStream) throw new Error('Thetream was not deleted by "end" event')
-
+        this.logger.trace('%s: TopicReader.initInnerStream()', ctx);
         this.innerReadStream = new TopicReadStreamWithEvents(ctx, this.readStreamArgs, await this.discovery.getTopicNodeClient(), this.logger);
 
         // this.innerReadStream.events.on('initResponse', async (resp) => {
         //     try {
-        //         // TODO: seqNo only first time
+        //         // TODO: Impl
         //     } catch (err) {
         //         if (this.attemptPromiseReject) this.attemptPromiseReject(err);
         //         else throw err;
@@ -124,6 +192,8 @@ export class TopicReader {
         // });
 
         // this.innerReadStream.events.on('partitionSessionStatusResponse', async (req) => {
+        //     this.logger.trace('%s: TopicReader.on "partitionSessionStatusResponse"', ctx);
+        //
         //     try  {
         //         // TODO: Method in partition obj
         //     } catch (err) {
@@ -149,6 +219,7 @@ export class TopicReader {
         });
 
         // this.innerReadStream.events.on('stopPartitionSessionRequest', async (req) => {
+        //     this.logger.trace('%s: TopicReader.on "stopPartitionSessionRequest"', ctx);
         //     try  {
         //         // TODO: Remove from partions list
         //     } catch (err) {
@@ -158,8 +229,8 @@ export class TopicReader {
         // });
 
         // this.innerReadStream.events.on('updateTokenResponse', () => {
+        //     this.logger.trace('%s: TopicReader.on "updateTokenResponse"', ctx);
         //     try  {
-        //         if (rev !== this.rev) new Error(`triggered rev ${rev} when stream rev ${this.rev}`);
         //         // TODO: Ensure its ok
         //     } catch (err) {
         //         if (this.attemptPromiseReject) this.attemptPromiseReject(err);
@@ -168,6 +239,7 @@ export class TopicReader {
         // });
 
         this.innerReadStream.events.on('error', (error) => {
+            this.logger.trace('%s: TopicReader.on "error"', ctx);
             try {
                 if (this.attemptPromiseReject) this.attemptPromiseReject(error);
                 else throw error;
@@ -178,9 +250,10 @@ export class TopicReader {
         });
 
         this.innerReadStream.events.on('end', () => {
+            this.logger.trace('%s: TopicReader.on "end"', ctx);
             try {
-                if (this.attemptPromiseResolve) this.attemptPromiseResolve({});
                 delete this.innerReadStream;
+                if (this.closeResolve) this.closeResolve();
             } catch (err) {
                 if (this.attemptPromiseReject) this.attemptPromiseReject(err);
                 else throw err;
@@ -196,18 +269,24 @@ export class TopicReader {
      */
     @ensureContext(true)
     public async close(ctx: Context, force?: boolean) {
+        this.logger.trace('%s: TopicReader.close()', ctx);
         if (!this.closingReason) {
             this.closingReason = new Error('close');
             (this.closingReason as any).cause = closeSymbol;
             if (force) {
                 this.queue.length = 0; // drop rest of messages
                 if (this.waitNextResolve) this.waitNextResolve(undefined);
+            } else {
+                return new Promise<void>((resolve) => {
+                    this.closeResolve = resolve;
+                });
             }
             await this.innerReadStream!.close(ctx);
         }
     }
 
     private async closeInnerStream(ctx: Context) {
+        this.logger.trace('%s: TopicReader.closeInnerStream()', ctx);
         if (this.innerReadStream) {
             await this.innerReadStream.close(ctx);
             delete this.innerReadStream;
