@@ -10,7 +10,7 @@ import EventEmitter from "events";
 import DiscoveryService from "../discovery/discovery-service";
 import {Events, SESSION_KEEPALIVE_PERIOD} from "../constants";
 import _ from "lodash";
-import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
+import {BadSession, Cancelled, SessionBusy, SessionPoolEmpty} from "../errors";
 
 import {TableSession} from "./table-session";
 import {IClientSettings} from "./table-client";
@@ -221,7 +221,7 @@ export class TableSessionPool extends EventEmitter {
             session.release();
             return result;
         } catch (error) {
-            if (error instanceof BadSession || error instanceof SessionBusy) {
+            if (error instanceof BadSession || error instanceof SessionBusy || error instanceof Cancelled) {
                 this.logger.debug('Encountered bad or busy session, re-creating the session');
                 session.emit(SessionEvent.SESSION_BROKEN);
                 session = await this.createSession();
