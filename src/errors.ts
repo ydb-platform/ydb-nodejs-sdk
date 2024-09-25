@@ -107,8 +107,8 @@ export class YdbError extends Error {
             if (!ErrCls) {
                 throw new Error(`Unexpected status code ${status}!`);
             } else {
-                console.info(1000, JSON.stringify(operation, null, 2));
-                throw new ErrCls(`${ErrCls.name} (code ${status}): ${operation.issues}`, operation.issues);
+                console.info(8000, JSON.stringify(operation, null, 2));
+                throw new ErrCls(`${ErrCls.name} (!!code ${status}): ${operation.issues}`, operation.issues);
             }
         }
     }
