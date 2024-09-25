@@ -98,7 +98,7 @@ export class YdbError extends Error {
             throw new MissingStatus('Missing status!');
         }
 
-        // if (operation.issues) operation.issues = YdbError.flatIssues(operation.issues);
+        if (operation.issues) operation.issues = YdbError.flatIssues(operation.issues);
 
         const status = operation.status as unknown as StatusCode;
         if (operation.status && !SUCCESS_CODES.has(status)) {
