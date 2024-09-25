@@ -12,6 +12,7 @@ import {initDriver, destroyDriver} from "../../../utils/test";
 
 if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 
+
 const getTableName = () => `table_alter_${Math.trunc(1000 * Math.random())}`;
 
 describe('Alter table', () => {
