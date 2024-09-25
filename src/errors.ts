@@ -117,6 +117,7 @@ export class YdbError extends Error {
      * Issues from Ydb are returned as a tree with nested issues.  Returns the list of issues as a flat array.
      * The nested issues follow their parents.
      */
+    // @ts-ignore
     private static flatIssues(issues: Ydb.Issue.IIssueMessage[]) {
         const res: Ydb.Issue.IIssueMessage[] = [];
         processLevel(issues);
