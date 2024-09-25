@@ -98,7 +98,7 @@ export class YdbError extends Error {
             throw new MissingStatus('Missing status!');
         }
 
-        if (operation.issues) operation.issues = YdbError.flatIssues(operation.issues);
+        // if (operation.issues) operation.issues = YdbError.flatIssues(operation.issues);
 
         const status = operation.status as unknown as StatusCode;
         if (operation.status && !SUCCESS_CODES.has(status)) {
@@ -107,7 +107,8 @@ export class YdbError extends Error {
             if (!ErrCls) {
                 throw new Error(`Unexpected status code ${status}!`);
             } else {
-                throw new ErrCls(`${ErrCls.name} (code ${status}): ${YdbError.formatIssues(operation.issues)}`, operation.issues);
+                console.info(1000, JSON.stringify(operation, null, 2));
+                throw new ErrCls(`${ErrCls.name} (code ${status}): ${operation.issues}`, operation.issues);
             }
         }
     }
@@ -283,8 +284,6 @@ export class TransportError extends YdbError {
     }
 
     static convertToYdbError(e: Error & GrpcStatusObject): Error {
-
-        console.info(1000, JSON.stringify(e, null, 2));
 
         const ErrCls = TRANSPORT_ERROR_CODES.get(e.code);
 

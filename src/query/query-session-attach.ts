@@ -40,7 +40,6 @@ export async function attach(this:QuerySession, onStreamClosed: () => void) {
                 // delete this[attachStream]; // uncomment when reattach policy will be implemented
                 onStreamClosed();
             } else {
-                console.info(2000, JSON.stringify(err, null, 2));
                 reject(TransportError.convertToYdbError(err));
             }
         });

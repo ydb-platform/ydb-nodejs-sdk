@@ -77,7 +77,6 @@ class RetryStrategy {
             try {
                 return await asyncMethod();
             } catch (e) {
-                console.info(4000, JSON.stringify(e, null, 2));
                 if(TransportError.isMember(e)) e = TransportError.convertToYdbError(e)
                 error = e;
                 if (e instanceof YdbError) {

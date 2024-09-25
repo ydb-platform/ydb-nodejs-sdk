@@ -262,7 +262,6 @@ export function execute(this: QuerySession, opts: {
     responseStream.on('error', (err: Error & GrpcStatusObject) => {
         this.logger.trace('execute(): error: %o', err);
         if (err.code === 1) return; // skip "cancelled" error
-        console.info(3000, JSON.stringify(err, null, 2));
         cancel(TransportError.convertToYdbError(err), true);
     });
 
