@@ -53,6 +53,12 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     }
 
     public toString(): string {
+        // TODO: Find out how to specify a host ip/name for local development
+        if (process.env.YDB_ENDPOINT) {
+            const str = process.env.YDB_ENDPOINT;
+            const n = str.indexOf('://'); // remove grpc(s)?://
+            return n > 0 ? str.substr(n + 3) : str;
+        } // for development only
         let result = this.address;
         if (this.port) {
             result += ':' + this.port;

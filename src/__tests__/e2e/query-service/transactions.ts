@@ -8,8 +8,10 @@ import {getDefaultLogger} from "../../../logger/get-default-logger";
 import {ctxSymbol} from "../../../query/symbols";
 import {Context} from "../../../context";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 const DATABASE = '/local';
-const ENDPOINT = 'grpc://localhost:2136';
+const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 
 describe('Query service transactions', () => {
 

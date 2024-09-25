@@ -11,8 +11,10 @@ import {ctxSymbol} from "../../../query/symbols";
 import StatsMode = Ydb.Query.StatsMode;
 import ExecMode = Ydb.Query.ExecMode;
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 const DATABASE = '/local';
-const ENDPOINT = 'grpc://localhost:2136';
+const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 const TABLE_NAME = 'test_table_1'
 
 describe('Query.execute()', () => {

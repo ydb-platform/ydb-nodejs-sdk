@@ -24,6 +24,8 @@ import {pessimizable} from "../../utils";
 import {destroyDriver, initDriver} from "../../utils/test";
 import {LogLevel, SimpleLogger} from "../../logger/simple-logger";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 const logger = new SimpleLogger({level: LogLevel.error});
 class ErrorThrower {
     constructor(public endpoint: Endpoint) {}
