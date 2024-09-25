@@ -283,6 +283,9 @@ export class TransportError extends YdbError {
     }
 
     static convertToYdbError(e: Error & GrpcStatusObject): Error {
+
+        console.info(1000, JSON.stringify(e, null, 2));
+
         const ErrCls = TRANSPORT_ERROR_CODES.get(e.code);
 
         if (!ErrCls) {
