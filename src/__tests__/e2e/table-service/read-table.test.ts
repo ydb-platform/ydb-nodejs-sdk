@@ -27,7 +27,7 @@ describe('Read table', () => {
     afterAll(async () => await destroyDriver(driver));
 
     it('Test', async () => {
-        await driver.tableClient.withSession(async (session) => {
+        await driver.tableClient.withSessionRetry(async (session) => {
             const expectedRows = [
                 new Row({id: 1, title: 'one'}),
                 new Row({id: 2, title: 'two'}),

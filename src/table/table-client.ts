@@ -31,7 +31,7 @@ export class TableClient extends EventEmitter {
     // @ts-ignore
     public async withSession<T>(callback: (session: TableSession) => Promise<T>, timeout?: number): Promise<T>;
     public async withSession<T>(ctx: Context, callback: (session: TableSession) => Promise<T>, timeout?: number): Promise<T>;
-        @ensureContext(true)
+    @ensureContext(true)
     public async withSession<T>(ctx: Context, callback: (session: TableSession) => Promise<T>, timeout: number = 0): Promise<T> {
         return this.pool.withSession(ctx, callback, timeout);
     }
