@@ -6,8 +6,10 @@ import {TopicService} from "../../../topic";
 import {google, Ydb} from "ydb-sdk-proto";
 import {openReadStreamWithEvents, openWriteStreamWithEvents} from "../../../topic/symbols";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 const DATABASE = '/local';
-const ENDPOINT = 'grpc://localhost:2136';
+const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 
 describe('Topic: General', () => {
     let discoveryService: DiscoveryService;

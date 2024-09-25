@@ -5,6 +5,8 @@ import {TypedData, TypedValues, Types} from '../../../types';
 import NullValue = google.protobuf.NullValue;
 import {initDriver, destroyDriver} from "../../../utils/test";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 describe('Types', () => {
     let driver: Driver;
 

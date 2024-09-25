@@ -3,6 +3,8 @@ import {TypedValues, TypedData} from '../../../types';
 import {ReadTableSettings, TableSession} from "../../../table";
 import {Row, initDriver, destroyDriver, createTable, fillTableWithData, TABLE} from "../../../utils/test";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 async function readTable(session: TableSession, settings: ReadTableSettings): Promise<TypedData[]> {
     const rows: TypedData[] = [];
 

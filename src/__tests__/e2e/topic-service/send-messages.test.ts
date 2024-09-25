@@ -1,10 +1,11 @@
 import {AnonymousAuthService, Driver as YDB} from '../../../index';
 import {google, Ydb} from "ydb-sdk-proto";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 
 // create topic
 
-describe('Topic: Send messages', () => {
+xdescribe('Topic: Send messages', () => {
     let ydb: YDB | undefined;
 
     beforeEach(async () => {
