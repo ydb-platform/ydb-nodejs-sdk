@@ -296,7 +296,7 @@ export class TransportError extends YdbError {
             return new Error(`Unexpected transport error code ${e.code}! Error itself: ${errStr}`);
         } else {
             return new ErrCls(
-                `${ErrCls.name} (code ${ErrCls.status}): ${e.name}: ${e.message}. ${e.details}`,
+                `${ErrCls.name} (code ${ErrCls.status}): ${e.name}: ${e.message}!!! ${e.details}; ${JSON.stringify(e)}`,
             );
         }
     }
