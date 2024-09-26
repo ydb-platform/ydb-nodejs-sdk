@@ -46,7 +46,7 @@ export enum StatusCode {
 
     UNAUTHENTICATED = CLIENT_STATUSES_FIRST + 30, // SDK local
     SESSION_POOL_EMPTY = CLIENT_STATUSES_FIRST + 40, // SDK local
-    RETRIES_EXCEEDED = TRANSPORT_STATUSES_FIRST + 50, // SDK local
+    RETRIES_EXCEEDED = CLIENT_STATUSES_FIRST + 50, // SDK local
 }
 
 /**
@@ -176,7 +176,6 @@ export class Aborted extends YdbError {
 
 export class Unavailable extends YdbError {
     static status = StatusCode.UNAVAILABLE;
-    // TODO: Requires extra logic - see https://github.com/ydb-platform/ydb-go-sdk/blob/e1ba79620427a66c1564a52abe7e1ff10787d442/retry/errors_data_test.go#L197
     public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.Fast, false, true, false);
 }
 
