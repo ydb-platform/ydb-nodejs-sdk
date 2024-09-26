@@ -1,4 +1,4 @@
-import {Backoff, ClientCancelled, SpecificErrorRetryPolicy} from "../errors";
+import {Backoff, RetriesExceeded, SpecificErrorRetryPolicy} from "../errors";
 import {HasLogger} from "../logger/has-logger";
 import {Logger} from "../logger/simple-logger";
 import {RetryParameters} from "./retryParameters";
@@ -45,7 +45,7 @@ export class RetryStrategy implements HasLogger {
                 while (true) {
                     if (maxRetries !== 0 && attemptsCounter >= maxRetries) { // to support the old logic for a while
                         this.logger.debug(tooManyAttempts, attemptsCounter);
-                        throw new ClientCancelled(new Error(`Too many attempts: ${attemptsCounter}`));
+                        throw new RetriesExceeded(new Error(`Too many attempts: ${attemptsCounter}`));
                     }
                     let r: RetryLambdaResult<T>;
                     try {
