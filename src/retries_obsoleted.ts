@@ -2,6 +2,7 @@ import {YdbError, TransportError} from './errors';
 import * as errors from './errors';
 import * as utils from "./utils";
 import {Logger} from "./logger/simple-logger";
+import {Status} from "@grpc/grpc-js/build/src/constants";
 // import {getDefaultLogger} from "./logger/get-default-logger";
 
 export class BackoffSettings {
@@ -77,7 +78,7 @@ class RetryStrategy {
             try {
                 return await asyncMethod();
             } catch (e) {
-                console.info(3000, e);
+                if ((e as any).code === Status.CANCELLED) console.info(3000, e);
                 if(TransportError.isMember(e)) e = TransportError.convertToYdbError(e)
                 error = e;
                 if (e instanceof YdbError) {
