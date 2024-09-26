@@ -2,7 +2,6 @@ import {YdbError, TransportError} from './errors';
 import * as errors from './errors';
 import * as utils from "./utils";
 import {Logger} from "./logger/simple-logger";
-// import {getDefaultLogger} from "./logger/get-default-logger";
 
 export class BackoffSettings {
     /**
@@ -56,6 +55,7 @@ const RETRYABLE_ERRORS_FAST = [
     errors.NotFound,
     errors.TransportUnavailable,
     errors.ClientDeadlineExceeded,
+    errors.ClientCancelled,
 ];
 const RETRYABLE_ERRORS_SLOW = [errors.Overloaded, errors.ClientResourceExhausted];
 
