@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.3.5](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.4...v5.3.5) (2024-09-26)
+
+
+### Bug Fixes
+
+* "Call cancelled" error ([ee14b9f](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/ee14b9f386059a97b41ebe417fab905ea72b18ba))
+
 ## [5.3.4](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.3...v5.3.4) (2024-08-20)
 
 
