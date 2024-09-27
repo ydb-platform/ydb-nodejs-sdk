@@ -21,7 +21,7 @@ import * as grpc from "@grpc/grpc-js";
 import EventEmitter from "events";
 import {ICreateSessionResult, SessionEvent, TableService} from "./table-session-pool";
 import {Endpoint} from "../discovery";
-import {retryable} from "../retries_obsoleted";
+import {retryable, RetryParameters, RetryStrategy} from "../retries_obsoleted";
 import {MissingStatus, MissingValue, SchemeError, YdbError} from "../errors";
 import {ResponseMetadataKeys} from "../constants";
 import {pessimizable} from "../utils";
@@ -171,12 +171,18 @@ export class PrepareQuerySettings extends OperationParamsSettings {
 }
 
 export class ExecuteQuerySettings extends OperationParamsSettings {
-    keepInCache: boolean = false;
+    keepInCache?: boolean = false;
     collectStats?: Ydb.Table.QueryStatsCollection.Mode;
     onResponseMetadata?: (metadata: grpc.Metadata) => void;
+    idempotent: boolean = false;
 
     withKeepInCache(keepInCache: boolean) {
         this.keepInCache = keepInCache;
+        return this;
+    }
+
+    withIdempotent(idempotent: boolean) {
+        this.idempotent = idempotent;
         return this;
     }
 
@@ -257,6 +263,8 @@ export class ExecuteScanQuerySettings {
         return this;
     }
 }
+
+let executeQueryRetryer: RetryStrategy;
 
 export class TableSession extends EventEmitter implements ICreateSessionResult {
     private beingDeleted = false;
@@ -518,7 +526,13 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
         if (keepInCache) {
             request.queryCachePolicy = {keepInCache};
         }
-        const response = await this.api.executeDataQuery(request);
+
+        if (!executeQueryRetryer) executeQueryRetryer = new RetryStrategy('TableSession:executeQuery', new RetryParameters(), this.logger);
+
+        const response =
+            settings?.idempotent
+               ? await executeQueryRetryer.retry(() => this.api.executeDataQuery(request))
+               : await this.api.executeDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response, settings?.onResponseMetadata));
         return ExecuteQueryResult.decode(payload);
     }

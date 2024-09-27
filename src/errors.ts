@@ -315,9 +315,9 @@ export class ClientResourceExhausted extends TransportError {
     public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.Slow, false, true, true);
 }
 
-export class ClientCancelled extends TransportError {
+export class ClientCancelled extends TransportError { // TODO: "Call cancelled" error appears also when connection string is wrong - would be right to avoid such dead lock retrying
     static status = StatusCode.CLIENT_CANCELED;
-    public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.No, false, false, false);
+    public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.Fast, false, true, false);
 }
 
 const TRANSPORT_ERROR_CODES = new Map([

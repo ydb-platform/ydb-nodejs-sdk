@@ -59,7 +59,7 @@ const RETRYABLE_ERRORS_FAST = [
 ];
 const RETRYABLE_ERRORS_SLOW = [errors.Overloaded, errors.ClientResourceExhausted];
 
-class RetryStrategy {
+export class RetryStrategy {
     // private logger: Logger;
     constructor(
         public methodName = 'UnknownClass::UnknownMethod',
