@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.4.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.5...v5.4.0) (2024-09-27)
+
+
+### Features
+
+* add idempotent option to tableClient session.executeQuery ([89df57e](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/89df57eeb39a322af7dfbe84ce25c20549cce70b))
+
 ## [5.3.5](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.4...v5.3.5) (2024-09-26)
 
 
