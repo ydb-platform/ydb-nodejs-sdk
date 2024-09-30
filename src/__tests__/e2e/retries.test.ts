@@ -27,6 +27,8 @@ import {LogLevel, SimpleLogger} from "../../logger/simple-logger";
 
 if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 
+const MAX_RETRIES = 3;
+
 const logger = new SimpleLogger({level: LogLevel.error});
 class ErrorThrower {
     constructor(public endpoint: Endpoint) {}
