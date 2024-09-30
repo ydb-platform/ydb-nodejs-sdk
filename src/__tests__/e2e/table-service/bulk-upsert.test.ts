@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import {Ydb} from 'ydb-sdk-proto';
 import Driver from '../../../driver';
 import {TableSession} from "../../../table";

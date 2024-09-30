@@ -13,13 +13,13 @@ import _ from "lodash";
 import {BadSession, SessionBusy, SessionPoolEmpty} from "../errors";
 
 import {TableSession} from "./table-session";
-import {IClientSettings} from "./table-client";
 import {pessimizable} from "../utils";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, ClientOptions} from "../utils";
 import {IAuthService} from "../credentials/i-auth-service";
 import {Context, ensureContext} from "../context";
 import {Logger} from "../logger/simple-logger";
+import {IClientSettings} from "../client/settings";
 
 export class SessionBuilder extends AuthenticatedService<TableService> {
     public endpoint: Endpoint;

@@ -2,7 +2,7 @@ import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {TimeoutExpired} from './errors';
 import {ISslCredentials, makeSslCredentials} from './utils/ssl-credentials';
 import DiscoveryService from "./discovery/discovery-service";
-import {IClientSettings, TableClient} from "./table";
+import {TableClient} from "./table";
 import {ClientOptions} from "./utils";
 import {IAuthService} from "./credentials/i-auth-service";
 import SchemeService from "./schema/scheme-client";
@@ -11,7 +11,10 @@ import {parseConnectionString} from "./utils/parse-connection-string";
 import {QueryClient} from "./query";
 import {Logger} from "./logger/simple-logger";
 import {getDefaultLogger} from "./logger/get-default-logger";
-import {TopicClient} from "./topic/topic-client";
+import {TopicClient} from "./topic";
+import {RetryStrategy} from "./retries/retryStrategy";
+import {RetryParameters} from "./retries/retryParameters";
+import {IClientSettings} from "./client/settings";
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -27,6 +30,7 @@ export interface IDriverSettings {
     sslCredentials?: ISslCredentials,
     poolSettings?: IPoolSettings;
     clientOptions?: ClientOptions;
+    retrier?: RetryStrategy;
     logger?: Logger;
 }
 
@@ -63,12 +67,16 @@ export default class Driver {
 
         const sslCredentials = makeSslCredentials(endpoint, this.logger, settings.sslCredentials);
 
+        const retrier = settings.retrier || new RetryStrategy(new RetryParameters(), this.logger);
+
         this.discoveryService = new DiscoveryService({
             endpoint,
             database,
+            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
             authService: settings.authService,
             sslCredentials: sslCredentials,
-            discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
+            clientOptions: settings.clientOptions,
+            retrier,
             logger: this.logger,
         });
 
@@ -79,6 +87,7 @@ export default class Driver {
             poolSettings: settings.poolSettings,
             clientOptions: settings.clientOptions,
             discoveryService: this.discoveryService,
+            retrier,
             logger: this.logger,
         };
         this.tableClient = new TableClient(this.clientSettings);

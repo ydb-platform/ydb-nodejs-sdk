@@ -1,71 +1,225 @@
-import {TopicWriteStreamWithEvents, WriteStreamWriteArgs, WriteStreamWriteResult} from "./topic-write-stream-with-events";
+import {
+    TopicWriteStreamWithEvents,
+    WriteStreamInitArgs,
+    WriteStreamWriteArgs, WriteStreamWriteResult
+} from "./internal/topic-write-stream-with-events";
+import {Logger} from "../logger/simple-logger";
+import {RetryLambdaResult, RetryStrategy} from "../retries/retryStrategy";
+import {Context, CtxUnsubcribe, ensureContext} from "../context";
+import Long from "long";
+import {closeSymbol} from "./symbols";
 import {Ydb} from "ydb-sdk-proto";
+import DiscoveryService from "../discovery/discovery-service";
 
-export const enum TopicWriterState {
-    Init,
-    Active,
-    Closing,
-    Closed
-}
+type SendMessagesResult =
+    Omit<Ydb.Topic.StreamWriteMessage.IWriteResponse, 'acks'>
+    & Ydb.Topic.StreamWriteMessage.WriteResponse.IWriteAck;
 
 type messageQueueItem = {
-    opts: WriteStreamWriteArgs,
-    resolve: (value: (Ydb.Topic.StreamWriteMessage.IWriteResponse | PromiseLike<Ydb.Topic.StreamWriteMessage.IWriteResponse>)) => void,
+    args: WriteStreamWriteArgs,
+    resolve: (value: SendMessagesResult | PromiseLike<SendMessagesResult>) => void,
     reject: (reason?: any) => void
-}
-
-// TODO: is there any better terms instea of writer/reader
+};
 
 export class TopicWriter {
-    private _state: TopicWriterState = TopicWriterState.Init;
     private messageQueue: messageQueueItem[] = [];
-    private closingReason?: Error;
+    private reasonForClose?: Error;
+    private closeResolve?: () => void;
+    private firstInnerStreamInitResp? = true;
+    private getLastSeqNo?: boolean; // true if client to proceed sequence based on last known seqNo
+    private lastSeqNo?: Long.Long;
+    private attemptPromiseReject?: (value: any) => void;
+    private innerWriteStream?: TopicWriteStreamWithEvents;
 
-    public get state() {
-        return this._state;
-    }
-
-    constructor(private stream: TopicWriteStreamWithEvents) {
-        this.stream.events.on('writeResponse', (response) => {
-            this.messageQueue.shift()!.resolve(response); // TODO: It's so simple cause retrier is not in place yet
+    constructor(
+        ctx: Context,
+        private writeStreamArgs: WriteStreamInitArgs,
+        private retrier: RetryStrategy,
+        private discovery: DiscoveryService,
+        private logger: Logger) {
+        this.getLastSeqNo = !!writeStreamArgs.getLastSeqNo;
+        logger.trace('%s: new TopicWriter', ctx);
+        let onCancelUnsub: CtxUnsubcribe;
+        if (ctx.onCancel) onCancelUnsub = ctx.onCancel((cause) => {
+            if (this.reasonForClose) return;
+            this.reasonForClose = cause;
+            this.close(ctx, true)
         });
-        this.stream.events.on('error', (err) => {
-            this.closingReason = err;
-            this._state = TopicWriterState.Closing;
-            this.messageQueue.forEach((item) => {
-                item.reject(err);
+        // background process of sending and retrying
+        this.retrier.retry<void>(ctx, async (ctx, logger, attemptsCount) => {
+            logger.trace('%s: retry %d', ctx, attemptsCount);
+            const attemptPromise = new Promise<RetryLambdaResult<void>>((_, reject) => {
+                this.attemptPromiseReject = reject;
             });
-        });
-    }
-
-    public /*async*/ sendMessages(opts: WriteStreamWriteArgs) {
-        if (this._state > TopicWriterState.Active) return Promise.reject(this.closingReason);
-        const res = new Promise<WriteStreamWriteResult>((resolve, reject) => {
-            this.messageQueue.push({
-                opts,
-                resolve,
-                reject
+            await this.initInnerStream(ctx);
+            return attemptPromise
+                .catch((err) => {
+                    logger.trace('%s: retrier error: %o', ctx, err);
+                    if (this.messageQueue.length > 0) {
+                        return {
+                            err: err as Error,
+                            idempotent: true
+                        };
+                    }
+                    return this.reasonForClose && (this.reasonForClose as any).cause === closeSymbol
+                        ? {} // stream is correctly closed
+                        : {
+                            err: err as Error,
+                            idempotent: true
+                        };
+                })
+                .finally(() => {
+                    this.closeInnerStream(ctx);
+                });
+        })
+            .then(() => {
+                logger.debug('%s: closed successfully', ctx);
             })
-        });
-        this.stream.writeRequest(opts);
-        return res;
+            .catch((err) => {
+                logger.debug('%s: failed: %o', ctx, err);
+                this.reasonForClose = err;
+                this.spreadError(ctx, err);
+            })
+            .finally(() => {
+                if (onCancelUnsub) onCancelUnsub();
+            });
+
     }
 
-    public /*async*/ close() {
-        // set state
-        if (this._state > TopicWriterState.Active) return Promise.reject(this.closingReason);
-        this.closingReason = new Error('Closing'); // to have the call stack
-        this._state = TopicWriterState.Closing;
+    private async initInnerStream(ctx: Context) {
+        this.logger.trace('%s: initInnerStream()', ctx);
+        // fill lastSeqNo only when the first internal stream is opened
+        if (!this.firstInnerStreamInitResp && this.writeStreamArgs.getLastSeqNo) {
+            this.writeStreamArgs = Object.assign(this.writeStreamArgs);
+            delete this.writeStreamArgs.getLastSeqNo;
+        }
+        delete this.firstInnerStreamInitResp;
+        const stream = new TopicWriteStreamWithEvents(ctx, this.writeStreamArgs, await this.discovery.getTopicNodeClient(), this.logger);
+        stream.events.on('initResponse', (resp) => {
+            this.logger.trace('%s: TopicWriter.on "initResponse"', ctx);
+            try {
+                // if received lastSeqNo in mode this.getLastSeqNo === true
+                if (resp.lastSeqNo || resp.lastSeqNo === 0) {
+                    this.lastSeqNo = Long.fromValue(resp.lastSeqNo);
+                    // if there are messages that were queued before lastSeqNo was received
+                    this.messageQueue.forEach((queueItem) => {
+                        queueItem.args.messages!.forEach((message) => {
+                            message.seqNo = this.lastSeqNo = this.lastSeqNo!.add(1);
+                        });
+                    });
+                }
+                // TODO: Send messages as one batch.  Add new messages to the batch if there are some
+                this.messageQueue.forEach((queueItem) => {
+                    stream.writeRequest(ctx, queueItem.args);
+                });
+                // this.innerWriteStream variable is defined only after the stream is initialized
+                this.innerWriteStream = stream;
+            } catch (err) {
+                if (!this.attemptPromiseReject) throw err;
+                this.attemptPromiseReject(err)
+            }
+        });
+        stream.events.on('writeResponse', (resp) => {
+            this.logger.trace('%s: TopicWriter.on "writeResponse"', ctx);
+            try {
+                const {acks, ...shortResp} = resp;
+                resp.acks!.forEach((ack) => {
+                    const queueItem = this.messageQueue.shift();
+                    // TODO: Check seqNo is expected and queueItem is not an undefined
+                    queueItem?.resolve({
+                        ...shortResp,
+                        ...ack,
+                    });
+                });
+            } catch (err) {
+                if (!this.attemptPromiseReject) throw err;
+                this.attemptPromiseReject(err)
+            } finally {
+                if (this.closeResolve) this.closeResolve();
+            }
+        });
+        stream.events.on('error', (err) => {
+            this.logger.trace('%s: TopicWriter.on "error": %o', ctx, err);
+            this.reasonForClose = err;
+            this.spreadError(ctx, err);
+            try {
+                delete this.innerWriteStream;
+                if (this.closeResolve) this.closeResolve();
+            } catch (err) {
+                if (!this.attemptPromiseReject) throw err;
+                this.attemptPromiseReject(err)
+            }
+        });
+        stream.events.on('end', (cause: Error) => {
+            this.logger.trace('%s: TopicWriter.on "end": %o', ctx, cause);
+            try {
+                delete this.innerWriteStream;
+                if (this.closeResolve) this.closeResolve();
+            } catch (err) {
+                if (!this.attemptPromiseReject) throw err;
+                this.attemptPromiseReject(err)
+            }
+        });
+    }
 
-        // return a Promise that ensures that inner stream has received all acks and being closed
-        let closeResolve: (value: unknown) => void;
-        const closePromise = new Promise((resolve) => {
-            closeResolve = resolve;
+    private closeInnerStream(ctx: Context) {
+        this.logger.trace('%s: TopicWriter.closeInnerStream()', ctx);
+        this.innerWriteStream?.close(ctx);
+        delete this.innerWriteStream;
+    }
+
+    // @ts-ignore
+    public close(force?: boolean): void;
+    public close(ctx: Context, force?: boolean): void;
+    @ensureContext(true)
+    public async close(ctx: Context, force?: boolean) {
+        this.logger.trace('%s: TopicWriter.close(force: %o)', ctx, !!force);
+        if (this.reasonForClose) return;
+        this.reasonForClose = new Error('close invoked');
+        (this.reasonForClose as any).cause = closeSymbol;
+        if (force || this.messageQueue.length === 0) {
+            this.innerWriteStream?.close(ctx);
+            this.spreadError(ctx, this.reasonForClose);
+            this.messageQueue.length = 0; // drop queue
+            return;
+        } else {
+            return new Promise<void>((resolve) => {
+                this.closeResolve = resolve;
+            });
+        }
+    }
+
+    // @ts-ignore
+    public sendMessages(sendMessagesArgs: WriteStreamWriteArgs): Promise<WriteStreamWriteResult>;
+    public sendMessages(ctx: Context, sendMessagesArgs: WriteStreamWriteArgs): Promise<WriteStreamWriteResult>;
+    @ensureContext(true)
+    public sendMessages(ctx: Context, sendMessagesArgs: WriteStreamWriteArgs): Promise<WriteStreamWriteResult> {
+        this.logger.trace('%s: TopicWriter.sendMessages()', ctx);
+        if (this.reasonForClose) return Promise.reject(this.reasonForClose);
+        sendMessagesArgs.messages?.forEach((msg) => {
+            if (this.getLastSeqNo) {
+                if (!(msg.seqNo === undefined || msg.seqNo === null)) throw new Error('Writer was created with getLastSeqNo = true, explicit seqNo not supported');
+                if (this.lastSeqNo) { // else wait till initResponse will be received
+                    msg.seqNo = this.lastSeqNo = this.lastSeqNo.add(1);
+                }
+            } else {
+                if (msg.seqNo === undefined || msg.seqNo === null) throw new Error('Writer was created without getLastSeqNo = true, explicit seqNo must be provided');
+            }
         });
-        this.stream.events.once('end', () => {
-            this._state = TopicWriterState.Closed;
-            closeResolve(undefined);
+        return new Promise<WriteStreamWriteResult>((resolve, reject) => {
+            this.messageQueue.push({args: sendMessagesArgs, resolve, reject})
+            this.innerWriteStream?.writeRequest(ctx, sendMessagesArgs);
         });
-        return closePromise;
+    }
+
+    /**
+     * Notify all incomplete Promise that an error has occurred.
+     */
+    private spreadError(ctx: Context, err: any) {
+        this.logger.trace('%s: TopicWriter.spreadError()', ctx);
+        this.messageQueue.forEach((item) => {
+            item.reject(err);
+        });
+        this.messageQueue.length = 0;
     }
 }

@@ -1,6 +1,6 @@
 /**
- * Symbols of methods internal to the package
+ * Symbols of methods/properties internal to the package
  */
 
-export const openWriteStreamWithEvents = Symbol('openWriteStreamWithEvents');
-export const openReadStreamWithEvents = Symbol('openReadStreamWithEvents');
+export const closeSymbol = Symbol('close');
+export const innerStreamClosedSymbol = Symbol('innerStreamClosed');

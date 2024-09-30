@@ -1,10 +1,5 @@
 import EventEmitter from "events";
 import {QuerySessionPool, SessionCallback, SessionEvent} from "./query-session-pool";
-import {ISslCredentials} from "../utils/ssl-credentials";
-import {IPoolSettings} from "../driver";
-import DiscoveryService from "../discovery/discovery-service";
-import {ClientOptions} from "../utils";
-import {IAuthService} from "../credentials/i-auth-service";
 import {Ydb} from "ydb-sdk-proto";
 import {AUTO_TX} from "../table";
 import {
@@ -20,18 +15,8 @@ import {Context} from "../context";
 import {ensureContext} from "../context";
 import {Logger} from "../logger/simple-logger";
 import {RetryStrategy} from "../retries/retryStrategy";
-import {RetryParameters} from "../retries/retryParameters";
 import {RetryPolicySymbol} from "../retries/symbols";
-
-export interface IQueryClientSettings {
-    database: string;
-    authService: IAuthService;
-    sslCredentials?: ISslCredentials;
-    poolSettings?: IPoolSettings;
-    clientOptions?: ClientOptions;
-    discoveryService: DiscoveryService;
-    logger: Logger;
-}
+import {IClientSettings} from "../client/settings";
 
 interface IDoOpts<T> {
     ctx?: Context,
@@ -54,11 +39,11 @@ export class QueryClient extends EventEmitter {
     private logger: Logger;
     private retrier: RetryStrategy;
 
-    constructor(settings: IQueryClientSettings) {
+    constructor(settings: IClientSettings) {
         super();
-        this.logger = settings.logger;
+        this.retrier = settings.retrier;
         this.pool = new QuerySessionPool(settings);
-        this.retrier = new RetryStrategy(new RetryParameters({maxRetries: 0}), this.logger);
+        this.logger = settings.logger;
     }
 
     public async destroy() {

@@ -1,6 +1,10 @@
 import {DateTime} from "luxon";
 import {Ydb} from "ydb-sdk-proto";
 import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
+import * as grpc from "@grpc/grpc-js";
+import {ISslCredentials} from "../utils/ssl-credentials";
+import {ClientOptions} from "../utils";
+import {TopicNodeClient} from "../topic/internal/topic-node-client";
 
 export type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
 
@@ -13,6 +17,8 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     static PESSIMIZATION_WEAR_OFF_PERIOD = 60 * 1000; //  TODO: wher off once new list of nodes was received
 
     private pessimizedAt: DateTime | null;
+
+    public topicNodeClient?: TopicNodeClient;
 
     static fromString(host: string) {
         const match = Endpoint.HOST_RE.exec(host);
@@ -36,12 +42,12 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
     /*
      Update current endpoint with the attributes taken from another endpoint.
      */
-    public update(_endpoint: Endpoint) { // TODO: ???
+    public update(_endpoint: Endpoint) {
         // do nothing for now
         return this;
     }
 
-    public get pessimized(): boolean {
+    public get pessimized(): boolean { // TODO: Depessimize on next endpoint update
         if (this.pessimizedAt) {
             return DateTime.utc().diff(this.pessimizedAt).valueOf() < Endpoint.PESSIMIZATION_WEAR_OFF_PERIOD;
         }
@@ -64,5 +70,24 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
             result += ':' + this.port;
         }
         return result;
+    }
+
+    private grpcClient?: grpc.Client;
+
+    // TODO: Close the client if it was not used for a time
+    public getGrpcClient(sslCredentials?: ISslCredentials, clientOptions?: ClientOptions) {
+        if (!this.grpcClient) {
+            this.grpcClient = sslCredentials ?
+                new grpc.Client(this.toString(), grpc.credentials.createSsl(sslCredentials.rootCertificates, sslCredentials.clientCertChain, sslCredentials.clientPrivateKey), clientOptions) :
+                new grpc.Client(this.toString(), grpc.credentials.createInsecure(), clientOptions);
+        }
+        return this.grpcClient;
+    }
+
+    public closeGrpcClient() {
+        if (this.grpcClient) {
+            this.grpcClient.close();
+            delete this.grpcClient;
+        }
     }
 }

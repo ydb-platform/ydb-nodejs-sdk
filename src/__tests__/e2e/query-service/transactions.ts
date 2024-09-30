@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import DiscoveryService from "../../../discovery/discovery-service";
 import {ENDPOINT_DISCOVERY_PERIOD} from "../../../constants";
@@ -7,6 +8,8 @@ import * as symbols from "../../../query/symbols";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
 import {ctxSymbol} from "../../../query/symbols";
 import {Context} from "../../../context";
+import {RetryParameters} from "../../../retries/retryParameters";
+import {RetryStrategy} from "../../../retries/retryStrategy";
 
 if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 
@@ -122,8 +125,8 @@ describe('Query service transactions', () => {
             database: DATABASE,
             authService,
             discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
+            retrier: new RetryStrategy(new RetryParameters(), logger),
             logger,
-
         });
 
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);

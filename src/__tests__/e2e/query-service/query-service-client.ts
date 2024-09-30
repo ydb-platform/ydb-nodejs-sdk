@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import Driver from "../../../driver";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import * as errors from "../../../errors";

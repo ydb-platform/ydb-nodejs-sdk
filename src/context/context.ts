@@ -185,15 +185,15 @@ export class Context {
     /**
      * True if the reason for canceling is timeout.
      */
-    public static isTimeout(cause: Error) {
-        return (cause as any).cause === timeoutSymbol;
+    public static isTimeout(cause: any) {
+        return typeof cause === 'object' && cause !== null && cause.cause === timeoutSymbol;
     }
 
     /**
      * True if the reason for canceling is call of ctx.Done() .
      */
-    public static isDone(cause: Error) {
-        return (cause as any).cause === doneSymbol;
+    public static isDone(cause: any) {
+        return typeof cause === 'object' && cause !== null && cause.cause === doneSymbol;
     }
 
     public toString() {

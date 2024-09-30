@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import DiscoveryService from "../../../discovery/discovery-service";
 import {QuerySession, RowType} from "../../../query";
 import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
@@ -8,6 +9,8 @@ import {Ydb} from "ydb-sdk-proto";
 import {getDefaultLogger} from "../../../logger/get-default-logger";
 import {ctxSymbol} from "../../../query/symbols";
 import {Context} from "../../../context";
+import {RetryParameters} from "../../../retries/retryParameters";
+import {RetryStrategy} from "../../../retries/retryStrategy";
 
 if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 
@@ -155,6 +158,7 @@ describe('Rows conversion', () => {
             database: DATABASE,
             authService,
             discoveryPeriod: ENDPOINT_DISCOVERY_PERIOD,
+            retrier: new RetryStrategy(new RetryParameters(), logger),
             logger,
         });
 

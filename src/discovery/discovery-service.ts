@@ -5,24 +5,15 @@ import EventEmitter from "events";
 import _ from "lodash";
 import {Events} from "../constants";
 import {retryable} from "../retries_obsoleted";
-import {ISslCredentials} from "../utils/ssl-credentials";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, withTimeout} from "../utils";
-import {IAuthService} from "../credentials/i-auth-service";
 import {Logger} from "../logger/simple-logger";
+import {TopicNodeClient} from "../topic/internal/topic-node-client";
+import {IDiscoverySettings} from "../client/settings";
 
 type FailureDiscoveryHandler = (err: Error) => void;
 const noOp = () => {
 };
-
-interface IDiscoverySettings {
-    endpoint: string;
-    database: string;
-    discoveryPeriod: number;
-    authService: IAuthService;
-    logger: Logger;
-    sslCredentials?: ISslCredentials,
-}
 
 export default class DiscoveryService extends AuthenticatedService<DiscoveryServiceAPI> {
     private readonly database: string;
@@ -37,8 +28,6 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
     private events: EventEmitter = new EventEmitter();
     private logger: Logger;
 
-    // private selfLocation: string = '';
-
     constructor(settings: IDiscoverySettings) {
         super(
             settings.endpoint,
@@ -47,6 +36,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
             DiscoveryServiceAPI,
             settings.authService,
             settings.sslCredentials,
+            settings.clientOptions
         );
         this.database = settings.database;
         this.discoveryPeriod = settings.discoveryPeriod;
@@ -92,7 +82,10 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         this.logger.trace('Endpoints to remove %o', endpointsToRemove);
         this.logger.trace('Endpoints to update %o', endpointsToUpdate);
 
-        _.forEach(endpointsToRemove, (endpoint) => this.emit(Events.ENDPOINT_REMOVED, endpoint));
+        _.forEach(endpointsToRemove, (endpoint) => {
+            endpoint.closeGrpcClient();
+            this.emit(Events.ENDPOINT_REMOVED, endpoint);
+        });
 
         for (const current of endpointsToUpdate) {
             const newEndpoint =
@@ -134,7 +127,6 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
         await this.endpointsPromise;
         // TODO: Consider taken a node with already opened grpc connection
         const endpoint = this.endpoints[this.currentEndpointIndex++ % this.endpoints.length];
-        this.logger.trace('getEndpointRR result: %o', endpoint);
         return endpoint;
     }
 
@@ -149,5 +141,13 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
             this.logger.debug('All endpoints are pessimized, returning original endpoint');
         }
         return endpoint;
+    }
+
+    public async getTopicNodeClient() {
+        const endpoint = await this.getEndpoint();
+        if (!endpoint.topicNodeClient) {
+            endpoint.topicNodeClient = new TopicNodeClient(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
+        }
+        return endpoint.topicNodeClient;
     }
 }

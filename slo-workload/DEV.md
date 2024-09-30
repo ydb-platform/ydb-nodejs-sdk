@@ -30,15 +30,15 @@ in the _slo-workload_ folder
 
 ### Create the test database
 
-  `npx ts-node src/index.ts create grpcs://localhost:2135 local`
+  `npx ts-node src/index.ts.md create grpcs://localhost:2135 local`
 
 ### Run the test - for 5 min
 
-  `npx ts-node src/index.ts run grpcs://localhost:2135 local`
+  `npx ts-node src/index.ts.md run grpcs://localhost:2135 local`
 
 ### Clean the baseClean the base
 
-  `npx ts-node src/index.ts cleanup grpcs://localhost:2135 local`
+  `npx ts-node src/index.ts.md cleanup grpcs://localhost:2135 local`
 
 ### What to do in case of problems
 

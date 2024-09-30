@@ -1,3 +1,4 @@
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import Driver from '../../../driver';
 import {TypedValues, TypedData} from '../../../types';
 import {ReadTableSettings, TableSession} from "../../../table";
