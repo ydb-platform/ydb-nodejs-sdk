@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.5.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.4.0...v5.5.0) (2024-09-30)
+
+
+### Features
+
+* add retrier to the topics ([03fc7f9](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/03fc7f907fba641f3aaaf752875220de0e607e6b))
+
 ## [5.4.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.5...v5.4.0) (2024-09-27)
 
 
