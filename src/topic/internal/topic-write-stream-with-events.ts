@@ -7,6 +7,7 @@ import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 import {TransportError, YdbError} from "../../errors";
 import {Context} from "../../context";
 import {getTokenFromMetadata} from "../../credentials/add-credentials-to-metadata";
+import {StatusObject} from "@grpc/grpc-js";
 
 export type WriteStreamInitArgs =
     // Currently, messageGroupId must always equal producerId. This enforced in the TopicNodeClient.openWriteStreamWithEvents method
@@ -32,18 +33,11 @@ export type WriteStreamEvents = {
     writeResponse: (resp: WriteStreamWriteResult) => void,
     updateTokenResponse: (resp: WriteStreamUpdateTokenResult) => void,
     error: (err: Error) => void,
-    end: () => void,
-}
-
-export const enum TopicWriteStreamState {
-    Init,
-    Active,
-    Closing,
-    Closed
+    end: (cause: Error) => void,
 }
 
 export class TopicWriteStreamWithEvents {
-    private state: TopicWriteStreamState = TopicWriteStreamState.Init;
+    private reasonForClose?: Error;
     private writeBidiStream: ClientDuplexStream<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>;
 
     public readonly events = new EventEmitter() as TypedEmitter<WriteStreamEvents>;
@@ -81,19 +75,17 @@ export class TopicWriteStreamWithEvents {
             }
             if (value!.writeResponse) this.events.emit('writeResponse', value!.writeResponse!);
             else if (value!.initResponse) {
-                this.state = TopicWriteStreamState.Active;
                 this.events.emit('initResponse', value!.initResponse!);
             } else if (value!.updateTokenResponse) this.events.emit('updateTokenResponse', value!.updateTokenResponse!);
         });
         this.writeBidiStream.on('error', (err) => {
             this.logger.trace('%s: TopicWriteStreamWithEvents.on "error"', ctx);
-            if (TransportError.isMember(err)) err = TransportError.convertToYdbError(err);
-            this.events.emit('error', err);
-        });
-        this.writeBidiStream.on('end', () => {
-            this.logger.trace('%s: TopicWriteStreamWithEvents.on "end"', ctx);
-            this.state = TopicWriteStreamState.Closed;
-            this.events.emit('end');
+            if (this.reasonForClose) {
+                this.events.emit('end', this.reasonForClose);
+            } else {
+                err = TransportError.convertToYdbError(err as (Error & StatusObject));
+                this.events.emit('error', err);
+            }
         });
         this.initRequest(ctx, args);
     };
@@ -112,7 +104,7 @@ export class TopicWriteStreamWithEvents {
 
     public async writeRequest(ctx: Context, args: WriteStreamWriteArgs) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.writeRequest()', ctx);
-        if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
+        if (this.reasonForClose) throw new Error('Stream is not open');
         await this.updateToken(ctx);
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
@@ -122,7 +114,7 @@ export class TopicWriteStreamWithEvents {
 
     public async updateTokenRequest(ctx: Context, args: WriteStreamUpdateTokenArgs) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.updateTokenRequest()', ctx);
-        if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
+        if (this.reasonForClose) throw new Error('Stream is not open');
         await this.updateToken(ctx);
         this.writeBidiStream.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
@@ -130,12 +122,11 @@ export class TopicWriteStreamWithEvents {
             }));
     }
 
-    public close(ctx: Context, fakeError?: Error) {
+    public close(ctx: Context, error?: Error) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.close()', ctx);
-        if (this.state > TopicWriteStreamState.Active) throw new Error('Stream is not active');
-        if (fakeError) this.events.emit('error', fakeError);
-        this.state = TopicWriteStreamState.Closing;
-        this.writeBidiStream.end();
+        if (this.reasonForClose) throw new Error('Stream is not open');
+        this.reasonForClose = error;
+        this.writeBidiStream!.cancel();
     }
 
     // TODO: Add [dispose] that calls close()

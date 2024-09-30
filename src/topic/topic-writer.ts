@@ -23,7 +23,7 @@ type messageQueueItem = {
 
 export class TopicWriter {
     private messageQueue: messageQueueItem[] = [];
-    private closingReason?: Error;
+    private reasonForClose?: Error;
     private closeResolve?: () => void;
     private firstInnerStreamInitResp? = true;
     private getLastSeqNo?: boolean; // true if client to proceed sequence based on last known seqNo
@@ -41,8 +41,8 @@ export class TopicWriter {
         logger.trace('%s: new TopicWriter', ctx);
         let onCancelUnsub: CtxUnsubcribe;
         if (ctx.onCancel) onCancelUnsub = ctx.onCancel((cause) => {
-            if (this.closingReason) return;
-            this.closingReason = cause;
+            if (this.reasonForClose) return;
+            this.reasonForClose = cause;
             this.close(ctx, true)
         });
         // background process of sending and retrying
@@ -61,7 +61,7 @@ export class TopicWriter {
                             idempotent: true
                         };
                     }
-                    return this.closingReason && (this.closingReason as any).cause === closeSymbol
+                    return this.reasonForClose && (this.reasonForClose as any).cause === closeSymbol
                         ? {} // stream is correctly closed
                         : {
                             err: err as Error,
@@ -77,7 +77,7 @@ export class TopicWriter {
             })
             .catch((err) => {
                 logger.debug('%s: failed: %o', ctx, err);
-                this.closingReason = err;
+                this.reasonForClose = err;
                 this.spreadError(ctx, err);
             })
             .finally(() => {
@@ -134,15 +134,24 @@ export class TopicWriter {
             } catch (err) {
                 if (!this.attemptPromiseReject) throw err;
                 this.attemptPromiseReject(err)
+            } finally {
+                if (this.closeResolve) this.closeResolve();
             }
         });
         stream.events.on('error', (err) => {
             this.logger.trace('%s: TopicWriter.on "error": %o', ctx, err);
-            this.closingReason = err;
+            this.reasonForClose = err;
             this.spreadError(ctx, err);
+            try {
+                delete this.innerWriteStream;
+                if (this.closeResolve) this.closeResolve();
+            } catch (err) {
+                if (!this.attemptPromiseReject) throw err;
+                this.attemptPromiseReject(err)
+            }
         });
-        stream.events.on('end', () => {
-            this.logger.trace('%s: TopicWriter.on "end"', ctx);
+        stream.events.on('end', (cause: Error) => {
+            this.logger.trace('%s: TopicWriter.on "end": %o', ctx, cause);
             try {
                 delete this.innerWriteStream;
                 if (this.closeResolve) this.closeResolve();
@@ -165,12 +174,12 @@ export class TopicWriter {
     @ensureContext(true)
     public async close(ctx: Context, force?: boolean) {
         this.logger.trace('%s: TopicWriter.close(force: %o)', ctx, !!force);
-        if (this.closingReason) return;
-        this.closingReason = new Error('close invoked');
-        (this.closingReason as any).cause = closeSymbol;
+        if (this.reasonForClose) return;
+        this.reasonForClose = new Error('close invoked');
+        (this.reasonForClose as any).cause = closeSymbol;
         if (force || this.messageQueue.length === 0) {
             this.innerWriteStream?.close(ctx);
-            this.spreadError(ctx, this.closingReason);
+            this.spreadError(ctx, this.reasonForClose);
             this.messageQueue.length = 0; // drop queue
             return;
         } else {
@@ -186,7 +195,7 @@ export class TopicWriter {
     @ensureContext(true)
     public sendMessages(ctx: Context, sendMessagesArgs: WriteStreamWriteArgs): Promise<WriteStreamWriteResult> {
         this.logger.trace('%s: TopicWriter.sendMessages()', ctx);
-        if (this.closingReason) return Promise.reject(this.closingReason);
+        if (this.reasonForClose) return Promise.reject(this.reasonForClose);
         sendMessagesArgs.messages?.forEach((msg) => {
             if (this.getLastSeqNo) {
                 if (!(msg.seqNo === undefined || msg.seqNo === null)) throw new Error('Writer was created with getLastSeqNo = true, explicit seqNo not supported');

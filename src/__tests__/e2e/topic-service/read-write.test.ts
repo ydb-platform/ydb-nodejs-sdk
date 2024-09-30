@@ -67,7 +67,7 @@ describe('topic: read-write', () => {
             // readerName: 'reader1',
             consumer: 'testConsumer',
             topicsReadSettings: [{path: 'testTopic'}],
-            receivingBytesSize: 10_000_000,
+            receiveBufferSizeInBytes: 10_000_000,
         });
 
         // try {

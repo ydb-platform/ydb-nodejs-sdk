@@ -54,7 +54,7 @@ export class Message implements
     }
 
     isCommitPossible() {
-        return !!(this.innerReader as any).readBidiStream;
+        return !!(this.innerReader as any).reasonForClose;
     }
 
     // @ts-ignore
@@ -68,8 +68,8 @@ export class Message implements
                 partitionSessionId: this.partitionSessionId,
                 offsets: [
                     {
-                        start: this.offset!,
-                        end: Long.fromValue(this.offset!).add(1),
+                        start: this.offset || 0,
+                        end: Long.fromValue(this.offset || 0).add(1),
                     }
                 ]
             }],
@@ -80,7 +80,7 @@ export class Message implements
 
 export class TopicReader {
     private closeResolve?: () => void;
-    private closingReason?: Error;
+    private reasonForClose?: Error;
     private attemptPromiseReject?: (value: any) => void;
     private queue: Message[] = [];
     private waitNextResolve?: (value: unknown) => void;
@@ -89,18 +89,17 @@ export class TopicReader {
     private _messages?: { [Symbol.asyncIterator]: () => AsyncGenerator<Message, void> };
 
     public get messages() {
-        this.innerReadStream!.logger.trace('%s: TopicReader.commit()', this.ctx);
+        this.logger.trace('%s: TopicReader.messages', this.ctx);
         if (!this._messages) {
             const self = this;
             this._messages = {
                 async* [Symbol.asyncIterator]() {
                     while (true) {
-                        // TODO: fix empty amount
+                        if (self.reasonForClose) {
+                            if ((self.reasonForClose as any).cause !== closeSymbol) throw self.reasonForClose;
+                            return;
+                        }
                         while (self.queue.length > 0) {
-                            if (self.closingReason) {
-                                if ((self.closingReason as any).cause !== closeSymbol) throw self.closingReason;
-                                return;
-                            }
                             const msg = self.queue.shift()!
                             if (msg.bytesSize) { // end of single response block
                                 self.innerReadStream!.readRequest(self.ctx, {
@@ -122,11 +121,11 @@ export class TopicReader {
 
     constructor(private ctx: Context, private readStreamArgs: ReadStreamInitArgs, private retrier: RetryStrategy, private discovery: DiscoveryService, private logger: Logger) {
         logger.trace('%s: new TopicReader', ctx);
-        if (!(readStreamArgs.receivingBytesSize > 0)) throw new Error('receivingBufferSize must be greater than 0');
+        if (!(readStreamArgs.receiveBufferSizeInBytes > 0)) throw new Error('receivingBufferSize must be greater than 0');
         let onCancelUnsub: CtxUnsubcribe;
         if (ctx.onCancel) onCancelUnsub = ctx.onCancel((cause) => {
-            if (this.closingReason) return;
-            this.closingReason = cause;
+            if (this.reasonForClose) return;
+            this.reasonForClose = cause;
             this.close(ctx, true)
         });
         // background process of sending and retrying
@@ -140,7 +139,7 @@ export class TopicReader {
                 .catch((err) => {
                     logger.trace('%s: retrier error: %o', ctx, err);
                     if (this.waitNextResolve) this.waitNextResolve(undefined);
-                    return this.closingReason && (this.closingReason as any).cause === closeSymbol
+                    return this.reasonForClose && (this.reasonForClose as any).cause === closeSymbol
                         ? {} // stream is correctly closed
                         : {
                             err: err as Error,
@@ -156,7 +155,7 @@ export class TopicReader {
             })
             .catch((err) => {
                 logger.debug('%s: failed: %o', ctx, err);
-                this.closingReason = err;
+                this.reasonForClose = err;
                 if (this.waitNextResolve) this.waitNextResolve(undefined);
             })
             .finally(() => {
@@ -260,8 +259,8 @@ export class TopicReader {
             else throw error;
         });
 
-        this.innerReadStream.events.on('end', () => {
-            this.logger.trace('%s: TopicReader.on "end"', ctx);
+        this.innerReadStream.events.on('end', (reason) => {
+            this.logger.trace('%s: TopicReader.on "end": %o', ctx, reason);
             try {
                 this.queue.length = 0; // drp messages queue
                 delete this.innerReadStream;
@@ -273,7 +272,7 @@ export class TopicReader {
         });
 
         this.innerReadStream.readRequest(ctx,{
-            bytesSize: this.readStreamArgs.receivingBytesSize,
+            bytesSize: this.readStreamArgs.receiveBufferSizeInBytes,
         });
     }
 
@@ -286,9 +285,9 @@ export class TopicReader {
     @ensureContext(true)
     public async close(ctx: Context, force?: boolean) {
         this.logger.trace('%s: TopicReader.close()', ctx);
-        if (!this.closingReason) {
-            this.closingReason = new Error('close');
-            (this.closingReason as any).cause = closeSymbol;
+        if (!this.reasonForClose) {
+            this.reasonForClose = new Error('close');
+            (this.reasonForClose as any).cause = closeSymbol;
             if (force) {
                 this.queue.length = 0; // drop rest of messages
                 if (this.waitNextResolve) this.waitNextResolve(undefined);

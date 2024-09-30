@@ -32,9 +32,10 @@ export const setMockConsole = (mockConsole: Console = console) => {
     consoleOrMock = mockConsole;
 };
 
-const silentLogFn = () => {};
+const silentLogFn = () => {
+};
 
-const simpleLogFnBuilder = (level: LogLevel): LogFn => {
+const simpleLogFnBuilder = (level: LogLevel, detailedStackTrace: boolean): LogFn => {
     const LEVEL = level.toUpperCase();
 
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -64,16 +65,16 @@ const simpleLogFnBuilder = (level: LogLevel): LogFn => {
             if (typeof args[0] === 'string') {
                 // @ts-ignore
                 // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                consoleOrMock[level === 'trace' ? 'info' : level](`${prefixStr}%o ${args[0]}`, ...args.splice(1), objOrMsg);
+                consoleOrMock[detailedStackTrace ? level : 'info'](`${prefixStr}%o ${args[0]}`, ...args.splice(1), objOrMsg);
             } else {
                 // @ts-ignore
                 // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                consoleOrMock[level === 'trace' ? 'info' : level](prefix.length > 0 ? `${prefixStr}%o` : '%o', objOrMsg);
+                consoleOrMock[detailedStackTrace ? level : 'info'](prefix.length > 0 ? `${prefixStr}%o` : '%o', objOrMsg);
             }
         } else {
             // @ts-ignore
             // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            consoleOrMock[level === 'trace' ? 'info' : level](`${prefixStr}${objOrMsg}`, ...args);
+            consoleOrMock[detailedStackTrace ? level : 'info'](`${prefixStr}${objOrMsg}`, ...args);
         }
     };
 };
@@ -138,10 +139,15 @@ export class SimpleLogger implements Logger {
         // @ts-ignore
         level = envLevel === undefined ? level ?? LogLevel[DEFAULT_LEVEL] : LogLevel[envLevel];
 
+        const detailedTraceStack =
+            ['1', 'true'].indexOf(typeof process.env.YDB_DETAILED_TRACE_STACK === 'string'
+                ? process.env.YDB_DETAILED_TRACE_STACK.toLowerCase()
+                : 'false') !== -1;
+
         for (const lvl of Object.values<LogLevel>(LogLevel)) {
             if (lvl === LogLevel.none) continue;
             // @ts-ignore
-            this[lvl] = simpleLogFnBuilder(lvl);
+            this[lvl] = simpleLogFnBuilder(lvl, detailedTraceStack);
             if (lvl === level) break;
         }
     }
@@ -149,5 +155,6 @@ export class SimpleLogger implements Logger {
 
 export interface LogFn {
     (obj: unknown, msg?: string, ...args: unknown[]): void;
+
     (msg: string, ...args: unknown[]): void;
 }
