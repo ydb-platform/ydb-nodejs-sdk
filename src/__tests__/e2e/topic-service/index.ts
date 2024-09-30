@@ -1,8 +1,8 @@
-import {Driver as YDB} from '../../src';
-import {AnonymousAuthService} from "../../src/credentials/anonymous-auth-service";
+import {Driver as YDB} from '../../../index';
+import {AnonymousAuthService} from "../../../credentials/anonymous-auth-service";
 import {Ydb} from "ydb-sdk-proto";
-import {SimpleLogger} from "../../src/logger/simple-logger";
-import {Context} from "../../src/context";
+import {SimpleLogger} from "../../../logger/simple-logger";
+import {Context} from "../../../context";
 
 require('dotenv').config();
 
