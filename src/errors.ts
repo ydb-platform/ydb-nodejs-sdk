@@ -46,6 +46,7 @@ export enum StatusCode {
 
     UNAUTHENTICATED = CLIENT_STATUSES_FIRST + 30, // SDK local
     SESSION_POOL_EMPTY = CLIENT_STATUSES_FIRST + 40, // SDK local
+    RETRIES_EXCEEDED = CLIENT_STATUSES_FIRST + 50, // SDK local
 }
 
 /**
@@ -314,15 +315,20 @@ export class ClientResourceExhausted extends TransportError {
     public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.Slow, false, true, true);
 }
 
+export class ClientCancelled extends TransportError { // TODO: "Call cancelled" error appears also when connection string is wrong - would be right to avoid such dead lock retrying
+    static status = StatusCode.CLIENT_CANCELED;
+    public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.Fast, false, true, false);
+}
+
 const TRANSPORT_ERROR_CODES = new Map([
-    [GrpcStatus.CANCELLED, Cancelled],
+    [GrpcStatus.CANCELLED, ClientCancelled],
     [GrpcStatus.UNAVAILABLE, TransportUnavailable],
     [GrpcStatus.DEADLINE_EXCEEDED, ClientDeadlineExceeded],
     [GrpcStatus.RESOURCE_EXHAUSTED, ClientResourceExhausted]
 ]);
 
-export class ClientCancelled extends YdbError {
-    static status = StatusCode.CLIENT_CANCELED;
+export class RetriesExceeded extends YdbError {
+    static status = StatusCode.RETRIES_EXCEEDED;
     public readonly [RetryPolicySymbol] =  retryPolicy(Backoff.No, false, false, false);
 
     constructor(public readonly cause: Error) {

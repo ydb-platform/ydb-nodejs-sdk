@@ -4,6 +4,8 @@ import {TypedData} from '../../../types';
 import {TableSession} from "../../../table";
 import {Row, initDriver, destroyDriver, createTable, fillTableWithData, TABLE} from "../../../utils/test";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 async function executeScanQuery(session: TableSession): Promise<TypedData[]> {
     const query = `SELECT * FROM ${TABLE};`;
 

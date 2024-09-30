@@ -6,6 +6,8 @@ import {Ydb} from 'ydb-sdk-proto';
 import {Column, DescribeTableSettings, TableDescription} from "../../../table";
 import {initDriver, destroyDriver} from "../../../utils/test";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 const getTableName = () => `table_create_${Math.trunc(100000 * Math.random())}`;
 
 describe('Create table', () => {

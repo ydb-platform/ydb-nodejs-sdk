@@ -5,6 +5,8 @@ import {withRetries} from '../../../retries_obsoleted';
 import {Column, TableSession, TableDescription} from "../../../table";
 import {initDriver, destroyDriver, TABLE} from "../../../utils/test";
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 async function createTable(session: TableSession) {
     await session.dropTable(TABLE);
     await session.createTable(

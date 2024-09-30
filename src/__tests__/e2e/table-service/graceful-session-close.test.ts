@@ -7,6 +7,8 @@ import {initDriver, destroyDriver} from "../../../utils/test";
 
 const SHUTDOWN_URL = process.env.YDB_SHUTDOWN_URL || 'http://localhost:8765/actors/kqp_proxy?force_shutdown=all';
 
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
+
 describe('Graceful session close', () => {
 
     // TODO: Fix and enable test nce issue  will be resolved https://github.com/ydb-platform/ydb/issues/2981

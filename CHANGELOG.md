@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.4.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.5...v5.4.0) (2024-09-27)
+
+
+### Features
+
+* add idempotent option to tableClient session.executeQuery ([89df57e](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/89df57eeb39a322af7dfbe84ce25c20549cce70b))
+
+## [5.3.5](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.4...v5.3.5) (2024-09-26)
+
+
+### Bug Fixes
+
+* "Call cancelled" error ([ee14b9f](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/ee14b9f386059a97b41ebe417fab905ea72b18ba))
+
+## [5.3.4](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.3...v5.3.4) (2024-08-20)
+
+
+### Bug Fixes
+
+* initial version of topic service client ([2db4f42](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/2db4f424f8da9f8751a7efe847eb8cad3a02633d))
+
 ## [5.3.3](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.3.2...v5.3.3) (2024-07-04)
 
 

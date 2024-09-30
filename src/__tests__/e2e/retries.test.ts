@@ -1,4 +1,3 @@
-if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 import Driver from '../../driver';
 import {
     Aborted,
@@ -26,7 +25,7 @@ import {pessimizable} from "../../utils";
 import {destroyDriver, initDriver} from "../../utils/test";
 import {LogLevel, SimpleLogger} from "../../logger/simple-logger";
 
-const MAX_RETRIES = 3;
+if (process.env.TEST_ENVIRONMENT === 'dev') require('dotenv').config();
 
 const logger = new SimpleLogger({level: LogLevel.error});
 class ErrorThrower {
