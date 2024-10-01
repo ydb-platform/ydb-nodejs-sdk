@@ -38,10 +38,6 @@ async function main() {
     });
     const promises = [];
     for (let n = 0; n < 4; n++) {
-        // ((writer as any).innerWriteStream as TopicWriteStreamWithEvents).close(Context.createNew().ctx, new Error('Fake error'));
-
-        // await sleep(3000); // TODO:
-
         promises.push(writer.sendMessages({
             codec: Ydb.Topic.Codec.CODEC_RAW,
             messages: [{
@@ -60,9 +56,14 @@ async function main() {
         consumer: 'demo',
         receiveBufferSizeInBytes: 10_000_000,
     });
-    for await (const message of reader.messages) {
-        console.info(`Message: ${message.data!.toString()}`);
-        await message.commit();
+    try {
+        for await (const message of reader.messages) {
+            console.info(`Message: ${message.data!.toString()}`);
+            await message.commit();
+        }
+    } catch (err) {
+        if (!Context.isTimeout(err)) throw err;
+        console.info('Timeout is over!');
     }
     await reader.close(); // graceful close() - complete when all messages are commited
 }
