@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.5.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.5.0...v5.5.1) (2024-10-03)
+
+
+### Bug Fixes
+
+* add explicit dependency on protobufjs package ([031d2be](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/031d2bed5939e67e2c75e1cd47209a2bffbb2627))
+
 ## [5.5.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.4.0...v5.5.0) (2024-09-30)
 
 
