@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "tsc ./**/*.ts",
+    "build": "tsc",
     "basic-v1": "node build/basic-example-v1/index.js",
     "basic-v22": "node build/basic-example-v2/index.js",
     "auth:access-token-credentials": "node build/auth/access-token-credentials/index.js",
