@@ -85,6 +85,7 @@ export class TopicReader {
     private queue: Message[] = [];
     private waitNextResolve?: (value: unknown) => void;
     private innerReadStream?: TopicReadStreamWithEvents;
+    private closePromise?: Promise<void>;
 
     private _messages?: { [Symbol.asyncIterator]: () => AsyncGenerator<Message, void> };
 
@@ -123,9 +124,8 @@ export class TopicReader {
         logger.trace('%s: new TopicReader', ctx);
         if (!(readStreamArgs.receiveBufferSizeInBytes > 0)) throw new Error('receivingBufferSize must be greater than 0');
         let onCancelUnsub: CtxUnsubcribe;
-        if (ctx.onCancel) onCancelUnsub = ctx.onCancel((cause) => {
+        if (ctx.onCancel) onCancelUnsub = ctx.onCancel((_cause) => {
             if (this.reasonForClose) return;
-            this.reasonForClose = cause;
             this.close(ctx, true)
         });
         // background process of sending and retrying
@@ -292,12 +292,13 @@ export class TopicReader {
                 this.queue.length = 0; // drop rest of messages
                 if (this.waitNextResolve) this.waitNextResolve(undefined);
             } else {
-                return new Promise<void>((resolve) => {
+                this.closePromise = new Promise<void>((resolve) => {
                     this.closeResolve = resolve;
                 });
             }
             await this.innerReadStream!.close(ctx);
         }
+        return this.closePromise;
     }
 
     private async closeInnerStream(ctx: Context) {

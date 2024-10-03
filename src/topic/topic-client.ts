@@ -20,11 +20,8 @@ import {asIdempotentRetryableLambda} from "../retries/asIdempotentRetryableLambd
 export class TopicClient extends EventEmitter { // TODO: Reconsider why I need to have EventEmitter in any client
     private service?: TopicNodeClient;
 
-    // private retrier: RetryStrategy;
-
     constructor(private settings: IClientSettings) {
         super();
-        // this.retrier = new RetryStrategy(new RetryParameters({maxRetries: 0}), this.settings.logger);
     }
 
     /**
