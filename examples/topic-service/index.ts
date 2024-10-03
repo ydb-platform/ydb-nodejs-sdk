@@ -18,9 +18,6 @@ async function main() {
     });
     if (!(await db.ready(3000))) throw new Error('Driver is not ready!');
     try {
-
-        db.topic;
-
         await db.topic.createTopic({
             path: 'demoTopic',
             consumers: [{
