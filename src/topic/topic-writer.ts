@@ -79,6 +79,7 @@ export class TopicWriter {
                 logger.debug('%s: failed: %o', ctx, err);
                 this.reasonForClose = err;
                 this.spreadError(ctx, err);
+                this.close();
             })
             .finally(() => {
                 if (onCancelUnsub) onCancelUnsub();

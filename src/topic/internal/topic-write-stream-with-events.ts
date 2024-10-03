@@ -86,6 +86,7 @@ export class TopicWriteStreamWithEvents {
                 err = TransportError.convertToYdbError(err as (Error & StatusObject));
                 this.events.emit('error', err);
             }
+            this.writeBidiStream.end();
         });
         this.initRequest(ctx, args);
     };
@@ -127,6 +128,7 @@ export class TopicWriteStreamWithEvents {
         if (this.reasonForClose) throw new Error('Stream is not open');
         this.reasonForClose = error;
         this.writeBidiStream!.cancel();
+        this.writeBidiStream!.end();
     }
 
     // TODO: Add [dispose] that calls close()

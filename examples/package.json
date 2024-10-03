@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "basic-v1": "node build/basic-example-v1/index.js",
+    "basic-v22": "node build/basic-example-v2/index.js",
     "auth:access-token-credentials": "node build/auth/access-token-credentials/index.js",
     "auth:anonymous-credentials": "node build/auth/anonymous-credentials/index.js",
     "auth:environ": "node build/auth/environ/index.js",
@@ -17,7 +18,8 @@
     "scheme-client": "node build/scheme-client/index.js",
     "type-utils": "node build/type-utils/index.js",
     "url-shortener": "node build/url-shortener/index.js",
-    "query-service": "node build/query-service/index.js"
+    "query-service": "node build/query-service/index.js",
+    "topic-service": "node build/topic-service/index.js"
   },
   "dependencies": {
     "@yandex-cloud/nodejs-sdk": "^2.4.1",
@@ -29,7 +31,7 @@
   "devDependencies": {
     "@types/crc": "^3.4.0",
     "@types/express": "~4.17.6",
-    "@types/node": "10.17.20",
+    "@types/node": "^12.20.55",
     "@types/yargs": "^15.0.9",
     "crc": "^3.8.0",
     "express": "^4.17.1",
