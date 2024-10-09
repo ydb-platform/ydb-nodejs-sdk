@@ -3,45 +3,45 @@ import {Ydb} from "ydb-sdk-proto";
 import EventEmitter from "events";
 import {TransportError, YdbError} from "../../errors";
 import TypedEmitter from "typed-emitter/rxjs";
-import {TopicNodeClient} from "./topic-node-client";
+import {InternalTopicClient} from "./internal-topic-client";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
 import {Context} from "../../context";
 import {innerStreamClosedSymbol} from "../symbols";
 import {getTokenFromMetadata} from "../../credentials/add-credentials-to-metadata";
 import {StatusObject} from "@grpc/grpc-js";
 
-export type ReadStreamInitArgs =
+export type InternalReadStreamInitArgs =
     Ydb.Topic.StreamReadMessage.IInitRequest
     & Required<Pick<Ydb.Topic.StreamReadMessage.IInitRequest, 'topicsReadSettings'>>
     & {receiveBufferSizeInBytes: number};
-export type ReadStreamInitResult = Readonly<Ydb.Topic.StreamReadMessage.IInitResponse>;
+export type InternalReadStreamInitResult = Readonly<Ydb.Topic.StreamReadMessage.IInitResponse>;
 
-export type ReadStreamReadArgs = Ydb.Topic.StreamReadMessage.IReadRequest;
-export type ReadStreamReadResult = Readonly<Ydb.Topic.StreamReadMessage.IReadResponse>;
+export type InternalReadStreamReadArgs = Ydb.Topic.StreamReadMessage.IReadRequest;
+export type InternalReadStreamReadResult = Readonly<Ydb.Topic.StreamReadMessage.IReadResponse>;
 
-export type ReadStreamCommitOffsetArgs = Ydb.Topic.StreamReadMessage.ICommitOffsetRequest;
-export type ReadStreamCommitOffsetResult = Readonly<Ydb.Topic.StreamReadMessage.ICommitOffsetResponse>;
+export type InternalReadStreamCommitOffsetArgs = Ydb.Topic.StreamReadMessage.ICommitOffsetRequest;
+export type InternalReadStreamCommitOffsetResult = Readonly<Ydb.Topic.StreamReadMessage.ICommitOffsetResponse>;
 
-export type ReadStreamPartitionSessionStatusArgs = Ydb.Topic.StreamReadMessage.IPartitionSessionStatusRequest;
-export type ReadStreamPartitionSessionStatusResult = Readonly<Ydb.Topic.StreamReadMessage.IPartitionSessionStatusResponse>;
+export type InternalReadStreamPartitionSessionStatusArgs = Ydb.Topic.StreamReadMessage.IPartitionSessionStatusRequest;
+export type InternalReadStreamPartitionSessionStatusResult = Readonly<Ydb.Topic.StreamReadMessage.IPartitionSessionStatusResponse>;
 
-export type ReadStreamUpdateTokenArgs = Ydb.Topic.IUpdateTokenRequest;
-export type ReadStreamUpdateTokenResult = Readonly<Ydb.Topic.IUpdateTokenResponse>;
+export type InternalReadStreamUpdateTokenArgs = Ydb.Topic.IUpdateTokenRequest;
+export type InternalReadStreamUpdateTokenResult = Readonly<Ydb.Topic.IUpdateTokenResponse>;
 
-export type ReadStreamStartPartitionSessionArgs = Ydb.Topic.StreamReadMessage.IStartPartitionSessionRequest;
-export type ReadStreamStartPartitionSessionResult = Readonly<Ydb.Topic.StreamReadMessage.IStartPartitionSessionResponse>;
+export type InternalReadStreamStartPartitionSessionArgs = Ydb.Topic.StreamReadMessage.IStartPartitionSessionRequest;
+export type InternalReadStreamStartPartitionSessionResult = Readonly<Ydb.Topic.StreamReadMessage.IStartPartitionSessionResponse>;
 
-export type ReadStreamStopPartitionSessionArgs = Ydb.Topic.StreamReadMessage.IStopPartitionSessionRequest;
-export type ReadStreamStopPartitionSessionResult = Readonly<Ydb.Topic.StreamReadMessage.IStopPartitionSessionResponse>;
+export type InternalReadStreamStopPartitionSessionArgs = Ydb.Topic.StreamReadMessage.IStopPartitionSessionRequest;
+export type InternalReadStreamStopPartitionSessionResult = Readonly<Ydb.Topic.StreamReadMessage.IStopPartitionSessionResponse>;
 
 export type ReadStreamEvents = {
-    initResponse: (resp: ReadStreamInitResult) => void,
-    readResponse: (resp: ReadStreamReadResult) => void,
-    commitOffsetResponse: (resp: ReadStreamCommitOffsetResult) => void,
-    partitionSessionStatusResponse: (resp: ReadStreamPartitionSessionStatusResult) => void,
-    startPartitionSessionRequest: (resp: ReadStreamStartPartitionSessionArgs) => void,
-    stopPartitionSessionRequest: (resp: ReadStreamStopPartitionSessionArgs) => void,
-    updateTokenResponse: (resp: ReadStreamUpdateTokenResult) => void,
+    initResponse: (resp: InternalReadStreamInitResult) => void,
+    readResponse: (resp: InternalReadStreamReadResult) => void,
+    commitOffsetResponse: (resp: InternalReadStreamCommitOffsetResult) => void,
+    partitionSessionStatusResponse: (resp: InternalReadStreamPartitionSessionStatusResult) => void,
+    startPartitionSessionRequest: (resp: InternalReadStreamStartPartitionSessionArgs) => void,
+    stopPartitionSessionRequest: (resp: InternalReadStreamStopPartitionSessionArgs) => void,
+    updateTokenResponse: (resp: InternalReadStreamUpdateTokenResult) => void,
     error: (err: Error) => void,
     end: (cause: Error) => void,
 }
@@ -53,7 +53,7 @@ export const enum TopicWriteStreamState {
     Closed
 }
 
-export class TopicReadStreamWithEvents {
+export class InternalTopicReadStream {
     public events = new EventEmitter() as TypedEmitter<ReadStreamEvents>;
 
     private reasonForClose?: Error;
@@ -61,8 +61,8 @@ export class TopicReadStreamWithEvents {
 
     constructor(
         ctx: Context,
-        args: ReadStreamInitArgs,
-        private topicService: TopicNodeClient,
+        args: InternalReadStreamInitArgs,
+        private topicService: InternalTopicClient,
         // @ts-ignore
         public readonly logger: Logger) {
         this.logger.trace('%s: new TopicReadStreamWithEvents()', ctx);
@@ -113,7 +113,7 @@ export class TopicReadStreamWithEvents {
         this.initRequest(ctx, args);
     };
 
-    private initRequest(ctx: Context, args: ReadStreamInitArgs) {
+    private initRequest(ctx: Context, args: InternalReadStreamInitArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.initRequest()', ctx);
         this.readBidiStream!.write(
             Ydb.Topic.StreamReadMessage.create({
@@ -121,7 +121,7 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public async readRequest(ctx: Context, args: ReadStreamReadArgs) {
+    public async readRequest(ctx: Context, args: InternalReadStreamReadArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.readRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         await this.updateToken(ctx);
@@ -131,7 +131,7 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public async commitOffsetRequest(ctx: Context, args: ReadStreamCommitOffsetArgs) {
+    public async commitOffsetRequest(ctx: Context, args: InternalReadStreamCommitOffsetArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.commitOffsetRequest()', ctx);
         if (!this.readBidiStream) {
             const err = new Error('Inner stream where from the message was received is closed. The message needs to be re-processed.');
@@ -145,7 +145,7 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public async partitionSessionStatusRequest(ctx: Context, args: ReadStreamPartitionSessionStatusArgs) {
+    public async partitionSessionStatusRequest(ctx: Context, args: InternalReadStreamPartitionSessionStatusArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.partitionSessionStatusRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         await this.updateToken(ctx);
@@ -155,7 +155,7 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public async updateTokenRequest(ctx: Context, args: ReadStreamUpdateTokenArgs) {
+    public async updateTokenRequest(ctx: Context, args: InternalReadStreamUpdateTokenArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.updateTokenRequest()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         await this.updateToken(ctx);
@@ -166,7 +166,7 @@ export class TopicReadStreamWithEvents {
         // TODO: process response
     }
 
-    public async startPartitionSessionResponse(ctx: Context, args: ReadStreamStartPartitionSessionResult) {
+    public async startPartitionSessionResponse(ctx: Context, args: InternalReadStreamStartPartitionSessionResult) {
         this.logger.trace('%s: TopicReadStreamWithEvents.startPartitionSessionResponse()', ctx);
         if (!this.readBidiStream) throw new Error('Stream is closed')
         await this.updateToken(ctx);
@@ -176,7 +176,7 @@ export class TopicReadStreamWithEvents {
             }));
     }
 
-    public async stopPartitionSessionResponse(ctx: Context, args: ReadStreamStopPartitionSessionResult) {
+    public async stopPartitionSessionResponse(ctx: Context, args: InternalReadStreamStopPartitionSessionResult) {
         this.logger.trace('%s: TopicReadStreamWithEvents.stopPartitionSessionResponse()', ctx);
         if (this.reasonForClose) throw new Error('Stream is not open');
         await this.updateToken(ctx);

@@ -1,7 +1,7 @@
 import {
-    ReadStreamInitArgs,
-    TopicReadStreamWithEvents
-} from "./internal/topic-read-stream-with-events";
+    InternalReadStreamInitArgs,
+    InternalTopicReadStream
+} from "./internal/internal-topic-read-stream";
 import DiscoveryService from "../discovery/discovery-service";
 import {RetryLambdaResult, RetryStrategy} from "../retries/retryStrategy";
 import {Context, CtxUnsubcribe, ensureContext} from "../context";
@@ -41,7 +41,7 @@ export class Message implements
     uncompressedSize?: number | Long | null;
 
     constructor(
-        private innerReader: TopicReadStreamWithEvents,
+        private innerReader: InternalTopicReadStream,
         partition: Ydb.Topic.StreamReadMessage.ReadResponse.IPartitionData,
         batch: Ydb.Topic.StreamReadMessage.ReadResponse.IBatch,
         message: Ydb.Topic.StreamReadMessage.ReadResponse.IMessageData,
@@ -84,7 +84,7 @@ export class TopicReader {
     private attemptPromiseReject?: (value: any) => void;
     private queue: Message[] = [];
     private waitNextResolve?: (value: unknown) => void;
-    private innerReadStream?: TopicReadStreamWithEvents;
+    private innerReadStream?: InternalTopicReadStream;
     private closePromise?: Promise<void>;
 
     private _messages?: { [Symbol.asyncIterator]: () => AsyncGenerator<Message, void> };
@@ -120,7 +120,7 @@ export class TopicReader {
         return this._messages!;
     }
 
-    constructor(private ctx: Context, private readStreamArgs: ReadStreamInitArgs, private retrier: RetryStrategy, private discovery: DiscoveryService, private logger: Logger) {
+    constructor(private ctx: Context, private readStreamArgs: InternalReadStreamInitArgs, private retrier: RetryStrategy, private discovery: DiscoveryService, private logger: Logger) {
         logger.trace('%s: new TopicReader', ctx);
         if (!(readStreamArgs.receiveBufferSizeInBytes > 0)) throw new Error('receivingBufferSize must be greater than 0');
         let onCancelUnsub: CtxUnsubcribe;
@@ -165,7 +165,7 @@ export class TopicReader {
 
     private async initInnerStream(ctx: Context) {
         this.logger.trace('%s: TopicReader.initInnerStream()', ctx);
-        this.innerReadStream = new TopicReadStreamWithEvents(ctx, this.readStreamArgs, await this.discovery.getTopicNodeClient(), this.logger);
+        this.innerReadStream = new InternalTopicReadStream(ctx, this.readStreamArgs, await this.discovery.getTopicNodeClient(), this.logger);
 
         // this.innerReadStream.events.on('initResponse', async (resp) => {
         //     try {

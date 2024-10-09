@@ -8,7 +8,7 @@ import {retryable} from "../retries_obsoleted";
 import {getOperationPayload} from "../utils/process-ydb-operation-result";
 import {AuthenticatedService, withTimeout} from "../utils";
 import {Logger} from "../logger/simple-logger";
-import {TopicNodeClient} from "../topic/internal/topic-node-client";
+import {InternalTopicClient} from "../topic/internal/internal-topic-client";
 import {IDiscoverySettings} from "../client/settings";
 
 type FailureDiscoveryHandler = (err: Error) => void;
@@ -146,7 +146,7 @@ export default class DiscoveryService extends AuthenticatedService<DiscoveryServ
     public async getTopicNodeClient() {
         const endpoint = await this.getEndpoint();
         if (!endpoint.topicNodeClient) {
-            endpoint.topicNodeClient = new TopicNodeClient(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
+            endpoint.topicNodeClient = new InternalTopicClient(endpoint, this.database, this.authService, this.logger, this.sslCredentials, this.clientOptions);
         }
         return endpoint.topicNodeClient;
     }

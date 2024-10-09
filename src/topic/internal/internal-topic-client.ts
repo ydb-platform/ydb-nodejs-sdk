@@ -6,8 +6,8 @@ import ICreateTopicResult = Ydb.Topic.ICreateTopicResult;
 import {AuthenticatedService, ClientOptions} from "../../utils";
 import {IAuthService} from "../../credentials/i-auth-service";
 import {ISslCredentials} from "../../utils/ssl-credentials";
-import {TopicWriteStreamWithEvents, WriteStreamInitArgs} from "./topic-write-stream-with-events";
-import {TopicReadStreamWithEvents, ReadStreamInitArgs} from "./topic-read-stream-with-events";
+import {InternalTopicWriteStream, InternalWriteStreamInitArgs} from "./internal-topic-write-stream";
+import {InternalTopicReadStream, InternalReadStreamInitArgs} from "./internal-topic-read-stream";
 import {v4 as uuid_v4} from 'uuid';
 import {Context} from "../../context";
 import * as grpc from "@grpc/grpc-js";
@@ -15,38 +15,37 @@ import * as grpc from "@grpc/grpc-js";
 // TODO: Retries with the same options
 // TODO: Batches
 // TODO: Zip compression
-// TODO: Regular auth token update
 // TODO: Graceful shutdown and close
 
-export type CommitOffsetArgs =
+export type InternalCommitOffsetArgs =
     Ydb.Topic.ICommitOffsetRequest
     & Required<Pick<Ydb.Topic.ICommitOffsetRequest, 'path' | 'consumer' | 'offset'>>;
-export type CommitOffsetResult = Readonly<Ydb.Topic.CommitOffsetResponse>;
+export type InternalCommitOffsetResult = Readonly<Ydb.Topic.CommitOffsetResponse>;
 
-export type UpdateOffsetsInTransactionArgs =
+export type InternalUpdateOffsetsInTransactionArgs =
     Ydb.Topic.IUpdateOffsetsInTransactionRequest
     & Required<Pick<Ydb.Topic.UpdateOffsetsInTransactionRequest, 'topics' | 'consumer'>>;
-export type UpdateOffsetsInTransactionResult = Readonly<Ydb.Topic.UpdateOffsetsInTransactionResponse>;
+export type InternalUpdateOffsetsInTransactionResult = Readonly<Ydb.Topic.UpdateOffsetsInTransactionResponse>;
 
-export type CreateTopicArgs = Ydb.Topic.ICreateTopicRequest & Required<Pick<Ydb.Topic.ICreateTopicRequest, 'path'>>;
-export type CreateTopicResult = Readonly<Ydb.Topic.CreateTopicResponse>;
+export type InternalCreateTopicArgs = Ydb.Topic.ICreateTopicRequest & Required<Pick<Ydb.Topic.ICreateTopicRequest, 'path'>>;
+export type InternalCreateTopicResult = Readonly<Ydb.Topic.CreateTopicResponse>;
 
-export type DescribeTopicArgs =
+export type InternalDescribeTopicArgs =
     Ydb.Topic.IDescribeTopicRequest
     & Required<Pick<Ydb.Topic.IDescribeTopicRequest, 'path'>>;
-export type DescribeTopicResult = Readonly<Ydb.Topic.DescribeTopicResponse>;
+export type InternalDescribeTopicResult = Readonly<Ydb.Topic.DescribeTopicResponse>;
 
-export type DescribeConsumerArgs =
+export type InternalDescribeConsumerArgs =
     Ydb.Topic.IDescribeConsumerRequest
     & Required<Pick<Ydb.Topic.IDescribeConsumerRequest, 'path' | 'consumer'>>;
-export type DescribeConsumerResult = Readonly<Ydb.Topic.DescribeConsumerResponse>;
+export type InternalDescribeConsumerResult = Readonly<Ydb.Topic.DescribeConsumerResponse>;
 
-export type AlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;
-export type AlterTopicResult = Readonly<Ydb.Topic.AlterTopicResponse>
-export type DropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;
-export type DropTopicResult = Readonly<Ydb.Topic.DropTopicResponse>;
+export type InternalAlterTopicArgs = Ydb.Topic.IAlterTopicRequest & Required<Pick<Ydb.Topic.IAlterTopicRequest, 'path'>>;
+export type InternalAlterTopicResult = Readonly<Ydb.Topic.AlterTopicResponse>
+export type InternalDropTopicArgs = Ydb.Topic.IDropTopicRequest & Required<Pick<Ydb.Topic.IDropTopicRequest, 'path'>>;
+export type InternalDropTopicResult = Readonly<Ydb.Topic.DropTopicResponse>;
 
-export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
+export class InternalTopicClient extends AuthenticatedService<Ydb.Topic.V1.TopicService> implements ICreateTopicResult {
     public endpoint: Endpoint;
     private readonly logger: Logger;
     private allStreams: { close(ctx: Context, fakeError?: Error): void }[] = [];
@@ -78,14 +77,14 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
         return destroyPromise;
     }
 
-    public async openWriteStreamWithEvents(ctx: Context, args: WriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) {
+    public async openWriteStreamWithEvents(ctx: Context, args: InternalWriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) {
         if (args.producerId === undefined || args.producerId === null) {
             const newGUID = uuid_v4();
             args = {...args, producerId: newGUID, messageGroupId: newGUID}
         } else if (args.messageGroupId === undefined || args.messageGroupId === null) {
             args = {...args, messageGroupId: args.producerId};
         }
-        const writerStream = new TopicWriteStreamWithEvents(ctx, args, this, this.logger);
+        const writerStream = new InternalTopicWriteStream(ctx, args, this, this.logger);
         writerStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === writerStream)
             if (index >= 0) this.allStreams.splice(index, 1);
@@ -95,8 +94,8 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
         return writerStream;
     }
 
-    public async openReadStreamWithEvents(ctx: Context, args: ReadStreamInitArgs) {
-        const readStream = new TopicReadStreamWithEvents(ctx, args, this, this.logger);
+    public async openReadStreamWithEvents(ctx: Context, args: InternalReadStreamInitArgs) {
+        const readStream = new InternalTopicReadStream(ctx, args, this, this.logger);
         readStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === readStream)
             if (index >= 0) this.allStreams.splice(index, 1);
@@ -106,31 +105,31 @@ export class TopicNodeClient extends AuthenticatedService<Ydb.Topic.V1.TopicServ
         return readStream;
     }
 
-    public async commitOffset(_ctx: Context, request: CommitOffsetArgs) {
-        return (await this.api.commitOffset(request)) as CommitOffsetResult;
+    public async commitOffset(_ctx: Context, request: InternalCommitOffsetArgs) {
+        return (await this.api.commitOffset(request)) as InternalCommitOffsetResult;
     }
 
-    public async updateOffsetsInTransaction(_ctx: Context, request: UpdateOffsetsInTransactionArgs) {
-        return (await this.api.updateOffsetsInTransaction(request)) as UpdateOffsetsInTransactionResult;
+    public async updateOffsetsInTransaction(_ctx: Context, request: InternalUpdateOffsetsInTransactionArgs) {
+        return (await this.api.updateOffsetsInTransaction(request)) as InternalUpdateOffsetsInTransactionResult;
     }
 
-    public async createTopic(_ctx: Context, request: CreateTopicArgs) {
-        return (await this.api.createTopic(request)) as CreateTopicResult;
+    public async createTopic(_ctx: Context, request: InternalCreateTopicArgs) {
+        return (await this.api.createTopic(request)) as InternalCreateTopicResult;
     }
 
-    public async describeTopic(_ctx: Context, request: DescribeTopicArgs) {
-        return (await this.api.describeTopic(request)) as DescribeTopicResult;
+    public async describeTopic(_ctx: Context, request: InternalDescribeTopicArgs) {
+        return (await this.api.describeTopic(request)) as InternalDescribeTopicResult;
     }
 
-    public async describeConsumer(_ctx: Context, request: DescribeConsumerArgs) {
-        return (await this.api.describeConsumer(request)) as DescribeConsumerResult;
+    public async describeConsumer(_ctx: Context, request: InternalDescribeConsumerArgs) {
+        return (await this.api.describeConsumer(request)) as InternalDescribeConsumerResult;
     }
 
-    public async alterTopic(_ctx: Context, request: AlterTopicArgs) {
-        return (await this.api.alterTopic(request)) as AlterTopicResult;
+    public async alterTopic(_ctx: Context, request: InternalAlterTopicArgs) {
+        return (await this.api.alterTopic(request)) as InternalAlterTopicResult;
     }
 
-    public async dropTopic(_ctx: Context, request: DropTopicArgs) {
-        return (await this.api.dropTopic(request)) as DropTopicResult;
+    public async dropTopic(_ctx: Context, request: InternalDropTopicArgs) {
+        return (await this.api.dropTopic(request)) as InternalDropTopicResult;
     }
 }

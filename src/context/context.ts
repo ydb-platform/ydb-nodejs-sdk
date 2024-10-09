@@ -154,7 +154,7 @@ export class Context {
     }
 
     /**
-     * Makes a promise cancellable through context, if the context allows cancel or has a timeout.
+     * Makes a pr   omise cancellable through context, if the context allows cancel or has a timeout.
      */
     public cancelRace<T>(promise: Promise<T>): Promise<T> {
         if (!this.onCancel) return promise;
