@@ -10,15 +10,7 @@ import {closeSymbol} from "./symbols";
 import {google, Ydb} from "ydb-sdk-proto";
 import Long from "long";
 
-type IReadResponseFields = Omit<Ydb.Topic.StreamReadMessage.IReadResponse, 'partitionData'>;
-type IDataFields = Omit<Ydb.Topic.StreamReadMessage.ReadResponse.IPartitionData, 'batches'>;
-type IBatchFields = Omit<Ydb.Topic.StreamReadMessage.ReadResponse.IBatch, 'messageData'>;
-
-export class Message implements
-    IReadResponseFields,
-    IDataFields,
-    IBatchFields,
-    Ydb.Topic.StreamReadMessage.ReadResponse.IMessageData {
+export class Message {
     // from IReadResponse
     bytesSize?: number | Long | null;
 
@@ -271,7 +263,7 @@ export class TopicReader {
             }
         });
 
-        this.innerReadStream.readRequest(ctx,{
+        this.innerReadStream.readRequest(ctx, {
             bytesSize: this.readStreamArgs.receiveBufferSizeInBytes,
         });
     }

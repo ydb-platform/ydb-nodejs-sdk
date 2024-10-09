@@ -1,24 +1,35 @@
 import {
     InternalTopicWriteStream,
     InternalWriteStreamInitArgs,
-    InternalWriteStreamWriteArgs, InternalWriteStreamWriteResult
 } from "./internal/internal-topic-write-stream";
 import {Logger} from "../logger/simple-logger";
 import {RetryLambdaResult, RetryStrategy} from "../retries/retryStrategy";
 import {Context, CtxUnsubcribe, ensureContext} from "../context";
 import Long from "long";
 import {closeSymbol} from "./symbols";
-import {Ydb} from "ydb-sdk-proto";
+import {google, Ydb} from "ydb-sdk-proto";
 import DiscoveryService from "../discovery/discovery-service";
-import {WriteStreamWriteArgs} from "./types/write-stream-init-args";
 
-type SendMessagesResult =
-    Omit<Ydb.Topic.StreamWriteMessage.IWriteResponse, 'acks'>
-    & Ydb.Topic.StreamWriteMessage.WriteResponse.IWriteAck;
+export interface SendArgs {
+    messages: ({
+        data: Uint8Array;
+        seqNo?: (number|Long|null);
+        createdAt?: (google.protobuf.ITimestamp|null);
+        uncompressedSize?: (number|Long|null);
+        messageGroupId?: (string|null);
+        partitionId?: (number|Long|null);
+        metadataItems?: (Ydb.Topic.IMetadataItem[]|null);
+    }[]|null);
+    codec?: (number|null);
+    tx?: (Ydb.Topic.ITransactionIdentity|null);
+}
+
+export type SendResult = {
+}
 
 type messageQueueItem = {
-    args: InternalWriteStreamWriteArgs,
-    resolve: (value: SendMessagesResult | PromiseLike<SendMessagesResult>) => void,
+    args: SendArgs,
+    resolve: (value: SendResult | PromiseLike<SendResult>) => void,
     reject: (reason?: any) => void
 };
 
@@ -192,10 +203,10 @@ export class TopicWriter {
     }
 
     // @ts-ignore
-    public send(sendMessagesArgs: WriteStreamWriteArgs): Promise<InternalWriteStreamWriteResult>;
-    public send(ctx: Context, sendMessagesArgs: InternalWriteStreamWriteArgs): Promise<InternalWriteStreamWriteResult>;
+    public send(sendMessagesArgs: SendArgs): Promise<SendResult>;
+    public send(ctx: Context, sendMessagesArgs: SendArgs): Promise<SendResult>;
     @ensureContext(true)
-    public send(ctx: Context, sendMessagesArgs: InternalWriteStreamWriteArgs): Promise<InternalWriteStreamWriteResult> {
+    public send(ctx: Context, sendMessagesArgs: SendArgs): Promise<SendResult> {
         this.logger.trace('%s: TopicWriter.sendMessages()', ctx);
         if (this.reasonForClose) return Promise.reject(this.reasonForClose);
         sendMessagesArgs.messages?.forEach((msg) => {
@@ -208,7 +219,7 @@ export class TopicWriter {
                 if (msg.seqNo === undefined || msg.seqNo === null) throw new Error('Writer was created without getLastSeqNo = true, explicit seqNo must be provided');
             }
         });
-        return new Promise<InternalWriteStreamWriteResult>((resolve, reject) => {
+        return new Promise<SendResult>((resolve, reject) => {
             this.messageQueue.push({args: sendMessagesArgs, resolve, reject})
             this.innerWriteStream?.writeRequest(ctx, sendMessagesArgs);
         });

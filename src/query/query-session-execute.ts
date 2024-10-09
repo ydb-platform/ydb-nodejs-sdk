@@ -20,6 +20,35 @@ import {CtxUnsubcribe} from "../context";
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import IColumn = Ydb.IColumn;
 
+export type IExecuteArgs = {
+    /**
+     * SQL query / DDL etc.
+     *
+     */
+    text: string,
+    /**
+     * Default value is SYNTAX_YQL_V1.
+     */
+    syntax?: Ydb.Query.Syntax,
+    /**
+     * SQL query parameters.
+     */
+    parameters?: { [k: string]: Ydb.ITypedValue },
+    txControl?: Ydb.Query.ITransactionControl,
+    execMode?: Ydb.Query.ExecMode,
+    statsMode?: Ydb.Query.StatsMode,
+    concurrentResultSets?: boolean,
+    /**
+     * Operation timeout in ms
+     */
+    // timeout?: number, // TODO: that make sense to timeout one op?
+    /**
+     * Default Native.
+     */
+    rowMode?: RowType,
+    idempotent?: boolean,
+};
+
 export type IExecuteResult = {
     resultSets: AsyncGenerator<ResultSet>,
     execStats?: Ydb.TableStats.IQueryStats;
@@ -51,49 +80,22 @@ export const enum RowType {
  * Finishes when the first data block is received or when the end of the stream is received. So if you are sure
  * that the operation does not return any data, you may not process resultSets.
  */
-export function execute(this: QuerySession, opts: {
-    /**
-     * SQL query / DDL etc.
-     *
-     */
-    text: string,
-    /**
-     * Default value is SYNTAX_YQL_V1.
-     */
-    syntax?: Ydb.Query.Syntax,
-    /**
-     * SQL query parameters.
-     */
-    parameters?: { [k: string]: Ydb.ITypedValue },
-    txControl?: Ydb.Query.ITransactionControl,
-    execMode?: Ydb.Query.ExecMode,
-    statsMode?: Ydb.Query.StatsMode,
-    concurrentResultSets?: boolean,
-    /**
-     * Operation timeout in ms
-     */
-    // timeout?: number, // TODO: that make sense to timeout one op?
-    /**
-     * Default Native.
-     */
-    rowMode?: RowType,
-    idempotent?: boolean,
-}): Promise<IExecuteResult> {
-    // Validate opts
-    if (!opts.text.trim()) throw new Error('"text" parameter is empty')
-    if (opts.parameters)
-        Object.keys(opts.parameters).forEach(n => {
+export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecuteResult> {
+    // Validate args
+    if (!args.text.trim()) throw new Error('"text" parameter is empty')
+    if (args.parameters)
+        Object.keys(args.parameters).forEach(n => {
             if (!n.startsWith('$')) throw new Error(`Parameter name must start with "$": ${n}`);
         })
-    if (opts.txControl && this[sessionTxSettingsSymbol])
+    if (args.txControl && this[sessionTxSettingsSymbol])
         throw new Error(CANNOT_MANAGE_TRASACTIONS_ERROR);
-    if (opts.txControl?.txId)
+    if (args.txControl?.txId)
         throw new Error('Cannot contain txControl.txId because the current session transaction is used (see session.txId)');
     if (this[sessionTxIdSymbol]) {
-        if (opts.txControl?.beginTx)
+        if (args.txControl?.beginTx)
             throw new Error('txControl.beginTx when there\'s already an open transaction');
     } else {
-        if (opts.txControl?.commitTx && !opts.txControl?.beginTx)
+        if (args.txControl?.commitTx && !args.txControl?.beginTx)
             throw new Error('txControl.commitTx === true when no open transaction and there\'s no txControl.beginTx');
     }
 
@@ -101,23 +103,23 @@ export function execute(this: QuerySession, opts: {
     const executeQueryRequest: IExecuteQueryRequest = {
         sessionId: this.sessionId,
         queryContent: {
-            text: opts.text,
-            syntax: opts.syntax ?? Ydb.Query.Syntax.SYNTAX_YQL_V1,
+            text: args.text,
+            syntax: args.syntax ?? Ydb.Query.Syntax.SYNTAX_YQL_V1,
         },
-        execMode: opts.execMode ?? Ydb.Query.ExecMode.EXEC_MODE_EXECUTE,
+        execMode: args.execMode ?? Ydb.Query.ExecMode.EXEC_MODE_EXECUTE,
     };
-    if (opts.statsMode) executeQueryRequest.statsMode = opts.statsMode;
-    if (opts.parameters) executeQueryRequest.parameters = opts.parameters;
+    if (args.statsMode) executeQueryRequest.statsMode = args.statsMode;
+    if (args.parameters) executeQueryRequest.parameters = args.parameters;
     if (this[sessionTxSettingsSymbol] && !this[sessionTxIdSymbol])
         executeQueryRequest.txControl = {beginTx: this[sessionTxSettingsSymbol], commitTx: false};
-    else if (opts.txControl)
-        executeQueryRequest.txControl = opts.txControl;
+    else if (args.txControl)
+        executeQueryRequest.txControl = args.txControl;
     if (this[sessionTxIdSymbol])
         (executeQueryRequest.txControl || (executeQueryRequest.txControl = {})).txId = this[sessionTxIdSymbol];
-    executeQueryRequest.concurrentResultSets = opts.concurrentResultSets ?? false;
-    if (opts.hasOwnProperty('idempotent')) {
+    executeQueryRequest.concurrentResultSets = args.concurrentResultSets ?? false;
+    if (args.hasOwnProperty('idempotent')) {
         if (this[isIdempotentDoLevelSymbol]) throw new Error('The attribute of idempotency is already set at the level of do()');
-        if (opts.idempotent) this[isIdempotentSymbol] = true;
+        if (args.idempotent) this[isIdempotentSymbol] = true;
     }
 
 // Run the operation
@@ -197,13 +199,13 @@ export function execute(this: QuerySession, opts: {
             let resultSetTuple = resultSetByIndex[index];
             if (!resultSetTuple) {
                 iterator = buildAsyncQueueIterator<Ydb.IValue>();
-                switch (opts.rowMode) {
+                switch (args.rowMode) {
                     case RowType.Ydb:
-                        resultSet = new ResultSet(index, partialResp.resultSet!.columns as IColumn[], opts.rowMode ?? RowType.Native, iterator);
+                        resultSet = new ResultSet(index, partialResp.resultSet!.columns as IColumn[], args.rowMode ?? RowType.Native, iterator);
                         break;
                     default: // Native
                         const nativeColumnsNames = (partialResp.resultSet!.columns as IColumn[]).map(v => snakeToCamelCaseConversion.ydbToJs(v.name!));
-                        resultSet = new ResultSet(index, nativeColumnsNames, opts.rowMode ?? RowType.Native, iterator);
+                        resultSet = new ResultSet(index, nativeColumnsNames, args.rowMode ?? RowType.Native, iterator);
                         resultSet[resultsetYdbColumnsSymbol] = partialResp.resultSet!.columns as IColumn[];
                 }
                 resultSetIterator.push(resultSet);
@@ -216,7 +218,7 @@ export function execute(this: QuerySession, opts: {
                 [iterator, resultSet] = resultSetTuple;
             }
 
-            switch (opts.rowMode) {
+            switch (args.rowMode) {
                 case RowType.Ydb:
                     for (const row of partialResp.resultSet!.rows!) iterator.push(row);
                     break;
