@@ -1,5 +1,3 @@
-import {InternalWriteStreamInitArgs} from "./internal/internal-topic-write-stream";
-import {InternalReadStreamInitArgs} from "./internal/internal-topic-read-stream";
 import {TopicWriter} from "./topic-writer";
 import {Context, ensureContext} from "../context";
 import {IClientSettings} from "../client/settings";
@@ -10,6 +8,26 @@ import {InternalTopicClient} from "./internal/internal-topic-client";
 
 // TODO: Consider support for "operationParams?: (Ydb.Operations.IOperationParams|null);". It presents in eve+ry jdbc operation
 
+export type ICreateWriterArgs = {
+    path: string;
+    producerId?: (string|null);
+    writeSessionMeta?: ({ [k: string]: string }|null);
+    messageGroupId?: (string|null);
+    partitionId?: (number|Long|null);
+    getLastSeqNo?: (boolean|null);
+}
+export type ICreateReaderArgs = {
+    receiveBufferSizeInBytes: number;
+    topicsReadSettings: {
+        path: string;
+        partitionIds?: ((number|Long)[]|null);
+        maxLag?: (google.protobuf.IDuration|null);
+        readFrom?: (google.protobuf.ITimestamp|null);
+    }[];
+    consumer?: (string|null);
+    readerName?: (string|null);
+
+}
 export type ICommitOffsetArgs = {
     path: (string|null);
     partitionId?: (number|Long|null);
@@ -151,19 +169,19 @@ export class TopicClient {
     }
 
     // @ts-ignore
-    public createWriter(args: InternalWriteStreamInitArgs): TopicWriter;
-    public createWriter(ctx: Context, args: InternalWriteStreamInitArgs): TopicWriter;
+    public createWriter(args: ICreateWriterArgs): TopicWriter;
+    public createWriter(ctx: Context, args: ICreateWriterArgs): TopicWriter;
     @ensureContext(true)
-    public async createWriter(ctx: Context, args: InternalWriteStreamInitArgs) {
+    public async createWriter(ctx: Context, args: ICreateWriterArgs) {
         if (args.getLastSeqNo === undefined) args = {...args, getLastSeqNo: true};
         return new TopicWriter(ctx, args, this.settings.retrier, this.settings.discoveryService, this.settings.logger);
     }
 
     // @ts-ignore
-    public createReader(args: InternalReadStreamInitArgs): TopicReader;
-    public createReader(ctx: Context, args: InternalReadStreamInitArgs): TopicReader;
+    public createReader(args: ICreateReaderArgs): TopicReader;
+    public createReader(ctx: Context, args: ICreateReaderArgs): TopicReader;
     @ensureContext(true)
-    public async createReader(ctx: Context, args: InternalReadStreamInitArgs) {
+    public async createReader(ctx: Context, args: ICreateReaderArgs) {
         return new TopicReader(ctx, args, this.settings.retrier, this.settings.discoveryService, this.settings.logger);
     }
 
