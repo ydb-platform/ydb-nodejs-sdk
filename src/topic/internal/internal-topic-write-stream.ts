@@ -1,6 +1,6 @@
 import {Logger} from "../../logger/simple-logger";
 import {Ydb} from "ydb-sdk-proto";
-import {TopicNodeClient} from "./topic-node-client";
+import {InternalTopicClient} from "./internal-topic-client";
 import EventEmitter from "events";
 import TypedEmitter from "typed-emitter/rxjs";
 import {ClientDuplexStream} from "@grpc/grpc-js/build/src/call";
@@ -9,34 +9,34 @@ import {Context} from "../../context";
 import {getTokenFromMetadata} from "../../credentials/add-credentials-to-metadata";
 import {StatusObject} from "@grpc/grpc-js";
 
-export type WriteStreamInitArgs =
-    // Currently, messageGroupId must always equal producerId. This enforced in the TopicNodeClient.openWriteStreamWithEvents method
+export type InternalWriteStreamInitArgs =
+    // Currently, messageGroupId must always be equal to producerId. This enforced in the TopicClientOnParticularNode.openWriteStreamWithEvents method
     Omit<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>
     & Required<Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'path'>>;
-export type WriteStreamInitResult =
+export type InternalWriteStreamInitResult =
     Readonly<Ydb.Topic.StreamWriteMessage.IInitResponse>;
 
-export type WriteStreamWriteArgs =
+export type InternalWriteStreamWriteArgs =
     Ydb.Topic.StreamWriteMessage.IWriteRequest
     & Required<Pick<Ydb.Topic.StreamWriteMessage.IWriteRequest, 'messages'>>;
-export type WriteStreamWriteResult =
+export type InternalWriteStreamWriteResult =
     Ydb.Topic.StreamWriteMessage.IWriteResponse;
 
-export type WriteStreamUpdateTokenArgs =
+export type InternalWriteStreamUpdateTokenArgs =
     Ydb.Topic.IUpdateTokenRequest
     & Required<Pick<Ydb.Topic.IUpdateTokenRequest, 'token'>>;
-export type WriteStreamUpdateTokenResult =
+export type InternalWriteStreamUpdateTokenResult =
     Readonly<Ydb.Topic.IUpdateTokenResponse>;
 
 export type WriteStreamEvents = {
-    initResponse: (resp: WriteStreamInitResult) => void,
-    writeResponse: (resp: WriteStreamWriteResult) => void,
-    updateTokenResponse: (resp: WriteStreamUpdateTokenResult) => void,
+    initResponse: (resp: InternalWriteStreamInitResult) => void,
+    writeResponse: (resp: InternalWriteStreamWriteResult) => void,
+    updateTokenResponse: (resp: InternalWriteStreamUpdateTokenResult) => void,
     error: (err: Error) => void,
     end: (cause: Error) => void,
 }
 
-export class TopicWriteStreamWithEvents {
+export class InternalTopicWriteStream {
     private reasonForClose?: Error;
     private writeBidiStream: ClientDuplexStream<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>;
 
@@ -44,8 +44,8 @@ export class TopicWriteStreamWithEvents {
 
     constructor(
         ctx: Context,
-        args: WriteStreamInitArgs,
-        private topicService: TopicNodeClient,
+        args: InternalWriteStreamInitArgs,
+        private topicService: InternalTopicClient,
         // @ts-ignore
         private logger: Logger) {
         this.logger.trace('%s: new TopicWriteStreamWithEvents|()', ctx);
@@ -91,7 +91,7 @@ export class TopicWriteStreamWithEvents {
         this.initRequest(ctx, args);
     };
 
-    private initRequest(ctx: Context, args: WriteStreamInitArgs) {
+    private initRequest(ctx: Context, args: InternalWriteStreamInitArgs) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.initRequest()', ctx);
         // TODO: Consider zod.js
         this.writeBidiStream!.write(
@@ -103,7 +103,7 @@ export class TopicWriteStreamWithEvents {
             }));
     }
 
-    public async writeRequest(ctx: Context, args: WriteStreamWriteArgs) {
+    public async writeRequest(ctx: Context, args: InternalWriteStreamWriteArgs) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.writeRequest()', ctx);
         if (this.reasonForClose) throw new Error('Stream is not open');
         await this.updateToken(ctx);
@@ -113,7 +113,7 @@ export class TopicWriteStreamWithEvents {
             }));
     }
 
-    public async updateTokenRequest(ctx: Context, args: WriteStreamUpdateTokenArgs) {
+    public async updateTokenRequest(ctx: Context, args: InternalWriteStreamUpdateTokenArgs) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.updateTokenRequest()', ctx);
         if (this.reasonForClose) throw new Error('Stream is not open');
         await this.updateToken(ctx);

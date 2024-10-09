@@ -4,7 +4,7 @@ import IEndpointInfo = Ydb.Discovery.IEndpointInfo;
 import * as grpc from "@grpc/grpc-js";
 import {ISslCredentials} from "../utils/ssl-credentials";
 import {ClientOptions} from "../utils";
-import {TopicNodeClient} from "../topic/internal/topic-node-client";
+import {InternalTopicClient} from "../topic/internal/internal-topic-client";
 
 export type SuccessDiscoveryHandler = (result: Endpoint[]) => void;
 
@@ -18,7 +18,7 @@ export class Endpoint extends Ydb.Discovery.EndpointInfo {
 
     private pessimizedAt: DateTime | null;
 
-    public topicNodeClient?: TopicNodeClient;
+    public topicNodeClient?: InternalTopicClient;
 
     static fromString(host: string) {
         const match = Endpoint.HOST_RE.exec(host);

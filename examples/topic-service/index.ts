@@ -1,36 +1,60 @@
-import {Driver as YDB} from '../../src';
-import {AnonymousAuthService} from '../../src/credentials/anonymous-auth-service';
-import {SimpleLogger} from "../../src/logger/simple-logger";
+import {Driver as YDB, getCredentialsFromEnv} from 'ydb-sdk';
 import {Ydb} from "ydb-sdk-proto";
-import {Context} from "../../src/context";
+import {getDefaultLogger} from "../../src/logger/get-default-logger";
+import {main} from "../utils";
+import Codec = Ydb.Topic.Codec;
+import {Context} from "ydb-sdk/build/cjs/src/context/context";
 
 require('dotenv').config();
 
 const DATABASE = '/local';
 const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 
-async function main() {
+async function run() {
+    const logger = getDefaultLogger();
+    const authService = getCredentialsFromEnv(logger);
     const db = new YDB({
-        endpoint: ENDPOINT,
-        database: DATABASE,
-        authService: new AnonymousAuthService(),
-        logger: new SimpleLogger({envKey: 'YDB_TEST_LOG_LEVEL'}),
+        endpoint: ENDPOINT, // i.e.: grc(s)://<x.x.x.x>
+        database: DATABASE, // i.e.: '/local'
+        authService, logger
+        // logger: new SimpleLogger({envKey: 'YDB_TEST_LOG_LEVEL'}),
     });
     if (!(await db.ready(3000))) throw new Error('Driver is not ready!');
     try {
         await db.topic.createTopic({
             path: 'demoTopic',
+            supportedCodecs: {
+                codecs: [Ydb.Topic.Codec.CODEC_RAW],
+            },
+            partitioningSettings: {
+                minActivePartitions: 3,
+            },
             consumers: [{
-                name: 'demo',
+                name: 'demoConsumer',
             }],
         });
+
+        await db.topic.alterTopic({
+            path: 'demoTopic',
+            addConsumers: [{
+                name: 'anotherqDemoConsumer',
+            }],
+            setSupportedCodecs: {
+                codecs: [Ydb.Topic.Codec.CODEC_RAW, Codec.CODEC_GZIP],
+            },
+        });
+
+        logger.info(await db.topic.describeTopic({
+            path: 'demoTopic',
+        }));
+
         const writer = await db.topic.createWriter({
             path: 'demoTopic',
             // producerId: '...', // will be genereted automatically
             // messageGroupId: '...' // will be the same as producerId
             getLastSeqNo: true, // seqNo will be assigned automatically
         });
-        await writer.sendMessages({
+        await writer.send({
             codec: Ydb.Topic.Codec.CODEC_RAW,
             messages: [{
                 data: Buffer.from('Hello, world'),
@@ -39,24 +63,34 @@ async function main() {
         });
         const promises = [];
         for (let n = 0; n < 4; n++) {
-            promises.push(writer.sendMessages({
+            promises.push(writer.send({
                 codec: Ydb.Topic.Codec.CODEC_RAW,
                 messages: [{
                     data: Buffer.from(`Message N${n}`),
                     uncompressedSize: `Message N${n}`.length,
+                    metadataItems: [
+                        {
+                            key: 'key',
+                            value: new TextEncoder().encode('value'),
+                        },
+                        {
+                            key: 'key2',
+                            value: new TextEncoder().encode('value2'),
+                        }
+                    ],
                 }],
-            }));
+           }));
         }
-        await writer.close();
+        await writer.close(); // // graceful close() - will finish after receiving confirmation that all messages have been processed by the server
+        // await Promise.all(promises); // another option
 
-        await Promise.all(promises);
         const reader = await db.topic.createReader(Context.createNew({
             timeout: 3000,
         }).ctx, {
             topicsReadSettings: [{
                 path: 'demoTopic',
             }],
-            consumer: 'demo',
+            consumer: 'demoConsumer',
             receiveBufferSizeInBytes: 10_000_000,
         });
         try {
@@ -68,10 +102,15 @@ async function main() {
             if (!Context.isTimeout(err)) throw err;
             console.info('Timeout is over!');
         }
-        await reader.close(true); // graceful close() - complete when all messages are commited
+        await reader.close(); // graceful close() - will complete when processing of all currently processed messages will finish
+
+        await db.topic.dropTopic({
+            path: 'demoTopic',
+        });
+
     } finally {
         await db.destroy();
     }
 }
 
-main();
+main(run);

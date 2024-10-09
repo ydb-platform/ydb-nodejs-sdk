@@ -1,27 +1,136 @@
-import {
-    TopicNodeClient,
-    AlterTopicArgs, AlterTopicResult,
-    CommitOffsetArgs, CommitOffsetResult,
-    CreateTopicArgs, CreateTopicResult,
-    DescribeConsumerArgs, DescribeConsumerResult,
-    DescribeTopicArgs, DescribeTopicResult,
-    DropTopicArgs, DropTopicResult,
-    UpdateOffsetsInTransactionArgs, UpdateOffsetsInTransactionResult
-} from "./internal/topic-node-client";
-import EventEmitter from "events";
-import {WriteStreamInitArgs} from "./internal/topic-write-stream-with-events";
-import {ReadStreamInitArgs} from "./internal/topic-read-stream-with-events";
+import {InternalWriteStreamInitArgs} from "./internal/internal-topic-write-stream";
+import {InternalReadStreamInitArgs} from "./internal/internal-topic-read-stream";
 import {TopicWriter} from "./topic-writer";
 import {Context, ensureContext} from "../context";
 import {IClientSettings} from "../client/settings";
 import {TopicReader} from "./topic-reader";
 import {asIdempotentRetryableLambda} from "../retries/asIdempotentRetryableLambda";
+import {google, Ydb} from "ydb-sdk-proto";
+import {InternalTopicClient} from "./internal/internal-topic-client";
 
-export class TopicClient extends EventEmitter { // TODO: Reconsider why I need to have EventEmitter in any client
-    private service?: TopicNodeClient;
+// TODO: Consider support for "operationParams?: (Ydb.Operations.IOperationParams|null);". It presents in eve+ry jdbc operation
+
+export type ICommitOffsetArgs = {
+    path: (string|null);
+    partitionId?: (number|Long|null);
+    consumer: (string|null);
+    offset: (number|Long|null);
+}
+export type IUpdateOffsetsInTransactionArgs = {
+    operationParams?: (Ydb.Operations.IOperationParams|null);
+    tx?: (Ydb.Topic.ITransactionIdentity|null);
+    topics: Ydb.Topic.UpdateOffsetsInTransactionRequest.ITopicOffsets[];
+    consumer: string;
+}
+export type ICreateTopicArgs = {
+    path: (string|null);
+    partitioningSettings?: ({
+        minActivePartitions?: (number|Long|null);
+        partitionCountLimit?: (number|Long|null);
+    }|null);
+    retentionPeriod?: (google.protobuf.ITimestamp|null);
+    retentionStorageMb?: (number|Long|null);
+    supportedCodecs?: ({
+        codecs?: (number[]|null);
+    }|null);
+    partitionWriteSpeedBytesPerSecond?: (number|Long|null);
+    partitionWriteBurstBytes?: (number|Long|null);
+    attributes?: ({ [k: string]: string }|null);
+    consumers?: ({
+        name?: (string|null);
+        important?: (boolean|null);
+        readFrom?: (google.protobuf.ITimestamp|null);
+        supportedCodecs?: ({
+            codecs?: (number[]|null);
+        }|null);
+        attributes?: ({ [k: string]: string }|null);
+        consumerStats?: ({
+            minPartitionsLastReadTime?: (google.protobuf.ITimestamp|null);
+            maxReadTimeLag?: (google.protobuf.IDuration|null);
+            maxWriteTimeLag?: (google.protobuf.IDuration|null);
+            bytesRead?: ({
+                perMinute?: (number|Long|null);
+                perHour?: (number|Long|null);
+                perDay?: (number|Long|null);
+            }|null);
+        }|null);
+    }[]|null);
+    meteringMode?: (Ydb.Topic.MeteringMode|null); // UNSPECIFIED, RESERVED_CAPACITY, REQUEST_UNITS
+};
+export type IDescribeTopicArgs = {
+    path: string;
+    includeStats?: (boolean|null);
+}
+export type IDescribeConsumerArgs = {
+    path: string;
+    consumer: string;
+}
+export type IAlterTopicArgs = {
+    path: string;
+    alterPartitioningSettings?: ({
+        setMinActivePartitions?: (number|Long|null);
+        setPartitionCountLimit?: (number|Long|null);
+    }|null);
+    setRetentionPeriod?: (google.protobuf.IDuration|null);
+    setRetentionStorageMb?: (number|Long|null);
+    setSupportedCodecs?: ({
+        codecs?: (number[]|null);
+    }|null);
+    setPartitionWriteSpeedBytesPerSecond?: (number|Long|null);
+    setPartitionWriteBurstBytes?: (number|Long|null);
+    alterAttributes?: ({ [k: string]: string }|null);
+    addConsumers?: ({
+        name?: (string|null);
+        important?: (boolean|null);
+        readFrom?: (google.protobuf.ITimestamp|null);
+        supportedCodecs?: ({
+            codecs?: (number[]|null);
+        }|null);
+        attributes?: ({ [k: string]: string }|null);
+        consumerStats?: ({
+            minPartitionsLastReadTime?: (google.protobuf.ITimestamp|null);
+            maxReadTimeLag?: (google.protobuf.IDuration|null);
+            maxWriteTimeLag?: (google.protobuf.IDuration|null);
+            bytesRead?: ({
+                perMinute?: (number|Long|null);
+                perHour?: (number|Long|null);
+                perDay?: (number|Long|null);
+            }|null);
+        }|null);
+    }[]|null);
+    dropConsumers?: (string[]|null);
+    alterConsumers?: ({
+        name: string;
+        setImportant?: (boolean|null);
+        setReadFrom?: (google.protobuf.ITimestamp|null);
+        setSupportedCodecs?: ({
+            codecs?: (number[]|null);
+        }|null);
+        alterAttributes?: ({ [k: string]: string }|null);
+    }[]|null);
+    setMeteringMode?: (Ydb.Topic.MeteringMode|null); // UNSPECIFIED, RESERVED_CAPACITY, REQUEST_UNITS
+
+};
+export type IDropTopicArgs = {
+    path: string;
+};
+
+export type IOperationResult = {
+    readonly operation?: ({
+        readonly id?: (string|null);
+        readonly ready?: (boolean|null);
+        readonly status?: (Ydb.StatusIds.StatusCode|null);
+        readonly issues?: (Ydb.Issue.IIssueMessage[]|null);
+        readonly result?: (google.protobuf.IAny|null);
+        readonly metadata?: (google.protobuf.IAny|null);
+        readonly costInfo?: (Ydb.ICostInfo|null);
+    }|null);
+};
+
+export class TopicClient {
+    private service?: InternalTopicClient;
 
     constructor(private settings: IClientSettings) {
-        super();
     }
 
     /**
@@ -38,37 +147,33 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
     public destroy(_ctx: Context): void;
     @ensureContext(true)
     public async destroy(_ctx: Context): Promise<void> {
-        // if (this.service) await this.service.destroy(); // TODO: service should be destroyed at the end
+        // TODO: Close opened readers and writers
     }
 
     // @ts-ignore
-    public createWriter(args: WriteStreamInitArgs): TopicWriter;
-    public createWriter(ctx: Context, args: WriteStreamInitArgs): TopicWriter;
+    public createWriter(args: InternalWriteStreamInitArgs): TopicWriter;
+    public createWriter(ctx: Context, args: InternalWriteStreamInitArgs): TopicWriter;
     @ensureContext(true)
-    public async createWriter(ctx: Context, args: WriteStreamInitArgs) {
+    public async createWriter(ctx: Context, args: InternalWriteStreamInitArgs) {
         if (args.getLastSeqNo === undefined) args = {...args, getLastSeqNo: true};
         return new TopicWriter(ctx, args, this.settings.retrier, this.settings.discoveryService, this.settings.logger);
     }
 
     // @ts-ignore
-    public createReader(args: ReadStreamInitArgs): TopicReader;
-    public createReader(ctx: Context, args: ReadStreamInitArgs): TopicReader;
+    public createReader(args: InternalReadStreamInitArgs): TopicReader;
+    public createReader(ctx: Context, args: InternalReadStreamInitArgs): TopicReader;
     @ensureContext(true)
-    public async createReader(ctx: Context, args: ReadStreamInitArgs) {
+    public async createReader(ctx: Context, args: InternalReadStreamInitArgs) {
         return new TopicReader(ctx, args, this.settings.retrier, this.settings.discoveryService, this.settings.logger);
     }
 
     // TODO: Add commit a queue - same as in writer, to confirm commits
 
     // @ts-ignore
-    public commitOffset(request: CommitOffsetArgs): Promise<CommitOffsetResult>;
-    public commitOffset(ctx: Context, request: CommitOffsetArgs): Promise<CommitOffsetResult>;
+    public commitOffset(request: ICommitOffsetArgs): Promise<IOperationResult>;
+    public commitOffset(ctx: Context, request: ICommitOffsetArgs): Promise<IOperationResult>;
     @ensureContext(true)
-    // TODO: Add retryer
-    public async commitOffset(ctx: Context, request: CommitOffsetArgs): Promise<CommitOffsetResult> {
-        // if (!(typeof request.path === 'string' && request.path!.length > 0)) throw new Error('path is required');
-        // if (!(typeof request.consumer === 'string' && request.consumer!.length > 0)) throw new Error('consumer is required');
-        // if (!(typeof request.offset !== undefined && request.offset !== null)) throw new Error('offset is required');
+    public async commitOffset(ctx: Context, request: ICommitOffsetArgs): Promise<IOperationResult> {
         return this.settings.retrier.retry(ctx, /*async*/ () => {
             return /*await*/ asIdempotentRetryableLambda(async () => {
                 return /*await*/ (await this.nextNodeService()).commitOffset(ctx, request);
@@ -77,12 +182,10 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
     }
 
     // @ts-ignore
-    public updateOffsetsInTransaction(request: UpdateOffsetsInTransactionArgs): Promise<UpdateOffsetsInTransactionResult>;
-    public updateOffsetsInTransaction(ctx: Context, request: UpdateOffsetsInTransactionArgs): Promise<UpdateOffsetsInTransactionResult>;
+    public updateOffsetsInTransaction(request: IUpdateOffsetsInTransactionArgs): Promise<IOperationResult>;
+    public updateOffsetsInTransaction(ctx: Context, request: IUpdateOffsetsInTransactionArgs): Promise<IOperationResult>;
     @ensureContext(true)
-    public async updateOffsetsInTransaction(ctx: Context, request: UpdateOffsetsInTransactionArgs): Promise<UpdateOffsetsInTransactionResult> {
-        // if (!(request.topics && request.topics.length > 0)) throw new Error('topics is required');
-        // if (!(typeof request.consumer === 'string' && request.consumer!.length > 0)) throw new Error('consumer is required');
+    public async updateOffsetsInTransaction(ctx: Context, request: IUpdateOffsetsInTransactionArgs): Promise<IOperationResult> {
         return this.settings.retrier.retry(ctx, /*async*/ () => {
             return /*await*/ asIdempotentRetryableLambda(async () => {
                 return /*await*/ (await this.nextNodeService()).updateOffsetsInTransaction(ctx, request);
@@ -91,11 +194,10 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
     }
 
     // @ts-ignore
-    public createTopic(request: CreateTopicArgs): Promise<CreateTopicResult>;
-    public createTopic(ctx: Context, request: CreateTopicArgs): Promise<CreateTopicResult>;
+    public createTopic(request: ICreateTopicArgs): Promise<IOperationResult>;
+    public createTopic(ctx: Context, request: ICreateTopicArgs): Promise<IOperationResult>;
     @ensureContext(true)
-    public async createTopic(ctx: Context, request: CreateTopicArgs): Promise<CreateTopicResult> {
-        // if (!(typeof request.path === 'string' && request.path!.length > 0)) throw new Error('path is required');
+    public async createTopic(ctx: Context, request: ICreateTopicArgs): Promise<IOperationResult> {
         return this.settings.retrier.retry(ctx, /*async*/ () => {
             return /*await*/ asIdempotentRetryableLambda(async () => {
                 return /*await*/ (await this.nextNodeService()).createTopic(ctx, request);
@@ -104,11 +206,10 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
     }
 
     // @ts-ignore
-    public describeTopic(request: DescribeTopicArgs): Promise<DescribeTopicResult>;
-    public describeTopic(ctx: Context, request: DescribeTopicArgs): Promise<DescribeTopicResult>;
+    public describeTopic(request: IDescribeTopicArgs): Promise<IOperationResult>;
+    public describeTopic(ctx: Context, request: IDescribeTopicArgs): Promise<IOperationResult>;
     @ensureContext(true)
-    public async describeTopic(ctx: Context, request: DescribeTopicArgs): Promise<DescribeTopicResult> {
-        // if (!(typeof request.path === 'string' && request.path!.length > 0)) throw new Error('path is required');
+    public async describeTopic(ctx: Context, request: IDescribeTopicArgs): Promise<IOperationResult> {
         return this.settings.retrier.retry(ctx, /*async*/ () => {
             return /*await*/ asIdempotentRetryableLambda(async () => {
                 return /*await*/ (await this.nextNodeService()).describeTopic(ctx, request);
@@ -117,11 +218,10 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
     }
 
     // @ts-ignore
-    public describeConsumer(request: DescribeConsumerArgs): Promise<DescribeConsumerResult>;
-    public describeConsumer(ctx: Context, request: DescribeConsumerArgs): Promise<DescribeConsumerResult>;
+    public describeConsumer(request: IDescribeConsumerArgs): Promise<IOperationResult>;
+    public describeConsumer(ctx: Context, request: IDescribeConsumerArgs): Promise<IOperationResult>;
     @ensureContext(true)
-    public async describeConsumer(ctx: Context, request: DescribeConsumerArgs): Promise<DescribeConsumerResult> {
-        // if (!(typeof request.path === 'string' && request.path!.length > 0)) throw new Error('path is required');
+    public async describeConsumer(ctx: Context, request: IDescribeConsumerArgs): Promise<IOperationResult> {
         return this.settings.retrier.retry(ctx, /*async*/ () => {
             return /*await*/ asIdempotentRetryableLambda(async () => {
                 return /*await*/ (await this.nextNodeService()).describeConsumer(ctx, request);
@@ -130,11 +230,10 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
     }
 
     // @ts-ignore
-    public alterTopic(request: AlterTopicArgs): Promise<AlterTopicResult>;
-    public alterTopic(ctx: Context, request: AlterTopicArgs): Promise<AlterTopicResult>;
+    public alterTopic(request: IAlterTopicArgs): Promise<IOperationResult>;
+    public alterTopic(ctx: Context, request: IAlterTopicArgs): Promise<IOperationResult>;
     @ensureContext(true)
-    public async alterTopic(ctx: Context, request: AlterTopicArgs): Promise<AlterTopicResult> {
-        // if (!(typeof request.path === 'string' && request.path!.length > 0)) throw new Error('path is required');
+    public async alterTopic(ctx: Context, request: IAlterTopicArgs): Promise<IOperationResult> {
         return this.settings.retrier.retry(ctx, /*async*/ () => {
             return /*await*/ asIdempotentRetryableLambda(async () => {
                 return /*await*/ (await this.nextNodeService()).alterTopic(ctx, request);
@@ -143,11 +242,10 @@ export class TopicClient extends EventEmitter { // TODO: Reconsider why I need t
     }
 
     // @ts-ignore
-    public dropTopic(request: DropTopicArgs): Promise<DropTopicResult>;
-    public dropTopic(ctx: Context, request: DropTopicArgs): Promise<DropTopicResult>;
+    public dropTopic(request: IDropTopicArgs): Promise<IOperationResult>;
+    public dropTopic(ctx: Context, request: IDropTopicArgs): Promise<IOperationResult>;
     @ensureContext(true)
-    public async dropTopic(ctx: Context, request: DropTopicArgs): Promise<DropTopicResult> {
-        // if (!(typeof request.path === 'string' && request.path!.length > 0)) throw new Error('path is required');
+    public async dropTopic(ctx: Context, request: IDropTopicArgs): Promise<IOperationResult> {
         return this.settings.retrier.retry(ctx, /*async*/ () => {
             return asIdempotentRetryableLambda(async () => {
                 return /*await*/ (await this.nextNodeService()).dropTopic(ctx, request);

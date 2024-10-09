@@ -12,7 +12,7 @@ import {
     ReadStreamStartPartitionSessionArgs
 } from "../../../topic/internal/topic-read-stream-with-events";
 import {WriteStreamInitResult, WriteStreamWriteResult} from "../../../topic/internal/topic-write-stream-with-events";
-import {TopicNodeClient} from "../../../topic/internal/topic-node-client";
+import {TopicClientOnParticularNode} from "../../../topic/internal/topic-node-client";
 import {Context} from "../../../context";
 import {RetryParameters} from "../../../retries/retryParameters";
 import {RetryStrategy} from "../../../retries/retryStrategy";
@@ -24,7 +24,7 @@ const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
 
 describe('Topic: General', () => {
     let discoveryService: DiscoveryService;
-    let topicService: TopicNodeClient;
+    let topicService: TopicClientOnParticularNode;
     const ctx = Context.createNew().ctx;
 
     beforeEach(async () => {
@@ -191,7 +191,7 @@ describe('Topic: General', () => {
             logger,
         });
         await discoveryService.ready(ENDPOINT_DISCOVERY_PERIOD);
-        topicService = new TopicNodeClient(
+        topicService = new TopicClientOnParticularNode(
             await discoveryService.getEndpoint(), // TODO: Should be one per endpoint
             DATABASE,
             authService,
