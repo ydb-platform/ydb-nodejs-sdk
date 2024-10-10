@@ -95,7 +95,7 @@ async function run() {
         });
         try {
             for await (const message of reader.messages) {
-                console.info(`Message: ${message.data!.toString()}`);
+                logger.info(`Message: ${message.data!.toString()}`);
                 await message.commit();
             }
         } catch (err) {

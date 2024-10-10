@@ -10,7 +10,7 @@ import {closeSymbol} from "./symbols";
 import {google, Ydb} from "ydb-sdk-proto";
 import DiscoveryService from "../discovery/discovery-service";
 
-export interface SendArgs {
+export type ISendArgs = {
     messages: ({
         data: Uint8Array;
         seqNo?: (number|Long|null);
@@ -24,17 +24,17 @@ export interface SendArgs {
     tx?: (Ydb.Topic.ITransactionIdentity|null);
 }
 
-export type SendResult = {
+export type ISendResult = {
 }
 
-type messageQueueItem = {
-    args: SendArgs,
-    resolve: (value: SendResult | PromiseLike<SendResult>) => void,
+type IMessageQueueItem = {
+    args: ISendArgs,
+    resolve: (value: ISendResult | PromiseLike<ISendResult>) => void,
     reject: (reason?: any) => void
 };
 
 export class TopicWriter {
-    private messageQueue: messageQueueItem[] = [];
+    private messageQueue: IMessageQueueItem[] = [];
     private reasonForClose?: Error;
     private closeResolve?: () => void;
     private firstInnerStreamInitResp? = true;
@@ -203,10 +203,10 @@ export class TopicWriter {
     }
 
     // @ts-ignore
-    public send(sendMessagesArgs: SendArgs): Promise<SendResult>;
-    public send(ctx: Context, sendMessagesArgs: SendArgs): Promise<SendResult>;
+    public send(sendMessagesArgs: ISendArgs): Promise<ISendResult>;
+    public send(ctx: Context, sendMessagesArgs: ISendArgs): Promise<ISendResult>;
     @ensureContext(true)
-    public send(ctx: Context, sendMessagesArgs: SendArgs): Promise<SendResult> {
+    public send(ctx: Context, sendMessagesArgs: ISendArgs): Promise<ISendResult> {
         this.logger.trace('%s: TopicWriter.sendMessages()', ctx);
         if (this.reasonForClose) return Promise.reject(this.reasonForClose);
         sendMessagesArgs.messages?.forEach((msg) => {
@@ -219,7 +219,7 @@ export class TopicWriter {
                 if (msg.seqNo === undefined || msg.seqNo === null) throw new Error('Writer was created without getLastSeqNo = true, explicit seqNo must be provided');
             }
         });
-        return new Promise<SendResult>((resolve, reject) => {
+        return new Promise<ISendResult>((resolve, reject) => {
             this.messageQueue.push({args: sendMessagesArgs, resolve, reject})
             this.innerWriteStream?.writeRequest(ctx, sendMessagesArgs);
         });
