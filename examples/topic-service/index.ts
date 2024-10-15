@@ -1,9 +1,8 @@
-import {Driver as YDB, getCredentialsFromEnv} from 'ydb-sdk';
+import {Driver as YDB, getCredentialsFromEnv, Context} from 'ydb-sdk';
 import {Ydb} from "ydb-sdk-proto";
 import {getDefaultLogger} from "../../src/logger/get-default-logger";
-import {main} from "../utils";
+// import {main} from "../utils";
 import Codec = Ydb.Topic.Codec;
-import {Context} from "ydb-sdk/build/cjs/src/context/context";
 
 require('dotenv').config();
 
@@ -113,4 +112,5 @@ async function run() {
     }
 }
 
-main(run);
+// main(run);
+run();

@@ -36,6 +36,7 @@ export {getCredentialsFromEnv, getSACredentialsFromJson} from './utils/parse-env
 export {ISslCredentials} from './utils/ssl-credentials';
 
 export {withRetries, RetryParameters} from './retries_obsoleted';
+export {Context} from './context';
 
 export {YdbError, StatusCode} from './errors';
 
