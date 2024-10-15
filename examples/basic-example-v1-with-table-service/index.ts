@@ -224,7 +224,7 @@ async function selectPrepared(session: Session, data: ThreeIds[], logger: Logger
                 '$episodeId': episode.getTypedValue('episodeId')
             });
             const result = Series.createNativeObjects(resultSets[0]);
-            logger.info(`Select prepared query ${JSON.stringify(result, null, 2)}`);
+            logger.info(`Parametrized select query ${JSON.stringify(result, null, 2)}`);
         }
     }
     await withRetries(select);
