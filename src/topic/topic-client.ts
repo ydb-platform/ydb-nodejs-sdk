@@ -26,7 +26,6 @@ export type ICreateReaderArgs = {
     }[];
     consumer?: (string|null);
     readerName?: (string|null);
-
 }
 export type ICommitOffsetArgs = {
     path: (string|null);

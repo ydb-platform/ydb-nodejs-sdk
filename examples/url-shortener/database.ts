@@ -53,18 +53,17 @@ VALUES ($shortenUrl, $sourceUrl);`;
     return shortenUrl;
 }
 
-
 export async function selectSource(
     shortenUrl: string,
     session: Session,
     logger: Logger): Promise<string> {
     const query = `
     ${SYNTAX_V1}
-    DECLARE $shortenUrl as Utf8;
+DECLARE $shortenUrl as Utf8;
 
-    SELECT *
-    FROM ${URLS_TABLE}
-    WHERE shorten = $shortenUrl;`;
+SELECT *
+FROM ${URLS_TABLE}
+WHERE shorten = $shortenUrl;`;
 
     async function execute() : Promise<string> {
         logger.info('Preparing query...');
@@ -75,7 +74,7 @@ export async function selectSource(
             '$shortenUrl': requestSourceUrl.getTypedValue('shorten')
         });
         const result = UrlsMatch.createNativeObjects(resultSets[0]);
-        logger.info('Select prepared query', result);
+        logger.info('Parametrized select query', result);
         if (result.length == 0) {
             return '';
         } else {
