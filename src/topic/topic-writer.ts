@@ -107,7 +107,7 @@ export class TopicWriter {
             delete this.writeStreamArgs.getLastSeqNo;
         }
         delete this.firstInnerStreamInitResp;
-        const stream = new InternalTopicWriteStream(ctx, this.writeStreamArgs, await this.discovery.getTopicNodeClient(), this.logger);
+        const stream = await (await this.discovery.getTopicNodeClient()).openWriteStreamWithEvents(ctx, this.writeStreamArgs);
         stream.events.on('initResponse', (resp) => {
             this.logger.trace('%s: TopicWriter.on "initResponse"', ctx);
             try {

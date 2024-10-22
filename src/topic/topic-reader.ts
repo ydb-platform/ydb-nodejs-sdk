@@ -157,8 +157,7 @@ export class TopicReader {
 
     private async initInnerStream(ctx: Context) {
         this.logger.trace('%s: TopicReader.initInnerStream()', ctx);
-        this.innerReadStream = new InternalTopicReadStream(ctx, this.readStreamArgs, await this.discovery.getTopicNodeClient(), this.logger);
-
+        this.innerReadStream = await (await this.discovery.getTopicNodeClient()).openReadStreamWithEvents(ctx, this.readStreamArgs);
         // this.innerReadStream.events.on('initResponse', async (resp) => {
         //     try {
         //         // TODO: Impl

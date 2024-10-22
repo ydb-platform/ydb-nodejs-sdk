@@ -293,9 +293,11 @@ export class TransportError extends YdbError {
             } catch (error) {}
             return new Error(`Unexpected transport error code ${e.code}! Error itself: ${errStr}`);
         } else {
-            return new ErrCls(
+            const ydbErr = new ErrCls(
                 `${ErrCls.name} (code ${ErrCls.status}): ${e.name}: ${e.message}. ${e.details}`,
             );
+            ydbErr.stack = e.stack;
+            return ydbErr;
         }
     }
 }
