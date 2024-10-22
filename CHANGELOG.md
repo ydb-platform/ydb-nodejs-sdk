@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.5.2](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.5.1...v5.5.2) (2024-10-15)
+
+
+### Bug Fixes
+
+* fix topic example and make Context publically available ([644c116](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/644c116255eda9431538b1db0d91d36e6b978710))
+* update protobufjs to the latest version and add dependencies to protobufjs in the proto file ([509ea47](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/509ea478bed3399d237b39d3482e8d9986ffd8d1))
+
+## [5.5.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.5.0...v5.5.1) (2024-10-03)
+
+
+### Bug Fixes
+
+* add explicit dependency on protobufjs package ([031d2be](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/031d2bed5939e67e2c75e1cd47209a2bffbb2627))
+
 ## [5.5.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.4.0...v5.5.0) (2024-09-30)
 
 
