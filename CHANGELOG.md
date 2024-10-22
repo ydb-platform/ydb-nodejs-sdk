@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.5.3](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.5.2...v5.5.3) (2024-10-22)
+
+
+### Bug Fixes
+
+* topic stream auth in cloud ([6adca13](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/6adca13c4b470e73fb300cdda0340b135fa66377))
+
 ## [5.5.2](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.5.1...v5.5.2) (2024-10-15)
 
 
