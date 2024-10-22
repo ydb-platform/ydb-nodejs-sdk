@@ -86,5 +86,7 @@ export {RemoveDirectorySettings} from "./schema/scheme-service";
 export {MakeDirectorySettings} from "./schema/scheme-service";
 
 export {ParsedConnectionString, parseConnectionString} from "./utils/parse-connection-string";
-
 export {QueryClient, ResultSet, RowType} from "./query";
+
+export {SimpleLogger} from "./logger/simple-logger";
+export {getDefaultLogger} from "./logger/get-default-logger";

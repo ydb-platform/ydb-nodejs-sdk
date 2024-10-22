@@ -46,13 +46,6 @@ export type ReadStreamEvents = {
     end: (cause: Error) => void,
 }
 
-export const enum TopicWriteStreamState {
-    Init,
-    Active,
-    Closing,
-    Closed
-}
-
 export class InternalTopicReadStream {
     public events = new EventEmitter() as TypedEmitter<ReadStreamEvents>;
 
@@ -61,12 +54,15 @@ export class InternalTopicReadStream {
 
     constructor(
         ctx: Context,
-        args: InternalReadStreamInitArgs,
         private topicService: InternalTopicClient,
         // @ts-ignore
         public readonly logger: Logger) {
         this.logger.trace('%s: new TopicReadStreamWithEvents()', ctx);
-        this.topicService.updateMetadata();
+    };
+
+    public async init(ctx: Context, args: InternalReadStreamInitArgs) {
+        this.logger.trace('%s: InternalTopicReadStream.init()', ctx);
+        await this.topicService.updateMetadata();
         this.readBidiStream = this.topicService.grpcServiceClient!
             .makeBidiStreamRequest<Ydb.Topic.StreamReadMessage.FromClient, Ydb.Topic.StreamReadMessage.FromServer>(
                 '/Ydb.Topic.V1.TopicService/StreamRead',
@@ -111,9 +107,10 @@ export class InternalTopicReadStream {
             }
         })
         this.initRequest(ctx, args);
-    };
 
-    private initRequest(ctx: Context, args: InternalReadStreamInitArgs) {
+    }
+
+    public initRequest(ctx: Context, args: InternalReadStreamInitArgs) {
         this.logger.trace('%s: TopicReadStreamWithEvents.initRequest()', ctx);
         this.readBidiStream!.write(
             Ydb.Topic.StreamReadMessage.create({

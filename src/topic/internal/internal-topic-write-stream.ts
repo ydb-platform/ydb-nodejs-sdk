@@ -38,18 +38,24 @@ export type WriteStreamEvents = {
 
 export class InternalTopicWriteStream {
     private reasonForClose?: Error;
-    private writeBidiStream: ClientDuplexStream<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>;
+    private writeBidiStream?: ClientDuplexStream<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>;
 
     public readonly events = new EventEmitter() as TypedEmitter<WriteStreamEvents>;
 
     constructor(
         ctx: Context,
-        args: InternalWriteStreamInitArgs,
         private topicService: InternalTopicClient,
         // @ts-ignore
         private logger: Logger) {
-        this.logger.trace('%s: new TopicWriteStreamWithEvents|()', ctx);
-        this.topicService.updateMetadata();
+        this.logger.trace('%s: new TopicWriteStreamWithEvents()', ctx);
+    };
+
+    public async init(
+        ctx: Context,
+        args: InternalWriteStreamInitArgs
+    ) {
+        this.logger.trace('%s: TopicWriteStreamWithEvents.init()', ctx);
+        await this.topicService.updateMetadata();
         this.writeBidiStream = this.topicService.grpcServiceClient!
             .makeBidiStreamRequest<Ydb.Topic.StreamWriteMessage.FromClient, Ydb.Topic.StreamWriteMessage.FromServer>(
                 '/Ydb.Topic.V1.TopicService/StreamWrite',
@@ -86,10 +92,10 @@ export class InternalTopicWriteStream {
                 err = TransportError.convertToYdbError(err as (Error & StatusObject));
                 this.events.emit('error', err);
             }
-            this.writeBidiStream.end();
+            this.writeBidiStream!.end();
         });
         this.initRequest(ctx, args);
-    };
+    }
 
     private initRequest(ctx: Context, args: InternalWriteStreamInitArgs) {
         this.logger.trace('%s: TopicWriteStreamWithEvents.initRequest()', ctx);
@@ -107,7 +113,7 @@ export class InternalTopicWriteStream {
         this.logger.trace('%s: TopicWriteStreamWithEvents.writeRequest()', ctx);
         if (this.reasonForClose) throw new Error('Stream is not open');
         await this.updateToken(ctx);
-        this.writeBidiStream.write(
+        this.writeBidiStream!.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
                 writeRequest: Ydb.Topic.StreamWriteMessage.WriteRequest.create(args),
             }));
@@ -117,7 +123,7 @@ export class InternalTopicWriteStream {
         this.logger.trace('%s: TopicWriteStreamWithEvents.updateTokenRequest()', ctx);
         if (this.reasonForClose) throw new Error('Stream is not open');
         await this.updateToken(ctx);
-        this.writeBidiStream.write(
+        this.writeBidiStream!.write(
             Ydb.Topic.StreamWriteMessage.FromClient.create({
                 updateTokenRequest: Ydb.Topic.UpdateTokenRequest.create(args),
             }));

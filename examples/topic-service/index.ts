@@ -1,24 +1,18 @@
-import {Driver as YDB, getCredentialsFromEnv, Context} from 'ydb-sdk';
+import {Driver as YDB, getCredentialsFromEnv, Context, SimpleLogger} from 'ydb-sdk';
 import {Ydb} from "ydb-sdk-proto";
-import {getDefaultLogger} from "../../src/logger/get-default-logger";
-// import {main} from "../utils";
 import Codec = Ydb.Topic.Codec;
 
 require('dotenv').config();
 
-const DATABASE = '/local';
-const ENDPOINT = process.env.YDB_ENDPOINT || 'grpc://localhost:2136';
-
 async function run() {
-    const logger = getDefaultLogger();
+    // const logger = getDefaultLogger();
+    const logger = new SimpleLogger({envKey: 'YDB_TEST_LOG_LEVEL'});
     const authService = getCredentialsFromEnv(logger);
     const db = new YDB({
-        endpoint: ENDPOINT, // i.e.: grc(s)://<x.x.x.x>
-        database: DATABASE, // i.e.: '/local'
-        authService, logger
-        // logger: new SimpleLogger({envKey: 'YDB_TEST_LOG_LEVEL'}),
+        connectionString: process.env.YDB_CONNECTION_STRING || 'grpc://localhost:2136?database=/local',
+        authService, logger,
     });
-    if (!(await db.ready(3000))) throw new Error('Driver is not ready!');
+    if (!(await db.ready(30000))) throw new Error('Driver is not ready!');
     try {
         await db.topic.createTopic({
             path: 'demoTopic',
@@ -43,9 +37,9 @@ async function run() {
             },
         });
 
-        logger.info(await db.topic.describeTopic({
+        await db.topic.describeTopic({
             path: 'demoTopic',
-        }));
+        });
 
         const writer = await db.topic.createWriter({
             path: 'demoTopic',

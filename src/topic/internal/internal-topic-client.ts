@@ -64,6 +64,7 @@ export class InternalTopicClient extends AuthenticatedService<Ydb.Topic.V1.Topic
     // @ts-ignore
     public destroy();
     public /*async*/ destroy(ctx: Context) {
+        this.logger.trace('%s: InternalTopicClient.destroy()', ctx);
         let destroyPromise;
         if (this.allStreams.length > 0) {
             destroyPromise = new Promise((resolve) => {
@@ -78,13 +79,15 @@ export class InternalTopicClient extends AuthenticatedService<Ydb.Topic.V1.Topic
     }
 
     public async openWriteStreamWithEvents(ctx: Context, args: InternalWriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) {
+        this.logger.trace('%s: InternalTopicClient.openWriteStreamWithEvents()', ctx);
         if (args.producerId === undefined || args.producerId === null) {
             const newGUID = uuid_v4();
             args = {...args, producerId: newGUID, messageGroupId: newGUID}
         } else if (args.messageGroupId === undefined || args.messageGroupId === null) {
             args = {...args, messageGroupId: args.producerId};
         }
-        const writerStream = new InternalTopicWriteStream(ctx, args, this, this.logger);
+        const writerStream = new InternalTopicWriteStream(ctx, this, this.logger);
+        await writerStream.init(ctx, args);
         writerStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === writerStream)
             if (index >= 0) this.allStreams.splice(index, 1);
@@ -95,7 +98,9 @@ export class InternalTopicClient extends AuthenticatedService<Ydb.Topic.V1.Topic
     }
 
     public async openReadStreamWithEvents(ctx: Context, args: InternalReadStreamInitArgs) {
-        const readStream = new InternalTopicReadStream(ctx, args, this, this.logger);
+        this.logger.trace('%s: InternalTopicClient.openReadStreamWithEvents()', ctx);
+        const readStream = new InternalTopicReadStream(ctx, this, this.logger);
+        await readStream.init(ctx, args);
         readStream.events.once('end', () => {
             const index = this.allStreams.findIndex(v => v === readStream)
             if (index >= 0) this.allStreams.splice(index, 1);
@@ -105,31 +110,38 @@ export class InternalTopicClient extends AuthenticatedService<Ydb.Topic.V1.Topic
         return readStream;
     }
 
-    public async commitOffset(_ctx: Context, request: InternalCommitOffsetArgs) {
+    public async commitOffset(ctx: Context, request: InternalCommitOffsetArgs) {
+        this.logger.trace('%s: InternalTopicClient.commitOffset()', ctx);
         return (await this.api.commitOffset(request)) as InternalCommitOffsetResult;
     }
 
-    public async updateOffsetsInTransaction(_ctx: Context, request: InternalUpdateOffsetsInTransactionArgs) {
+    public async updateOffsetsInTransaction(ctx: Context, request: InternalUpdateOffsetsInTransactionArgs) {
+        this.logger.trace('%s: InternalTopicClient.updateOffsetsInTransaction()', ctx);
         return (await this.api.updateOffsetsInTransaction(request)) as InternalUpdateOffsetsInTransactionResult;
     }
 
-    public async createTopic(_ctx: Context, request: InternalCreateTopicArgs) {
+    public async createTopic(ctx: Context, request: InternalCreateTopicArgs) {
+        this.logger.trace('%s: InternalTopicClient.createTopic()', ctx);
         return (await this.api.createTopic(request)) as InternalCreateTopicResult;
     }
 
-    public async describeTopic(_ctx: Context, request: InternalDescribeTopicArgs) {
+    public async describeTopic(ctx: Context, request: InternalDescribeTopicArgs) {
+        this.logger.trace('%s: InternalTopicClient.describeTopic()', ctx);
         return (await this.api.describeTopic(request)) as InternalDescribeTopicResult;
     }
 
-    public async describeConsumer(_ctx: Context, request: InternalDescribeConsumerArgs) {
+    public async describeConsumer(ctx: Context, request: InternalDescribeConsumerArgs) {
+        this.logger.trace('%s: InternalTopicClient.describeConsumer()', ctx);
         return (await this.api.describeConsumer(request)) as InternalDescribeConsumerResult;
     }
 
-    public async alterTopic(_ctx: Context, request: InternalAlterTopicArgs) {
+    public async alterTopic(ctx: Context, request: InternalAlterTopicArgs) {
+        this.logger.trace('%s: InternalTopicClient.alterTopic()', ctx);
         return (await this.api.alterTopic(request)) as InternalAlterTopicResult;
     }
 
-    public async dropTopic(_ctx: Context, request: InternalDropTopicArgs) {
+    public async dropTopic(ctx: Context, request: InternalDropTopicArgs) {
+        this.logger.trace('%s: InternalTopicClient.dropTopic()', ctx);
         return (await this.api.dropTopic(request)) as InternalDropTopicResult;
     }
 }

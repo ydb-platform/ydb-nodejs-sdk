@@ -6,7 +6,7 @@ import {asIdempotentRetryableLambda} from "../retries/asIdempotentRetryableLambd
 import {google, Ydb} from "ydb-sdk-proto";
 import {InternalTopicClient} from "./internal/internal-topic-client";
 
-// TODO: Consider support for "operationParams?: (Ydb.Operations.IOperationParams|null);". It presents in eve+ry jdbc operation
+// TODO: Consider support for "operationParams?: (Ydb.Operations.IOperationParams|null);". It presents in every jdbc operation
 
 export type ICreateWriterArgs = {
     path: string;
@@ -184,7 +184,7 @@ export class TopicClient {
         return new TopicReader(ctx, args, this.settings.retrier, this.settings.discoveryService, this.settings.logger);
     }
 
-    // TODO: Add commit a queue - same as in writer, to confirm commits
+    // TODO: Add commit queue - same as in writer, to confirm commits
 
     // @ts-ignore
     public commitOffset(request: ICommitOffsetArgs): Promise<IOperationResult>;
