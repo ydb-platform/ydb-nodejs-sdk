@@ -1,6 +1,5 @@
-import {Driver as YDB, getCredentialsFromEnv, Context} from 'ydb-sdk';
+import {Driver as YDB, getCredentialsFromEnv, Context, SimpleLogger} from 'ydb-sdk';
 import {Ydb} from "ydb-sdk-proto";
-import {getDefaultLogger} from "../../src/logger/get-default-logger";
 import Codec = Ydb.Topic.Codec;
 
 require('dotenv').config();
