@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.7.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.6.0...v5.7.0) (2024-10-30)
+
+
+### Features
+
+* add support for poolId parameter in query service requests ([1098749](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/1098749259cee66942987e14e25a77dbba08e206))
+
 ## [5.6.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.5.3...v5.6.0) (2024-10-29)
 
 
