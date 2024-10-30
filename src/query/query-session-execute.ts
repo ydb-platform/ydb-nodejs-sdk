@@ -47,6 +47,8 @@ export type IExecuteArgs = {
      */
     rowMode?: RowType,
     idempotent?: boolean,
+
+    poolId?: string,
 };
 
 export type IExecuteResult = {
@@ -107,6 +109,7 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
             syntax: args.syntax ?? Ydb.Query.Syntax.SYNTAX_YQL_V1,
         },
         execMode: args.execMode ?? Ydb.Query.ExecMode.EXEC_MODE_EXECUTE,
+        poolId: args.poolId,
     };
     if (args.statsMode) executeQueryRequest.statsMode = args.statsMode;
     if (args.parameters) executeQueryRequest.parameters = args.parameters;
