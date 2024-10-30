@@ -48,7 +48,19 @@ export type IExecuteArgs = {
     rowMode?: RowType,
     idempotent?: boolean,
 
+    /**
+     * Resource Pool
+     *
+     * @deprecated Use resourcePool.
+     */
     poolId?: string,
+
+    /**
+     * Resource Pool
+     *
+     * CREATE RESOURCE POOL pool_name WITH (...)
+     */
+    resourcePool?: string,
 };
 
 export type IExecuteResult = {
@@ -109,7 +121,7 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
             syntax: args.syntax ?? Ydb.Query.Syntax.SYNTAX_YQL_V1,
         },
         execMode: args.execMode ?? Ydb.Query.ExecMode.EXEC_MODE_EXECUTE,
-        poolId: args.poolId,
+        poolId: args.poolId ?? args.resourcePool,
     };
     if (args.statsMode) executeQueryRequest.statsMode = args.statsMode;
     if (args.parameters) executeQueryRequest.parameters = args.parameters;
