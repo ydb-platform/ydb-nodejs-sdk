@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.8.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.7.0...v5.8.0) (2024-10-30)
+
+
+### Features
+
+* rename poolId to resourcePool and deprecate ([74de142](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/74de1429fd02ffc862d208daf671245f543c01ce))
+
 ## [5.7.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.6.0...v5.7.0) (2024-10-30)
 
 
