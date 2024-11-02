@@ -16,6 +16,7 @@
     "experimentalDecorators": true,
     "allowJs": true,
     "declaration": true,
+    "declarationMap": true,
     "resolveJsonModule": true
   },
   "include": [
