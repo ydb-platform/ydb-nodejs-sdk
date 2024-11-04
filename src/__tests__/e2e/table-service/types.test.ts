@@ -441,10 +441,12 @@ describe('Types', () => {
 
             it('UUID value', async () => {
                 await driver.tableClient.withSession(async (session) => {
-                    const query = `SELECT Uuid("f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb") AS uuid_value;`;
+                    let uuid = '6E73B41C-4EDE-4D08-9CFB-B7462D9E498B'
+
+                    const query = `SELECT Uuid("${uuid}") AS uuid_value;`;
 
                     const data = {
-                        uuid_value: 'f9d5cc3f-f1dc-4d9c-b97e-766e57ca4ccb',
+                        uuid_value: uuid.toLocaleLowerCase(),
                     };
 
                     const response = await session.executeQuery(query);

@@ -1,56 +1,157 @@
-import {Ydb} from 'ydb-sdk-proto';
-import * as uuid from 'uuid';
+import { Buffer } from 'node:buffer';
+
+import { Ydb } from 'ydb-sdk-proto';
 import Long from 'long';
 import IValue = Ydb.IValue;
-import {toLong} from "./utils/to-long";
-
-/**
- * Every UUID string value represents as hex digits displayed in five groups separated by hyphens:
- * - time_low - 8 digits;
- * - time_mid - 4 digits;
- * - time_hi_and_version - 4 digits;
- * - time_high (clock_seq_hi_and_res clock_seq_low (4) + node (12)) - 16 digits.
- *
- * Example: `00112233-4455-5677-ab89-aabbccddeeff`
- * - time_low: `00112233`
- * - time_mid: `4455`
- * - time_hi_and_version: `5677`
- * - time_high: `ab89-aabbccddeeff`
- *
- * The byte representation of UUID v2 value is first three parts in LE format and last two parts in BE format.
- * Example: UUID: `00112233-4455-5677-ab89-aabbccddeeff` byte representation is
- * `33 22 11 00 55 44 77 56 ab 99 aa bb cc dd ee ff`.
- */
+import { toLong } from "./utils/to-long";
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-export function uuidToValue(value: string): IValue {
-    if (!UUID_REGEX.test(value)) {
-        throw new Error(`Incorrect UUID value: ${value}`);
+export function uuidToValue(uuid: string): IValue {
+    if (!UUID_REGEX.test(uuid)) {
+        throw new Error(`Incorrect UUID value: ${uuid}`);
     }
-    const uuidBytes = Array.from(uuid.parse(value)) as number[];
-    const highBytes = uuidBytes.slice(8, 16);
-    const timeLowBytes = uuidBytes.slice(0, 4);
-    const timeMidBytes = uuidBytes.slice(4, 6);
-    const timeHiAndVersionBytes = uuidBytes.slice(6, 8);
-    const lowBytes = [...timeHiAndVersionBytes, ...timeMidBytes, ...timeLowBytes];
 
-    return {
-        high_128: Long.fromBytesLE(highBytes, true),
-        low_128: Long.fromBytesBE(lowBytes, true),
-    };
+    // Remove dashes from the UUID string
+    const hex = uuid.replace(/-/g, '');
+
+    // Create a buffer from the hexadecimal string
+    const bytes = Buffer.from(hex, 'hex');
+
+    // Swap byte order for the first three fields of the UUID (big-endian to little-endian)
+    // First 4 bytes (indices 0-3)
+    bytes[0] ^= bytes[3];
+    bytes[3] ^= bytes[0];
+    bytes[0] ^= bytes[3];
+
+    bytes[1] ^= bytes[2];
+    bytes[2] ^= bytes[1];
+    bytes[1] ^= bytes[2];
+
+    // Next 2 bytes (indices 4-5)
+    bytes[4] ^= bytes[5];
+    bytes[5] ^= bytes[4];
+    bytes[4] ^= bytes[5];
+
+    // Another 2 bytes (indices 6-7)
+    bytes[6] ^= bytes[7];
+    bytes[7] ^= bytes[6];
+    bytes[6] ^= bytes[7];
+
+    // Read low128 and high128 values from the buffer in little-endian format
+    const low128 = Long.fromBytesLE(bytes.slice(0, 8) as unknown as number[], true)
+    const high128 = Long.fromBytesLE(bytes.slice(8) as unknown as number[], true)
+
+    return { low_128: low128, high_128: high128 };
 }
 
 export function uuidToNative(value: IValue): string {
-    const high = toLong(value.high_128 as number | Long);
-    const low = toLong(value.low_128 as number | Long);
+    const low128 = toLong(value.low_128 as number | Long);
+    const high128 = toLong(value.high_128 as number | Long);
 
-    const highBytes = high.toBytesLE();
-    const lowBytes = low.toBytesBE();
-    const timeLowBytes = lowBytes.slice(4, 8);
-    const timeMidBytes = lowBytes.slice(2, 4);
-    const timeHighAndVersionBytes = lowBytes.slice(0, 2);
-    const uuidBytes = [...timeLowBytes, ...timeMidBytes, ...timeHighAndVersionBytes, ...highBytes];
+    // Create a 16-byte buffer
+    const bytes = Buffer.alloc(16);
 
-    return uuid.stringify(uuidBytes);
+    // Write low128 and high128 values to the buffer in little-endian format
+    bytes.set(low128.toBytesLE(), 0);
+    bytes.set(high128.toBytesLE(), 8);
+
+    // Swap byte order for the first three fields of the UUID (little-endian to big-endian)
+    // First 4 bytes (indices 0-3)
+    bytes[0] ^= bytes[3];
+    bytes[3] ^= bytes[0];
+    bytes[0] ^= bytes[3];
+
+    bytes[1] ^= bytes[2];
+    bytes[2] ^= bytes[1];
+    bytes[1] ^= bytes[2];
+
+    // Next 2 bytes (indices 4-5)
+    bytes[4] ^= bytes[5];
+    bytes[5] ^= bytes[4];
+    bytes[4] ^= bytes[5];
+
+    // Another 2 bytes (indices 6-7)
+    bytes[6] ^= bytes[7];
+    bytes[7] ^= bytes[6];
+    bytes[6] ^= bytes[7];
+
+    // Convert the buffer to a hexadecimal string
+    const hex = bytes.toString('hex');
+
+    // Form the UUID string
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+// @ts-ignore
+// For future use, when migrate to BigInt
+function uuidFromBigInts(low128: bigint, high128: bigint) {
+    // Create a 16-byte buffer
+    const bytes = Buffer.alloc(16);
+
+    // Write low128 and high128 values to the buffer in little-endian format
+    bytes.writeBigUInt64LE(low128, 0);
+    bytes.writeBigUInt64LE(high128, 8);
+
+    // Swap byte order for the first three fields of the UUID (little-endian to big-endian)
+    // First 4 bytes (indices 0-3)
+    bytes[0] ^= bytes[3];
+    bytes[3] ^= bytes[0];
+    bytes[0] ^= bytes[3];
+
+    bytes[1] ^= bytes[2];
+    bytes[2] ^= bytes[1];
+    bytes[1] ^= bytes[2];
+
+    // Next 2 bytes (indices 4-5)
+    bytes[4] ^= bytes[5];
+    bytes[5] ^= bytes[4];
+    bytes[4] ^= bytes[5];
+
+    // Another 2 bytes (indices 6-7)
+    bytes[6] ^= bytes[7];
+    bytes[7] ^= bytes[6];
+    bytes[6] ^= bytes[7];
+
+    // Convert the buffer to a hexadecimal string
+    const hex = bytes.toString('hex');
+
+    // Form the UUID string
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+// @ts-ignore
+// For future use, when migrate to BigInt
+function bigIntsFromUuid(uuid: string): { low128: bigint, high128: bigint } {
+    // Remove dashes from the UUID string
+    const hex = uuid.replace(/-/g, '');
+
+    // Create a buffer from the hexadecimal string
+    const bytes = Buffer.from(hex, 'hex');
+
+    // Swap byte order for the first three fields of the UUID (big-endian to little-endian)
+    // First 4 bytes (indices 0-3)
+    bytes[0] ^= bytes[3];
+    bytes[3] ^= bytes[0];
+    bytes[0] ^= bytes[3];
+
+    bytes[1] ^= bytes[2];
+    bytes[2] ^= bytes[1];
+    bytes[1] ^= bytes[2];
+
+    // Next 2 bytes (indices 4-5)
+    bytes[4] ^= bytes[5];
+    bytes[5] ^= bytes[4];
+    bytes[4] ^= bytes[5];
+
+    // Another 2 bytes (indices 6-7)
+    bytes[6] ^= bytes[7];
+    bytes[7] ^= bytes[6];
+    bytes[6] ^= bytes[7];
+
+    // Read low128 and high128 values from the buffer in little-endian format
+    const low128 = bytes.readBigUInt64LE(0);
+    const high128 = bytes.readBigUInt64LE(8);
+
+    return { low128, high128 };
 }
