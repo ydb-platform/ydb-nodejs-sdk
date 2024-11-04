@@ -5,6 +5,7 @@ import {TopicReader} from "./topic-reader";
 import {asIdempotentRetryableLambda} from "../retries/asIdempotentRetryableLambda";
 import {google, Ydb} from "ydb-sdk-proto";
 import {InternalTopicClient} from "./internal/internal-topic-client";
+import Long from "long";
 
 // TODO: Consider support for "operationParams?: (Ydb.Operations.IOperationParams|null);". It presents in every jdbc operation
 

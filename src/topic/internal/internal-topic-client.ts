@@ -1,15 +1,14 @@
-import {Endpoint} from "../../discovery";
-import {Ydb} from "ydb-sdk-proto";
+import { Endpoint } from "../../discovery";
+import { Ydb } from "ydb-sdk-proto";
 
-import {Logger} from "../../logger/simple-logger";
+import { Logger } from "../../logger/simple-logger";
 import ICreateTopicResult = Ydb.Topic.ICreateTopicResult;
-import {AuthenticatedService, ClientOptions} from "../../utils";
-import {IAuthService} from "../../credentials/i-auth-service";
-import {ISslCredentials} from "../../utils/ssl-credentials";
-import {InternalTopicWriteStream, InternalWriteStreamInitArgs} from "./internal-topic-write-stream";
-import {InternalTopicReadStream, InternalReadStreamInitArgs} from "./internal-topic-read-stream";
-import {v4 as uuid_v4} from 'uuid';
-import {Context} from "../../context";
+import { AuthenticatedService, ClientOptions } from "../../utils";
+import { IAuthService } from "../../credentials/i-auth-service";
+import { ISslCredentials } from "../../utils/ssl-credentials";
+import { InternalTopicWriteStream, InternalWriteStreamInitArgs } from "./internal-topic-write-stream";
+import { InternalTopicReadStream, InternalReadStreamInitArgs } from "./internal-topic-read-stream";
+import { Context } from "../../context";
 import * as grpc from "@grpc/grpc-js";
 
 // TODO: Retries with the same options
@@ -81,10 +80,10 @@ export class InternalTopicClient extends AuthenticatedService<Ydb.Topic.V1.Topic
     public async openWriteStreamWithEvents(ctx: Context, args: InternalWriteStreamInitArgs & Pick<Ydb.Topic.StreamWriteMessage.IInitRequest, 'messageGroupId'>) {
         this.logger.trace('%s: InternalTopicClient.openWriteStreamWithEvents()', ctx);
         if (args.producerId === undefined || args.producerId === null) {
-            const newGUID = uuid_v4();
-            args = {...args, producerId: newGUID, messageGroupId: newGUID}
+            const newGUID = crypto.randomUUID();
+            args = { ...args, producerId: newGUID, messageGroupId: newGUID }
         } else if (args.messageGroupId === undefined || args.messageGroupId === null) {
-            args = {...args, messageGroupId: args.producerId};
+            args = { ...args, messageGroupId: args.producerId };
         }
         const writerStream = new InternalTopicWriteStream(ctx, this, this.logger);
         await writerStream.init(ctx, args);

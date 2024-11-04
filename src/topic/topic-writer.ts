@@ -39,7 +39,7 @@ export class TopicWriter {
     private closeResolve?: () => void;
     private firstInnerStreamInitResp? = true;
     private getLastSeqNo?: boolean; // true if client to proceed sequence based on last known seqNo
-    private lastSeqNo?: Long.Long;
+    private lastSeqNo?: Long;
     private attemptPromiseReject?: (value: any) => void;
     private innerWriteStream?: InternalTopicWriteStream;
 
