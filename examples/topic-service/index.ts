@@ -1,12 +1,12 @@
-import {Driver as YDB, getCredentialsFromEnv, Context, SimpleLogger} from 'ydb-sdk';
-import {Ydb} from "ydb-sdk-proto";
+import { Driver as YDB, getCredentialsFromEnv, Context, SimpleLogger } from 'ydb-sdk';
+import { Ydb } from "ydb-sdk-proto";
 import Codec = Ydb.Topic.Codec;
 
 require('dotenv').config();
 
 async function run() {
     // const logger = getDefaultLogger();
-    const logger = new SimpleLogger({envKey: 'YDB_TEST_LOG_LEVEL'});
+    const logger = new SimpleLogger({ envKey: 'YDB_TEST_LOG_LEVEL' });
     const authService = getCredentialsFromEnv(logger);
     const db = new YDB({
         connectionString: process.env.YDB_CONNECTION_STRING || 'grpc://localhost:2136?database=/local',
@@ -72,7 +72,7 @@ async function run() {
                         }
                     ],
                 }],
-           }));
+            }));
         }
         await writer.close(); // // graceful close() - will finish after receiving confirmation that all messages have been processed by the server
         // await Promise.all(promises); // another option

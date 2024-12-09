@@ -1,8 +1,8 @@
 process.env.YDB_SDK_PRETTY_LOGS = '1';
 
-import {Driver, getCredentialsFromEnv, Logger, TypedValues, RowType} from 'ydb-sdk';
-import {Row} from './data-helpers';
-import {main} from '../utils';
+import { Driver, getCredentialsFromEnv, Logger, TypedValues, RowType } from 'ydb-sdk';
+import { Row } from './data-helpers';
+import { main } from '../utils';
 
 const TABLE = 'query_service_table';
 
@@ -59,7 +59,9 @@ async function select(driver: Driver) {
             });
             let rowsCount = 0;
             for await (const resultSet of res.resultSets) {
+                resultSet.rows
                 console.info(`ResultSet index: ${resultSet.index}`)
+
                 for await (const row of resultSet.rows) {
                     rowsCount++;
                     console.info(`row: ${JSON.stringify(row)}`);
@@ -124,7 +126,7 @@ async function bulkUpsert(driver: Driver) {
 async function run(logger: Logger, endpoint: string, database: string) {
     const authService = getCredentialsFromEnv();
     logger.info('Driver initializing...');
-    const driver = new Driver({endpoint, database, authService});
+    const driver = new Driver({ endpoint, database, authService });
     const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);

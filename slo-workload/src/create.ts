@@ -83,8 +83,6 @@ async function createTable(
 async function generateInitialContent(driver: Driver, tableName: string, count: number) {
   console.log('Generate initial content', { task: 'generateInitialContent', tableName, count })
 
-  const count5p = Math.floor(count / 20) // every 5% of count for logs
-
   const qb = new QueryBuilder(tableName, 10, 10) // stub timeouts
   DataGenerator.setMaxId(0)
 

@@ -1,29 +1,31 @@
 import http from 'http'
-import { Gauge, Summary, Registry, Pushgateway } from 'prom-client'
+import { Counter, Registry, Pushgateway, Histogram, Gauge } from 'prom-client'
 import { Driver, Session } from 'ydb-sdk'
-import { packages } from '../../package-lock.json'
 import { QueryBuilder } from './QueryBuilder'
-
-const sdkVersion = require('../../../package.json').version
-
-const percentiles = [0.5, 0.9, 0.95, 0.99, 0.999]
+import { version as sdkVersion } from '../../../package.json'
 
 export default class Executor {
   private readonly driver: Driver
   private readonly registry = new Registry()
-  private readonly oks: Gauge
-  private readonly notOks: Gauge
-  private readonly inflight: Gauge
-  private readonly latencies: Summary
   private readonly gateway: Pushgateway
-  private collectingMetrics: Boolean = true
-  readonly realRPS: Gauge
   readonly tableName: string
   readonly stopTime: number
   readonly qb: QueryBuilder
 
+  private readonly errorsTotal: Counter
+  private readonly operationsTotal: Counter
+  private readonly operationsSuccessTotal: Counter
+  private readonly operationsFailureTotal: Counter
+  private readonly operationLatencySeconds: Histogram
+  private readonly retryAttempts: Gauge
+  private readonly retryAttemptsTotal: Counter
+  private readonly retriesSuccessTotal: Counter
+  private readonly retriesFailureTotal: Counter
+  private readonly pendingOperations: Gauge
+
   constructor(
     driver: Driver,
+    workload: string,
     pushGateway: string,
     tableName: string,
     runTimeSecs: number,
@@ -48,71 +50,127 @@ export default class Executor {
       this.registry
     )
 
-    this.registry.setDefaultLabels({ sdk: 'nodejs', sdkVersion })
+    this.registry.setDefaultLabels({
+      "ref": process.env.REF || 'main',
+      "sdk": "ydb-nodejs-sdk",
+      "sdk_version": sdkVersion,
+      "workload": workload,
+      "workload_version": "0.0.0",
+    })
+
     const registers = [this.registry]
 
-    this.oks = new Gauge({
-      name: 'oks',
-      help: 'amount of OK requests',
+    this.errorsTotal = new Counter({
+      name: 'sdk_errors_total',
+      help: 'Total number of errors encountered, categorized by error type.',
       registers,
-      labelNames: ['jobName'],
+        labelNames: ['operation_type','error_type'],
     })
-    this.notOks = new Gauge({
-      name: 'not_oks',
-      help: 'amount of not OK requests',
+
+    this.operationsTotal = new Counter({
+      name: 'sdk_operations_total',
+      help: 'Total number of operations, categorized by type attempted by the SDK.',
       registers,
-      labelNames: ['jobName'],
+      labelNames: ['operation_type'],
     })
-    this.inflight = new Gauge({
-      name: 'inflight',
-      help: 'amount of requests in flight',
+
+    this.operationsSuccessTotal = new Counter({
+      name: 'sdk_operations_success_total',
+      help: 'Total number of successful operations, categorized by type.',
       registers,
-      labelNames: ['jobName'],
+      labelNames: ['operation_type'],
     })
-    this.latencies = new Summary({
-      name: 'latency',
-      help: 'histogram of latencies in ms',
-      percentiles,
+
+    this.operationsFailureTotal = new Counter({
+      name: 'sdk_operations_failure_total',
+      help: 'Total number of failed operations, categorized by type.',
       registers,
-      labelNames: ['status', 'jobName'],
-      ageBuckets: 5,
-      maxAgeSeconds: 15 * 60,
+      labelNames: ['operation_type'],
     })
-    this.realRPS = new Gauge({
-      name: 'realRPS',
-      help: 'Real sended requests per seconds',
+
+    this.operationLatencySeconds = new Histogram({
+      name: "sdk_operation_latency_seconds",
+      help: "Latency of operations performed by the SDK in seconds, categorized by type and status.",
+      buckets: [
+        0.001,  // 1 ms
+        0.002,  // 2 ms
+        0.003,  // 3 ms
+        0.004,  // 4 ms
+        0.005,  // 5 ms
+        0.0075, // 7.5 ms
+        0.010,  // 10 ms
+        0.020,  // 20 ms
+        0.050,  // 50 ms
+        0.100,  // 100 ms
+        0.200,  // 200 ms
+        0.500,  // 500 ms
+        1.000,  // 1 s
+      ],
       registers,
-      labelNames: ['jobName'],
+      labelNames: ["operation_type", "operation_status"]
+    })
+
+    this.retryAttempts = new Gauge({
+      name: "sdk_retry_attempts",
+      help: "Current retry attempts, categorized by operation type.",
+      registers,
+      labelNames: ["operation_type"],
+    })
+
+    this.retryAttemptsTotal = new Counter({
+      name: "sdk_retry_attempts_total",
+      help: "Total number of retry attempts, categorized by operation type.",
+      registers,
+      labelNames: ["operation_type"],
+    })
+
+    this.retriesSuccessTotal = new Counter({
+      name: "sdk_retries_success_total",
+      help: "Total number of successful retries, categorized by operation type.",
+      registers,
+      labelNames: ["operation_type"],
+    })
+
+    this.retriesFailureTotal = new Counter({
+      name: "sdk_retries_failure_total",
+      help: "Total number of failed retries, categorized by operation type.",
+      registers,
+      labelNames: ["operation_type"],
+    })
+
+    this.pendingOperations = new Gauge({
+      name: "sdk_pending_operations",
+      help: "Current number of pending operations, categorized by type.",
+      registers,
+      labelNames: ["operation_type"],
     })
   }
 
-  /** Stop collecting metrics to prevent non-null values after resetting them */
-  stopCollectingMetrics() {
-    this.collectingMetrics = false
-  }
 
-  withSession(jobName: string) {
+  withSession(operation_type: string) {
     return async <T>(callback: (session: Session) => Promise<T>, timeout?: number): Promise<T> => {
-      if (this.collectingMetrics) this.inflight.inc({ jobName }, 1)
+      this.pendingOperations.inc({ operation_type }, 1)
+
       let result: any
+      let success = false
       const startSession = new Date().valueOf()
       let endSession: number
+
       try {
         result = await this.driver.tableClient.withSession(callback, timeout)
-        endSession = new Date().valueOf()
-        if (this.collectingMetrics) {
-          this.latencies.observe({ status: 'ok', jobName }, endSession - startSession)
-          this.oks.inc({ jobName })
-        }
+        success = true
+        this.operationsSuccessTotal.inc({ operation_type })
       } catch (error) {
-        endSession = new Date().valueOf()
         console.log(error)
-        if (this.collectingMetrics) {
-          this.latencies.observe({ status: 'err', jobName }, endSession - startSession)
-          this.notOks.inc({ jobName })
-        }
+        this.errorsTotal.inc({ operation_type })
+        this.operationsFailureTotal.inc({ operation_type })
+      } finally {
+        endSession = new Date().valueOf()
+        this.operationsTotal.inc({ operation_type })
+        this.pendingOperations.dec({ operation_type }, 1)
+        this.operationLatencySeconds.observe({ operation_status: success ? 'success' : 'failure', operation_type }, (endSession - startSession) / 100)
       }
-      if (this.collectingMetrics) this.inflight.dec({ jobName }, 1)
+
       return result
     }
   }
@@ -127,19 +185,6 @@ export default class Executor {
   }
 
   async pushStats() {
-    await this.gateway.pushAdd({ jobName: 'workload-nodejs' })
-  }
-  resetStats() {
-    this.registry.resetMetrics()
-    // workaround due to not working resetting metrics via registry.resetMetrics()
-    this.realRPS.remove('jobName')
-    this.latencies.remove('jobName', 'status')
-    this.inflight.set({ jobName: 'write' }, 0)
-    this.inflight.set({ jobName: 'read' }, 0)
-    this.oks.set({ jobName: 'write' }, 0)
-    this.oks.set({ jobName: 'read' }, 0)
-    this.notOks.set({ jobName: 'write' }, 0)
-    this.notOks.set({ jobName: 'read' }, 0)
-    this.pushStats()
+    await this.gateway.pushAdd({ jobName: 'workload-table' })
   }
 }

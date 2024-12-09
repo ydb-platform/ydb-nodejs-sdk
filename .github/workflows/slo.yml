@@ -1,58 +1,91 @@
 name: SLO
+
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
-      - master
-      - release-*
   workflow_dispatch:
+    inputs:
+      github_pull_request_number:
+        required: true
+      slo_workload_duration_seconds:
+        default: '600'
+        required: false
+      slo_workload_read_max_rps:
+        default: '1000'
+        required: false
+      slo_workload_write_max_rps:
+        default: '100'
+        required: false
 
 jobs:
-  test-slo:
-    concurrency:
-      group: slo-${{ github.ref }}
+  ydb-slo-action:
     if: (!contains(github.event.pull_request.labels.*.name, 'no slo'))
 
+    name: Run YDB SLO Tests
     runs-on: ubuntu-latest
-    name: SLO test
-    permissions:
-      checks: write
-      pull-requests: write
-      contents: read
-      issues: write
+
+    concurrency:
+      group: slo-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run SLO
-        uses: ydb-platform/slo-tests@main
-        continue-on-error: true
+      - name: Install NodeJS
+        uses: actions/setup-node@v4
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KUBECONFIG_B64: ${{ secrets.SLO_KUBE_CONFIG }}
-          AWS_CREDENTIALS_B64: ${{ secrets.SLO_AWS_CREDENTIALS }}
-          AWS_CONFIG_B64: ${{ secrets.SLO_AWS_CONFIG }}
-          DOCKER_USERNAME: ${{ secrets.SLO_DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.SLO_DOCKER_PASSWORD }}
-          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
-          DOCKER_FOLDER: ${{ secrets.SLO_DOCKER_FOLDER }}
-          s3_endpoint: ${{ secrets.SLO_S3_ENDPOINT }}
-          s3_images_folder: ${{ vars.SLO_S3_IMAGES_FOLDER }}
-          grafana_domain: ${{ vars.SLO_GRAFANA_DOMAIN }}
-          grafana_dashboard: ${{ vars.SLO_GRAFANA_DASHBOARD }}
-          ydb_version: 'newest'
-          timeBetweenPhases: 30
-          shutdownTime: 30
+          node-version: 'lts/Hydrogen'
+          cache: 'npm'
 
-          language_id0: 'nodejs'
-          workload_path0: 'slo-workload'
-          language0: 'Native ydb-nodejs-sdk general'
-          workload_build_context0: ..
-          workload_build_options0: -f Dockerfile --build-arg SRC_PATH=slo-workload --build-arg JOB_NAME=workload-slo
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix slo-workload
+          npm run build
 
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Initialize YDB SLO
+        uses: ydb-platform/ydb-slo-action/init@main
         with:
-          name: slo-logs
-          path: logs/
+          github_pull_request_number: ${{ github.event.inputs.github_pull_request_number }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workload_name: nodejs
+          ydb_database_node_count: 5
+
+      - name: Prepare SLO Database
+        run: |
+          npm start --prefix slo-workload -- create grpc://localhost:2135 /Root/testdb
+
+      - name: Run SLO Tests
+        env:
+          REF: '${{ github.head_ref || github.ref }}'
+        run: |
+          npm start --prefix slo-workload -- run grpc://localhost:2135 /Root/testdb \
+            --prom-pgw http://localhost:9091 \
+            --report-period 250 \
+            --time ${{inputs.slo_workload_duration_seconds || 600}} \
+            --read-rps ${{inputs.slo_workload_read_max_rps || 1000}} \
+            --write-rps ${{inputs.slo_workload_write_max_rps || 100}} \
+            --read-timeout 1000 \
+            --write-timeout 1000
+
+      - if: always()
+        name: Cleanup SLO Database
+        run: |
+          npm start --prefix slo-workload -- cleanup grpc://localhost:2135 /Root/testdb
+
+      - if: always()
+        name: Store ydb chaos testing logs
+        run: |
+          docker logs ydb-chaos > chaos-ydb.log
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodejs-chaos-ydb.log
+          path: ./chaos-ydb.log
+          retention-days: 1
