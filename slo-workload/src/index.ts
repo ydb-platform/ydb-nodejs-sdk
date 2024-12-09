@@ -38,7 +38,7 @@ function main() {
 
   // create
   defaultArgs(program.command('create'))
-    .option('-t --table-name <tableName>', 'table name to create')
+    .option('-t --table-name <tableName>', 'table name to create', 'key_value')
     .option('--min-partitions-count <minPartitionsCount>', 'minimum amount of partitions in table')
     .option('--max-partitions-count <maxPartitionsCount>', 'maximum amount of partitions in table')
     .option('--partition-size <partitionSize>', 'partition size in mb')
@@ -74,22 +74,22 @@ function main() {
     )
 
   defaultArgs(program.command('cleanup'))
-    .option('-t --table-name <tableName>', 'table name to create')
+    .option('-t --table-name <tableName>', 'table name to create', 'key_value')
     .action(async (endpoint, db, { tableName }) => {
       console.log('Run cleanup over', endpoint, db, { tableName })
       await cleanup(await createDriver(endpoint, db), db, tableName)
     })
 
   defaultArgs(program.command('run'))
-    .option('-t --table-name <tableName>', 'table name to read from')
-    .option('--prom-pgw <promPgw>', 'prometheus push gateway')
-    .option('--read-rps <readRps>', 'read RPS')
-    .option('--read-timeout <readTimeout>', 'read timeout milliseconds')
-    .option('--write-rps <writeRps>', 'write RPS')
-    .option('--write-timeout <writeTimeout>', 'write timeout milliseconds')
-    .option('--time <time>', 'run time in seconds')
-    .option('--shutdown-time <shutdownTime>', 'graceful shutdown time in seconds')
-    .option('--report-period <reportPeriod>', 'prometheus push period in milliseconds')
+    .option('-t --table-name <tableName>', 'table name to read from', 'key_value')
+    .option('--prom-pgw <promPgw>', 'prometheus push gateway', 'http://localhost:9091')
+    .option('--read-rps <readRps>', 'read RPS', '1000')
+    .option('--read-timeout <readTimeout>', 'read timeout milliseconds', '10000')
+    .option('--write-rps <writeRps>', 'write RPS', '100')
+    .option('--write-timeout <writeTimeout>', 'write timeout milliseconds', '10000')
+    .option('--time <time>', 'run time in seconds', '600')
+    .option('--shutdown-time <shutdownTime>', 'graceful shutdown time in seconds', '30')
+    .option('--report-period <reportPeriod>', 'prometheus push period in milliseconds', '250')
     .action(async (endpoint, db, params) => {
       let {
         tableName,
@@ -125,7 +125,7 @@ function main() {
       })
 
       const driver = await createDriver(endpoint, db)
-      const executor = new Executor(driver, promPgw, tableName, time, readTimeout, writeTimeout)
+      const executor = new Executor(driver, 'TableService K/V', promPgw, tableName, time, readTimeout, writeTimeout)
 
       // metricsJob works all write/read time + shutdown time
       const metricsJob = new MetricsJob(executor, reportPeriod, time + shutdownTime).getPromise()
@@ -133,15 +133,14 @@ function main() {
       await DataGenerator.loadMaxId(driver, tableName)
       console.log('Max id', DataGenerator.getMaxId())
       await executor.printStats()
-      await executor.pushStats()
-      console.log('beforeallJob')
-      await Promise.all([readJob(executor, readRps), writeJob(executor, writeRps), metricsJob])
+
+      await Promise.all([
+        readJob(executor, readRps),
+        writeJob(executor, writeRps),
+        metricsJob
+      ])
+
       await new Promise((resolve) => setTimeout(resolve, shutdownTime * 1000))
-      await executor.pushStats()
-      console.log('Reset metrics')
-      executor.stopCollectingMetrics()
-      await executor.resetStats()
-      await new Promise((resolve) => setTimeout(resolve, 2000))
       await executor.pushStats()
       process.exit(0)
     })

@@ -7,11 +7,10 @@ export async function readJob(executor: Executor, readRPS?: number) {
   if (!readRPS) readRPS = READ_RPS
 
   const rateLimiter = new RateLimiter('read', readRPS)
-  let counter = 0
   const withSession = executor.withSession('read')
+
   while (new Date().valueOf() < executor.stopTime) {
     const id = DataGenerator.getRandomId()
-    counter++
     await rateLimiter.nextTick()
 
     withSession(async (session) => {
@@ -22,10 +21,5 @@ export async function readJob(executor: Executor, readRPS?: number) {
         executor.qb.readExecuteQuerySettings
       )
     })
-    // add to metrics real rps each 100s call
-    if (counter % 500 === 0) {
-      console.log('read x500', id.value?.uint64Value)
-      executor.realRPS.set({ jobName: 'read' }, rateLimiter.getRealRPS('read'))
-    }
   }
 }
