@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.9.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.8.0...v5.9.0) (2024-12-09)
+
+
+### Features
+
+* enhance UUID handling ([12704a6](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/12704a6193aa4573ff437f2a8afc546bc8aff2f4))
+* update Long type usage and improve UUID generation in topic client ([058b5a4](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/058b5a4730c32773afd8c7748a093e2ed41b1b9f))
+
 ## [5.8.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.7.0...v5.8.0) (2024-10-30)
 
 
