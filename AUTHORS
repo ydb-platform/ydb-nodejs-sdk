@@ -1,8 +1,4 @@
-The following authors have created the source code of "Yandex Database Node.js SDK"
+The following authors have created the source code of "YDB Node.js SDK"
 published and distributed by YANDEX LLC as the owner:
 
-Timur Sufiev <tsufiev@yandex-team.ru>
-
-Current maintainer:
-
-Alexey Zorkaltsev <azorkaltsev@yandex-team.ru>
+Vladislav Polyakov <polrk@ydb.tech>

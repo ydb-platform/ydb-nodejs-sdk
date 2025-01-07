@@ -5,23 +5,12 @@
 npm-debug.log*
 node_modules
 
-#temporary
-tmp/
-temp/
-
-# typescript build (next line will be removed by pre-release-branch-update GitHub action to be included in dist branch)
-build/
+dist/
 
 #personal
 .idea/
 .vscode/
 .DS_Store
 
-# git merge leftovers
-*.orig
-
-# secrets
-secrets/*
-
 # jest
-coverage
+coverage/

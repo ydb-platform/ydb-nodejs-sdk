@@ -1,77 +1,72 @@
 {
-    "name": "ydb-sdk",
-    "version": "5.8.0",
-    "description": "Node.js bindings for working with YDB API over gRPC",
-    "main": "build/cjs/src/index.js",
-    "module": "build/esm/src/index.js",
-    "exports": {
-        ".": {
-            "import": "./build/esm/src/index.js",
-            "require": "./build/cjs/src/index.js"
-        }
-    },
-    "files": [
-        "build/**"
-    ],
-    "scripts": {
-        "test:dev": "cross-env TEST_ENVIRONMENT=dev jest --config jest.config.dev.js",
-        "test:prod": "jest --config jest.config.prod.js",
-        "test:coverage": "cross-env TEST_ENVIRONMENT=dev jest --config jest.config.coverage.js",
-        "test": "echo Got to be nothing, actual testing kills the Release action",
-        "build": "tsc -p tsconfig-esm.json && tsc -p tsconfig-cjs.json",
-        "clean": "rimraf build",
-        "prepublishOnly": "npm run clean && npm run build && node ./fixup.js"
-    },
-    "keywords": [
-        "ydb",
-        "sdk",
-        "grpc"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/ydb-platform/ydb-nodejs-sdk.git"
-    },
-    "author": "Timur Sufiev",
-    "license": "Apache",
-    "dependencies": {
-        "@grpc/grpc-js": "^1.12.2",
-        "jsonwebtoken": "^9.0.2",
-        "lodash": "^4.17.21",
-        "long": "^5.2.3",
-        "luxon": "^3.5.0",
-        "protobufjs": "^7.4.0",
-        "reflect-metadata": "^0.1.13",
-        "typed-emitter": "^2.1.0",
-        "ydb-sdk-proto": "^1.2.6"
-    },
-    "devDependencies": {
-        "@commitlint/cli": "^17.6.1",
-        "@commitlint/config-conventional": "^15.0.0",
-        "@types/jest": "^27.0.1",
-        "@types/jsonwebtoken": "^8.3.5",
-        "@types/lodash": "^4.14.144",
-        "@types/luxon": "^3.4.2",
-        "@types/node": "^20.17.0",
-        "@yandex-cloud/nodejs-sdk": "^2.7.7",
-        "cross-env": "^7.0.3",
-        "dotenv": "^16.4.5",
-        "husky": "^9.1.6",
-        "npm-run-all": "^4.1.5",
-        "rimraf": "^6.0.1",
-        "standard-version": "^9.5.0",
-        "ts-jest": "^29.2.5",
-        "typescript": "^5.6.3"
-    },
-    "peerDependenciesMeta": {
-        "@yandex-cloud/nodejs-sdk": {
-            "optional": true
-        }
-    },
-    "peerDependencies": {
-        "@yandex-cloud/nodejs-sdk": "^2.0.0"
-    },
-    "engines": {
-        "node": ">= 12.0.0",
-        "npm": ">= 6.0.0"
-    }
+	"name": "ydb-sdk",
+	"version": "6.0.0-alpha.1",
+	"license": "Apache 2.0",
+	"description": "Node.js bindings for working with YDB API over gRPC",
+	"keywords": [
+		"ydb",
+		"sdk",
+		"grpc",
+		"database",
+		"typescript"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ydb-platform/ydb-nodejs-sdk.git"
+	},
+	"scripts": {
+		"prebuild": "rm -rf ./dist/*",
+		"build": "npm run build:cjs && npm run build:esm",
+		"build:esm": "tsc --project tsconfig.json --outDir ./dist/esm",
+		"build:cjs": "tsc --project tsconfig.json --module commonjs --verbatimModuleSyntax false --moduleResolution node10 --outDir ./dist/cjs && echo >./dist/cjs/package.json '{\"type\":\"commonjs\"}'",
+		"format": "prettier --write --ignore-unknown '.' '!dist'",
+		"attw": "attw --pack"
+	},
+	"type": "module",
+	"sideEffects": false,
+	"main": "./dist/cjs/index.js",
+	"types": "./dist/cjs/index.d.ts",
+	"module": "./dist/esm/index.js",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/esm/index.d.ts",
+				"default": "./dist/esm/index.js"
+			},
+			"require": {
+				"types": "./dist/cjs/index.d.ts",
+				"default": "./dist/cjs/index.js"
+			}
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"dependencies": {
+		"@grpc/grpc-js": "^1.12.5",
+		"protobufjs": "^7.4.0"
+	},
+	"devDependencies": {
+		"@arethetypeswrong/cli": "^0.17.2",
+		"@types/node": "^22.10.5",
+		"prettier": "^3.4.2",
+		"typescript": "^5.7.2"
+	},
+	"engineStrict": true,
+	"engines": {
+		"node": ">=18",
+		"npm": ">=9"
+	},
+	"prettier": {
+		"printWidth": 120,
+		"tabWidth": 4,
+		"useTabs": true,
+		"semi": false,
+		"singleQuote": true,
+		"trailingComma": "es5",
+		"bracketSpacing": true,
+		"bracketSameLine": false,
+		"arrowParens": "always",
+		"endOfLine": "lf"
+	}
 }
