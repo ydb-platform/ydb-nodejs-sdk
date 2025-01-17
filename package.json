@@ -17,10 +17,12 @@
 	"scripts": {
 		"prebuild": "rm -rf ./dist/*",
 		"build": "npm run build:cjs && npm run build:esm",
-		"build:esm": "tsc --project tsconfig.json --outDir ./dist/esm",
+		"build:esm": "tsc --project tsconfig.json --module preserve --moduleResolution bundler --outDir ./dist/esm",
 		"build:cjs": "tsc --project tsconfig.json --module commonjs --verbatimModuleSyntax false --moduleResolution node10 --outDir ./dist/cjs && echo >./dist/cjs/package.json '{\"type\":\"commonjs\"}'",
 		"format": "prettier --write --ignore-unknown '.' '!dist'",
-		"attw": "attw --pack"
+		"test": "node --experimental-transform-types --test src/index.spec.ts",
+		"attw": "attw --pack",
+		"gen": "npx protoc --ts_out ./src/gen --ts_opt ts_nocheck,generate_dependencies,add_pb_suffix --proto_path protos protos/ydb_discovery_v1.proto protos/ydb_query_v1.proto&& replace-in-files --regex='import (.*?) from \"(\\.+)\\/(?!.*.js)(.+?)\";' --replacement='import $1 from \"$2/$3.ts\";' './src/gen/**/*.ts'"
 	},
 	"type": "module",
 	"sideEffects": false,
@@ -37,6 +39,16 @@
 				"types": "./dist/cjs/index.d.ts",
 				"default": "./dist/cjs/index.js"
 			}
+		},
+		"./value": {
+			"import": {
+				"types": "./dist/esm/value.d.ts",
+				"default": "./dist/esm/value.js"
+			},
+			"require": {
+				"types": "./dist/cjs/value.d.ts",
+				"default": "./dist/cjs/value.js"
+			}
 		}
 	},
 	"files": [
@@ -44,12 +56,15 @@
 	],
 	"dependencies": {
 		"@grpc/grpc-js": "^1.12.5",
+		"@protobuf-ts/grpc-transport": "^2.9.4",
 		"protobufjs": "^7.4.0"
 	},
 	"devDependencies": {
 		"@arethetypeswrong/cli": "^0.17.2",
+		"@protobuf-ts/plugin": "^2.9.4",
 		"@types/node": "^22.10.5",
 		"prettier": "^3.4.2",
+		"replace-in-files-cli": "^3.0.0",
 		"typescript": "^5.7.2"
 	},
 	"engineStrict": true,
@@ -67,6 +82,14 @@
 		"bracketSpacing": true,
 		"bracketSameLine": false,
 		"arrowParens": "always",
-		"endOfLine": "lf"
+		"endOfLine": "lf",
+		"overrides": [
+			{
+				"files": "*.{md,yml,yaml}",
+				"options": {
+					"tabWidth": 2
+				}
+			}
+		]
 	}
 }
