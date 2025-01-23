@@ -44,7 +44,8 @@ services:
       - ydb-certs:/ydb_certs
 
     environment:
-      - YDB_USE_IN_MEMORY_PDISKS=true
+      - YDB_ENABLE_COLUMN_TABLES=1
+      - YDB_USE_IN_MEMORY_PDISKS=1
       - GRPC_TLS_PORT=2135
       - GRPC_PORT=2136
       - MON_PORT=8765
