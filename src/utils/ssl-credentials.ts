@@ -3,11 +3,10 @@ import * as tls from 'tls';
 
 // noinspection ES6PreferShortImport
 import certs from '../certs/certs.json';
-import {Logger} from "../logger/simple-logger";
 
 function makeInternalRootCertificates() {
-    const internalRootCertificates = Buffer.from(certs.internal, 'utf8')
-    const fallbackSystemRootCertificates = Buffer.from(certs.system, 'utf8')
+    const internalRootCertificates = Buffer.from(certs.internal, 'utf8');
+    const fallbackSystemRootCertificates = Buffer.from(certs.system, 'utf8');
 
     let systemRootCertificates: Buffer;
     const nodeRootCertificates = tls.rootCertificates as string[] | undefined;
@@ -28,25 +27,8 @@ export function makeDefaultSslCredentials() {
     return {rootCertificates: makeInternalRootCertificates()};
 }
 
-export function makeSslCredentials(endpoint: string, logger: Logger, sslCredentials: ISslCredentials | undefined): ISslCredentials | undefined {
-    if (endpoint.startsWith('grpc://')) {
-        logger.debug('Protocol grpc specified in endpoint, using insecure connection.');
-        return undefined;
-    }
-    if (endpoint.startsWith('grpcs://')) {
-        logger.debug('Protocol grpcs specified in endpoint, using SSL connection.');
-    } else {
-        logger.debug('No protocol specified in endpoint, using SSL connection.')
-    }
-
-    if (sslCredentials) {
-        return sslCredentials;
-    }
-    return makeDefaultSslCredentials();
-}
-
 export interface ISslCredentials {
-    rootCertificates?: Buffer,
-    clientPrivateKey?: Buffer,
-    clientCertChain?: Buffer
+    rootCertificates?: Buffer;
+    clientPrivateKey?: Buffer;
+    clientCertChain?: Buffer;
 }
