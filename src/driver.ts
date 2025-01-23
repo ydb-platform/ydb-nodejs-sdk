@@ -1,20 +1,19 @@
 import {ENDPOINT_DISCOVERY_PERIOD} from './constants';
 import {TimeoutExpired} from './errors';
-import {ISslCredentials, makeSslCredentials} from './utils/ssl-credentials';
-import DiscoveryService from "./discovery/discovery-service";
-import {TableClient} from "./table";
-import {ClientOptions} from "./utils";
-import {IAuthService} from "./credentials/i-auth-service";
-import SchemeService from "./schema/scheme-client";
-import SchemeClient from "./schema/scheme-client";
-import {parseConnectionString} from "./utils/parse-connection-string";
-import {QueryClient} from "./query";
-import {Logger} from "./logger/simple-logger";
-import {getDefaultLogger} from "./logger/get-default-logger";
-import {TopicClient} from "./topic";
-import {RetryStrategy} from "./retries/retryStrategy";
-import {RetryParameters} from "./retries/retryParameters";
-import {IClientSettings} from "./client/settings";
+import {ISslCredentials, makeDefaultSslCredentials} from './utils/ssl-credentials';
+import DiscoveryService from './discovery/discovery-service';
+import {TableClient} from './table';
+import {ClientOptions} from './utils';
+import {IAuthService} from './credentials/i-auth-service';
+import SchemeService from './schema/scheme-client';
+import SchemeClient from './schema/scheme-client';
+import {QueryClient} from './query';
+import {Logger} from './logger/simple-logger';
+import {getDefaultLogger} from './logger/get-default-logger';
+import {TopicClient} from './topic';
+import {RetryStrategy} from './retries/retryStrategy';
+import {RetryParameters} from './retries/retryParameters';
+import {IClientSettings} from './client/settings';
 
 export interface IPoolSettings {
     minLimit?: number;
@@ -23,11 +22,18 @@ export interface IPoolSettings {
 }
 
 export interface IDriverSettings {
+    /**
+     * @deprecated Use connectionString instead
+     */
     endpoint?: string;
+
+    /**
+     * @deprecated Use connectionString instead
+     */
     database?: string;
     connectionString?: string;
     authService: IAuthService;
-    sslCredentials?: ISslCredentials,
+    sslCredentials?: ISslCredentials;
     poolSettings?: IPoolSettings;
     clientOptions?: ClientOptions;
     retrier?: RetryStrategy;
@@ -52,20 +58,46 @@ export default class Driver {
     }
 
     constructor(settings: IDriverSettings) {
+        let secure: boolean = false,
+            endpoint: string = '',
+            database: string = '';
+
         this.logger = settings.logger || getDefaultLogger();
-        let endpoint: string, database: string;
-        if (settings.connectionString) {
-            ({endpoint, database} = parseConnectionString(settings.connectionString));
-        } else if (!settings.endpoint) {
-            throw new Error('The "endpoint" is a required field in driver settings');
-        } else if (!settings.database) {
-            throw new Error('The "database" is a required field in driver settings');
-        } else {
+
+        if (settings.endpoint && settings.database) {
+            settings.logger?.warn(
+                'The "endpoint" and "database" fields are deprecated. Use "connectionString" instead',
+            );
+
             endpoint = settings.endpoint;
             database = settings.database;
+
+            secure = endpoint.startsWith('grpcs://') || endpoint.startsWith('https://');
         }
 
-        const sslCredentials = makeSslCredentials(endpoint, this.logger, settings.sslCredentials);
+        if (settings.connectionString) {
+            let cs = new URL(settings.connectionString);
+            endpoint = cs.origin;
+            database = cs.pathname || cs.searchParams.get('database') || '';
+
+            if (!database) {
+                throw new Error(
+                    'The "database" field is required in the connection string. It should be specified either in the path or as a `database` query parameter.',
+                );
+            }
+
+            secure = cs.protocol === 'grpcs:' || cs.protocol === 'https:';
+        }
+
+        if (!endpoint || !database) {
+            throw new Error(
+                'Either "endpoint" and "database" or "connectionString" must be specified',
+            );
+        }
+
+        const sslCredentials = secure
+            ? settings.sslCredentials ?? makeDefaultSslCredentials()
+            : undefined;
 
         const retrier = settings.retrier || new RetryStrategy(new RetryParameters(), this.logger);
 
