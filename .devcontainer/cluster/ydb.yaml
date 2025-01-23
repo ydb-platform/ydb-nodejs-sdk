@@ -25,6 +25,8 @@ channel_profile_config:
           pdisk_category: 0
           storage_pool_kind: ssd
       profile_id: 0
+column_shard_config:
+  disabled_on_scheme_shard: False
 domains_config:
   domain:
     - name: Root
