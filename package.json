@@ -29,7 +29,7 @@
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/ydb-platform/ydb-nodejs-sdk.git"
+        "url": "git+https://github.com/ydb-platform/ydb-nodejs-sdk.git"
     },
     "author": "Timur Sufiev",
     "license": "Apache",
