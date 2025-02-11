@@ -1,4 +1,4 @@
-import {google, Ydb} from "ydb-sdk-proto";
+import { google, Ydb } from "ydb-sdk-proto";
 import IQuery = Ydb.Table.IQuery;
 import IType = Ydb.IType;
 import DescribeTableResult = Ydb.Table.DescribeTableResult;
@@ -19,15 +19,15 @@ import BulkUpsertResult = Ydb.Table.BulkUpsertResult;
 import OperationMode = Ydb.Operations.OperationParams.OperationMode;
 import * as grpc from "@grpc/grpc-js";
 import EventEmitter from "events";
-import {ICreateSessionResult, SessionEvent, TableService} from "./table-session-pool";
-import {Endpoint} from "../discovery";
-import {retryable, RetryParameters, RetryStrategy} from "../retries_obsoleted";
-import {MissingStatus, MissingValue, SchemeError, YdbError} from "../errors";
-import {ResponseMetadataKeys} from "../constants";
-import {pessimizable} from "../utils";
-import {YdbOperationAsyncResponse, ensureOperationSucceeded, getOperationPayload} from "../utils/process-ydb-operation-result";
-import {StreamEnd} from "../utils";
-import {Logger} from "../logger/simple-logger";
+import { ICreateSessionResult, SessionEvent, TableService } from "./table-session-pool";
+import { Endpoint } from "../discovery";
+import { retryable, RetryParameters, RetryStrategy } from "../retries_obsoleted";
+import { MissingStatus, MissingValue, SchemeError, YdbError } from "../errors";
+import { ResponseMetadataKeys } from "../constants";
+import { pessimizable } from "../utils";
+import { YdbOperationAsyncResponse, ensureOperationSucceeded, getOperationPayload } from "../utils/process-ydb-operation-result";
+import { StreamEnd } from "../utils";
+import { Logger } from "../logger/simple-logger";
 
 interface PartialResponse<T> {
     status?: (Ydb.StatusIds.StatusCode | null);
@@ -78,7 +78,7 @@ export class OperationParams implements Ydb.Operations.IOperationParams {
     }
 
     withOperationTimeoutSeconds(seconds: number) {
-        this.operationTimeout = {seconds};
+        this.operationTimeout = { seconds };
         return this;
     }
 
@@ -88,7 +88,7 @@ export class OperationParams implements Ydb.Operations.IOperationParams {
     }
 
     withCancelAfterSeconds(seconds: number) {
-        this.cancelAfter = {seconds};
+        this.cancelAfter = { seconds };
         return this;
     }
 
@@ -125,7 +125,7 @@ interface IDropTableSettings {
 export class DropTableSettings extends OperationParamsSettings {
     muteNonExistingTableErrors: boolean;
 
-    constructor({muteNonExistingTableErrors = true} = {} as IDropTableSettings) {
+    constructor({ muteNonExistingTableErrors = true } = {} as IDropTableSettings) {
         super();
         this.muteNonExistingTableErrors = muteNonExistingTableErrors;
     }
@@ -312,13 +312,13 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
             return Promise.resolve();
         }
         this.beingDeleted = true;
-        ensureOperationSucceeded(await this.api.deleteSession({sessionId: this.sessionId}));
+        ensureOperationSucceeded(await this.api.deleteSession({ sessionId: this.sessionId }));
     }
 
     @retryable()
     @pessimizable
     public async keepAlive(): Promise<void> {
-        const request = {sessionId: this.sessionId};
+        const request = { sessionId: this.sessionId };
         const response = await this.api.keepAlive(request);
         ensureOperationSucceeded(this.processResponseMetadata(request, response));
     }
@@ -439,7 +439,7 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
         }
         const response = await this.api.beginTransaction(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response));
-        const {txMeta} = BeginTransactionResult.decode(payload);
+        const { txMeta } = BeginTransactionResult.decode(payload);
         if (txMeta) {
             return txMeta;
         }
@@ -524,15 +524,15 @@ export class TableSession extends EventEmitter implements ICreateSessionResult {
             request.collectStats = settings.collectStats;
         }
         if (keepInCache) {
-            request.queryCachePolicy = {keepInCache};
+            request.queryCachePolicy = { keepInCache };
         }
 
         if (!executeQueryRetryer) executeQueryRetryer = new RetryStrategy('TableSession:executeQuery', new RetryParameters(), this.logger);
 
         const response =
             settings?.idempotent
-               ? await executeQueryRetryer.retry(() => this.api.executeDataQuery(request))
-               : await this.api.executeDataQuery(request);
+                ? await executeQueryRetryer.retry(() => this.api.executeDataQuery(request))
+                : await this.api.executeDataQuery(request);
         const payload = getOperationPayload(this.processResponseMetadata(request, response, settings?.onResponseMetadata));
         return ExecuteQueryResult.decode(payload);
     }
@@ -887,6 +887,7 @@ export class TableIndex implements Ydb.Table.ITableIndex {
     public dataColumns: string[] | null = null;
     public globalIndex: Ydb.Table.IGlobalIndex | null = null;
     public globalAsyncIndex: Ydb.Table.IGlobalAsyncIndex | null = null;
+    public globalUniqueIndex: Ydb.Table.IGlobalUniqueIndex | null = null;
 
     constructor(public name: string) {
     }
@@ -913,13 +914,20 @@ export class TableIndex implements Ydb.Table.ITableIndex {
         }
         return this
     }
+
+    withGlobalUnique() {
+        this.globalUniqueIndex = new Ydb.Table.GlobalUniqueIndex()
+        this.globalAsyncIndex = null
+        this.globalIndex = null
+        return this
+    }
 }
 
 export class TtlSettings implements Ydb.Table.ITtlSettings {
     public dateTypeColumn?: Ydb.Table.IDateTypeColumnModeSettings | null;
 
     constructor(columnName: string, expireAfterSeconds: number = 0) {
-        this.dateTypeColumn = {columnName, expireAfterSeconds};
+        this.dateTypeColumn = { columnName, expireAfterSeconds };
     }
 }
 
