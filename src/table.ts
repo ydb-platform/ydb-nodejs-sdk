@@ -1136,6 +1136,7 @@ export class TableIndex implements Ydb.Table.ITableIndex {
     public dataColumns: string[] | null = null;
     public globalIndex: Ydb.Table.IGlobalIndex|null = null;
     public globalAsyncIndex: Ydb.Table.IGlobalAsyncIndex|null = null;
+    public globalUniqueIndex: Ydb.Table.IGlobalUniqueIndex|null = null;
 
     constructor(public name: string) {}
 
@@ -1160,6 +1161,14 @@ export class TableIndex implements Ydb.Table.ITableIndex {
             this.globalAsyncIndex = null
             this.globalIndex = new Ydb.Table.GlobalIndex()
         }
+        return this
+    }
+
+    withGlobalUnique() {
+        this.globalUniqueIndex = new Ydb.Table.GlobalUniqueIndex()
+        this.globalAsyncIndex = null
+        this.globalIndex = null
+
         return this
     }
 }
