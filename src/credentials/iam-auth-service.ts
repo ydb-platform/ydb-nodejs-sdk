@@ -12,7 +12,6 @@ import {ISslCredentials, makeDefaultSslCredentials} from "../utils/ssl-credentia
 import {HasLogger} from "../logger/has-logger";
 import {Logger} from "../logger/simple-logger";
 import {getDefaultLogger} from "../logger/get-default-logger";
-import {ensureContext} from "../context";
 
 export interface IIamCredentials {
     serviceAccountId: string,
@@ -39,7 +38,6 @@ class IamTokenGrpcService extends GrpcService<IamTokenService> implements HasLog
         }
     }
 
-    @ensureContext(true)
     @retryable()
     create(request: yandex.cloud.iam.v1.ICreateIamTokenRequest) {
         return this.api.create(request);
