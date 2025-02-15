@@ -69,6 +69,8 @@ export {CreateTableSettings} from './table/table-session';
 export {OperationParams} from './table/table-session';
 export {AUTO_TX} from './table/table-session';
 
+export {QuerySession} from './query';
+
 export {StaticCredentialsAuthService} from './credentials/static-credentials-auth-service';
 export {IamAuthService} from './credentials/iam-auth-service';
 export {MetadataAuthService} from './credentials/metadata-auth-service';
