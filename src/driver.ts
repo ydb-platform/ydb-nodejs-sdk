@@ -77,7 +77,7 @@ export default class Driver {
 
         if (settings.connectionString) {
             let cs = new URL(settings.connectionString);
-            endpoint = cs.origin;
+            endpoint = cs.host;
             database = cs.pathname || cs.searchParams.get('database') || '';
 
             if (!database) {

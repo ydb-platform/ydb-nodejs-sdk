@@ -33,7 +33,6 @@ class StaticCredentialsGrpcService extends GrpcService<Ydb.Auth.V1.AuthService> 
         super(endpoint, 'Ydb.Auth.V1.AuthService', Ydb.Auth.V1.AuthService, sslCredentials);
     }
 
-    @ensureContext(true)
     @retryable()
     login(request: Ydb.Auth.ILoginRequest) {
         return this.api.login(request);
