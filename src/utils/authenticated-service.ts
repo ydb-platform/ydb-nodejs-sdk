@@ -14,9 +14,7 @@ type ServiceFactory<T> = {
 };
 
 function removeProtocol(endpoint: string) {
-    const re = /^(grpc:\/\/|grpcs:\/\/)?(.+)/;
-    const match = re.exec(endpoint) as string[];
-    return match[2];
+    return endpoint.replace(/^(grpcs?|https?):\/\//, '');;
 }
 
 export class StreamEnd extends Error {

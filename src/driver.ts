@@ -69,10 +69,9 @@ export default class Driver {
                 'The "endpoint" and "database" fields are deprecated. Use "connectionString" instead',
             );
 
-            endpoint = settings.endpoint;
+            secure = settings.endpoint.startsWith('grpcs://') || endpoint.startsWith('https://');
+            endpoint = settings.endpoint.replace(/^(grpcs?|https?):\/\//, '');
             database = settings.database;
-
-            secure = endpoint.startsWith('grpcs://') || endpoint.startsWith('https://');
         }
 
         if (settings.connectionString) {
