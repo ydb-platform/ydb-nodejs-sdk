@@ -12,7 +12,6 @@ import {IAuthService} from "./i-auth-service";
 import {HasLogger} from "../logger/has-logger";
 import {Logger} from "../logger/simple-logger";
 import {getDefaultLogger} from "../logger/get-default-logger";
-import {ensureContext} from "../context";
 
 interface StaticCredentialsAuthOptions {
     /** Custom ssl sertificates. If you use it in driver, you must use it here too */
