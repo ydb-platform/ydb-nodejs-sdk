@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.9.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.9.0...v5.9.1) (2025-02-15)
+
+
+### Bug Fixes
+
+* correct get IAM token with authorized key ([8111762](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/8111762ddb125aa63fd88ff49eb3034ccf26b12c))
+* **driver:** bring endpoint and connection string to just a host ([7bf10b0](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/7bf10b0a25c8ccfefec275a8720233d2b94f7860))
+* export QuerySession from root ([cfd1efa](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/cfd1efa1c2fc4e5c18f5ea3a63bbef20725ed6b3))
+* fixed database connection URL ([77800f1](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/77800f1502f27dabe74c21d71c0c66d4e26062ae))
+* fixed database connection URL ([27f64d5](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/27f64d5c41588b1b122f684e2b585cbde27b716c))
+
 ## [5.9.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.8.0...v5.9.0) (2025-02-11)
 
 
