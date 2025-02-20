@@ -195,13 +195,13 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
         try {
             ensureCallSucceeded(partialResp);
         } catch (ydbErr) {
+            delete this[sessionTxIdSymbol]
+
             return cancel(ydbErr);
         }
 
         if (partialResp.txMeta?.id)
             this[sessionTxIdSymbol] = partialResp.txMeta!.id;
-        else
-            delete this[sessionTxIdSymbol];
 
         if (partialResp.resultSet) {
 
@@ -310,6 +310,10 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
                 opFinished: Promise.resolve()
             });
             resultResolve = resultReject = undefined;
+        }
+
+        if (args.txControl?.commitTx) {
+            delete this[sessionTxIdSymbol]
         }
 
         if (finishedResolve) finishedResolve();

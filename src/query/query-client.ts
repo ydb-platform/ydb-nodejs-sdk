@@ -10,7 +10,7 @@ import {
     sessionCurrentOperationSymbol,
     sessionReleaseSymbol, isIdempotentSymbol, isIdempotentDoLevelSymbol, ctxSymbol
 } from "./symbols";
-import {BadSession, SessionBusy} from "../errors";
+import {YdbError} from "../errors";
 import {Context} from "../context";
 import {ensureContext} from "../context";
 import {Logger} from "../logger/simple-logger";
@@ -71,8 +71,8 @@ export class QueryClient extends EventEmitter {
                         try {
                             res = await opts.fn(session);
                         } catch (err) {
-                            if (session[sessionTxIdSymbol] && !(err instanceof BadSession || err instanceof SessionBusy)) {
-                                await session[sessionRollbackTransactionSymbol]();
+                            if (err instanceof YdbError) {
+                                delete session[sessionTxIdSymbol];
                             }
                             throw err;
                         }
