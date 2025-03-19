@@ -1,22 +1,25 @@
 import EventEmitter from "events";
-import {QuerySessionPool, SessionCallback, SessionEvent} from "./query-session-pool";
-import {Ydb} from "ydb-sdk-proto";
-import {AUTO_TX} from "../table";
+import { Metadata } from "@grpc/grpc-js";
+import { Ydb } from "ydb-sdk-proto";
+import { AUTO_TX } from "../table";
+import { QuerySessionPool, SessionCallback, SessionEvent } from "./query-session-pool";
 import {
     sessionTxSettingsSymbol,
     sessionTxIdSymbol,
     sessionRollbackTransactionSymbol,
     sessionCommitTransactionSymbol,
     sessionCurrentOperationSymbol,
-    sessionReleaseSymbol, isIdempotentSymbol, isIdempotentDoLevelSymbol, ctxSymbol
+    sessionReleaseSymbol, isIdempotentSymbol, isIdempotentDoLevelSymbol, ctxSymbol,
+    sessionTrailerCallbackSymbol
 } from "./symbols";
-import {YdbError} from "../errors";
-import {Context} from "../context";
-import {ensureContext} from "../context";
-import {Logger} from "../logger/simple-logger";
-import {RetryStrategy} from "../retries/retryStrategy";
-import {RetryPolicySymbol} from "../retries/symbols";
-import {IClientSettings} from "../client/settings";
+import { YdbError } from "../errors";
+import { Context } from "../context";
+import { ensureContext } from "../context";
+import { Logger } from "../logger/simple-logger";
+import { RetryStrategy } from "../retries/retryStrategy";
+import { RetryPolicySymbol } from "../retries/symbols";
+import { IClientSettings } from "../client/settings";
+
 
 interface IDoOpts<T> {
     ctx?: Context,
@@ -24,7 +27,8 @@ interface IDoOpts<T> {
     txSettings?: Ydb.Query.ITransactionSettings,
     fn: SessionCallback<T>,
     timeout?: number,
-    idempotent?: boolean
+    idempotent?: boolean,
+    onTrailer?: (metadata: Metadata) => void
 }
 
 /**
@@ -57,13 +61,18 @@ export class QueryClient extends EventEmitter {
                 timeout: opts.timeout
             },
             async (ctx) => {
-                return this.retrier.retry<T>(ctx,async (_ctx) => {
+                return this.retrier.retry<T>(ctx, async (_ctx) => {
                     const session = await this.pool.acquire();
                     session[ctxSymbol] = ctx;
                     if (opts.hasOwnProperty('idempotent')) {
                         session[isIdempotentDoLevelSymbol] = true;
                         session[isIdempotentSymbol] = opts.idempotent;
                     }
+
+                    if (opts.hasOwnProperty('onTrailer')) {
+                        session[sessionTrailerCallbackSymbol] = opts.onTrailer;
+                    }
+
                     let error: Error;
                     try {
                         if (opts.txSettings) session[sessionTxSettingsSymbol] = opts.txSettings;
@@ -85,16 +94,17 @@ export class QueryClient extends EventEmitter {
                                 await session[sessionRollbackTransactionSymbol]();
                             }
                         }
-                        return {result: res};
+                        return { result: res };
                     } catch (err) {
                         error = err as Error;
-                        return {err: error, idempotent: session[isIdempotentSymbol]}
+                        return { err: error, idempotent: session[isIdempotentSymbol] }
                     } finally {
                         delete session[ctxSymbol];
                         delete session[sessionTxSettingsSymbol];
                         delete session[sessionCurrentOperationSymbol];
                         delete session[isIdempotentDoLevelSymbol];
                         delete session[isIdempotentSymbol];
+                        delete session[sessionTrailerCallbackSymbol];
                         // @ts-ignore
                         if (error && (error as any)[RetryPolicySymbol]?.deleteSession) {
                             this.logger.debug('Encountered bad or busy session, re-creating the session');
@@ -110,7 +120,7 @@ export class QueryClient extends EventEmitter {
     @ensureContext()
     public doTx<T>(opts: IDoOpts<T>): Promise<T> {
         if (!opts.txSettings) {
-            opts = {...opts, txSettings: AUTO_TX.beginTx};
+            opts = { ...opts, txSettings: AUTO_TX.beginTx };
         }
         return this.do<T>(opts);
     }

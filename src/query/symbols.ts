@@ -24,4 +24,6 @@ export const sessionIdSymbol = Symbol('sessionId');
 export const sessionTxIdSymbol = Symbol('sessionTxId');
 export const sessionTxSettingsSymbol = Symbol('sessionTxSettings');
 export const sessionCurrentOperationSymbol = Symbol('sessionCurrentOperation');
+export const sessionTrailerCallbackSymbol = Symbol('sessionTrailerCallback');
+
 export const resultsetYdbColumnsSymbol = Symbol('resultsetYdbColumns');

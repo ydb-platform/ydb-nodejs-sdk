@@ -1,11 +1,11 @@
 import EventEmitter from "events";
-import {GrpcQueryService, QueryService, SessionEvent} from "./query-session-pool";
-import {Endpoint} from "../discovery";
-import {retryable} from "../retries_obsoleted";
-import {pessimizable} from "../utils";
-import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
-import {Ydb} from "ydb-sdk-proto";
-import {ClientReadableStream} from "@grpc/grpc-js";
+import { GrpcQueryService, QueryService, SessionEvent } from "./query-session-pool";
+import { Endpoint } from "../discovery";
+import { retryable } from "../retries_obsoleted";
+import { pessimizable } from "../utils";
+import { ensureCallSucceeded } from "../utils/process-ydb-operation-result";
+import { Ydb } from "ydb-sdk-proto";
+import { ClientReadableStream, Metadata } from "@grpc/grpc-js";
 import {
     sessionIdSymbol,
     sessionTxSettingsSymbol,
@@ -23,20 +23,21 @@ import {
     isIdempotentSymbol,
     isIdempotentDoLevelSymbol,
     createSymbol,
-    sessionIsClosingSymbol, ctxSymbol
+    sessionIsClosingSymbol, ctxSymbol,
+    sessionTrailerCallbackSymbol
 } from './symbols';
 import ICreateSessionResult = Ydb.Table.ICreateSessionResult;
 
-import {attach as attachImpl} from './query-session-attach';
-import {CANNOT_MANAGE_TRASACTIONS_ERROR, execute as executeImpl} from './query-session-execute';
+import { attach as attachImpl } from './query-session-attach';
+import { CANNOT_MANAGE_TRASACTIONS_ERROR, execute as executeImpl } from './query-session-execute';
 import {
     beginTransaction,
     beginTransaction as beginTransactionImpl, commitTransaction,
     commitTransaction as commitTransactionImpl,
     rollbackTransaction as rollbackTransactionImpl
 } from './query-session-transaction';
-import {Logger} from "../logger/simple-logger";
-import {Context} from "../context";
+import { Logger } from "../logger/simple-logger";
+import { Context } from "../context";
 
 export interface QuerySessionOperation {
     cancel(reason: any): void;
@@ -54,6 +55,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
     [sessionTxSettingsSymbol]?: Ydb.Query.ITransactionSettings;
     [isIdempotentDoLevelSymbol]?: boolean
     [isIdempotentSymbol]?: boolean;
+    [sessionTrailerCallbackSymbol]?: (md: Metadata) => void;
 
     // private fields, available in the methods placed in separated files
     [implSymbol]: QueryService;
@@ -137,7 +139,7 @@ export class QuerySession extends EventEmitter implements ICreateSessionResult {
         this.beingDeleted = true;
         await this[attachStreamSymbol]?.cancel();
         delete this[attachStreamSymbol]; // only one stream cancel even when multi ple retries
-        ensureCallSucceeded(await this[apiSymbol].deleteSession({sessionId: this.sessionId}));
+        ensureCallSucceeded(await this[apiSymbol].deleteSession({ sessionId: this.sessionId }));
     }
 
     // TODO: Uncomment after switch to TS 5.3

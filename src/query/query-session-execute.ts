@@ -1,22 +1,23 @@
-import {Ydb} from "ydb-sdk-proto";
+import { Ydb } from "ydb-sdk-proto";
 import {
     isIdempotentDoLevelSymbol,
     isIdempotentSymbol,
     resultsetYdbColumnsSymbol,
     sessionCurrentOperationSymbol,
+    sessionTrailerCallbackSymbol,
     sessionTxIdSymbol,
     sessionTxSettingsSymbol,
 } from "./symbols";
-import {buildAsyncQueueIterator, IAsyncQueueIterator} from "../utils/build-async-queue-iterator";
-import {ResultSet} from "./result-set";
-import {ClientReadableStream} from "@grpc/grpc-js";
-import {ensureCallSucceeded} from "../utils/process-ydb-operation-result";
+import { buildAsyncQueueIterator, IAsyncQueueIterator } from "../utils/build-async-queue-iterator";
+import { ResultSet } from "./result-set";
+import { ClientReadableStream } from "@grpc/grpc-js";
+import { ensureCallSucceeded } from "../utils/process-ydb-operation-result";
 import Long from "long";
-import {StatusObject as GrpcStatusObject} from "@grpc/grpc-js/build/src/call-interface";
-import {TransportError} from "../errors";
-import {implSymbol, QuerySession} from "./query-session";
-import {convertYdbValueToNative, snakeToCamelCaseConversion} from "../types";
-import {CtxUnsubcribe} from "../context";
+import { StatusObject as GrpcStatusObject } from "@grpc/grpc-js/build/src/call-interface";
+import { TransportError } from "../errors";
+import { implSymbol, QuerySession } from "./query-session";
+import { convertYdbValueToNative, snakeToCamelCaseConversion } from "../types";
+import { CtxUnsubcribe } from "../context";
 import IExecuteQueryRequest = Ydb.Query.IExecuteQueryRequest;
 import IColumn = Ydb.IColumn;
 
@@ -113,7 +114,7 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
             throw new Error('txControl.commitTx === true when no open transaction and there\'s no txControl.beginTx');
     }
 
-// Build params
+    // Build params
     const executeQueryRequest: IExecuteQueryRequest = {
         sessionId: this.sessionId,
         queryContent: {
@@ -126,7 +127,7 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
     if (args.statsMode) executeQueryRequest.statsMode = args.statsMode;
     if (args.parameters) executeQueryRequest.parameters = args.parameters;
     if (this[sessionTxSettingsSymbol] && !this[sessionTxIdSymbol])
-        executeQueryRequest.txControl = {beginTx: this[sessionTxSettingsSymbol], commitTx: false};
+        executeQueryRequest.txControl = { beginTx: this[sessionTxSettingsSymbol], commitTx: false };
     else if (args.txControl)
         executeQueryRequest.txControl = args.txControl;
     if (this[sessionTxIdSymbol])
@@ -137,7 +138,7 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
         if (args.idempotent) this[isIdempotentSymbol] = true;
     }
 
-// Run the operation
+    // Run the operation
     let finished = false;
     const resultSetByIndex: [iterator: IAsyncQueueIterator<Ydb.IValue>, resultSet: ResultSet][] = [];
     const resultSetIterator = buildAsyncQueueIterator<ResultSet>();
@@ -158,7 +159,7 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
         });
     }
 
-// One operation per session in a time. And it might be cancelled
+    // One operation per session in a time. And it might be cancelled
     if (this[sessionCurrentOperationSymbol]) throw new Error('There\'s another active operation in the session');
 
     const cancel = (reason: any, onStreamError?: boolean) => {
@@ -179,9 +180,9 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
         delete this[sessionCurrentOperationSymbol];
     }
 
-    this[sessionCurrentOperationSymbol] = {cancel};
+    this[sessionCurrentOperationSymbol] = { cancel };
 
-// Operation
+    // Operation
     responseStream = this[implSymbol].grpcServiceClient!.makeServerStreamRequest(
         '/Ydb.Query.V1.QueryService/ExecuteQuery',
         (v) => Ydb.Query.ExecuteQueryRequest.encode(v).finish() as Buffer,
@@ -282,7 +283,11 @@ export function execute(this: QuerySession, args: IExecuteArgs): Promise<IExecut
         cancel(TransportError.convertToYdbError(err), true);
     });
 
-    responseStream.on('metadata', (_metadata) => {
+    responseStream.on('metadata', (metadata) => {
+        if (this[sessionTrailerCallbackSymbol]) {
+            this[sessionTrailerCallbackSymbol](metadata);
+        }
+
         // TODO: Process partial meta
         // TODO: Expect to see on graceful shutdown
     });
