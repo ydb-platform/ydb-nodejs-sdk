@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.10.0](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.9.1...v5.10.0) (2025-03-19)
+
+
+### Features
+
+* add sessionTrailerCallbackSymbol and support for trailer callbacks in QueryClient ([d9ae990](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/d9ae9905129f203611d0e6fc4fcf3bb42385efe6))
+
+
+### Bug Fixes
+
+* do not remove session tx id if txMeta empty. ([b3e1c01](https://github.com/ydb-platform/ydb-nodejs-sdk/commit/b3e1c01fbcb1ad3b981b4350ea365fe5c988550c))
+
 ## [5.9.1](https://github.com/ydb-platform/ydb-nodejs-sdk/compare/v5.9.0...v5.9.1) (2025-02-15)
 
 
