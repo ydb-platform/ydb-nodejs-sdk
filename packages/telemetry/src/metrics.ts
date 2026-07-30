@@ -23,6 +23,7 @@ import {
 	ATTR_YDB_IDEMPOTENT,
 	ATTR_YDB_PILE_FALLBACK_ACTIVE,
 	ATTR_YDB_PILE_NAME,
+	ATTR_YDB_PILE_STATUS,
 	ATTR_YDB_RETRY_OUTCOME,
 	ATTR_YDB_ROUTING_LOCALITY_ENABLED,
 	ATTR_YDB_ROUTING_PREFER_PRIMARY_PILE,
@@ -39,6 +40,7 @@ import {
 	METRIC_YDB_DRIVER_CONNECTION_PESSIMIZATIONS,
 	METRIC_YDB_DRIVER_PILE_CHANGES,
 	METRIC_YDB_DRIVER_PILE_FALLBACKS,
+	METRIC_YDB_DRIVER_PILE_STATUS,
 	METRIC_YDB_DRIVER_POOL_CONFIG,
 	METRIC_YDB_DRIVER_POOL_NODES,
 	METRIC_YDB_DRIVER_POOL_PESSIMIZED,
@@ -57,6 +59,19 @@ import {
 	identityAttrs,
 	recordErrorAttributes,
 } from './semconv/index.js'
+
+// Mirrors the `PileStatus` union in @ydbjs/core's endpoints engine, which is
+// internal and not exported from the package root. `mapPileStatus` there is
+// total, so this list is closed.
+let PILE_STATUSES = [
+	'PRIMARY',
+	'PROMOTED',
+	'SYNCHRONIZED',
+	'NOT_SYNCHRONIZED',
+	'SUSPENDED',
+	'DISCONNECTED',
+	'UNSPECIFIED',
+]
 
 function baseFor(driver: DriverIdentity | undefined): MetricAttributes {
 	return { ...BASE_ATTRIBUTES, ...identityAttrs(driver) }
@@ -105,6 +120,7 @@ export class YdbMetricsPipeline {
 	#poolPessimized!: ObservableGauge
 	#poolNodes!: ObservableGauge
 	#poolConfig!: ObservableGauge
+	#pileStatus!: ObservableGauge
 
 	constructor(meter: Meter, diag: DiagLogger) {
 		this.#meter = meter
@@ -306,6 +322,12 @@ export class YdbMetricsPipeline {
 			description: "Always 1; carries the driver's routing mode as tags.",
 			unit: '{driver}',
 		})
+		this.#pileStatus = this.#meter.createObservableGauge(METRIC_YDB_DRIVER_PILE_STATUS, {
+			description:
+				"1 for a bridge pile's current status, 0 for every other status. " +
+				'Use `max by (ydb.pile.name) (... {ydb.pile.status="PRIMARY"})` to find the primary pile.',
+			unit: '{pile}',
+		})
 	}
 
 	#registerObservableCallbacks(): void {
@@ -330,6 +352,7 @@ export class YdbMetricsPipeline {
 			this.#poolPessimized,
 			this.#poolNodes,
 			this.#poolConfig,
+			this.#pileStatus,
 		]
 		this.#meter.addBatchObservableCallback(cb, instruments)
 		this.#observableSubs.push({
@@ -407,11 +430,27 @@ export class YdbMetricsPipeline {
 			[ATTR_YDB_ROUTING_TIER]: 'fallback',
 		})
 		observable.observe(this.#poolPessimized, stats.pessimized, base)
-		for (let pile of stats.piles) {
-			observable.observe(this.#poolNodes, pile.nodes, {
+
+		// Iterate every pile ever seen, not just the current roster, and emit the
+		// full name × status cross-product. Cumulative temporality re-exports an
+		// attribute set that stops being observed, so anything omitted here keeps
+		// reporting its last value: a departed pile would hold a live node count,
+		// and a status transition would leave the pre-transition pair stranded at
+		// 1. Re-observing everything each cycle overwrites those with 0 instead.
+		let current = new Map(stats.piles.map((pile) => [pile.name, pile]))
+		for (let name of state.seenPiles) {
+			let pile = current.get(name)
+			observable.observe(this.#poolNodes, pile?.nodes ?? 0, {
 				...base,
-				[ATTR_YDB_PILE_NAME]: pile.name,
+				[ATTR_YDB_PILE_NAME]: name,
 			})
+			for (let status of PILE_STATUSES) {
+				observable.observe(this.#pileStatus, pile?.status === status ? 1 : 0, {
+					...base,
+					[ATTR_YDB_PILE_NAME]: name,
+					[ATTR_YDB_PILE_STATUS]: status,
+				})
+			}
 		}
 	}
 

@@ -365,7 +365,7 @@ All tag values are bounded and safe to ingest at high request rates:
 - `ydb.retry.outcome` — 4 strings
 - `ydb.connection.state` — 2 strings
 - `ydb.routing.tier` — 2 strings (`prefer`, `fallback`); `ydb.routing.prefer_primary_pile` / `ydb.routing.locality_enabled` / `ydb.pile.fallback.active` — booleans
-- `ydb.pile.name` — bounded by the cluster's bridge topology (a handful of piles)
+- `ydb.pile.name` — bounded by the cluster's bridge topology (a handful of piles); `ydb.pile.status` — 7 fixed strings, and only ever on `ydb.driver.pile.status`
 - `ydb.auth.provider` — bounded by the credential providers configured in the process
 - identity tags (`db.namespace`, `server.address`, `server.port`) — bounded by the deployment
 

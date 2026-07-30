@@ -34,6 +34,11 @@ export type PoolState = {
 	// undefined for a subscriber that attached after driver construction and so
 	// missed the one-shot `pool.opened`.
 	config: PoolConfig | undefined
+	// Every pile name ever seen for this driver. Cumulative temporality keeps
+	// re-exporting an attribute set that stops being observed, so a pile that
+	// leaves the roster has to be observed at 0 rather than simply dropped —
+	// otherwise its last node count is reported forever.
+	seenPiles: Set<string>
 }
 
 /**
@@ -72,12 +77,14 @@ export class ConnectionPoolRegistry {
 	// prior pool generation on the same identity, mirroring
 	// `SessionPoolRegistry.poolOpened`.
 	poolOpened(driver: DriverIdentity, config: PoolConfig): void {
-		this.#pools.set(driver, { stats: undefined, config })
+		this.#pools.set(driver, { stats: undefined, config, seenPiles: new Set() })
 	}
 
 	// `pool.stats` re-emits on every routable-set change — replace the snapshot.
 	poolStats(driver: DriverIdentity, stats: PoolStatsSnapshot): void {
-		this.#pool(driver).stats = stats
+		let s = this.#pool(driver)
+		s.stats = stats
+		for (let pile of stats.piles) s.seenPiles.add(pile.name)
 	}
 
 	connectionAdded(driver: DriverIdentity): void {
@@ -117,7 +124,7 @@ export class ConnectionPoolRegistry {
 	#pool(driver: DriverIdentity): PoolState {
 		let s = this.#pools.get(driver)
 		if (!s) {
-			s = { stats: undefined, config: undefined }
+			s = { stats: undefined, config: undefined, seenPiles: new Set() }
 			this.#pools.set(driver, s)
 		}
 		return s

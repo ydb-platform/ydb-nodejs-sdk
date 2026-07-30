@@ -33,6 +33,10 @@ export let METRIC_YDB_DRIVER_POOL_CONFIG = 'ydb.driver.pool.config'
 // Bridge (2DC) topology counters.
 export let METRIC_YDB_DRIVER_PILE_FALLBACKS = 'ydb.driver.pile.fallbacks'
 export let METRIC_YDB_DRIVER_PILE_CHANGES = 'ydb.driver.pile.changes'
+// State-set gauge: 1 for the pile's current status, 0 for every other member of
+// the status enum. Re-observing the whole cross-product each cycle is what makes
+// a status transition overwrite the old pair with 0 instead of stranding it.
+export let METRIC_YDB_DRIVER_PILE_STATUS = 'ydb.driver.pile.status'
 
 export let METRIC_YDB_AUTH_TOKEN_FETCH_DURATION = 'ydb.auth.token.fetch.duration'
 export let METRIC_YDB_AUTH_TOKEN_FETCH_FAILURES = 'ydb.auth.token.fetch.failures'
@@ -55,13 +59,13 @@ export let ATTR_YDB_ROUTING_TIER = 'ydb.routing.tier'
 export let ATTR_YDB_ROUTING_PREFER_PRIMARY_PILE = 'ydb.routing.prefer_primary_pile'
 export let ATTR_YDB_ROUTING_LOCALITY_ENABLED = 'ydb.routing.locality_enabled'
 
-// Pile identity for `ydb.driver.pool.nodes`. Only the NAME is a tag: a pile's
-// status is mutable, and under cumulative temporality OTel never retires an
-// attribute set that stops being observed, so tagging by status would fork the
-// series on every failover and leave the pre-failover one frozen at its last
-// value forever. Status changes are carried by `ydb.driver.pile.changes` and
-// the discovery span event instead.
 export let ATTR_YDB_PILE_NAME = 'ydb.pile.name'
+// Only ever a dimension of the state-set gauge below, never of a count: a
+// pile's status is mutable, and under cumulative temporality OTel never retires
+// an attribute set that stops being observed, so tagging a node COUNT by status
+// would fork the series on every failover and freeze the pre-failover one at
+// its last value.
+export let ATTR_YDB_PILE_STATUS = 'ydb.pile.status'
 // Direction of a `ydb.driver.pile.fallbacks` transition: true = entered the
 // SYNCHRONIZED fallback tier, false = recovered to the primary pile.
 export let ATTR_YDB_PILE_FALLBACK_ACTIVE = 'ydb.pile.fallback.active'

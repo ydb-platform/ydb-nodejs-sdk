@@ -286,10 +286,22 @@ test('observes pool nodes per pile and leaves the gauge empty off a bridge clust
 	expect(
 		findPoint<number>(rm, 'ydb.driver.pool.nodes', { 'ydb.pile.name': 'pile-b' }).value
 	).toBe(2)
-	// Pile status is deliberately not a tag — see the failover test below.
+	// Status is never a dimension of the COUNT; it lives on the state-set gauge.
 	expect(pointsFor(rm, 'ydb.driver.pool.nodes')[0]!.attributes).not.toHaveProperty(
 		'ydb.pile.status'
 	)
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pile.status', {
+			'ydb.pile.name': 'pile-a',
+			'ydb.pile.status': 'PRIMARY',
+		}).value
+	).toBe(1)
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pile.status', {
+			'ydb.pile.name': 'pile-a',
+			'ydb.pile.status': 'DISCONNECTED',
+		}).value
+	).toBe(0)
 })
 
 test('reports no pile nodes when the roster is empty', async () => {
@@ -333,11 +345,65 @@ test('does not fork pool nodes series across a bridge failover', async () => {
 	})
 
 	// Cumulative temporality never retires an attribute set that stops being
-	// observed, so a mutable tag here would leave the pre-failover series frozen
-	// alongside the new one and double the sum.
-	let points = pointsFor<number>(await collect(), 'ydb.driver.pool.nodes')
-	expect(points).toHaveLength(2)
-	expect(points.reduce((sum, p) => sum + p.value, 0)).toBe(5)
+	// observed, so a mutable tag on the COUNT would leave the pre-failover series
+	// frozen alongside the new one and double the sum.
+	let rm = await collect()
+	let nodes = pointsFor<number>(rm, 'ydb.driver.pool.nodes')
+	expect(nodes).toHaveLength(2)
+	expect(nodes.reduce((sum, p) => sum + p.value, 0)).toBe(5)
+
+	// The state set tracks the transition: exactly one pile reads PRIMARY, and
+	// the pre-failover pair is overwritten with 0 rather than stranded at 1.
+	let primary = pointsFor<number>(rm, 'ydb.driver.pile.status', {
+		'ydb.pile.status': 'PRIMARY',
+	})
+	expect(primary.filter((p) => p.value === 1).map((p) => p.attributes['ydb.pile.name'])).toEqual([
+		'pile-b',
+	])
+	expect(
+		findPoint<number>(rm!, 'ydb.driver.pile.status', {
+			'ydb.pile.name': 'pile-a',
+			'ydb.pile.status': 'PRIMARY',
+		}).value
+	).toBe(0)
+})
+
+test('zeroes a pile that leaves the roster instead of freezing its last count', async () => {
+	channel('ydb:driver.connection.pool.stats').publish({
+		driver: driverIdentity,
+		total: 5,
+		prefer: 3,
+		fallback: 2,
+		pessimized: 0,
+		piles: [
+			{ name: 'pile-a', status: 'PRIMARY', nodes: 3 },
+			{ name: 'pile-b', status: 'SYNCHRONIZED', nodes: 2 },
+		],
+	})
+	await collect()
+
+	// pile-b is decommissioned and disappears from the roster entirely.
+	channel('ydb:driver.connection.pool.stats').publish({
+		driver: driverIdentity,
+		total: 3,
+		prefer: 3,
+		fallback: 0,
+		pessimized: 0,
+		piles: [{ name: 'pile-a', status: 'PRIMARY', nodes: 3 }],
+	})
+
+	let rm = await collect()
+	expect(
+		findPoint<number>(rm!, 'ydb.driver.pool.nodes', { 'ydb.pile.name': 'pile-b' }).value
+	).toBe(0)
+	expect(
+		pointsFor<number>(rm, 'ydb.driver.pile.status', { 'ydb.pile.name': 'pile-b' }).every(
+			(p) => p.value === 0
+		)
+	).toBe(true)
+	expect(
+		pointsFor<number>(rm, 'ydb.driver.pool.nodes').reduce((sum, p) => sum + p.value, 0)
+	).toBe(3)
 })
 
 test('counts pile fallbacks tagged by direction', async () => {
