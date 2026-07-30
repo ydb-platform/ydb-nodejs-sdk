@@ -19,9 +19,16 @@ export let METRIC_YDB_DRIVER_CONNECTION_COUNT = 'ydb.driver.connection.count'
 // Aggregate routing-snapshot gauges, sourced from ydb:driver.connection.pool.stats
 // (the pool's own view). Distinct from the per-connection, event-reconstructed
 // `ydb.driver.connection.count` above.
+export let METRIC_YDB_DRIVER_POOL_TOTAL = 'ydb.driver.pool.total'
 export let METRIC_YDB_DRIVER_POOL_ROUTABLE = 'ydb.driver.pool.routable'
 export let METRIC_YDB_DRIVER_POOL_PESSIMIZED = 'ydb.driver.pool.pessimized'
 export let METRIC_YDB_DRIVER_POOL_NODES = 'ydb.driver.pool.nodes'
+// Info-style gauge (always 1) carrying the driver's routing mode as tags.
+// The mode must NOT ride the routable gauge: `pool.opened` fires once at
+// construction, so a late subscriber would emit that gauge under a different
+// attribute-key set for the driver's whole life — two distinct series for one
+// logical measurement.
+export let METRIC_YDB_DRIVER_POOL_CONFIG = 'ydb.driver.pool.config'
 
 // Bridge (2DC) topology counters.
 export let METRIC_YDB_DRIVER_PILE_FALLBACKS = 'ydb.driver.pile.fallbacks'
@@ -48,9 +55,13 @@ export let ATTR_YDB_ROUTING_TIER = 'ydb.routing.tier'
 export let ATTR_YDB_ROUTING_PREFER_PRIMARY_PILE = 'ydb.routing.prefer_primary_pile'
 export let ATTR_YDB_ROUTING_LOCALITY_ENABLED = 'ydb.routing.locality_enabled'
 
-// Per-pile node-count dimensions (`ydb.driver.pool.nodes`).
+// Pile identity for `ydb.driver.pool.nodes`. Only the NAME is a tag: a pile's
+// status is mutable, and under cumulative temporality OTel never retires an
+// attribute set that stops being observed, so tagging by status would fork the
+// series on every failover and leave the pre-failover one frozen at its last
+// value forever. Status changes are carried by `ydb.driver.pile.changes` and
+// the discovery span event instead.
 export let ATTR_YDB_PILE_NAME = 'ydb.pile.name'
-export let ATTR_YDB_PILE_STATUS = 'ydb.pile.status'
 // Direction of a `ydb.driver.pile.fallbacks` transition: true = entered the
 // SYNCHRONIZED fallback tier, false = recovered to the primary pile.
 export let ATTR_YDB_PILE_FALLBACK_ACTIVE = 'ydb.pile.fallback.active'

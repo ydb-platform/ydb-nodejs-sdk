@@ -1,92 +1,60 @@
+// Bridge (2DC) topology mappings. These live under src/ rather than tests/
+// because a multi-pile roster is unreachable on the single-node local YDB the
+// integration suite spins up — the pile states can only be driven by publishing
+// the diagnostics_channel payloads directly.
+
 import { channel, tracingChannel } from 'node:diagnostics_channel'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 
-import { type MetricAttributes, metrics } from '@opentelemetry/api'
-import {
-	AggregationTemporality,
-	type DataPoint,
-	InMemoryMetricExporter,
-	MeterProvider,
-	PeriodicExportingMetricReader,
-	type ResourceMetrics,
-} from '@opentelemetry/sdk-metrics'
+import { metrics, trace } from '@opentelemetry/api'
 import { InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base'
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
 
 import { YdbInstrumentation } from './index.ts'
+import {
+	type MetricHarness,
+	createMetricHarness,
+	driverIdentity,
+	findPoint,
+	pointsFor,
+} from './telemetry.fixtures.ts'
 
-// One instrumentation feeds both pipelines: the trace-event mappings read the
-// span exporter, the metric mappings read the metric reader. The tracer
-// provider is registered once (its global is process-wide); the meter provider
-// is rebuilt per test so cumulative counters start from zero each time.
 let spanExporter = new InMemorySpanExporter()
-let tracerProvider = new NodeTracerProvider({
-	spanProcessors: [new SimpleSpanProcessor(spanExporter)],
-})
-tracerProvider.register()
-
-let metricExporter: InMemoryMetricExporter
-let metricReader: PeriodicExportingMetricReader
-let meterProvider: MeterProvider
+let tracerProvider: NodeTracerProvider
+let harness: MetricHarness
 let instrumentation: YdbInstrumentation
 
 beforeEach(() => {
 	spanExporter.reset()
-	metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE)
-	metricReader = new PeriodicExportingMetricReader({
-		exporter: metricExporter,
-		exportIntervalMillis: 60_000,
-		exportTimeoutMillis: 5_000,
+	// Registered per-test and torn down in afterEach: the tracer provider is a
+	// process-wide global, so a module-level register() that is never undone
+	// would leak into any other test file sharing the worker.
+	tracerProvider = new NodeTracerProvider({
+		spanProcessors: [new SimpleSpanProcessor(spanExporter)],
 	})
-	meterProvider = new MeterProvider({ readers: [metricReader] })
-	metrics.setGlobalMeterProvider(meterProvider)
+	tracerProvider.register()
+	harness = createMetricHarness()
+	metrics.setGlobalMeterProvider(harness.provider)
 	instrumentation = new YdbInstrumentation()
 	instrumentation.enable()
 })
 
 afterEach(async () => {
 	instrumentation.disable()
-	await meterProvider.shutdown()
+	await harness.shutdown()
 	metrics.disable()
+	trace.disable()
 })
 
-let driverIdentity = {
-	address: '127.0.0.1',
-	port: 2136,
-	database: '/local',
-	registeredAt: 0,
-}
+let collect = () => harness.collect()
 
-async function collect(): Promise<ResourceMetrics> {
-	await meterProvider.forceFlush()
-	let exported = metricExporter.getMetrics()
-	return exported[exported.length - 1]
-}
-
-function findInstrument(rm: ResourceMetrics, name: string) {
-	for (let scope of rm.scopeMetrics) {
-		let found = scope.metrics.find((inst) => inst.descriptor.name === name)
-		if (found) return found
-	}
-	throw new Error(`no instrument named ${name}`)
-}
-
-function findPoint<T>(rm: ResourceMetrics, name: string, filter: MetricAttributes): DataPoint<T> {
-	let inst = findInstrument(rm, name)
-	let point = (inst.dataPoints as DataPoint<T>[]).find((p) =>
-		Object.entries(filter).every(([k, v]) => (p.attributes as Record<string, unknown>)[k] === v)
-	)
-	if (!point) {
-		throw new Error(
-			`no datapoint for ${name} matching ${JSON.stringify(filter)}. Got: ${JSON.stringify(inst.dataPoints.map((p) => p.attributes))}`
-		)
-	}
-	return point
+function discoverySpan() {
+	return spanExporter.getFinishedSpans().find((s) => s.name === 'ydb.Discovery')!
 }
 
 // --- trace-event mappings (fire inside the discovery span) -----------------
 
-test('sets discovery self_location and primary_pile on the Discovery span from discovery.completed', async () => {
+test('sets discovery self_location and primary_pile on the Discovery span', async () => {
 	let discovery = tracingChannel('tracing:ydb:driver.discovery')
 	await discovery.tracePromise(
 		async () => {
@@ -104,13 +72,13 @@ test('sets discovery self_location and primary_pile on the Discovery span from d
 		{ driver: driverIdentity }
 	)
 
-	let span = spanExporter.getFinishedSpans().find((s) => s.name === 'ydb.Discovery')!
+	let span = discoverySpan()
 	expect(span.attributes['ydb.discovery.self_location']).toBe('pile-a')
 	expect(span.attributes['ydb.discovery.primary_pile']).toBe('pile-a')
 	expect(span.attributes['ydb.discovery.total_count']).toBe(3)
 })
 
-test('omits discovery self_location and primary_pile off a non-bridge cluster', async () => {
+test('omits primary_pile and self_location when the server reports neither', async () => {
 	let discovery = tracingChannel('tracing:ydb:driver.discovery')
 	await discovery.tracePromise(
 		async () => {
@@ -128,12 +96,15 @@ test('omits discovery self_location and primary_pile off a non-bridge cluster', 
 		{ driver: driverIdentity }
 	)
 
-	let span = spanExporter.getFinishedSpans().find((s) => s.name === 'ydb.Discovery')!
-	expect(span.attributes['ydb.discovery.self_location']).toBeUndefined()
-	expect(span.attributes['ydb.discovery.primary_pile']).toBeUndefined()
+	let span = discoverySpan()
+	// Positive control: without it this test would also pass if the whole
+	// discovery.completed mapping were disconnected.
+	expect(span.attributes['ydb.discovery.total_count']).toBe(2)
+	expect(span.attributes).not.toHaveProperty('ydb.discovery.self_location')
+	expect(span.attributes).not.toHaveProperty('ydb.discovery.primary_pile')
 })
 
-test('records pile.changed as a span event with primary before/after', async () => {
+test('records pile.changed as a span event with primary before/after and both rosters', async () => {
 	let discovery = tracingChannel('tracing:ydb:driver.discovery')
 	await discovery.tracePromise(
 		async () => {
@@ -152,16 +123,85 @@ test('records pile.changed as a span event with primary before/after', async () 
 		{ driver: driverIdentity }
 	)
 
-	let span = spanExporter.getFinishedSpans().find((s) => s.name === 'ydb.Discovery')!
-	let event = span.events.find((e) => e.name === 'ydb.driver.pile.changed')
-	expect(event).toBeDefined()
-	expect(event!.attributes?.['ydb.driver.pile.primary_before']).toBe('pile-a')
-	expect(event!.attributes?.['ydb.driver.pile.primary_after']).toBe('pile-b')
+	let event = discoverySpan().events.find((e) => e.name === 'ydb.driver.pile.changed')!
+	expect(event.attributes?.['ydb.driver.pile.primary_before']).toBe('pile-a')
+	expect(event.attributes?.['ydb.driver.pile.primary_after']).toBe('pile-b')
+	expect(event.attributes?.['ydb.driver.pile.before']).toEqual(['pile-a:PRIMARY'])
+	expect(event.attributes?.['ydb.driver.pile.after']).toEqual([
+		'pile-a:SYNCHRONIZED',
+		'pile-b:PRIMARY',
+	])
+})
+
+test('keeps the roster on a status-only change that leaves no primary pile', async () => {
+	let discovery = tracingChannel('tracing:ydb:driver.discovery')
+	await discovery.tracePromise(
+		async () => {
+			channel('ydb:driver.pile.changed').publish({
+				driver: driverIdentity,
+				selfLocation: 'pile-a',
+				before: [{ name: 'pile-a', status: 'SYNCHRONIZED' }],
+				after: [
+					{ name: 'pile-a', status: 'SYNCHRONIZED' },
+					{ name: 'pile-b', status: 'DISCONNECTED' },
+				],
+				primaryBefore: undefined,
+				primaryAfter: undefined,
+			})
+		},
+		{ driver: driverIdentity }
+	)
+
+	// `addEvent` (unlike `setAttributes`) keeps undefined-valued keys, so the
+	// absent primaries must be stripped rather than shipped as empty values —
+	// and the roster is what carries the signal in this window.
+	let event = discoverySpan().events.find((e) => e.name === 'ydb.driver.pile.changed')!
+	expect(Object.keys(event.attributes ?? {})).toEqual([
+		'ydb.driver.pile.before',
+		'ydb.driver.pile.after',
+	])
+	expect(event.attributes?.['ydb.driver.pile.after']).toEqual([
+		'pile-a:SYNCHRONIZED',
+		'pile-b:DISCONNECTED',
+	])
+})
+
+test('omits ydb.node.pile from connection events off a bridge cluster', async () => {
+	let discovery = tracingChannel('tracing:ydb:driver.discovery')
+	await discovery.tracePromise(
+		async () => {
+			channel('ydb:driver.connection.added').publish({
+				driver: driverIdentity,
+				nodeId: 7n,
+				address: '10.0.0.1:2135',
+				location: 'dc1',
+				pile: '',
+			})
+		},
+		{ driver: driverIdentity }
+	)
+
+	let event = discoverySpan().events.find((e) => e.name === 'ydb.driver.connection.added')!
+	expect(event.attributes?.['ydb.node.dc']).toBe('dc1')
+	expect(Object.keys(event.attributes ?? {})).not.toContain('ydb.node.pile')
+})
+
+test('drops pile.changed when no span is active', async () => {
+	channel('ydb:driver.pile.changed').publish({
+		driver: driverIdentity,
+		selfLocation: 'pile-a',
+		before: [],
+		after: [{ name: 'pile-a', status: 'PRIMARY' }],
+		primaryBefore: undefined,
+		primaryAfter: 'pile-a',
+	})
+
+	expect(spanExporter.getFinishedSpans()).toHaveLength(0)
 })
 
 // --- metric mappings (fire outside any span) -------------------------------
 
-test('observes ydb.driver.pool.routable split by tier with routing mode from pool.opened', async () => {
+test('observes pool routable split by tier, with the routing mode on its own gauge', async () => {
 	channel('ydb:driver.connection.pool.opened').publish({
 		driver: driverIdentity,
 		config: {
@@ -183,22 +223,27 @@ test('observes ydb.driver.pool.routable split by tier with routing mode from poo
 		piles: [],
 	})
 
-	let rm = await collect()
-	let prefer = findPoint<number>(rm, 'ydb.driver.pool.routable', {
-		'ydb.routing.tier': 'prefer',
-		'db.namespace': '/local',
-	})
-	let fallback = findPoint<number>(rm, 'ydb.driver.pool.routable', {
-		'ydb.routing.tier': 'fallback',
-	})
-	expect(prefer.value).toBe(3)
-	expect(fallback.value).toBe(1)
-	// Config folded from pool.opened rides the routing gauge.
-	expect(prefer.attributes['ydb.routing.locality_enabled']).toBe(true)
-	expect(prefer.attributes['ydb.routing.prefer_primary_pile']).toBe(false)
+	let rm = (await collect())!
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pool.routable', { 'ydb.routing.tier': 'prefer' }).value
+	).toBe(3)
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pool.routable', { 'ydb.routing.tier': 'fallback' }).value
+	).toBe(1)
+	expect(findPoint<number>(rm, 'ydb.driver.pool.total', {}).value).toBe(5)
+
+	// The mode rides a dedicated info gauge; putting it on `routable` would make
+	// the series shape depend on whether pool.opened was observed.
+	let cfg = findPoint<number>(rm, 'ydb.driver.pool.config', {})
+	expect(cfg.value).toBe(1)
+	expect(cfg.attributes['ydb.routing.locality_enabled']).toBe(true)
+	expect(cfg.attributes['ydb.routing.prefer_primary_pile']).toBe(false)
+	expect(pointsFor(rm, 'ydb.driver.pool.routable')[0]!.attributes).not.toHaveProperty(
+		'ydb.routing.locality_enabled'
+	)
 })
 
-test('observes ydb.driver.pool.routable without mode tags when pool.opened was missed', async () => {
+test('keeps one routable series shape when pool.opened was missed', async () => {
 	channel('ydb:driver.connection.pool.stats').publish({
 		driver: driverIdentity,
 		total: 2,
@@ -208,29 +253,20 @@ test('observes ydb.driver.pool.routable without mode tags when pool.opened was m
 		piles: [],
 	})
 
-	let rm = await collect()
+	let rm = (await collect())!
 	let prefer = findPoint<number>(rm, 'ydb.driver.pool.routable', { 'ydb.routing.tier': 'prefer' })
 	expect(prefer.value).toBe(2)
-	expect(prefer.attributes['ydb.routing.prefer_primary_pile']).toBeUndefined()
-	expect(prefer.attributes['ydb.routing.locality_enabled']).toBeUndefined()
+	// Zero-valued series must still be reported — absent-vs-zero is what
+	// alerting keys off.
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pool.routable', { 'ydb.routing.tier': 'fallback' }).value
+	).toBe(0)
+	expect(findPoint<number>(rm, 'ydb.driver.pool.pessimized', {}).value).toBe(0)
+	// No pool.opened means no config gauge, not a differently-shaped routable.
+	expect(pointsFor(rm, 'ydb.driver.pool.config')).toHaveLength(0)
 })
 
-test('observes ydb.driver.pool.pessimized from pool.stats', async () => {
-	channel('ydb:driver.connection.pool.stats').publish({
-		driver: driverIdentity,
-		total: 4,
-		prefer: 2,
-		fallback: 0,
-		pessimized: 2,
-		piles: [],
-	})
-
-	let rm = await collect()
-	let point = findPoint<number>(rm, 'ydb.driver.pool.pessimized', { 'db.namespace': '/local' })
-	expect(point.value).toBe(2)
-})
-
-test('observes ydb.driver.pool.nodes per pile from pool.stats', async () => {
+test('observes pool nodes per pile and leaves the gauge empty off a bridge cluster', async () => {
 	channel('ydb:driver.connection.pool.stats').publish({
 		driver: driverIdentity,
 		total: 5,
@@ -243,20 +279,68 @@ test('observes ydb.driver.pool.nodes per pile from pool.stats', async () => {
 		],
 	})
 
-	let rm = await collect()
-	let a = findPoint<number>(rm, 'ydb.driver.pool.nodes', {
-		'ydb.pile.name': 'pile-a',
-		'ydb.pile.status': 'PRIMARY',
-	})
-	let b = findPoint<number>(rm, 'ydb.driver.pool.nodes', {
-		'ydb.pile.name': 'pile-b',
-		'ydb.pile.status': 'SYNCHRONIZED',
-	})
-	expect(a.value).toBe(3)
-	expect(b.value).toBe(2)
+	let rm = (await collect())!
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pool.nodes', { 'ydb.pile.name': 'pile-a' }).value
+	).toBe(3)
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pool.nodes', { 'ydb.pile.name': 'pile-b' }).value
+	).toBe(2)
+	// Pile status is deliberately not a tag — see the failover test below.
+	expect(pointsFor(rm, 'ydb.driver.pool.nodes')[0]!.attributes).not.toHaveProperty(
+		'ydb.pile.status'
+	)
 })
 
-test('counts ydb.driver.pile.fallbacks tagged by active on pile.fallback', async () => {
+test('reports no pile nodes when the roster is empty', async () => {
+	channel('ydb:driver.connection.pool.stats').publish({
+		driver: driverIdentity,
+		total: 2,
+		prefer: 2,
+		fallback: 0,
+		pessimized: 0,
+		piles: [],
+	})
+
+	expect(pointsFor(await collect(), 'ydb.driver.pool.nodes')).toHaveLength(0)
+})
+
+test('does not fork pool nodes series across a bridge failover', async () => {
+	channel('ydb:driver.connection.pool.stats').publish({
+		driver: driverIdentity,
+		total: 5,
+		prefer: 3,
+		fallback: 2,
+		pessimized: 0,
+		piles: [
+			{ name: 'pile-a', status: 'PRIMARY', nodes: 3 },
+			{ name: 'pile-b', status: 'SYNCHRONIZED', nodes: 2 },
+		],
+	})
+	await collect()
+
+	// Failover: the piles swap roles, the node count is unchanged.
+	channel('ydb:driver.connection.pool.stats').publish({
+		driver: driverIdentity,
+		total: 5,
+		prefer: 2,
+		fallback: 3,
+		pessimized: 0,
+		piles: [
+			{ name: 'pile-a', status: 'SYNCHRONIZED', nodes: 3 },
+			{ name: 'pile-b', status: 'PRIMARY', nodes: 2 },
+		],
+	})
+
+	// Cumulative temporality never retires an attribute set that stops being
+	// observed, so a mutable tag here would leave the pre-failover series frozen
+	// alongside the new one and double the sum.
+	let points = pointsFor<number>(await collect(), 'ydb.driver.pool.nodes')
+	expect(points).toHaveLength(2)
+	expect(points.reduce((sum, p) => sum + p.value, 0)).toBe(5)
+})
+
+test('counts pile fallbacks tagged by direction', async () => {
 	channel('ydb:driver.pile.fallback').publish({
 		driver: driverIdentity,
 		active: true,
@@ -268,18 +352,18 @@ test('counts ydb.driver.pile.fallbacks tagged by active on pile.fallback', async
 		primaryPile: 'pile-a',
 	})
 
-	let rm = await collect()
-	let entered = findPoint<number>(rm, 'ydb.driver.pile.fallbacks', {
-		'ydb.pile.fallback.active': true,
-	})
-	let recovered = findPoint<number>(rm, 'ydb.driver.pile.fallbacks', {
-		'ydb.pile.fallback.active': false,
-	})
-	expect(entered.value).toBe(1)
-	expect(recovered.value).toBe(1)
+	let rm = (await collect())!
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pile.fallbacks', { 'ydb.pile.fallback.active': true })
+			.value
+	).toBe(1)
+	expect(
+		findPoint<number>(rm, 'ydb.driver.pile.fallbacks', { 'ydb.pile.fallback.active': false })
+			.value
+	).toBe(1)
 })
 
-test('counts ydb.driver.pile.changes on pile.changed', async () => {
+test('counts pile changes', async () => {
 	channel('ydb:driver.pile.changed').publish({
 		driver: driverIdentity,
 		selfLocation: 'pile-a',
@@ -289,15 +373,10 @@ test('counts ydb.driver.pile.changes on pile.changed', async () => {
 		primaryAfter: 'pile-a',
 	})
 
-	let rm = await collect()
-	let point = findPoint<number>(rm, 'ydb.driver.pile.changes', { 'db.namespace': '/local' })
-	expect(point.value).toBe(1)
+	expect(findPoint<number>((await collect())!, 'ydb.driver.pile.changes', {}).value).toBe(1)
 })
 
-test('drops pool stats gauges for a driver on driver.closed', async () => {
-	// A second, still-open driver keeps the instrument alive so this asserts the
-	// closed driver's datapoints are dropped, not that all metrics vanished.
-	let other = { address: '10.0.0.9', port: 2136, database: '/other', registeredAt: 1 }
+test('stops observing pool gauges for a driver after driver.closed', async () => {
 	channel('ydb:driver.connection.pool.stats').publish({
 		driver: driverIdentity,
 		total: 3,
@@ -306,27 +385,72 @@ test('drops pool stats gauges for a driver on driver.closed', async () => {
 		pessimized: 0,
 		piles: [],
 	})
+	// Collect BEFORE the close: a series that was never exported would be
+	// trivially absent afterwards regardless of the registry.
+	expect(pointsFor(await collect(), 'ydb.driver.pool.routable')).toHaveLength(2)
+
+	channel('ydb:driver.closed').publish({ driver: driverIdentity })
 	channel('ydb:driver.connection.pool.stats').publish({
-		driver: other,
+		driver: { address: '10.0.0.9', port: 2136, database: '/other' },
 		total: 2,
 		prefer: 2,
 		fallback: 0,
 		pessimized: 0,
 		piles: [],
 	})
-	channel('ydb:driver.closed').publish({ driver: driverIdentity })
 
 	let rm = await collect()
-	// The surviving driver still reports; the closed one's entry is gone.
-	let survivor = findPoint<number>(rm, 'ydb.driver.pool.routable', {
-		'db.namespace': '/other',
-		'ydb.routing.tier': 'prefer',
+	expect(
+		findPoint<number>(rm!, 'ydb.driver.pool.routable', {
+			'db.namespace': '/other',
+			'ydb.routing.tier': 'prefer',
+		}).value
+	).toBe(2)
+	// The registry entry is gone, so the closed driver is no longer OBSERVED.
+	// Its already-exported series is still carried forward by the SDK under
+	// cumulative temporality — see the README note on closed drivers.
+	expect(pointsFor(rm, 'ydb.driver.pool.routable', { 'db.namespace': '/local' })).toHaveLength(2)
+})
+
+test('leaves connection.count unreported for a driver known only from pool events', async () => {
+	channel('ydb:driver.connection.pool.opened').publish({
+		driver: driverIdentity,
+		config: { localityEnabled: false, preferPrimaryPile: true },
 	})
-	expect(survivor.value).toBe(2)
-	let closed = rm.scopeMetrics
-		.flatMap((s) => s.metrics)
-		.filter((m) => m.descriptor.name === 'ydb.driver.pool.routable')
-		.flatMap((m) => m.dataPoints)
-		.filter((p) => (p.attributes as Record<string, unknown>)['db.namespace'] === '/local')
-	expect(closed).toHaveLength(0)
+	channel('ydb:driver.connection.pool.stats').publish({
+		driver: driverIdentity,
+		total: 8,
+		prefer: 8,
+		fallback: 0,
+		pessimized: 0,
+		piles: [],
+	})
+
+	// A late subscriber missed every connection.added, so a zero here would be a
+	// confident lie about a driver that actually has 8 live connections.
+	let rm = await collect()
+	expect(pointsFor(rm, 'ydb.driver.connection.count')).toHaveLength(0)
+	expect(findPoint<number>(rm!, 'ydb.driver.pool.total', {}).value).toBe(8)
+})
+
+test('survives a pool.stats payload with no config or piles', async () => {
+	channel('ydb:driver.connection.pool.opened').publish({ driver: driverIdentity })
+	channel('ydb:driver.connection.pool.stats').publish({
+		driver: driverIdentity,
+		total: 1,
+		prefer: 1,
+		fallback: 0,
+		pessimized: 0,
+	})
+	// A malformed payload must not escape the subscriber (diagnostics_channel
+	// re-raises a throw as an uncaughtException) nor blank the whole batch.
+	channel('ydb:query.session.pool.opened').publish({
+		driver: driverIdentity,
+		maxSize: 4,
+		minSize: 1,
+	})
+
+	let rm = await collect()
+	expect(findPoint<number>(rm!, 'ydb.driver.pool.total', {}).value).toBe(1)
+	expect(findPoint<number>(rm!, 'ydb.query.session.max', {}).value).toBe(4)
 })

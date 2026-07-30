@@ -3,6 +3,7 @@ import { channel as plainChannel, tracingChannel } from 'node:diagnostics_channe
 import type {
 	BatchObservableResult,
 	Counter,
+	DiagLogger,
 	Histogram,
 	Meter,
 	MetricAttributes,
@@ -14,11 +15,7 @@ import { ATTR_DB_OPERATION_NAME } from '@opentelemetry/semantic-conventions'
 import type { DriverIdentity } from '@ydbjs/core'
 
 import { LEAF_OPERATIONS } from './operations.js'
-import {
-	ConnectionPoolRegistry,
-	type PoolConfig,
-	type PoolStatsSnapshot,
-} from './state/connection-pool.js'
+import { ConnectionPoolRegistry, type PoolConfig, type PoolState } from './state/connection-pool.js'
 import { SessionPoolRegistry } from './state/session-pool.js'
 import {
 	ATTR_YDB_AUTH_PROVIDER,
@@ -26,7 +23,6 @@ import {
 	ATTR_YDB_IDEMPOTENT,
 	ATTR_YDB_PILE_FALLBACK_ACTIVE,
 	ATTR_YDB_PILE_NAME,
-	ATTR_YDB_PILE_STATUS,
 	ATTR_YDB_RETRY_OUTCOME,
 	ATTR_YDB_ROUTING_LOCALITY_ENABLED,
 	ATTR_YDB_ROUTING_PREFER_PRIMARY_PILE,
@@ -43,9 +39,11 @@ import {
 	METRIC_YDB_DRIVER_CONNECTION_PESSIMIZATIONS,
 	METRIC_YDB_DRIVER_PILE_CHANGES,
 	METRIC_YDB_DRIVER_PILE_FALLBACKS,
+	METRIC_YDB_DRIVER_POOL_CONFIG,
 	METRIC_YDB_DRIVER_POOL_NODES,
 	METRIC_YDB_DRIVER_POOL_PESSIMIZED,
 	METRIC_YDB_DRIVER_POOL_ROUTABLE,
+	METRIC_YDB_DRIVER_POOL_TOTAL,
 	METRIC_YDB_QUERY_SESSION_ACQUIRE_DURATION,
 	METRIC_YDB_QUERY_SESSION_ACQUIRE_FAILURES,
 	METRIC_YDB_QUERY_SESSION_ACQUIRE_PENDING,
@@ -75,6 +73,7 @@ type DurationCtx = { driver?: DriverIdentity }
  */
 export class YdbMetricsPipeline {
 	#meter: Meter
+	#diag: DiagLogger
 	#connectionState = new ConnectionPoolRegistry()
 	#sessionState = new SessionPoolRegistry()
 	#subs: Disposable[] = []
@@ -101,12 +100,15 @@ export class YdbMetricsPipeline {
 	#sessionAcquirePending!: ObservableUpDownCounter
 	#sessionMax!: ObservableGauge
 	#sessionMin!: ObservableGauge
+	#poolTotal!: ObservableGauge
 	#poolRoutable!: ObservableGauge
 	#poolPessimized!: ObservableGauge
 	#poolNodes!: ObservableGauge
+	#poolConfig!: ObservableGauge
 
-	constructor(meter: Meter) {
+	constructor(meter: Meter, diag: DiagLogger) {
 		this.#meter = meter
+		this.#diag = diag
 		this.#registerInstruments()
 	}
 
@@ -279,6 +281,12 @@ export class YdbMetricsPipeline {
 			description: 'Configured minSize of the session pool.',
 			unit: '{session}',
 		})
+		this.#poolTotal = this.#meter.createObservableGauge(METRIC_YDB_DRIVER_POOL_TOTAL, {
+			description:
+				'Endpoints known to the routing snapshot, including pessimized, retired-in-grace ' +
+				'and unusable-pile nodes that sit outside both routable tiers.',
+			unit: '{connection}',
+		})
 		this.#poolRoutable = this.#meter.createObservableGauge(METRIC_YDB_DRIVER_POOL_ROUTABLE, {
 			description: 'Routable endpoints in the routing snapshot, split by tier.',
 			unit: '{connection}',
@@ -286,20 +294,53 @@ export class YdbMetricsPipeline {
 		this.#poolPessimized = this.#meter.createObservableGauge(
 			METRIC_YDB_DRIVER_POOL_PESSIMIZED,
 			{
-				description:
-					'Pessimized (banned) endpoints in the routing snapshot — the pool-authoritative ' +
-					'count complementing the event-reconstructed ydb.driver.connection.count.',
+				description: 'Pessimized (banned) endpoints as counted by the pool itself.',
 				unit: '{connection}',
 			}
 		)
 		this.#poolNodes = this.#meter.createObservableGauge(METRIC_YDB_DRIVER_POOL_NODES, {
-			description: 'Discovered nodes per bridge (2DC) pile, tagged by pile name and status.',
+			description: 'Discovered nodes per bridge (2DC) pile, tagged by pile name.',
 			unit: '{node}',
+		})
+		this.#poolConfig = this.#meter.createObservableGauge(METRIC_YDB_DRIVER_POOL_CONFIG, {
+			description: "Always 1; carries the driver's routing mode as tags.",
+			unit: '{driver}',
 		})
 	}
 
 	#registerObservableCallbacks(): void {
+		// One rejection here costs EVERY instrument in the batch: the SDK awaits
+		// the callback before flushing its buffer, so a throw blanks the session
+		// gauges too. Contain it and let the rest of the collection through.
 		let cb = (observable: BatchObservableResult) => {
+			try {
+				this.#observe(observable)
+			} catch (err) {
+				this.#diag.error('telemetry observable callback', err as Error)
+			}
+		}
+		let instruments = [
+			this.#connectionCount,
+			this.#sessionCount,
+			this.#sessionAcquirePending,
+			this.#sessionMax,
+			this.#sessionMin,
+			this.#poolTotal,
+			this.#poolRoutable,
+			this.#poolPessimized,
+			this.#poolNodes,
+			this.#poolConfig,
+		]
+		this.#meter.addBatchObservableCallback(cb, instruments)
+		this.#observableSubs.push({
+			[Symbol.dispose]: () => {
+				this.#meter.removeBatchObservableCallback(cb, instruments)
+			},
+		})
+	}
+
+	#observe(observable: BatchObservableResult): void {
+		{
 			for (let [driver, state] of this.#connectionState.connections()) {
 				let base = baseFor(driver)
 				observable.observe(this.#connectionCount, state.live, {
@@ -310,7 +351,9 @@ export class YdbMetricsPipeline {
 					...base,
 					[ATTR_YDB_CONNECTION_STATE]: 'pessimized',
 				})
-				this.#observePoolStats(observable, base, state.stats, state.config)
+			}
+			for (let [driver, state] of this.#connectionState.pools()) {
+				this.#observePoolStats(observable, baseFor(driver), state)
 			}
 			for (let [driver, state] of this.#sessionState.sessions()) {
 				let base = baseFor(driver)
@@ -332,47 +375,35 @@ export class YdbMetricsPipeline {
 				observable.observe(this.#sessionMin, state.minSize, base)
 			}
 		}
-		let instruments = [
-			this.#connectionCount,
-			this.#sessionCount,
-			this.#sessionAcquirePending,
-			this.#sessionMax,
-			this.#sessionMin,
-			this.#poolRoutable,
-			this.#poolPessimized,
-			this.#poolNodes,
-		]
-		this.#meter.addBatchObservableCallback(cb, instruments)
-		this.#observableSubs.push({
-			[Symbol.dispose]: () => {
-				this.#meter.removeBatchObservableCallback(cb, instruments)
-			},
-		})
 	}
 
-	// Emit the routing-snapshot gauges for one driver. `stats` is undefined until
-	// the first pool.stats round; `config` is undefined for a late subscriber
-	// that missed pool.opened (the routing gauges then omit the mode tags).
+	// Emit the routing-snapshot gauges for one driver. The routing mode goes on
+	// its own info gauge rather than tagging `routable`: `pool.opened` fires once
+	// at construction, so a subscriber that attached later would otherwise emit
+	// `routable` under a different attribute-key set for the driver's whole life,
+	// splitting one logical measurement into two series.
 	#observePoolStats(
 		observable: BatchObservableResult,
 		base: MetricAttributes,
-		stats: PoolStatsSnapshot | undefined,
-		config: PoolConfig | undefined
+		state: PoolState
 	): void {
+		if (state.config) {
+			observable.observe(this.#poolConfig, 1, {
+				...base,
+				[ATTR_YDB_ROUTING_PREFER_PRIMARY_PILE]: state.config.preferPrimaryPile,
+				[ATTR_YDB_ROUTING_LOCALITY_ENABLED]: state.config.localityEnabled,
+			})
+		}
+
+		let stats = state.stats
 		if (!stats) return
-		let routingBase: MetricAttributes = config
-			? {
-					...base,
-					[ATTR_YDB_ROUTING_PREFER_PRIMARY_PILE]: config.preferPrimaryPile,
-					[ATTR_YDB_ROUTING_LOCALITY_ENABLED]: config.localityEnabled,
-				}
-			: base
+		observable.observe(this.#poolTotal, stats.total, base)
 		observable.observe(this.#poolRoutable, stats.prefer, {
-			...routingBase,
+			...base,
 			[ATTR_YDB_ROUTING_TIER]: 'prefer',
 		})
 		observable.observe(this.#poolRoutable, stats.fallback, {
-			...routingBase,
+			...base,
 			[ATTR_YDB_ROUTING_TIER]: 'fallback',
 		})
 		observable.observe(this.#poolPessimized, stats.pessimized, base)
@@ -380,14 +411,24 @@ export class YdbMetricsPipeline {
 			observable.observe(this.#poolNodes, pile.nodes, {
 				...base,
 				[ATTR_YDB_PILE_NAME]: pile.name,
-				[ATTR_YDB_PILE_STATUS]: pile.status,
 			})
 		}
 	}
 
+	// `diagnostics_channel` runs subscribers synchronously on the publisher's
+	// stack and re-raises a throw as an uncaughtException on the next tick — a
+	// malformed payload would otherwise take down the host application. The
+	// traces pipeline guards the same way (`YdbTracesPipeline#subscribeEvent`).
 	#subPlain<T>(name: string, fn: (msg: T) => void): Disposable {
 		let ch = plainChannel(name)
-		let handler = (msg: unknown) => fn(msg as T)
+		let diag = this.#diag
+		let handler = (msg: unknown) => {
+			try {
+				fn(msg as T)
+			} catch (err) {
+				diag.error(`telemetry metrics subscriber for ${name}`, err as Error)
+			}
+		}
 		ch.subscribe(handler)
 		return {
 			[Symbol.dispose]() {
@@ -559,30 +600,38 @@ export class YdbMetricsPipeline {
 	}
 
 	// Bridge (2DC) topology: the aggregate routing snapshot + pile transitions.
-	// These channels fire from the async consume loop (no active span), so they
-	// are metrics-only — the traces pipeline handles the in-span events instead.
+	// `pool.stats` and `pile.fallback` fire from the async consume loop, which has
+	// no active span, so they can only ever be metrics. `pile.changed` and
+	// `pool.opened` do run inside a span / at construction — `pile.changed` also
+	// has a traces mapping in channels.ts, and this counter is the metric half of
+	// the same event.
 	#subscribePoolTopologyEvents(): void {
 		this.#subs.push(
-			this.#subPlain<{
-				driver: DriverIdentity
-				config: { preferPrimaryPile: boolean; localityEnabled: boolean }
-			}>('ydb:driver.connection.pool.opened', (msg) =>
-				this.#connectionState.poolOpened(msg.driver, {
-					preferPrimaryPile: msg.config.preferPrimaryPile,
-					localityEnabled: msg.config.localityEnabled,
-				})
+			this.#subPlain<{ driver: DriverIdentity; config: PoolConfig }>(
+				'ydb:driver.connection.pool.opened',
+				(msg) =>
+					this.#connectionState.poolOpened(msg.driver, {
+						preferPrimaryPile: msg.config?.preferPrimaryPile ?? false,
+						localityEnabled: msg.config?.localityEnabled ?? false,
+					})
 			)
 		)
 		this.#subs.push(
-			this.#subPlain<{ driver: DriverIdentity } & PoolStatsSnapshot>(
-				'ydb:driver.connection.pool.stats',
-				(msg) =>
-					this.#connectionState.poolStats(msg.driver, {
-						prefer: msg.prefer,
-						fallback: msg.fallback,
-						pessimized: msg.pessimized,
-						piles: msg.piles,
-					})
+			this.#subPlain<{
+				driver: DriverIdentity
+				total: number
+				prefer: number
+				fallback: number
+				pessimized: number
+				piles: { name: string; status: string; nodes: number }[]
+			}>('ydb:driver.connection.pool.stats', (msg) =>
+				this.#connectionState.poolStats(msg.driver, {
+					total: msg.total,
+					prefer: msg.prefer,
+					fallback: msg.fallback,
+					pessimized: msg.pessimized,
+					piles: msg.piles ?? [],
+				})
 			)
 		)
 		this.#subs.push(

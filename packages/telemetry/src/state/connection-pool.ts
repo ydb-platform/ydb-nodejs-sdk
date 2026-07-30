@@ -7,6 +7,7 @@ export type PileNodeCount = { name: string; status: string; nodes: number }
 
 // Latest routing snapshot carried by `ydb:driver.connection.pool.stats`.
 export type PoolStatsSnapshot = {
+	total: number
 	prefer: number
 	fallback: number
 	pessimized: number
@@ -24,40 +25,59 @@ export type PoolConfig = {
 export type ConnectionState = {
 	live: number
 	pessimized: number
-	// Latest `pool.stats` snapshot; undefined until the first stats round lands
-	// (or a late subscriber that missed it — then the pool gauges stay silent).
+}
+
+export type PoolState = {
+	// undefined until the first stats round lands; the pool gauges stay silent
+	// until then rather than reporting a confident zero.
 	stats: PoolStatsSnapshot | undefined
-	// Routing config from the once-fired `pool.opened`; undefined for a late
-	// subscriber that attached after construction.
+	// undefined for a subscriber that attached after driver construction and so
+	// missed the one-shot `pool.opened`.
 	config: PoolConfig | undefined
 }
 
 /**
- * Per-driver state of the gRPC connection pool, rebuilt from
- * `ydb:driver.connection.*` events. Keyed by `DriverIdentity` *reference*
- * (Map identity), so callers must pass the same identity object that the
- * publisher stamps on each payload.
+ * Per-driver state of the gRPC connection pool.
+ *
+ * Two independent maps, deliberately not merged: `#connections` is
+ * reconstructed from the `ydb:driver.connection.*` delta events, while
+ * `#pools` mirrors the whole-snapshot `ydb:driver.connection.pool.*`
+ * channels. Keeping them apart means a pool snapshot cannot materialize a
+ * connection-count entry — otherwise a subscriber that attached late (and so
+ * missed every `connection.added`) would start exporting a confident
+ * `ydb.driver.connection.count{state=live} = 0` for a driver that in fact has
+ * N live connections, where before it exported nothing at all.
+ *
+ * Both are keyed by `DriverIdentity` *reference* (Map identity), so callers
+ * must pass the same identity object that the publisher stamps on each payload.
  */
 export class ConnectionPoolRegistry {
 	#connections = new Map<DriverIdentity, ConnectionState>()
+	#pools = new Map<DriverIdentity, PoolState>()
 
 	connections(): ReadonlyMap<DriverIdentity, ConnectionState> {
 		return this.#connections
 	}
 
-	driverClosed(driver: DriverIdentity): void {
-		this.#connections.delete(driver)
+	pools(): ReadonlyMap<DriverIdentity, PoolState> {
+		return this.#pools
 	}
 
-	// `pool.opened` fires once at construction, before any connection event, so
-	// it just seeds the routing config onto the (fresh) entry.
+	driverClosed(driver: DriverIdentity): void {
+		this.#connections.delete(driver)
+		this.#pools.delete(driver)
+	}
+
+	// `pool.opened` fires once at construction. Replace any state left by a
+	// prior pool generation on the same identity, mirroring
+	// `SessionPoolRegistry.poolOpened`.
 	poolOpened(driver: DriverIdentity, config: PoolConfig): void {
-		this.#get(driver).config = config
+		this.#pools.set(driver, { stats: undefined, config })
 	}
 
 	// `pool.stats` re-emits on every routable-set change — replace the snapshot.
 	poolStats(driver: DriverIdentity, stats: PoolStatsSnapshot): void {
-		this.#get(driver).stats = stats
+		this.#pool(driver).stats = stats
 	}
 
 	connectionAdded(driver: DriverIdentity): void {
@@ -88,8 +108,17 @@ export class ConnectionPoolRegistry {
 	#get(driver: DriverIdentity): ConnectionState {
 		let s = this.#connections.get(driver)
 		if (!s) {
-			s = { live: 0, pessimized: 0, stats: undefined, config: undefined }
+			s = { live: 0, pessimized: 0 }
 			this.#connections.set(driver, s)
+		}
+		return s
+	}
+
+	#pool(driver: DriverIdentity): PoolState {
+		let s = this.#pools.get(driver)
+		if (!s) {
+			s = { stats: undefined, config: undefined }
+			this.#pools.set(driver, s)
 		}
 		return s
 	}
