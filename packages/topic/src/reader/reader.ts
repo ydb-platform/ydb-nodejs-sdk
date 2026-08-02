@@ -38,7 +38,7 @@ import {
 	type ReaderRuntime,
 	createReaderRuntime,
 } from './reader-runtime.js'
-import type { ReaderMessage } from './reader-state.js'
+import { type OffsetRange, type ReaderMessage, mergeRanges, partitionKey } from './reader-state.js'
 import type { TopicReadOptions, TopicReaderOptions, TopicTxReader } from './types.js'
 
 let dbg = loggers.topic.extend('reader')
@@ -51,6 +51,12 @@ type Chunk = { messages: TopicMessage[]; releaseBytes: bigint }
 type TxReadOffsetUpdate = {
 	partitionSession: TopicPartitionSession
 	offsetRange: { firstOffset: bigint; lastOffset: bigint }
+}
+
+type TxReadOffsets = {
+	session: TopicPartitionSession
+	firstOffset: bigint
+	lastOffset: bigint
 }
 
 // Bind the read offsets to the transaction via UpdateOffsetsInTransaction, so they
@@ -106,7 +112,7 @@ let commitTxOffsets = async function commitTxOffsets(
 
 	dbg.log('committing read offsets in tx %s (%d partitions)', tx.transactionId, updates.length)
 
-	let client = driver.createClient(TopicServiceDefinition)
+	let client = driver.createClient(TopicServiceDefinition, tx.nodeId)
 	let response = await client.updateOffsetsInTransaction(request)
 	if (response.operation?.status !== StatusIds_StatusCode.SUCCESS) {
 		// YDBError carries the status code and issues, so retry classifiers and user
@@ -132,13 +138,21 @@ export class TopicReader implements AsyncDisposable, Disposable {
 	#waiters = new Map<number, PromiseWithResolvers<void>>()
 	#nextWaiterId = 1
 
-	// partitionId -> current session, for the committed/stopped callbacks and tx hook.
-	#sessions = new Map<bigint, TopicPartitionSession>()
+	// Every partition session this reader ever created — the commit() ownership
+	// check. A WeakSet so retired sessions do not leak.
+	#ownedSessions = new WeakSet<TopicPartitionSession>()
 
-	// tx read offsets: first/last delivered offset per partitionId. The FSM is
-	// tx-agnostic — the facade tracks these itself from delivered messages (only for a
-	// tx reader) and commits them in the tx.onCommit hook. Undefined for a non-tx reader.
-	#txReadOffsets?: Map<bigint, { firstOffset: bigint; lastOffset: bigint }>
+	// Messages pulled off the chunk queue but not yet yielded to the consumer (an
+	// aborted read() mid-accumulation) — the next read() delivers them first, so a
+	// cancelled call never silently discards dequeued messages.
+	#carry: TopicMessage[] = []
+
+	// tx read offsets per stable partitionKey, recorded ONLY when a batch is yielded
+	// to the consumer — a tx must never bind offsets of messages the app never saw.
+	// firstOffset is the first delivered message's stitched commitRangeStart, so the
+	// committed range starts at the server committed offset across a head gap.
+	// Undefined for a non-tx reader.
+	#txReadOffsets?: Map<string, TxReadOffsets>
 
 	// Shadow of the FSM's terminal error: set by the #consume drain on `reader.error`
 	// (or a machine fault), then consulted synchronously by read()/commit()/close() to
@@ -200,17 +214,38 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 	}
 
-	async *read(options?: TopicReadOptions): AsyncIterable<TopicMessage[]> {
+	read(options?: TopicReadOptions): AsyncIterable<TopicMessage[]> {
+		// Validate eagerly — an async generator would defer the throw to the first
+		// next(), and a zero/negative limit would otherwise spin an infinite
+		// empty-slice loop instead of failing.
+		let limit = options?.limit
+		if (limit !== undefined && (!Number.isSafeInteger(limit) || limit <= 0)) {
+			throw new RangeError(`read limit must be a positive integer, got ${limit}`)
+		}
+		// `waitMs` is the deprecated alias for `batchWindowMs`.
+		let batchWindowMs = options?.batchWindowMs ?? options?.waitMs
+		if (
+			batchWindowMs !== undefined &&
+			(!Number.isFinite(batchWindowMs) || batchWindowMs < 0)
+		) {
+			throw new RangeError(
+				`batchWindowMs must be a non-negative finite number, got ${batchWindowMs}`
+			)
+		}
+		return this.#readLoop(limit, batchWindowMs, options?.signal)
+	}
+
+	async *#readLoop(
+		limit: number | undefined,
+		batchWindowMs: number | undefined,
+		signal: AbortSignal | undefined
+	): AsyncIterable<TopicMessage[]> {
 		// Single-consumer: two concurrent read() loops would race the shared chunk
 		// iterator and double-release flow-control credit.
 		if (this.#reading) {
 			throw new Error('read() is already in progress — the reader is single-consumer')
 		}
 		this.#reading = true
-		let limit = options?.limit
-		// `waitMs` is the deprecated alias for `batchWindowMs`.
-		let batchWindowMs = options?.batchWindowMs ?? options?.waitMs
-		let signal = options?.signal
 
 		try {
 			for (;;) {
@@ -221,78 +256,101 @@ export class TopicReader implements AsyncDisposable, Disposable {
 				// Accumulate a batch of up to `limit` messages, waiting at most
 				// `batchWindowMs` (a batch is yielded — possibly empty — once the window
 				// elapses so an idle topic never hangs the consumer). With no
-				// `batchWindowMs`, block for one chunk.
-				let batch: TopicMessage[] = []
+				// `batchWindowMs`, block for one chunk. Starts from the carry-over of a
+				// previously aborted call — those messages were dequeued but never
+				// delivered.
+				let batch: TopicMessage[] = this.#takeCarry()
 				let closed = false
+				// How many of `batch` were actually handed to the consumer — anything
+				// past this on an abort/early-exit goes back to the carry, so no
+				// dequeued message is ever silently dropped.
+				let delivered = 0
 
-				// The batch window is a cancellation source: link it with the user signal
-				// so take() aborts when either fires. linkSignals (not the banned
-				// AbortSignal.any) releases its listeners at batch end via `using`. No
-				// window → wait on the user signal directly.
-				using window =
-					batchWindowMs !== undefined
-						? linkSignals(signal, AbortSignal.timeout(batchWindowMs))
-						: undefined
-				let waitSignal = window ? window.signal : signal
+				try {
+					// The batch window is a cancellation source: link it with the user signal
+					// so take() aborts when either fires. linkSignals (not the banned
+					// AbortSignal.any) releases its listeners at batch end via `using`. No
+					// window → wait on the user signal directly.
+					using window =
+						batchWindowMs !== undefined
+							? linkSignals(signal, AbortSignal.timeout(batchWindowMs))
+							: undefined
+					let waitSignal = window ? window.signal : signal
 
-				for (;;) {
-					let result: IteratorResult<Chunk>
-					try {
-						// oxlint-disable-next-line no-await-in-loop
-						result = await this.#chunks.take(waitSignal)
-					} catch (error) {
-						// A user cancel propagates; the batch window elapsing just ends
-						// accumulation so an idle topic yields an empty batch. Anything
-						// else (a failed queue) is a real fault — rethrow it.
-						if (signal?.aborted) {
-							throw signal.reason
+					// Carried messages satisfy a no-window read on their own — blocking for
+					// one more chunk with deliverable messages in hand would stall the
+					// consumer.
+					let wantMore = () =>
+						(batch.length === 0 || batchWindowMs !== undefined) &&
+						(limit === undefined || batch.length < limit)
+					while (wantMore()) {
+						let result: IteratorResult<Chunk>
+						try {
+							// oxlint-disable-next-line no-await-in-loop
+							result = await this.#chunks.take(waitSignal)
+						} catch (error) {
+							// A user cancel propagates; the batch window elapsing just ends
+							// accumulation so an idle topic yields an empty batch. Anything
+							// else (a failed queue) is a real fault — rethrow it.
+							if (signal?.aborted) {
+								throw signal.reason
+							}
+							if (waitSignal?.aborted) {
+								break
+							}
+							throw error
 						}
-						if (waitSignal?.aborted) {
+						if (result.done) {
+							closed = true
 							break
 						}
-						throw error
-					}
-					if (result.done) {
-						closed = true
-						break
-					}
-					let chunk = result.value
-					// Release the response's credit the moment its chunk is consumed — it
-					// has already left the buffer, and nothing downstream (a break, a
-					// consumer throw, a signal abort mid-window) may strand it. dispatch()
-					// on a closed machine is a safe no-op.
-					this.#runtime.machine.dispatch({
-						type: 'reader.read_release',
-						bytes: chunk.releaseBytes,
-					})
-					// Skip messages of partitions force-stopped after buffering: the
-					// partition already belongs to another reader which re-reads them —
-					// delivering here means duplicate processing and commits that reject.
-					for (let message of chunk.messages) {
-						let session = message.partitionSession.deref()
-						if (session !== undefined && !session.isStopped) {
-							batch.push(message)
+						let chunk = result.value
+						// Release the response's credit the moment its chunk is consumed — it
+						// has already left the buffer, and nothing downstream (a break, a
+						// consumer throw, a signal abort mid-window) may strand it. dispatch()
+						// on a closed machine is a safe no-op.
+						this.#runtime.machine.dispatch({
+							type: 'reader.read_release',
+							bytes: chunk.releaseBytes,
+						})
+						// Skip messages of partitions force-stopped after buffering: the
+						// partition already belongs to another reader which re-reads them —
+						// delivering here means duplicate processing and commits that reject.
+						for (let message of chunk.messages) {
+							let session = message.partitionSession.deref()
+							if (session !== undefined && !session.isStopped) {
+								batch.push(message)
+							}
+						}
+						if (
+							(limit !== undefined && batch.length >= limit) ||
+							batchWindowMs === undefined
+						) {
+							break
 						}
 					}
-					if (
-						(limit !== undefined && batch.length >= limit) ||
-						batchWindowMs === undefined
-					) {
-						break
-					}
-				}
 
-				if (batch.length > 0) {
-					if (limit !== undefined && batch.length > limit) {
-						for (let i = 0; i < batch.length; i += limit) {
-							yield batch.slice(i, i + limit)
+					if (batch.length > 0) {
+						if (limit !== undefined && batch.length > limit) {
+							for (let i = 0; i < batch.length; i += limit) {
+								let slice = batch.slice(i, i + limit)
+								this.#recordTxDelivery(slice)
+								delivered = i + slice.length
+								yield slice
+							}
+						} else {
+							this.#recordTxDelivery(batch)
+							delivered = batch.length
+							yield batch
 						}
-					} else {
+					} else if (batchWindowMs !== undefined && !closed) {
+						// Idle-window tick: yield an empty batch so the consumer can act.
 						yield batch
 					}
-				} else if (batchWindowMs !== undefined && !closed) {
-					// Idle-window tick: yield an empty batch so the consumer can act.
-					yield batch
+				} finally {
+					if (delivered < batch.length) {
+						this.#carry.push(...batch.slice(delivered))
+					}
 				}
 
 				if (closed) {
@@ -308,6 +366,48 @@ export class TopicReader implements AsyncDisposable, Disposable {
 			}
 		} finally {
 			this.#reading = false
+		}
+	}
+
+	// Drain the carry-over, re-applying the stopped-session filter — a partition may
+	// have been lost between the aborted call and this one.
+	#takeCarry(): TopicMessage[] {
+		if (this.#carry.length === 0) {
+			return []
+		}
+		let carried = this.#carry
+		this.#carry = []
+		return carried.filter((message) => {
+			let session = message.partitionSession.deref()
+			return session !== undefined && !session.isStopped
+		})
+	}
+
+	// Record delivered offsets for the tx commit hook — at yield time, never at
+	// buffering: a tx commit must cover exactly what the consumer saw.
+	#recordTxDelivery(messages: TopicMessage[]): void {
+		if (!this.#txReadOffsets) {
+			return
+		}
+		for (let message of messages) {
+			let session = message.partitionSession.deref()
+			if (!session) {
+				continue
+			}
+			let offset = message.offset ?? message.commitRangeStart
+			let key = partitionKey(session.topicPath, session.partitionId)
+			let existing = this.#txReadOffsets.get(key)
+			if (existing === undefined) {
+				this.#txReadOffsets.set(key, {
+					session,
+					firstOffset: message.commitRangeStart,
+					lastOffset: offset,
+				})
+			} else if (offset > existing.lastOffset) {
+				// Grow-only: a mid-tx reconnect redelivers from the committed offset, and
+				// a rewound range would commit fewer offsets than the transaction consumed.
+				existing.lastOffset = offset
+			}
 		}
 	}
 
@@ -339,7 +439,9 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 
 		let messages = Array.isArray(input) ? input : [input]
-		let byPartition = new Map<bigint, bigint[]>()
+		// Grouped by the stable partitionKey — partition ids alone collide across the
+		// topics of a multi-topic reader.
+		let byPartition = new Map<string, OffsetRange[]>()
 
 		for (let message of messages) {
 			let session = message.partitionSession.deref()
@@ -348,29 +450,41 @@ export class TopicReader implements AsyncDisposable, Disposable {
 					'Cannot commit a message from a stopped or expired partition session'
 				)
 			}
+			// Ownership: a message from another reader would be committed against this
+			// reader's consumer and anchor — silently corrupting both consumers' progress.
+			if (!this.#ownedSessions.has(session)) {
+				throw new Error(
+					`Cannot commit a message from a foreign reader's partition session (partition ${session.partitionId} of ${session.topicPath})`
+				)
+			}
 			if (message.offset === undefined) {
 				throw new Error('Cannot commit a message without an offset')
 			}
-			let offsets = byPartition.get(session.partitionId)
-			if (offsets === undefined) {
-				byPartition.set(session.partitionId, [message.offset])
+			// Each message acknowledges its own stitched range: the offset itself plus
+			// the server-side hole immediately preceding it — never other delivered
+			// messages (the server commits gap-free ACKED intervals only).
+			let key = partitionKey(session.topicPath, session.partitionId)
+			let ranges = byPartition.get(key)
+			let range = { start: message.commitRangeStart, end: message.offset + 1n }
+			if (ranges === undefined) {
+				byPartition.set(key, [range])
 			} else {
-				offsets.push(message.offset)
+				ranges.push(range)
 			}
 		}
 
 		// One waiter per partition; the call resolves only when every partition's
-		// offsets are acknowledged.
+		// offsets are acknowledged. Sessions of one partition share the stable
+		// partitionKey, so a batch spanning a re-grant still lands on one waiter.
 		let promises: Promise<void>[] = []
-		for (let [partitionId, offsets] of byPartition) {
-			offsets.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+		for (let [key, ranges] of byPartition) {
 			let waiterId = this.#nextWaiterId++
 			let waiter = Promise.withResolvers<void>()
 			this.#waiters.set(waiterId, waiter)
 			this.#runtime.machine.dispatch({
 				type: 'reader.commit',
-				partitionId,
-				offsets,
+				partitionKey: key,
+				ranges: mergeRanges(ranges),
 				waiterId,
 			})
 			promises.push(waiter.promise)
@@ -418,19 +532,19 @@ export class TopicReader implements AsyncDisposable, Disposable {
 	}
 
 	// Snapshot of the tx read offsets (tx reader only), mapped to the sessions the tx
-	// commit hook needs. Read synchronously in the hook via the module-scope
-	// txReadOffsetUpdates() accessor — a method here would leak into the public
-	// TopicReader type (JSDoc @internal does not hide it).
+	// commit hook needs. The session is embedded in each record, so the snapshot
+	// stays valid after close() (a closed tx reader still binds its offsets at
+	// tx commit).
 	#txReadOffsetUpdates(): TxReadOffsetUpdate[] {
 		if (!this.#txReadOffsets) {
 			return []
 		}
 		let updates: TxReadOffsetUpdate[] = []
-		for (let [partitionId, offsetRange] of this.#txReadOffsets) {
-			let partitionSession = this.#sessions.get(partitionId)
-			if (partitionSession) {
-				updates.push({ partitionSession, offsetRange })
-			}
+		for (let record of this.#txReadOffsets.values()) {
+			updates.push({
+				partitionSession: record.session,
+				offsetRange: { firstOffset: record.firstOffset, lastOffset: record.lastOffset },
+			})
 		}
 		return updates
 	}
@@ -441,26 +555,8 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		for await (let output of this.#runtime.machine) {
 			switch (output.type) {
 				case 'reader.messages': {
-					// tx read-offset tracking (before decode, keyed by the stable partitionId
-					// so it survives a reconnect — the map is never cleared mid-tx).
-					if (this.#txReadOffsets) {
-						for (let group of output.groups) {
-							for (let message of group.messages) {
-								let existing = this.#txReadOffsets.get(group.session.partitionId)
-								if (existing === undefined) {
-									this.#txReadOffsets.set(group.session.partitionId, {
-										firstOffset: message.offset,
-										lastOffset: message.offset,
-									})
-								} else if (message.offset > existing.lastOffset) {
-									// Grow-only: a mid-tx reconnect redelivers from the committed
-									// offset, and a rewound range would commit fewer offsets than
-									// the transaction consumed.
-									existing.lastOffset = message.offset
-								}
-							}
-						}
-					}
+					// tx read-offset tracking happens at read() yield time, not here — a tx
+					// must never bind offsets of messages the consumer never saw.
 					try {
 						let messages: TopicMessage[] = []
 						for (let group of output.groups) {
@@ -480,7 +576,7 @@ export class TopicReader implements AsyncDisposable, Disposable {
 				}
 
 				case 'reader.partition.started':
-					this.#sessions.set(output.partitionId, output.session)
+					this.#ownedSessions.add(output.session)
 					publishPartitionStarted(
 						this.#scope,
 						output.partitionId,
@@ -490,16 +586,22 @@ export class TopicReader implements AsyncDisposable, Disposable {
 					break
 
 				case 'reader.partition.stopped': {
-					let session = this.#sessions.get(output.partitionId)
-					if (session && this.#options.onPartitionSessionStop) {
+					// For a graceful stop the runtime already ran onPartitionSessionStop as
+					// the awaited pre-response hook (the session was still committable) —
+					// invoking it again here would double-notify. Forced stops and
+					// end-of-partition are after-the-fact notifications.
+					if (
+						(output.reason === 'lost' || output.reason === 'ended') &&
+						this.#options.onPartitionSessionStop
+					) {
 						// Callback errors are logged via dbg and ignored — a throwing user
 						// callback must never break the machine. Async rejections are caught
 						// the same way.
 						try {
 							Promise.resolve(
 								this.#options.onPartitionSessionStop(
-									session,
-									session.partitionCommittedOffset
+									output.session,
+									output.session.partitionCommittedOffset
 								)
 							).catch((error) => dbg.log('onPartitionSessionStop threw: %O', error))
 						} catch (error) {
@@ -507,22 +609,19 @@ export class TopicReader implements AsyncDisposable, Disposable {
 						}
 					}
 					publishPartitionStopped(this.#scope, output.partitionId, output.reason)
-					// Drop the stopped partition's session to keep the map bounded. The tx
-					// reader keeps it (its offsets are committed at tx commit) and clears
-					// everything on terminal; a re-Started partition re-registers anyway.
-					if (!this.#transactional) {
-						this.#sessions.delete(output.partitionId)
-					}
 					break
 				}
 
 				case 'reader.partition.committed': {
-					let session = this.#sessions.get(output.partitionId)
-					if (session && this.#options.onCommittedOffset) {
+					// Every server-confirmed advance reports here — commit acks, the
+					// watermark carried by a stop request, and commitOffset overrides alike;
+					// also for ended/stopped partitions (a consumer tracking offsets
+					// externally needs the final ack).
+					if (this.#options.onCommittedOffset) {
 						// Callback errors are logged via dbg and ignored — a throwing user
 						// callback must never break the machine.
 						try {
-							this.#options.onCommittedOffset(session, output.committedOffset)
+							this.#options.onCommittedOffset(output.session, output.committedOffset)
 						} catch (error) {
 							dbg.log('onCommittedOffset threw: %O', error)
 						}
@@ -590,6 +689,7 @@ export class TopicReader implements AsyncDisposable, Disposable {
 			seqNo: message.seqNo,
 			offset: message.offset,
 			uncompressedSize: message.uncompressedSize,
+			commitRangeStart: message.commitRangeStart,
 			...(message.createdAt && { createdAt: timestampDate(message.createdAt).getTime() }),
 			...(message.writtenAt && { writtenAt: timestampDate(message.writtenAt).getTime() }),
 			...(message.metadataItems.length > 0 && {
@@ -627,8 +727,9 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 		this.#closed = true
 		this.#chunks.close()
-		this.#sessions.clear()
-		this.#txReadOffsets?.clear()
+		// #txReadOffsets is deliberately kept: a tx reader closed before the tx commits
+		// still binds the offsets it delivered — clearing here would silently commit
+		// the transaction with no offsets and redeliver everything after it.
 		// The FSM's terminate() already rejects outstanding commits via
 		// reader.commit.rejected; this settles any that slipped through, avoiding leaks.
 		for (let waiter of this.#waiters.values()) {

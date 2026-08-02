@@ -204,7 +204,8 @@ test('does not reject commit() across a reconnect and resolves it on the new ses
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
 
-	// Session A: read [0,1,2], commit offset 2 (range [0,3)), but the server never acks.
+	// Session A: read [0,1,2], commit offset 2 (its stitched range [2,3) — the
+	// delivered-but-uncommitted 0 and 1 are never covered), but the server never acks.
 	let a = await primeStream(reader, waitForNextStream, 'session-A')
 	a.respond(
 		startPartitionSession({ partitionSessionId: 1n, partitionId: 10n, committedOffset: 0n })
@@ -228,7 +229,7 @@ test('does not reject commit() across a reconnect and resolves it on the new ses
 	a.disconnect()
 
 	// Session B: same partition, fresh session id, committed still 0. The reconcile must
-	// re-send the pending [committed, 3) on the new session id.
+	// re-send the pending [2, 3) verbatim on the new session id — never a widened span.
 	let b = await waitForNextStream()
 	await b.waitForInit()
 	b.respond(initResponse('session-B'))
@@ -287,7 +288,10 @@ test('a tx reader binds offsets read across a reconnect to the transaction commi
 	await collect(reader, 1, tc.signal)
 
 	// The tx commit sends one UpdateOffsetsInTransaction with the merged (grow-only)
-	// range spanning both sessions — the wire is the observable contract here.
+	// range spanning both sessions — the wire is the observable contract here. The
+	// range starts at the FIRST delivered message's stitched commitRangeStart (the
+	// grant committedOffset 0, covering the head gap before offset 5): a range that
+	// began at the raw offset would leave a gap the server rejects at tx commit.
 	await fake.commit()
 	expect(txOffsetRequests).toHaveLength(1)
 	let request = txOffsetRequests[0]!
@@ -297,7 +301,7 @@ test('a tx reader binds offsets read across a reconnect to the transaction commi
 	expect(request.topics[0]!.partitions).toEqual([
 		expect.objectContaining({
 			partitionId: 10n,
-			partitionOffsets: [expect.objectContaining({ start: 5n, end: 8n })],
+			partitionOffsets: [expect.objectContaining({ start: 0n, end: 8n })],
 		}),
 	])
 })

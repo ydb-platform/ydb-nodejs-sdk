@@ -102,12 +102,10 @@ let waitForStartAck = async function waitForStartAck(
 	}
 }
 
-// Partition state is keyed by bare partitionId, so the second topic's grant for
-// the same partition id evicts the first topic's session from the session index
-// and its ReadResponses are dropped. Correct behavior: partition sessions are
-// keyed by partition_session_id (unique per stream), and each topic's messages
-// are delivered independently.
-test.fails('delivers messages from both topics when their partition ids collide', async (tc) => {
+// Partition state is keyed by (topicPath, partitionId): two topics granting the
+// same partition id on one stream stay independent, and each topic's messages are
+// delivered.
+test('delivers messages from both topics when their partition ids collide', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, {
 		topic: [{ path: '/a' }, { path: '/b' }],
@@ -138,12 +136,10 @@ test.fails('delivers messages from both topics when their partition ids collide'
 	expect(messages.map((m) => m.partitionSession.deref()?.topicPath).sort()).toEqual(['/a', '/b'])
 })
 
-// commit() routes by the message's partitionId alone; after another topic's
-// grant with the same partition id overwrites the registry entry, the commit
-// goes out under the OTHER topic's partition session — advancing that topic's
-// committed offset over messages the app never processed. Correct behavior:
-// the commit is sent under the session the message was read from (id 1).
-test.fails('commits a first-topic message under its own partition session', async (tc) => {
+// commit() routes by the message's (topicPath, partitionId): another topic's grant
+// with the same partition id cannot capture the commit — it is sent under the
+// session the message was read from.
+test('commits a first-topic message under its own partition session', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, {
 		topic: [{ path: '/a' }, { path: '/b' }],
@@ -190,11 +186,10 @@ test.fails('commits a first-topic message under its own partition session', asyn
 	await expect(commit).resolves.toBeUndefined()
 })
 
-// The tx reader tracks read offsets per partitionId, so two topics' equal
-// partition ids merge into one grow-only range attributed to whichever topic's
-// session started last. Correct behavior: UpdateOffsetsInTransaction carries
-// one TopicOffsets entry per topic, each with only its own partition's range.
-test.fails('attributes tx offset ranges to each topic when partition ids collide', async (tc) => {
+// The tx reader tracks read offsets per (topicPath, partitionId):
+// UpdateOffsetsInTransaction carries one TopicOffsets entry per topic, each with
+// only its own partition's range, even when partition ids collide across topics.
+test('attributes tx offset ranges to each topic when partition ids collide', async (tc) => {
 	let { driver, waitForNextStream, txOffsetRequests } = makeFakeTopicDriver()
 	let fake = makeFakeTx()
 	using reader = new TopicReader(

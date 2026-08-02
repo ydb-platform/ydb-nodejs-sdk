@@ -43,12 +43,10 @@ let primeStream = async function primeStream(
 	return stream
 }
 
-// A non-positive limit must be rejected up front, mirroring the writer's
-// maxInflightCount guard. Instead, limit=0 makes the split loop
-// `for (i = 0; i < batch.length; i += limit)` never advance: every next() resolves
-// with an empty batch while the accumulated messages are stranded forever (their
-// flow-control credit already released) — a livelock, never an error.
-test.fails('rejects a zero read limit', async (tc) => {
+// A non-positive limit is rejected up front, mirroring the writer's
+// maxInflightCount guard — an unvalidated limit=0 would spin the batch-split loop
+// forever instead of erroring.
+test('rejects a zero read limit', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
 
@@ -72,9 +70,8 @@ test.fails('rejects a zero read limit', async (tc) => {
 	await expect(firstBatch()).rejects.toThrow(/limit/)
 })
 
-// Same invariant as above: a negative limit must fail validation. Instead the split
-// loop decrements its index forever, resolving every next() with an empty slice.
-test.fails('rejects a negative read limit', async (tc) => {
+// Same invariant as above: a negative limit fails validation.
+test('rejects a negative read limit', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
 
@@ -96,12 +93,10 @@ test.fails('rejects a negative read limit', async (tc) => {
 	await expect(firstBatch()).rejects.toThrow(/limit/)
 })
 
-// An aborted read() must consume nothing: messages dequeued into the pending batch
-// but never yielded stay with the reader and a fresh read() redelivers them (a
-// cancelled batch read loses no data). Instead the abort throws away the local
-// accumulation buffer — the messages were already taken off the internal queue and
-// their credit released, so they are silently lost for the lifetime of the reader.
-test.fails('redelivers messages dequeued by an aborted read()', async (tc) => {
+// An aborted read() consumes nothing: messages dequeued into the pending batch but
+// never yielded stay with the reader, and a fresh read() redelivers them — a
+// cancelled batch read loses no data.
+test('redelivers messages dequeued by an aborted read()', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	await using reader = createTopicReader(driver, {
 		topic: '/t',

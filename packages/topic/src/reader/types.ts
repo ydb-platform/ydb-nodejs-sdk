@@ -26,6 +26,11 @@ export type onPartitionSessionStartCallback = (
 	}
 ) => Promise<void | undefined | { readOffset?: bigint; commitOffset?: bigint }>
 
+// On a graceful (soft) stop the callback runs while the session is still
+// deliverable and committable, and is awaited before the stop response is sent —
+// the last chance to commit processed offsets before the partition moves to
+// another reader (bounded by gracefulShutdownTimeoutMs). On a forced stop or
+// end-of-partition it is informational: the session is already stopped.
 export type onPartitionSessionStopCallback = (
 	partitionSession: TopicPartitionSession,
 	committedOffset: bigint
@@ -64,6 +69,12 @@ export type TopicReaderOptions = {
 	// stream (~1 min), then transparently reconnects: it resumes automatically if the
 	// topic exists again, and with this flag also waits if the topic is recreated later.
 	retryOnSchemeError?: boolean
+
+	// Declare autopartitioning support to the server: on topics with partition
+	// autoscaling the server then ends fully-read partitions via EndPartitionSession
+	// (child ids appear on TopicPartitionSession.childPartitionIds) instead of
+	// heuristic rebalancing. Off by default.
+	autoPartitioningSupport?: boolean
 
 	// Called when the server assigns a partition; its return value may override
 	// read/commit offsets.

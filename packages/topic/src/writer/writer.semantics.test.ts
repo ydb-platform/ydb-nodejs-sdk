@@ -1,8 +1,10 @@
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
+import { Codec, type StreamWriteMessage_FromServer } from '@ydbjs/api/topic'
 import { YDBError } from '@ydbjs/error'
 import { ClientError, Status } from 'nice-grpc'
 import { expect, test } from 'vitest'
 
+import { GZIP_CODEC } from '../codec.ts'
 import type { TX } from '../tx.ts'
 import { isRetryableWriterError } from './writer-state.ts'
 import {
@@ -16,6 +18,27 @@ import { TopicWriter, createTopicTxWriter, createTopicWriter } from './writer.ts
 
 let bytes = function bytes(...values: number[]): Uint8Array {
 	return new Uint8Array(values)
+}
+
+// Like the fixture's initResponse, but with the topic's permitted codec list —
+// the input of the writer's codec negotiation.
+let initResponseWithCodecs = function initResponseWithCodecs(
+	lastSeqNo: bigint,
+	codecs: number[]
+): StreamWriteMessage_FromServer {
+	return {
+		status: StatusIds_StatusCode.SUCCESS,
+		issues: [],
+		serverMessage: {
+			case: 'initResponse',
+			value: {
+				lastSeqNo,
+				sessionId: 'session-1',
+				partitionId: 0n,
+				supportedCodecs: { codecs },
+			},
+		},
+	} as unknown as StreamWriteMessage_FromServer
 }
 
 // A fake transaction capturing the lifecycle hooks the writer registers, so a
@@ -142,10 +165,9 @@ test.each(classifierTable)('$name', ({ error, retryOnSchemeError, retryable }) =
 // An empty producer_id in the write InitRequest selects the server's
 // no-deduplication mode: resent messages are persisted again instead of being
 // deduplicated by producerId+seqNo. The writer's reconnect path relies on that
-// dedup as its correctness backstop, so the public constructor must either
-// generate a producer id (as the factory does) or refuse to start without one.
-// It currently sends producerId '' on the wire, silently disabling dedup.
-test.fails('sends a non-empty producer id from the public constructor', async () => {
+// dedup as its correctness backstop, so the constructor generates a producer id
+// when omitted — exactly like the factory.
+test('sends a non-empty producer id from the public constructor', async () => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using _writer = new TopicWriter(driver, { topic: '/t' })
 
@@ -155,16 +177,22 @@ test.fails('sends a non-empty producer id from the public constructor', async ()
 	expect(init.producerId).not.toBe('')
 })
 
-test('resends unacked messages on reconnect over an empty-producer session', async () => {
-	// Pins the hazard the empty producer id creates: the client still resends
-	// unacked in-flight messages after a reconnect, but with producer_id '' the
-	// server cannot deduplicate them — every reconnect duplicates in-flight data.
+test('rejects an explicit empty producer id', () => {
+	// producer: '' is not a way to opt out of deduplication — it would silently
+	// duplicate in-flight messages on every reconnect.
+	let { driver } = makeFakeTopicDriver()
+	expect(() => new TopicWriter(driver, { topic: '/t', producer: '' })).toThrow(/producer/)
+})
+
+test('resends unacked messages under the same generated producer id', async () => {
+	// The generated producer id is what makes reconnect resends safe: the second
+	// stream must init with the SAME id so the server can deduplicate the resend.
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using writer = new TopicWriter(driver, { topic: '/t' })
 
 	let first = await waitForNextStream()
 	let init = await first.waitForInit()
-	expect(init.producerId).toBe('')
+	expect(init.producerId).not.toBe('')
 
 	first.respond(initResponse(0n))
 	await settle()
@@ -176,7 +204,8 @@ test('resends unacked messages on reconnect over an empty-producer session', asy
 	first.disconnect()
 
 	let second = await waitForNextStream()
-	await second.waitForInit()
+	let reinit = await second.waitForInit()
+	expect(reinit.producerId).toBe(init.producerId)
 	second.respond(initResponse(0n))
 
 	let resent = await second.waitForWrite()
@@ -289,4 +318,57 @@ test('rejects the transaction commit when the graceful drain times out', async (
 
 	// The writer is terminally errored — no further writes are accepted.
 	expect(() => writer.write(bytes(2))).toThrow(/failed|closed/)
+})
+
+// ── codec negotiation against InitResponse.supported_codecs ──────────────────────
+
+// The server permits only codecs listed in InitResponse.supported_codecs (an empty
+// list disables the check); any other codec kills the session with an opaque
+// BAD_REQUEST at the first WriteRequest — after data is already buffered. The
+// writer must fail at init instead: terminally, with an error naming the codec,
+// and with no WriteRequest on the wire.
+test('fails terminally when the topic does not allow the configured codec', async () => {
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using writer = createTopicWriter(driver, { topic: '/t', producer: 'p', codec: GZIP_CODEC })
+
+	writer.write(bytes(1))
+	let flush = writer.flush()
+	flush.catch(() => {})
+
+	let stream = await waitForNextStream()
+	await stream.waitForInit()
+	stream.respond(initResponseWithCodecs(0n, [Codec.RAW]))
+	await settle()
+
+	await expect(flush).rejects.toThrow(/codec 2 .*supported codecs: 1/i)
+	expect(stream.sent.some((m) => m.clientMessage.case === 'writeRequest')).toBe(false)
+	expect(() => writer.write(bytes(2))).toThrow(/failed|closed/)
+})
+
+test('writes when the topic allows the configured codec', async () => {
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using writer = createTopicWriter(driver, { topic: '/t', producer: 'p', codec: GZIP_CODEC })
+
+	writer.write(bytes(1))
+	let stream = await waitForNextStream()
+	await stream.waitForInit()
+	stream.respond(initResponseWithCodecs(0n, [Codec.RAW, Codec.GZIP]))
+
+	let request = await stream.waitForWrite()
+	expect(request.messages).toHaveLength(1)
+})
+
+test('skips the codec check when the server sends no supported list', async () => {
+	// An absent / empty supported_codecs means the server-side codec check is
+	// disabled — the writer must not invent a restriction of its own.
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using writer = createTopicWriter(driver, { topic: '/t', producer: 'p', codec: GZIP_CODEC })
+
+	writer.write(bytes(1))
+	let stream = await waitForNextStream()
+	await stream.waitForInit()
+	stream.respond(initResponse(0n))
+
+	let request = await stream.waitForWrite()
+	expect(request.messages).toHaveLength(1)
 })

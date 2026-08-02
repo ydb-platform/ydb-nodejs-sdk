@@ -127,19 +127,16 @@ test('rejects RAW writes into a GZIP-only topic terminally', { timeout: 20_000 }
 		await topicService.dropTopic(create(DropTopicRequestSchema, { path }))
 	})
 
-	// Default codec is RAW — not in the topic's allowed set. The SDK never checks
-	// the configured codec against InitResponse.supportedCodecs, so the write is
-	// accepted into the buffer and the violation surfaces only as the raw server
-	// error at flush time.
+	// Default codec is RAW — not in the topic's allowed set. The writer validates
+	// the configured codec against InitResponse.supportedCodecs and fails at init
+	// with an actionable error, before any WriteRequest reaches the wire.
 	let writer = createTopicWriter(driver, { topic: path, producer: testProducerName })
 	try {
 		writer.write(encode('raw-into-gzip-only'))
 		let error = await writer.flush(tc.signal).then(() => null, (caught: unknown) => caught)
-		expect(error).toBeInstanceOf(YDBError)
-		expect((error as YDBError).code).toBe(StatusIds_StatusCode.BAD_REQUEST)
-		expect((error as YDBError).message).toContain('codec is invalid')
-		expect((error as YDBError).message).toContain('is not configured for the topic')
-		// The BAD_REQUEST is terminal: the writer is dead, not reconnecting.
+		expect(error).toBeInstanceOf(Error)
+		expect((error as Error).message).toMatch(/codec 1 .*supported codecs: 2/i)
+		// The rejection is terminal: the writer is dead, not reconnecting.
 		expect(() => writer.write(encode('after-error'))).toThrow(/cannot write messages/)
 	} finally {
 		writer.destroy()

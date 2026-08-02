@@ -75,16 +75,14 @@ let primeStream = async function primeStream(
 	return stream
 }
 
-// ── gap-fill anchor vs delivered-but-unacked messages ──────────────────────────
+// ── stitched commit ranges vs delivered-but-unacked messages ───────────────────
 
-// The first commit range is anchored at the last commit point, which advances only on
-// commit / server ack — never at message delivery. Committing offset 4 with 0..3
-// delivered but unacked therefore puts [0, 5) on the wire, silently committing
-// messages the app deliberately left uncommitted (e.g. a failed handler in concurrent
-// per-message processing); after a crash they are never redelivered. Correct behavior:
-// with all earlier offsets delivered and no server-side hole, commit(msg4) covers only
-// msg4's own range [4, 5) — gap-fill exists for retention holes, not unacked messages.
-test.fails('commits only the acked message when earlier delivered messages are unacked', async (tc) => {
+// Each message acknowledges only its own stitched range: with all earlier offsets
+// delivered and no server-side hole, commit(msg4) covers exactly [4, 5). Gap-fill
+// exists for retention holes, never for delivered-but-unacked messages — the server
+// commits gap-free ACKED intervals only, and a message deliberately left uncommitted
+// (e.g. a failed handler in concurrent per-message processing) must be redelivered.
+test('commits only the acked message when earlier delivered messages are unacked', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
 
@@ -158,12 +156,10 @@ test('gap-fills the first commit range from the server committed offset across a
 
 // The server treats the commit ack as a watermark: a committed range above an
 // uncommitted gap is held back until the gap is committed. A single commit() with
-// non-contiguous messages sends disjoint ranges but records ONE pending commit
-// spanning them, and a later commit of the gap offsets is dropped as already-covered
-// without a wire send — so the sparse commit() can never resolve while the stream
-// stays up. Correct behavior: the gap commit reaches the wire, the server watermark
-// advances over contiguous coverage, and both promises resolve.
-test.fails('sends the gap offsets to the wire so a sparse commit() can resolve', async (tc) => {
+// non-contiguous messages sends exactly its disjoint ranges; a later commit of the
+// gap offsets reaches the wire too, the watermark advances over the now-contiguous
+// coverage, and both promises resolve.
+test('sends the gap offsets to the wire so a sparse commit() can resolve', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
 
@@ -212,12 +208,10 @@ test.fails('sends the gap offsets to the wire so a sparse commit() can resolve',
 
 // ── foreign-reader messages ────────────────────────────────────────────────────
 
-// A TopicMessage carries only its partition session; commit() routes by partitionId
-// without checking that the session belongs to THIS reader. A message from a
-// different reader (different consumer) whose partitionId is also granted here is
-// committed against this reader's consumer and commit anchor. Correct behavior:
-// reject the foreign message and put nothing on the wire.
-test.fails('rejects a commit of a message owned by a different reader', async (tc) => {
+// commit() verifies the message's partition session belongs to THIS reader: a
+// message from a different reader (different consumer) is rejected and nothing goes
+// on the wire — committing it here would corrupt both consumers' progress.
+test('rejects a commit of a message owned by a different reader', async (tc) => {
 	let a = makeFakeTopicDriver()
 	let b = makeFakeTopicDriver()
 	using readerA = createTopicReader(a.driver, { topic: '/t', consumer: 'consumer-a' })
@@ -284,11 +278,10 @@ test('rejects a foreign-reader commit whose partition is not granted locally', a
 // ── onCommittedOffset observer ─────────────────────────────────────────────────
 
 // end_partition is informational: the session stays committable and the final
-// commit's ack still arrives on the stream. The facade drops its session record as
-// soon as the partition reports stopped (reason 'ended'), so that ack no longer
-// reaches onCommittedOffset. Correct behavior: the observer fires for every server
-// commit acknowledgement, including the final one after end_partition.
-test.fails('invokes onCommittedOffset for a commit acked after end_partition', async (tc) => {
+// commit's ack still arrives on the stream. The observer fires for every server
+// commit acknowledgement, including the final one after end_partition — a consumer
+// tracking offsets externally needs the last ack too.
+test('invokes onCommittedOffset for a commit acked after end_partition', async (tc) => {
 	let acks: Array<{ partitionId: bigint; committedOffset: bigint }> = []
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, {
@@ -329,11 +322,10 @@ test.fails('invokes onCommittedOffset for a commit acked after end_partition', a
 	expect(acks).toEqual([{ partitionId: 10n, committedOffset: 1n }])
 })
 
-// A force-stop carries the server's committed watermark and resolves the pending
-// commits it covers, but no committed-offset notification is delivered for it.
-// Correct behavior: a watermark advance carried by stop_partition reports through
-// onCommittedOffset exactly like a commit ack does.
-test.fails('invokes onCommittedOffset when a partition stop carries the committed watermark', async (tc) => {
+// A stop request carries the server's committed watermark: the advance resolves the
+// pending commits it covers and reports through onCommittedOffset exactly like a
+// commit ack does.
+test('invokes onCommittedOffset when a partition stop carries the committed watermark', async (tc) => {
 	let acks: Array<{ partitionId: bigint; committedOffset: bigint }> = []
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, {

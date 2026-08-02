@@ -50,13 +50,10 @@ let primeStream = async function primeStream(
 	return stream
 }
 
-// At-least-once over processed messages: a transaction must bind only offsets the
-// consumer actually received from read(). The reader records offsets the moment a
-// ReadResponse is buffered, so the tx commit range extends over buffered-but-
-// undelivered messages — once the transaction commits, those messages are skipped
-// without ever being processed. Correct behavior: the wire range ends right after
-// the last DELIVERED offset.
-test.fails('binds only offsets delivered through read() to the transaction commit', async (tc) => {
+// At-least-once over processed messages: a transaction binds only offsets the
+// consumer actually received from read() — the wire range ends right after the last
+// DELIVERED offset, never covering buffered-but-undelivered messages.
+test('binds only offsets delivered through read() to the transaction commit', async (tc) => {
 	let { driver, waitForNextStream, txOffsetRequests } = makeFakeTopicDriver()
 	let fake = makeFakeTx()
 	using reader = new TopicReader(driver, { topic: '/t', consumer: 'c' }, { tx: fake.tx })
@@ -97,14 +94,11 @@ test.fails('binds only offsets delivered through read() to the transaction commi
 	])
 })
 
-// The non-tx commit path anchors its first range at the server committed offset so a
-// head gap (retention-expired offsets, a readOffset override) is covered and the
-// server can advance the watermark. The tx path starts at the first delivered offset
-// instead, committing a range that begins above the consumer high-water mark: the
-// server either rejects the tx commit or never advances past the gap. Correct
-// behavior: the wire range starts at the committed offset reported by
-// start_partition_session_request.
-test.fails('anchors the tx commit range at the server committed offset across a head gap', async (tc) => {
+// Like the non-tx commit path, the tx range is anchored at the server committed
+// offset (the first delivered message's stitched range start), so a head gap —
+// retention-expired offsets or a readOffset override — cannot make the server
+// reject the tx commit or stall the watermark.
+test('anchors the tx commit range at the server committed offset across a head gap', async (tc) => {
 	let { driver, waitForNextStream, txOffsetRequests } = makeFakeTopicDriver()
 	let fake = makeFakeTx()
 	using reader = new TopicReader(driver, { topic: '/t', consumer: 'c' }, { tx: fake.tx })
@@ -135,12 +129,10 @@ test.fails('anchors the tx commit range at the server committed offset across a 
 })
 
 // UpdateOffsetsInTransaction references the transaction's session, and session-bound
-// RPCs are pinned to the node hosting that session (the query package passes
-// session.nodeId to createClient for every session call). The topic reader creates
-// the client with no node preference, so the request goes to an arbitrary
-// load-balanced node. Correct behavior: pass the transaction's nodeId to
-// createClient for the commit call.
-test.fails('routes UpdateOffsetsInTransaction to the transaction session node', async (tc) => {
+// RPCs are pinned to the node hosting that session — the commit call passes the
+// transaction's nodeId to createClient, matching how the query package routes
+// every session call.
+test('routes UpdateOffsetsInTransaction to the transaction session node', async (tc) => {
 	let { driver, waitForNextStream, txOffsetRequests } = makeFakeTopicDriver()
 
 	// The shared fixture's createClient ignores its arguments — wrap it to observe the
@@ -155,8 +147,6 @@ test.fails('routes UpdateOffsetsInTransaction to the transaction session node', 
 	}
 
 	let fake = makeFakeTx()
-	// The query package's runtime tx object carries the session's nodeId even though
-	// the topic-local TX type does not declare it.
 	Object.assign(fake.tx, { nodeId: 42n })
 	using reader = new TopicReader(driver, { topic: '/t', consumer: 'c' }, { tx: fake.tx })
 
@@ -183,13 +173,11 @@ test.fails('routes UpdateOffsetsInTransaction to the transaction session node', 
 	expect(commitCalls[0]![1]).toBe(42n)
 })
 
-// Offsets consumed inside a transaction must never be dropped silently. close()
-// before the tx commit clears the tracked offsets, and the later commit hook then
-// succeeds while committing nothing — every message the transaction consumed is
-// redelivered to the next consumer after the tx commits. Correct behavior: either
-// the tracked offsets still reach UpdateOffsetsInTransaction, or close() / the
-// commit hook raises instead of completing cleanly.
-test.fails('preserves tracked read offsets when the reader closes before the tx commit', async (tc) => {
+// Offsets consumed inside a transaction survive an early close(): the commit hook
+// still binds them via UpdateOffsetsInTransaction — a tx reader closed before the
+// commit must not silently drop its progress (that would redeliver every consumed
+// message after the tx commits).
+test('preserves tracked read offsets when the reader closes before the tx commit', async (tc) => {
 	let { driver, waitForNextStream, txOffsetRequests } = makeFakeTopicDriver()
 	let fake = makeFakeTx()
 	using reader = new TopicReader(driver, { topic: '/t', consumer: 'c' }, { tx: fake.tx })

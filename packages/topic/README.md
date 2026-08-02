@@ -95,9 +95,10 @@ await using writer = createTopicWriter(driver, {
 - `gracefulShutdownTimeoutMs?`: `number` — force-close deadline for graceful `close()` before pending commits are dropped (default 30000)
 - `recoveryWindowMs?`: `number` — terminal reconnect window; unbounded by default (reconnect forever, waiting for the server/topic), pass a finite ms value to bound it
 - `retryOnSchemeError?`: `boolean` — retry on SCHEME_ERROR (e.g. the topic does not exist yet); off by default, enable to wait until the topic is created
+- `autoPartitioningSupport?`: `boolean` — declare autopartitioning support to the server; ended partitions expose `childPartitionIds`/`adjacentPartitionIds` on their session (off by default)
 - `onPartitionSessionStart?`: hook to adjust read/commit offsets per session
-- `onPartitionSessionStop?`: hook on session stop (cleanup/commit)
-- `onCommittedOffset?`: observe commit acknowledgments from server
+- `onPartitionSessionStop?`: on a graceful stop runs while the session is still committable and is awaited before the stop response — the last chance to commit processed offsets; on a forced stop or end-of-partition it is informational
+- `onCommittedOffset?`: observe every server-confirmed commit advance (commit acks, stop watermarks, offset overrides)
 
 TopicReaderSource supports partition filters and time‑based selectors:
 
@@ -133,6 +134,8 @@ for await (const batch of reader.read({ limit: 100, batchWindowMs: 1000 })) {
 ```
 
 Performance note: awaiting `commit()` in the hot path reduces throughput. For high load, prefer fire‑and‑forget plus `onCommittedOffset` to observe confirmations asynchronously.
+
+Commit semantics: each message acknowledges its own offset range (plus any server-side offset hole immediately preceding it — retention gaps and `readFrom` skips). A message you deliberately leave uncommitted is never covered by later commits of other messages, and the server advances the consumer offset only over gap-free acknowledged intervals — so a failed message keeps the committed offset behind it and is redelivered after a restart. Committing out of order is safe; an awaited `commit()` of a later message resolves once the earlier ones are committed too.
 
 ## Writer
 

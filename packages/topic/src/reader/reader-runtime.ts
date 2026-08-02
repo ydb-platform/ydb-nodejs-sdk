@@ -19,7 +19,11 @@ import {
 	createReaderCtx,
 	readerTransition,
 } from './reader-state.js'
-import type { TopicReaderOptions, onPartitionSessionStartCallback } from './types.js'
+import type {
+	TopicReaderOptions,
+	onPartitionSessionStartCallback,
+	onPartitionSessionStopCallback,
+} from './types.js'
 
 // Watchdog for a connect that never produces an init response.
 let DEFAULT_START_TIMEOUT_MS = 30_000
@@ -40,6 +44,7 @@ let BACKOFF_MAX_MS = 30_000
 type ReaderEnv = {
 	transport: ReaderTransport
 	onPartitionSessionStart?: onPartitionSessionStartCallback
+	onPartitionSessionStop?: onPartitionSessionStopCallback
 
 	startTimeoutMs: number
 	updateTokenIntervalMs: number
@@ -74,9 +79,12 @@ let timerEvent = function timerEvent(ref: TimerRef): ReaderEvent {
 		case 'graceful_timeout':
 			return { type: 'reader.timer.graceful_timeout' }
 		case 'partition_graceful_timeout':
-			return { type: 'reader.timer.partition_graceful_timeout', partitionId: ref.partitionId }
+			return {
+				type: 'reader.timer.partition_graceful_timeout',
+				partitionKey: ref.partitionKey,
+			}
 		case 'partition_reassign_gc':
-			return { type: 'reader.timer.partition_reassign_gc', partitionId: ref.partitionId }
+			return { type: 'reader.timer.partition_reassign_gc', partitionKey: ref.partitionKey }
 	}
 }
 
@@ -107,7 +115,7 @@ let delayFor = function delayFor(ctx: FullCtx, which: TimerName): number {
 // Timer key — global key is the name; partition_* timers key per partition so
 // concurrently stopping partitions cannot collide.
 let timerKey = function timerKey(ref: TimerRef): string {
-	return 'partitionId' in ref ? `${ref.which}:${ref.partitionId}` : ref.which
+	return 'partitionKey' in ref ? `${ref.which}:${ref.partitionKey}` : ref.which
 }
 
 let clearTimerByKey = function clearTimerByKey(ctx: FullCtx, key: string): void {
@@ -178,6 +186,8 @@ let classifyServerMessage = function classifyServerMessage(
 			return {
 				type: 'reader.stream.end_partition',
 				partitionSessionId: server.value.partitionSessionId,
+				childPartitionIds: server.value.childPartitionIds,
+				adjacentPartitionIds: server.value.adjacentPartitionIds,
 			}
 		// Direct-read / status / token frames — nothing for the reader FSM to route.
 		default:
@@ -192,13 +202,16 @@ export function createReaderRuntime(driver: Driver, options: TopicReaderOptions)
 	let transport = new ReaderTransport(driver, {
 		consumer: options.consumer,
 		topicsReadSettings: parseReadSettings(options.topic),
-		autoPartitioningSupport: false,
+		autoPartitioningSupport: options.autoPartitioningSupport ?? false,
 	})
 
 	let env: ReaderEnv = {
 		transport,
 		...(options.onPartitionSessionStart && {
 			onPartitionSessionStart: options.onPartitionSessionStart,
+		}),
+		...(options.onPartitionSessionStop && {
+			onPartitionSessionStop: options.onPartitionSessionStop,
 		}),
 
 		startTimeoutMs: DEFAULT_START_TIMEOUT_MS,
@@ -310,7 +323,7 @@ export function createReaderRuntime(driver: Driver, options: TopicReaderOptions)
 				// result re-enters the machine as reader.partition.start_ready, so the
 				// answer-or-not decision is made against fresh state in the transition.
 				void (async () => {
-					let session = fullCtx.partitions.get(effect.partitionId)?.session
+					let session = fullCtx.partitions.get(effect.partitionKey)?.session
 					let readOffset: bigint | undefined
 					let commitOffset: bigint | undefined
 
@@ -333,10 +346,34 @@ export function createReaderRuntime(driver: Driver, options: TopicReaderOptions)
 					runtime.dispatch({
 						type: 'reader.partition.start_ready',
 						partitionSessionId: effect.partitionSessionId,
-						partitionId: effect.partitionId,
+						partitionKey: effect.partitionKey,
 						grantId: effect.grantId,
 						...(readOffset !== undefined && { readOffset }),
 						...(commitOffset !== undefined && { commitOffset }),
+					})
+				})()
+			},
+
+			// The graceful-stop counterpart of start_hook: the session is still
+			// deliverable and committable while the user callback runs — this is the
+			// documented "last chance to commit" of the soft-stop contract. The stop
+			// response goes out only after stop_ready AND the pending commits drain.
+			'reader.effect.partition.stop_hook': (fullCtx, effect, runtime) => {
+				void (async () => {
+					let session = fullCtx.partitions.get(effect.partitionKey)?.session
+
+					if (fullCtx.onPartitionSessionStop && session) {
+						try {
+							await fullCtx.onPartitionSessionStop(session, effect.committedOffset)
+						} catch (error) {
+							dbg.log('onPartitionSessionStop threw: %O', error)
+						}
+					}
+
+					runtime.dispatch({
+						type: 'reader.partition.stop_ready',
+						partitionKey: effect.partitionKey,
+						grantId: effect.grantId,
 					})
 				})()
 			},

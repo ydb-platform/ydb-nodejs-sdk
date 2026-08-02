@@ -99,6 +99,32 @@ export class TopicWriter implements AsyncDisposable, Disposable {
 	#transactional: boolean
 
 	constructor(driver: Driver, options: TopicWriterOptions) {
+		// Validation lives in the constructor, not the factory: the class is exported,
+		// and a directly-constructed writer must obey the same invariants.
+		if (options.partitionId !== undefined && options.messageGroupId !== undefined) {
+			throw new Error(
+				'partitionId and messageGroupId are mutually exclusive — provide at most one'
+			)
+		}
+		// Reject send-path-deadlocking config up front rather than stalling silently:
+		// maxInflightCount < 1 gates every batch, so writes would never leave the buffer.
+		if (
+			options.maxInflightCount !== undefined &&
+			(!Number.isInteger(options.maxInflightCount) || options.maxInflightCount < 1)
+		) {
+			throw new Error('maxInflightCount must be a positive integer')
+		}
+		if (options.maxBufferBytes !== undefined && options.maxBufferBytes < 1n) {
+			throw new Error('maxBufferBytes must be a positive number of bytes')
+		}
+		// An empty producerId on the wire silently disables server-side dedup, so every
+		// reconnect would duplicate in-flight messages. A producer id is generated when
+		// omitted (zero-config writes); an explicit empty string is a config error.
+		if (options.producer === '') {
+			throw new Error('producer must be a non-empty string — omit it to get a generated id')
+		}
+		options = { ...options, producer: options.producer ?? generateProducerId() }
+
 		this.#onAck = options.onAck
 		this.#transactional = options.tx !== undefined
 		this.#codec = options.codec ?? RAW_CODEC
@@ -386,34 +412,11 @@ export class TopicWriter implements AsyncDisposable, Disposable {
 }
 
 export function createTopicWriter(driver: Driver, options: TopicWriterOptions): TopicWriter {
-	if (options.partitionId !== undefined && options.messageGroupId !== undefined) {
-		throw new Error(
-			'partitionId and messageGroupId are mutually exclusive — provide at most one'
-		)
-	}
-
-	// Reject send-path-deadlocking config up front rather than stalling silently:
-	// maxInflightCount < 1 gates every batch, so writes would never leave the buffer.
-	if (
-		options.maxInflightCount !== undefined &&
-		(!Number.isInteger(options.maxInflightCount) || options.maxInflightCount < 1)
-	) {
-		throw new Error('maxInflightCount must be a positive integer')
-	}
-	if (options.maxBufferBytes !== undefined && options.maxBufferBytes < 1n) {
-		throw new Error('maxBufferBytes must be a positive number of bytes')
-	}
-
-	// A producer id is generated when omitted (zero-config writes).
-	let resolved: TopicWriterOptions = {
-		...options,
-		producer: options.producer ?? generateProducerId(),
-	}
-
 	dbg.log('creating writer for topic %s', options.topic)
 
-	// The constructor wires the tx lifecycle when options.tx is set.
-	return new TopicWriter(driver, resolved)
+	// The constructor validates options, fills the producer id, and wires the tx
+	// lifecycle when options.tx is set.
+	return new TopicWriter(driver, options)
 }
 
 // Transaction writer: writes are tagged with the tx and the tx commit waits for

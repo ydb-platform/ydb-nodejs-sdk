@@ -77,14 +77,10 @@ let stopResponses = function stopResponses(sent: SentFrames): number {
 
 // The protocol's soft stop holds the partition on the server until the client sends
 // StopPartitionSessionResponse — the delay is the mechanism that lets the app finish
-// processing and commit, and onPartitionSessionStop documents itself as the last
-// chance to commit offsets. The reader instead stops the session and answers the
-// server the moment a graceful stop arrives with no commit in flight, so the
-// callback's commit never reaches the wire and rejects with 'stopped or expired
-// partition session' — every routine graceful rebalance loses the app's final commit
-// and forces duplicate processing. Correct behavior: await the callback (and any
-// commit it issues) before sending the stop response.
-test.fails('commits delivered messages from onPartitionSessionStop before the graceful stop is answered', async (tc) => {
+// processing and commit. onPartitionSessionStop is that last-chance window: it runs
+// with the session still committable and is awaited (together with any commit it
+// issues) before the stop response goes out.
+test('commits delivered messages from onPartitionSessionStop before the graceful stop is answered', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	let messages: TopicMessage[] = []
 	let hookCommit: Promise<void> | undefined
@@ -184,12 +180,14 @@ test('escalates a stalled graceful stop to force without answering either stop',
 	expect(commitFrames(stream.sent)).toBe(2)
 
 	// Graceful stop with commits pending → the reader withholds the stop response.
+	// The stop hook fires right away (the soft-stop commit window), while the session
+	// keeps draining.
 	stream.respond(
 		stopPartitionSession({ partitionSessionId: 1n, graceful: true, committedOffset: 0n })
 	)
 	await settle()
 	expect(stopResponses(stream.sent)).toBe(0)
-	expect(stopCalls).toBe(0) // the session is still draining, not stopped
+	expect(stopCalls).toBe(1)
 
 	// The server escalates: a force stop for the same session, its committed mark
 	// covering only the first commit.
@@ -203,8 +201,10 @@ test('escalates a stalled graceful stop to force without answering either stop',
 	await expect(covered).resolves.toBeUndefined()
 	expect(stopResponses(stream.sent)).toBe(0)
 
-	// Exactly one stop for the app: the escalation is one partition loss, not two.
-	expect(stopCalls).toBe(1)
+	// The app hears both phases: the soft-stop commit window, then the loss — inside
+	// the callback they are distinguishable via session.isStopped (false during the
+	// window, true once lost).
+	expect(stopCalls).toBe(2)
 	expect(stopped.payloads).toEqual([expect.objectContaining({ partitionId: 10n, reason: 'lost' })])
 
 	// The uncovered commit is held for a possible re-grant, not settled by the stop.

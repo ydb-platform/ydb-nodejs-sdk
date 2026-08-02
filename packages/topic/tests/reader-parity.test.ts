@@ -130,13 +130,11 @@ let readInBackground = function readInBackground(
 	})()
 }
 
-// Partition state is keyed by the bare partitionId, so partition 0 of the
-// second-granted topic overwrites the entry (and partition session) of the
-// first topic's partition 0, and every message of the overwritten session is
-// silently dropped. Correct behavior: key state by partition session id
-// (unique within the stream) and deliver both topics' messages, with each
-// commit advancing its own topic's consumer offset.
-test.fails(
+// Partition state is keyed by (topicPath, partitionId): partition 0 of each
+// topic keeps its own entry and session on the shared stream, both topics'
+// messages are delivered, and each commit advances its own topic's consumer
+// offset.
+test(
 	'delivers messages from both topics to a multi-topic reader',
 	{ timeout: 30_000 },
 	async (tc) => {
