@@ -118,6 +118,53 @@ test('commits only the acked message when earlier delivered messages are unacked
 	await expect(commit).resolves.toBeUndefined()
 })
 
+test('commits live partitions when the same batch contains a stopped partition', async (tc) => {
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
+
+	let stream = await primeStream(reader, waitForNextStream)
+	stream.respond(
+		startPartitionSession({ partitionSessionId: 1n, partitionId: 10n, committedOffset: 0n })
+	)
+	stream.respond(
+		startPartitionSession({ partitionSessionId: 2n, partitionId: 20n, committedOffset: 0n })
+	)
+	await stream.waitForStartResponse()
+	await settle(10)
+	stream.respond(
+		readResponse({
+			partitionSessionId: 1n,
+			messages: [{ offset: 0n, seqNo: 1n, data: bytes('stopped') }],
+		})
+	)
+	stream.respond(
+		readResponse({
+			partitionSessionId: 2n,
+			messages: [{ offset: 0n, seqNo: 1n, data: bytes('live') }],
+		})
+	)
+	let messages = await collect(reader, 2, tc.signal)
+
+	stream.respond(
+		stopPartitionSession({ partitionSessionId: 1n, graceful: false, committedOffset: 0n })
+	)
+	await settle(10)
+
+	let commit = reader.commit(messages)
+	commit.catch(() => {})
+	let request = await stream.waitForCommit()
+	expect(request.commitOffsets).toEqual([
+		expect.objectContaining({
+			partitionSessionId: 2n,
+			offsets: [expect.objectContaining({ start: 0n, end: 1n })],
+		}),
+	])
+
+	stream.respond(commitOffsetResponse([{ partitionSessionId: 2n, committedOffset: 1n }]))
+	await expect(commit).rejects.toThrow(/stopped or expired partition session/)
+	expect(commitRequests(stream)).toHaveLength(1)
+})
+
 test('gap-fills the first commit range from the server committed offset across a retention hole', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })

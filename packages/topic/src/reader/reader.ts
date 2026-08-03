@@ -44,6 +44,7 @@ import {
 	type ReaderRuntime,
 	createReaderRuntime,
 } from './reader-runtime.js'
+import { type OffsetRange, partitionKey } from './reader-state.js'
 import type { TopicReadOptions, TopicReaderOptions, TopicTxReader } from './types.js'
 
 let dbg = loggers.topic.extend('reader')
@@ -443,7 +444,36 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 
 		let messages = Array.isArray(input) ? input : [input]
-		let byPartition = buildCommitRanges(messages, (session) => this.#ownedSessions.has(session))
+		// Commits are independent per partition. A stopped session in a mixed batch
+		// must not suppress a live partition: skipping its range creates a permanent
+		// gap that prevents every later commit watermark from advancing.
+		let messagesByPartition = new Map<string | symbol, TopicMessage[]>()
+		for (let message of messages) {
+			let session = message.partitionSession.deref()
+			let key = session
+				? partitionKey(session.topicPath, session.partitionId)
+				: Symbol('expired partition session')
+			let partitionMessages = messagesByPartition.get(key)
+			if (partitionMessages === undefined) {
+				partitionMessages = []
+				messagesByPartition.set(key, partitionMessages)
+			}
+			partitionMessages.push(message)
+		}
+
+		let byPartition = new Map<string, OffsetRange[]>()
+		let errors: unknown[] = []
+		for (let partitionMessages of messagesByPartition.values()) {
+			try {
+				for (let [key, ranges] of buildCommitRanges(partitionMessages, (session) =>
+					this.#ownedSessions.has(session)
+				)) {
+					byPartition.set(key, ranges)
+				}
+			} catch (error) {
+				errors.push(error)
+			}
+		}
 
 		// One waiter per partition; the call resolves only when every partition's
 		// offsets are acknowledged. Sessions of one partition share the stable
@@ -462,7 +492,20 @@ export class TopicReader implements AsyncDisposable, Disposable {
 			promises.push(waiter.promise)
 		}
 
-		await Promise.all(promises)
+		// Settle every valid partition before reporting invalid ones so a rejected
+		// call never leaves hidden commit work running behind the caller.
+		let results = await Promise.allSettled(promises)
+		for (let result of results) {
+			if (result.status === 'rejected') {
+				errors.push(result.reason)
+			}
+		}
+		if (errors.length === 1) {
+			throw errors[0]
+		}
+		if (errors.length > 1) {
+			throw new AggregateError(errors, 'Cannot commit one or more partitions')
+		}
 	}
 
 	// ── internals ────────────────────────────────────────────────────────────────
