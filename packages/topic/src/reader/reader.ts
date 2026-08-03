@@ -235,6 +235,63 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		return this.#readLoop(limit, batchWindowMs, options?.signal)
 	}
 
+	commit(input: TopicMessage | TopicMessage[]): Promise<void> {
+		// The TopicTxReader type hides commit(), but the method still exists on the
+		// runtime object — enforce the boundary for plain-JS callers too: a manual
+		// commit would land outside the transaction and survive its rollback.
+		if (this.#transactional) {
+			throw new Error(
+				'Tx reader commits offsets via the transaction — commit() is not available'
+			)
+		}
+		// One span per commit covers batching, the server ack, and any reconnect in between.
+		return traceCommit(this.#scope, () => this.#commitOffsets(input))
+	}
+
+	async close(): Promise<void> {
+		if (this.#closed) {
+			if (this.#lastError) {
+				throw this.#lastError
+			}
+			return
+		}
+		this.#closing = true
+		this.#runtime.machine.dispatch({ type: 'reader.close' })
+		await this.#closedDeferred.promise
+		if (this.#lastError) {
+			throw this.#lastError
+		}
+	}
+
+	destroy(reason?: unknown): void {
+		if (this.#closed) {
+			return
+		}
+		this.#closing = true
+		let error = reason ?? new Error('Reader destroyed')
+		this.#lastError = error
+		this.#runtime.machine.dispatch({ type: 'reader.destroy', reason: error })
+	}
+
+	async [Symbol.asyncDispose](): Promise<void> {
+		try {
+			await this.close()
+		} catch (error) {
+			this.destroy(error)
+			throw error
+		}
+	}
+
+	[Symbol.dispose](): void {
+		this.destroy()
+	}
+
+	// Debuggers and util.inspect show the constructor name, which cannot tell a tx
+	// reader apart — the tag makes it render as TopicReader [TopicTxReader] { ... }.
+	get [Symbol.toStringTag](): string {
+		return this.#transactional ? 'TopicTxReader' : 'TopicReader'
+	}
+
 	async *#readLoop(
 		limit: number | undefined,
 		batchWindowMs: number | undefined,
@@ -411,25 +468,6 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 	}
 
-	commit(input: TopicMessage | TopicMessage[]): Promise<void> {
-		// The TopicTxReader type hides commit(), but the method still exists on the
-		// runtime object — enforce the boundary for plain-JS callers too: a manual
-		// commit would land outside the transaction and survive its rollback.
-		if (this.#transactional) {
-			throw new Error(
-				'Tx reader commits offsets via the transaction — commit() is not available'
-			)
-		}
-		// One span per commit covers batching, the server ack, and any reconnect in between.
-		return traceCommit(this.#scope, () => this.#commitOffsets(input))
-	}
-
-	// Debuggers and util.inspect show the constructor name, which cannot tell a tx
-	// reader apart — the tag makes it render as TopicReader [TopicTxReader] { ... }.
-	get [Symbol.toStringTag](): string {
-		return this.#transactional ? 'TopicTxReader' : 'TopicReader'
-	}
-
 	async #commitOffsets(input: TopicMessage | TopicMessage[]): Promise<void> {
 		if (this.#lastError) {
 			throw this.#lastError
@@ -491,44 +529,6 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 
 		await Promise.all(promises)
-	}
-
-	async close(): Promise<void> {
-		if (this.#closed) {
-			if (this.#lastError) {
-				throw this.#lastError
-			}
-			return
-		}
-		this.#closing = true
-		this.#runtime.machine.dispatch({ type: 'reader.close' })
-		await this.#closedDeferred.promise
-		if (this.#lastError) {
-			throw this.#lastError
-		}
-	}
-
-	destroy(reason?: unknown): void {
-		if (this.#closed) {
-			return
-		}
-		this.#closing = true
-		let error = reason ?? new Error('Reader destroyed')
-		this.#lastError = error
-		this.#runtime.machine.dispatch({ type: 'reader.destroy', reason: error })
-	}
-
-	[Symbol.dispose](): void {
-		this.destroy()
-	}
-
-	async [Symbol.asyncDispose](): Promise<void> {
-		try {
-			await this.close()
-		} catch (error) {
-			this.destroy(error)
-			throw error
-		}
 	}
 
 	// Snapshot of the tx read offsets (tx reader only), mapped to the sessions the tx
