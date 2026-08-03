@@ -1,8 +1,6 @@
 import { create } from '@bufbuild/protobuf'
-import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import {
-	Codec,
 	OffsetsRangeSchema,
 	TopicServiceDefinition,
 	TransactionIdentitySchema,
@@ -16,11 +14,19 @@ import { loggers } from '@ydbjs/debug'
 import { YDBError } from '@ydbjs/error'
 import { AsyncQueue } from '@ydbjs/fsm/queue'
 
-import { type CodecMap, defaultCodecMap, getCodec } from '../codec.js'
-import { TopicMessage } from '../message.js'
+import { type CodecMap, defaultCodecMap } from '../codec.js'
+import type { TopicMessage } from '../message.js'
 import type { TopicPartitionSession } from '../partition-session.js'
 import type { TX } from '../tx.js'
 import { parseReadSettings } from './read-settings.js'
+import {
+	type TxReadOffsetUpdate,
+	type TxReadOffsets,
+	buildCommitRanges,
+	growTxOffsets,
+	toTopicMessage,
+	txOffsetUpdates,
+} from './reader-internals.js'
 import {
 	type ReaderScope,
 	publishClosed,
@@ -38,7 +44,6 @@ import {
 	type ReaderRuntime,
 	createReaderRuntime,
 } from './reader-runtime.js'
-import { type OffsetRange, type ReaderMessage, mergeRanges, partitionKey } from './reader-state.js'
 import type { TopicReadOptions, TopicReaderOptions, TopicTxReader } from './types.js'
 
 let dbg = loggers.topic.extend('reader')
@@ -47,17 +52,6 @@ let dbg = loggers.topic.extend('reader')
 // the response's flow-control credit (backpressure — credit is granted only as the
 // consumer keeps up).
 type Chunk = { messages: TopicMessage[]; releaseBytes: bigint }
-
-type TxReadOffsetUpdate = {
-	partitionSession: TopicPartitionSession
-	offsetRange: { firstOffset: bigint; lastOffset: bigint }
-}
-
-type TxReadOffsets = {
-	session: TopicPartitionSession
-	firstOffset: bigint
-	lastOffset: bigint
-}
 
 // Bind the read offsets to the transaction via UpdateOffsetsInTransaction, so they
 // become committed if and only if the transaction commits. Called from the tx.onCommit
@@ -196,7 +190,7 @@ export class TopicReader implements AsyncDisposable, Disposable {
 			tx.onCommit(async () => {
 				// Bind the read offsets to the tx; on failure the commit (and thus the
 				// offsets) roll back, and the reader is torn down by onClose below.
-				await commitTxOffsets(tx, driver, options.consumer, this.#txReadOffsetUpdates())
+				await commitTxOffsets(tx, driver, options.consumer, txOffsetUpdates(this.#txReadOffsets))
 				// Release the partition once offsets are committed. A tx reader left open
 				// keeps the consumer's partition assigned server-side, so a later reader on
 				// the same consumer never gets a partition session — it hangs until its
@@ -391,12 +385,12 @@ export class TopicReader implements AsyncDisposable, Disposable {
 						if (limit !== undefined && batch.length > limit) {
 							for (let i = 0; i < batch.length; i += limit) {
 								let slice = batch.slice(i, i + limit)
-								this.#recordTxDelivery(slice)
+								growTxOffsets(this.#txReadOffsets, slice)
 								delivered = i + slice.length
 								yield slice
 							}
 						} else {
-							this.#recordTxDelivery(batch)
+							growTxOffsets(this.#txReadOffsets, batch)
 							delivered = batch.length
 							yield batch
 						}
@@ -440,34 +434,6 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		})
 	}
 
-	// Record delivered offsets for the tx commit hook — at yield time, never at
-	// buffering: a tx commit must cover exactly what the consumer saw.
-	#recordTxDelivery(messages: TopicMessage[]): void {
-		if (!this.#txReadOffsets) {
-			return
-		}
-		for (let message of messages) {
-			let session = message.partitionSession.deref()
-			if (!session) {
-				continue
-			}
-			let offset = message.offset ?? message.commitRangeStart
-			let key = partitionKey(session.topicPath, session.partitionId)
-			let existing = this.#txReadOffsets.get(key)
-			if (existing === undefined) {
-				this.#txReadOffsets.set(key, {
-					session,
-					firstOffset: message.commitRangeStart,
-					lastOffset: offset,
-				})
-			} else if (offset > existing.lastOffset) {
-				// Grow-only: a mid-tx reconnect redelivers from the committed offset, and
-				// a rewound range would commit fewer offsets than the transaction consumed.
-				existing.lastOffset = offset
-			}
-		}
-	}
-
 	async #commitOffsets(input: TopicMessage | TopicMessage[]): Promise<void> {
 		if (this.#lastError) {
 			throw this.#lastError
@@ -477,39 +443,7 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 
 		let messages = Array.isArray(input) ? input : [input]
-		// Grouped by the stable partitionKey — partition ids alone collide across the
-		// topics of a multi-topic reader.
-		let byPartition = new Map<string, OffsetRange[]>()
-
-		for (let message of messages) {
-			let session = message.partitionSession.deref()
-			if (!session || session.isStopped) {
-				throw new Error(
-					'Cannot commit a message from a stopped or expired partition session'
-				)
-			}
-			// Ownership: a message from another reader would be committed against this
-			// reader's consumer and anchor — silently corrupting both consumers' progress.
-			if (!this.#ownedSessions.has(session)) {
-				throw new Error(
-					`Cannot commit a message from a foreign reader's partition session (partition ${session.partitionId} of ${session.topicPath})`
-				)
-			}
-			if (message.offset === undefined) {
-				throw new Error('Cannot commit a message without an offset')
-			}
-			// Each message acknowledges its own stitched range: the offset itself plus
-			// the server-side hole immediately preceding it — never other delivered
-			// messages (the server commits gap-free ACKED intervals only).
-			let key = partitionKey(session.topicPath, session.partitionId)
-			let ranges = byPartition.get(key)
-			let range = { start: message.commitRangeStart, end: message.offset + 1n }
-			if (ranges === undefined) {
-				byPartition.set(key, [range])
-			} else {
-				ranges.push(range)
-			}
-		}
+		let byPartition = buildCommitRanges(messages, (session) => this.#ownedSessions.has(session))
 
 		// One waiter per partition; the call resolves only when every partition's
 		// offsets are acknowledged. Sessions of one partition share the stable
@@ -522,31 +456,13 @@ export class TopicReader implements AsyncDisposable, Disposable {
 			this.#runtime.machine.dispatch({
 				type: 'reader.commit',
 				partitionKey: key,
-				ranges: mergeRanges(ranges),
+				ranges,
 				waiterId,
 			})
 			promises.push(waiter.promise)
 		}
 
 		await Promise.all(promises)
-	}
-
-	// Snapshot of the tx read offsets (tx reader only), mapped to the sessions the tx
-	// commit hook needs. The session is embedded in each record, so the snapshot
-	// stays valid after close() (a closed tx reader still binds its offsets at
-	// tx commit).
-	#txReadOffsetUpdates(): TxReadOffsetUpdate[] {
-		if (!this.#txReadOffsets) {
-			return []
-		}
-		let updates: TxReadOffsetUpdate[] = []
-		for (let record of this.#txReadOffsets.values()) {
-			updates.push({
-				partitionSession: record.session,
-				offsetRange: { firstOffset: record.firstOffset, lastOffset: record.lastOffset },
-			})
-		}
-		return updates
 	}
 
 	// ── internals ────────────────────────────────────────────────────────────────
@@ -561,7 +477,7 @@ export class TopicReader implements AsyncDisposable, Disposable {
 						let messages: TopicMessage[] = []
 						for (let group of output.groups) {
 							for (let message of group.messages) {
-								messages.push(this.#toMessage(group.session, message))
+								messages.push(toTopicMessage(this.#codecs, group.session, message))
 							}
 						}
 						this.#chunks.push({ messages, releaseBytes: output.releaseBytes })
@@ -676,47 +592,6 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		if (!this.#closed) {
 			this.#fail(
 				this.#runtime.machine.signal.reason ?? new Error('Reader stopped unexpectedly')
-			)
-		}
-	}
-
-	#toMessage(session: TopicPartitionSession, message: ReaderMessage): TopicMessage {
-		return new TopicMessage({
-			partitionSession: session,
-			producer: message.producer,
-			payload: this.#decode(session, message),
-			codec: message.codec as Codec,
-			seqNo: message.seqNo,
-			offset: message.offset,
-			uncompressedSize: message.uncompressedSize,
-			commitRangeStart: message.commitRangeStart,
-			...(message.createdAt && { createdAt: timestampDate(message.createdAt).getTime() }),
-			...(message.writtenAt && { writtenAt: timestampDate(message.writtenAt).getTime() }),
-			...(message.metadataItems.length > 0 && {
-				metadataItems: Object.fromEntries(
-					message.metadataItems.map((item) => [item.key, item.value])
-				),
-			}),
-		})
-	}
-
-	#decode(session: TopicPartitionSession, message: ReaderMessage): Uint8Array {
-		// UNSPECIFIED means "no codec recorded" — the payload is raw bytes (the current
-		// server normalizes missing codecs to RAW before delivery; older ones could
-		// leave it unset). Decompressing would corrupt it; erroring would kill the
-		// reader over absent metadata.
-		if (message.codec === Codec.UNSPECIFIED) {
-			return message.data
-		}
-		try {
-			let codec = this.#codecs.get(message.codec) ?? getCodec(message.codec as Codec)
-			return codec.decompress(message.data)
-		} catch (error) {
-			// Terminal by design: the protocol has no way to refuse a single partition,
-			// and skipping silently would be data loss. Make the error actionable.
-			throw new Error(
-				`Cannot decode message at offset ${message.offset} of partition ${session.partitionId} (${session.topicPath}): codec ${message.codec} — register it in codecMap`,
-				{ cause: error }
 			)
 		}
 	}
