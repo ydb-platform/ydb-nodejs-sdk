@@ -782,10 +782,16 @@ let issueCommit = function issueCommit(sim: Sim, key: string, selected: MirrorMe
 
 // ── invariants ────────────────────────────────────────────────────────────────
 
-// The reassign gc is the ONE non-terminal path allowed to reject a commit: the
-// partition was rebalanced away and nothing can ever acknowledge those offsets.
+// Two non-terminal paths may reject a commit: the reassign gc (partition rebalanced
+// away, held offsets never acknowledged) and the stop race (commit dispatched while
+// the session was live but processed after the partition stopped — uncovered offsets
+// can never be acked on this stream).
 let isReassignRejection = function isReassignRejection(reason: unknown): boolean {
-	return reason instanceof Error && reason.message.includes('reassigned before commit')
+	return (
+		reason instanceof Error &&
+		(reason.message.includes('reassigned before commit') ||
+			reason.message.includes('stopped or expired partition session'))
+	)
 }
 
 let checkInvariants = function checkInvariants(sim: Sim, where: string): void {

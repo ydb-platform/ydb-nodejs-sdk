@@ -873,6 +873,44 @@ test('rejects held commits when a stopped partition is gc-reassigned', () => {
 	expect(h.ctx.partitions.has(pk(10n))).toBe(false)
 })
 
+// The facade dispatches commit() while the session is still live, but a stop request
+// (or the commit_response completing a graceful drain) queued ahead of it can retire
+// the partition first. Uncovered offsets of a stopped partition can never be acked on
+// this stream, and the messages are redelivered wherever the partition lands — the
+// waiter settles immediately instead of parking on the reassign gc.
+test('rejects a commit that lost the race with the partition stop', () => {
+	let h = mk()
+	toReadyWithPartition(h)
+	ackStart(h, 1n, 10n)
+	message(h, stopMsg(1n, true))
+	ackStop(h, 10n)
+	expect(h.ctx.partitions.get(pk(10n))!.state).toBe('stopped')
+	h.emitted.length = 0
+	commit(h, 10n, [{ start: 5n, end: 9n }], 7)
+	let rejected = outputs(h, 'reader.commit.rejected')
+	expect(rejected).toHaveLength(1)
+	expect(rejected[0]).toMatchObject({ waiterId: 7 })
+	expect(String((rejected[0] as { reason?: unknown }).reason)).toMatch(
+		/stopped or expired partition session/
+	)
+	expect(h.ctx.partitions.get(pk(10n))!.pendingCommits).toEqual([])
+})
+
+// The same race against a forced stop: offsets the stop's watermark already covers
+// resolve, anything uncovered rejects — nothing is parked for the gc.
+test('settles a commit racing a forced stop against the stop watermark', () => {
+	let h = mk()
+	toReadyWithPartition(h)
+	ackStart(h, 1n, 10n)
+	message(h, stopMsg(1n, false, 7n))
+	expect(h.ctx.partitions.get(pk(10n))!.state).toBe('stopped')
+	h.emitted.length = 0
+	commit(h, 10n, [{ start: 5n, end: 7n }], 8)
+	expect(outputs(h, 'reader.commit.resolved').map((o) => o.waiterId)).toEqual([8])
+	commit(h, 10n, [{ start: 7n, end: 9n }], 9)
+	expect(outputs(h, 'reader.commit.rejected')[0]).toMatchObject({ waiterId: 9 })
+})
+
 test('resolves covered commits and holds the remainder on a forced stop', () => {
 	let h = mk()
 	toReadyWithPartition(h)

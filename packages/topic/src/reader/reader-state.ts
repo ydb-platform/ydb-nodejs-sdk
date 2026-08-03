@@ -1051,6 +1051,23 @@ let recordCommit = function recordCommit(
 		return []
 	}
 
+	// A commit can lose the race with the partition stop: the facade dispatches while
+	// the session is still live, but a commit_response or stop request queued ahead of
+	// it completes the stop first. Uncovered offsets of a stopped partition can never
+	// be acknowledged on this stream (the server ignores commits after the stop), and
+	// the messages will be redelivered wherever the partition lands — reject now
+	// instead of parking the waiter on the reassign gc.
+	if (entry.state === 'stopped') {
+		runtime.emit({
+			type: 'reader.commit.rejected',
+			waiterId: event.waiterId,
+			reason: new Error(
+				`Cannot commit offsets for a stopped or expired partition session (partition ${event.partitionKey})`
+			),
+		})
+		return []
+	}
+
 	entry.pendingCommits.push({ ranges, waiterId: event.waiterId })
 	entry.claimedRanges = mergeRanges([...entry.claimedRanges, ...ranges])
 
