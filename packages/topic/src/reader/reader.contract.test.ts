@@ -1,5 +1,4 @@
 import { subscribe, unsubscribe } from 'node:diagnostics_channel'
-import * as zlib from 'node:zlib'
 
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { Codec } from '@ydbjs/api/topic'
@@ -520,71 +519,29 @@ test('publishes session-started, partition-started, and committed diagnostics', 
 	expect(committed.payloads.at(-1)!.committedOffset).toBe(1n)
 })
 
-// node:zlib gained zstd in Node.js 22.15 / 23.8 — the roundtrip below needs it; the
-// sibling test covers the graceful failure on runtimes without it (the Node 20 CI lane).
-let runtimeHasZstd = typeof zlib.zstdCompressSync === 'function'
+test('decodes a zstd-compressed batch delivered by the server', async (tc) => {
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
 
-test.skipIf(!runtimeHasZstd)(
-	'decodes a zstd-compressed batch delivered by the server',
-	async (tc) => {
-		let { driver, waitForNextStream } = makeFakeTopicDriver()
-		using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
+	let stream = await primeStream(reader, waitForNextStream)
+	stream.respond(startPartitionSession({ partitionSessionId: 1n, partitionId: 10n }))
+	await stream.waitForStartResponse()
 
-		let stream = await primeStream(reader, waitForNextStream)
-		stream.respond(startPartitionSession({ partitionSessionId: 1n, partitionId: 10n }))
-		await stream.waitForStartResponse()
+	// Real zstd bytes on the wire — proves the default codec map decompresses ZSTD
+	// end-to-end (fixtures otherwise deliver RAW, which decodes as identity).
+	let payload = bytes('zstd payload that must round-trip through decompression')
+	stream.respond(
+		readResponse({
+			partitionSessionId: 1n,
+			codec: Codec.ZSTD,
+			messages: [{ offset: 0n, seqNo: 1n, data: ZSTD_CODEC.compress(payload) }],
+		})
+	)
 
-		// Real zstd bytes on the wire — proves the default codec map decompresses ZSTD
-		// end-to-end (fixtures otherwise deliver RAW, which decodes as identity).
-		let payload = bytes('zstd payload that must round-trip through decompression')
-		stream.respond(
-			readResponse({
-				partitionSessionId: 1n,
-				codec: Codec.ZSTD,
-				messages: [{ offset: 0n, seqNo: 1n, data: ZSTD_CODEC.compress(payload) }],
-			})
-		)
-
-		let [message] = await collect(reader, 1, tc.signal)
-		expect(text(message!.payload)).toBe(
-			'zstd payload that must round-trip through decompression'
-		)
-		expect(message!.codec).toBe(Codec.ZSTD)
-	}
-)
-
-test.skipIf(runtimeHasZstd)(
-	'fails with the codecMap remedy on zstd data when the runtime lacks zstd',
-	async (tc) => {
-		let { driver, waitForNextStream } = makeFakeTopicDriver()
-		let reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
-
-		let stream = await primeStream(reader, waitForNextStream)
-		stream.respond(startPartitionSession({ partitionSessionId: 1n, partitionId: 10n }))
-		await stream.waitForStartResponse()
-
-		// Without runtime zstd the default codec map deliberately has no ZSTD entry, so
-		// server-delivered zstd data must surface the actionable unknown-codec error
-		// (register a custom codec in codecMap) instead of a bare zlib TypeError.
-		stream.respond(
-			readResponse({
-				partitionSessionId: 1n,
-				codec: Codec.ZSTD,
-				messages: [{ offset: 0n, seqNo: 1n, data: bytes('zstd-compressed-elsewhere') }],
-			})
-		)
-
-		let firstError: unknown
-		try {
-			await collect(reader, 1, tc.signal)
-		} catch (error) {
-			firstError = error
-		}
-		expect(String(firstError)).toMatch(/codec/i)
-		expect(String(firstError)).toMatch(/codecMap/)
-		reader.destroy()
-	}
-)
+	let [message] = await collect(reader, 1, tc.signal)
+	expect(text(message!.payload)).toBe('zstd payload that must round-trip through decompression')
+	expect(message!.codec).toBe(Codec.ZSTD)
+})
 
 // ── commit protocol ────────────────────────────────────────────────────────────
 
