@@ -129,13 +129,12 @@ for await (const batch of reader.read({ limit: 100, batchWindowMs: 1000 })) {
 
   // Option A (simple): await commit for each batch
   await reader.commit(batch)
-
-  // Option B (fast path): fire‑and‑forget commit
-  // void reader.commit(batch)
 }
 ```
 
-Performance note: awaiting `commit()` in the hot path reduces throughput. For high load, prefer fire‑and‑forget plus `onCommittedOffset` to observe confirmations asynchronously.
+`commit()` calls made synchronously in the same JavaScript turn are combined into one microtask batch and return the same promise. This keeps per-message concurrent processing efficient without allocating one public promise or sending one request per message. Passing the whole processed batch remains the clearest option. Awaiting every individual `commit(message)` before issuing the next one intentionally waits for a server round trip each time.
+
+Always handle the returned promise. Ignoring it can surface a commit failure as an unhandled rejection; use `onCommittedOffset` as an observer, not as a replacement for error handling.
 
 Commit semantics: each message acknowledges its own offset range (plus any server-side offset hole immediately preceding it — retention gaps and `readFrom` skips). A message you deliberately leave uncommitted is never covered by later commits of other messages, and the server advances the consumer offset only over gap-free acknowledged intervals — so a failed message keeps the committed offset behind it and is redelivered after a restart. Committing out of order is safe; an awaited `commit()` of a later message resolves once the earlier ones are committed too.
 

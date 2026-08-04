@@ -38,8 +38,8 @@ import {
 // per-partition timeout escalation).
 //
 // The crux is commit-reconcile across reconnect and partition churn: a commit must
-// never be rejected by a transparent reconnect, a resolved commit must be durable
-// on the server (or fully claimed by a still-pending earlier commit), wire commit
+// never be rejected by a transparent reconnect, a resolved commit must be covered
+// by a server-reported committed watermark, wire commit
 // ranges must be ascending, non-overlapping, never below the server's committed
 // offset, and never cover an offset outside the committing messages' own stitched
 // ranges — i.e. never a delivered-but-uncommitted message someone else still holds.
@@ -374,21 +374,16 @@ let onReaderOutput = function onReaderOutput(sim: Sim, output: ReaderOutput): vo
 					throw new Error(`waiter ${output.waiterId} resolved after being rejected`)
 				}
 				waiter.state = 'resolved'
-				// No-loss: a resolved commit must be durable on the server — or every one
-				// of its offsets claimed by an earlier still-pending commit (the FSM
-				// resolves a fully-claimed duplicate immediately, deferring durability to
-				// the claimer's ack) or already below the committed watermark.
+				// No-loss: claimed wire coverage is not an acknowledgment. A commit resolves
+				// only after the server-reported watermark reaches its target.
 				let part = sim.byKey.get(waiter.partitionKey)!
 				if (waiter.endOffset > part.durableCommitted) {
 					let entry = sim.readerCtx.partitions.get(waiter.partitionKey)
-					let coverage = modelMerge([
-						{ start: 0n, end: part.durableCommitted },
-						{ start: 0n, end: entry?.partitionCommittedOffset ?? 0n },
-						...(entry?.claimedRanges ?? []),
-					])
-					if (!coveredBy(waiter.ranges, coverage)) {
+					let reportedCommitted = entry?.partitionCommittedOffset ?? 0n
+					if (waiter.endOffset > reportedCommitted) {
 						throw new Error(
-							`commit resolved but not durable nor claimed: end=${waiter.endOffset} durable=${part.durableCommitted}`
+							`commit resolved before a reported watermark: end=${waiter.endOffset} ` +
+								`durable=${part.durableCommitted} reported=${reportedCommitted}`
 						)
 					}
 				}
@@ -846,15 +841,15 @@ let checkInvariants = function checkInvariants(sim: Sim, where: string): void {
 		if (entry.deliveredWatermark < entry.partitionCommittedOffset) {
 			throw new Error(`${where}: delivery watermark below committed on ${key}`)
 		}
-		// Pending commit ranges: each pending normalized and non-empty; pendings
-		// pairwise disjoint (an overlap would double-commit on the resend path).
+		// Wire ranges are normalized and pairwise disjoint. A fully claimed duplicate
+		// legitimately has no wire ranges while its target waits for the same watermark.
 		let all: OffsetRange[] = []
 		for (let pending of entry.pendingCommits) {
-			if (pending.ranges.length === 0) {
-				throw new Error(`${where}: empty pending commit on ${key}`)
+			if (pending.targetOffset <= entry.partitionCommittedOffset) {
+				throw new Error(`${where}: confirmed pending target on ${key}`)
 			}
-			assertNormalized(pending.ranges, `${where}: pending commit on ${key}`)
-			all.push(...pending.ranges)
+			assertNormalized(pending.wireRanges, `${where}: pending commit on ${key}`)
+			all.push(...pending.wireRanges)
 		}
 		let union = modelMerge(all)
 		if (rangesLength(union) !== rangesLength(all)) {

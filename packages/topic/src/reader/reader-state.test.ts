@@ -541,7 +541,9 @@ test('sends the commit ranges verbatim and records the pending commit', () => {
 	expect(cs).toHaveLength(1)
 	expect(cs[0]!.ranges).toEqual([{ start: 5n, end: 9n }])
 	let entry = h.ctx.partitions.get(pk(10n))!
-	expect(entry.pendingCommits).toEqual([{ ranges: [{ start: 5n, end: 9n }], waiterId: 1 }])
+	expect(entry.pendingCommits).toEqual([
+		{ targetOffset: 9n, wireRanges: [{ start: 5n, end: 9n }], waiterId: 1 },
+	])
 	expect(entry.claimedRanges).toEqual([{ start: 5n, end: 9n }])
 })
 
@@ -569,18 +571,25 @@ test('resolves without a wire send when the range is fully below the committed o
 	expect(h.ctx.partitions.get(pk(10n))!.pendingCommits).toHaveLength(0)
 })
 
-test('resolves without a wire send when the range is fully claimed by an earlier commit', () => {
+test('waits for the server watermark when the range is fully claimed by an earlier commit', () => {
 	let h = mk()
 	toReadyWithPartition(h)
 	ackStart(h, 1n, 10n)
 	commit(h, 10n, [{ start: 5n, end: 7n }], 1)
 	expect(commitSends(h.effects)).toHaveLength(1)
-	// Re-sending offsets already on the wire is session-fatal, so a covered commit
-	// resolves against the in-flight claim instead of sending again.
+	// Re-sending offsets already on the wire is session-fatal, but claimed coverage is
+	// not durable yet: the duplicate waits without producing another wire request.
 	commit(h, 10n, [{ start: 5n, end: 7n }], 2)
 	expect(commitSends(h.effects)).toHaveLength(0)
-	expect(outputs(h, 'reader.commit.resolved').map((o) => o.waiterId)).toEqual([2])
-	expect(h.ctx.partitions.get(pk(10n))!.pendingCommits.map((p) => p.waiterId)).toEqual([1])
+	expect(outputs(h, 'reader.commit.resolved')).toHaveLength(0)
+	expect(h.ctx.partitions.get(pk(10n))!.pendingCommits).toEqual([
+		{ targetOffset: 7n, wireRanges: [{ start: 5n, end: 7n }], waiterId: 1 },
+		{ targetOffset: 7n, wireRanges: [], waiterId: 2 },
+	])
+
+	h.emitted.length = 0
+	message(h, commitMsg([[1n, 7n]]))
+	expect(outputs(h, 'reader.commit.resolved').map((o) => o.waiterId)).toEqual([1, 2])
 })
 
 test('subtracts claimed coverage and sends only the remainder', () => {
@@ -593,7 +602,11 @@ test('subtracts claimed coverage and sends only the remainder', () => {
 	expect(cs).toHaveLength(1)
 	expect(cs[0]!.ranges).toEqual([{ start: 6n, end: 8n }])
 	let entry = h.ctx.partitions.get(pk(10n))!
-	expect(entry.pendingCommits[1]).toEqual({ ranges: [{ start: 6n, end: 8n }], waiterId: 2 })
+	expect(entry.pendingCommits[1]).toEqual({
+		targetOffset: 8n,
+		wireRanges: [{ start: 6n, end: 8n }],
+		waiterId: 2,
+	})
 	expect(entry.claimedRanges).toEqual([{ start: 5n, end: 8n }])
 })
 

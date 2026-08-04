@@ -35,7 +35,7 @@ let reconnectingCh = dc('ydb:topic.reader.reconnecting')
 let closedCh = dc('ydb:topic.reader.closed')
 let erroredCh = dc('ydb:topic.reader.errored')
 
-// One commit() call → one span (batching + server ack + any reconnect in between).
+// One microtask commit batch → one span (server ack + any reconnect in between).
 let commitCh = tracingChannel<ReaderScope>('tracing:ydb:topic.reader.commit')
 
 // Every helper below guards with hasSubscribers before publish(). publish() itself

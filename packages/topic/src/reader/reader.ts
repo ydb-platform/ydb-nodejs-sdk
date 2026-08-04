@@ -55,6 +55,13 @@ let dbg = loggers.topic.extend('reader')
 // consumer keeps up).
 type Chunk = { messages: TopicMessage[]; releaseBytes: bigint }
 
+type CommitBatch = {
+	messages: TopicMessage[]
+	completion: PromiseWithResolvers<void>
+	promise: Promise<void>
+	flushed: boolean
+}
+
 // Bind the read offsets to the transaction via UpdateOffsetsInTransaction, so they
 // become committed if and only if the transaction commits. Called from the tx.onCommit
 // hook the constructor wires; a throw here fails the commit, and the offsets roll
@@ -134,6 +141,7 @@ export class TopicReader implements AsyncDisposable, Disposable {
 	// waiterId -> commit() promise; the FSM only carries the id, never the callback.
 	#waiters = new Map<number, PromiseWithResolvers<void>>()
 	#nextWaiterId = 1
+	#commitBatch: CommitBatch | undefined
 
 	// Every partition session this reader ever created — the commit() ownership
 	// check. A WeakSet so retired sessions do not leak.
@@ -250,8 +258,12 @@ export class TopicReader implements AsyncDisposable, Disposable {
 				'Tx reader commits offsets via the transaction — commit() is not available'
 			)
 		}
-		// One span per commit covers batching, the server ack, and any reconnect in between.
-		return traceCommit(this.#scope, () => this.#commitOffsets(input))
+		let batch = this.#commitBatch ?? this.#createCommitBatch()
+		let messages = Array.isArray(input) ? input : [input]
+		for (let message of messages) {
+			batch.messages.push(message)
+		}
+		return batch.promise
 	}
 
 	async close(): Promise<void> {
@@ -260,6 +272,11 @@ export class TopicReader implements AsyncDisposable, Disposable {
 				throw this.#lastError
 			}
 			return
+		}
+		// Preserve call order when commit() and close() happen in the same turn: dispatch
+		// the queued commit before the close transition starts draining pending work.
+		if (this.#commitBatch) {
+			this.#flushCommitBatch(this.#commitBatch)
 		}
 		this.#closing = true
 		this.#runtime.machine.dispatch({ type: 'reader.close' })
@@ -471,7 +488,31 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		return chunks
 	}
 
-	async #commitOffsets(input: TopicMessage | TopicMessage[]): Promise<void> {
+	#createCommitBatch(): CommitBatch {
+		let completion = Promise.withResolvers<void>()
+		let batch: CommitBatch = {
+			messages: [],
+			completion,
+			promise: traceCommit(this.#scope, () => completion.promise),
+			flushed: false,
+		}
+		this.#commitBatch = batch
+		queueMicrotask(() => this.#flushCommitBatch(batch))
+		return batch
+	}
+
+	#flushCommitBatch(batch: CommitBatch): void {
+		if (batch.flushed) {
+			return
+		}
+		batch.flushed = true
+		if (this.#commitBatch === batch) {
+			this.#commitBatch = undefined
+		}
+		void this.#commitOffsets(batch.messages).then(batch.completion.resolve, batch.completion.reject)
+	}
+
+	async #commitOffsets(messages: TopicMessage[]): Promise<void> {
 		if (this.#lastError) {
 			throw this.#lastError
 		}
@@ -479,7 +520,6 @@ export class TopicReader implements AsyncDisposable, Disposable {
 			throw new Error('Reader is closed — cannot commit')
 		}
 
-		let messages = Array.isArray(input) ? input : [input]
 		// Commits are independent per partition. A stopped session in a mixed batch
 		// must not suppress a live partition: skipping its range creates a permanent
 		// gap that prevents every later commit watermark from advancing.

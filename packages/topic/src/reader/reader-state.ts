@@ -47,12 +47,13 @@ export let partitionKey = function partitionKey(path: string, partitionId: bigin
 	return `${path}|${partitionId}`
 }
 
-// A commit awaiting the server's high-water-mark ack. `waiterId` maps to a Promise
-// in the facade; the transition only records the offset ranges. The ranges are the
-// exact remainder this commit put (or will put) on the wire — resends after a
-// reconnect must replay them verbatim, never a gap-covering span.
+// A commit awaiting the server's high-water-mark ack. `targetOffset` controls promise
+// completion; `wireRanges` is only the unshared coverage this commit put (or will put)
+// on the wire. A fully claimed duplicate has no wire ranges but still waits for the
+// server watermark instead of resolving optimistically.
 export type PendingCommit = {
-	ranges: OffsetRange[]
+	targetOffset: bigint
+	wireRanges: OffsetRange[]
 	waiterId: number
 }
 
@@ -481,17 +482,13 @@ let compactCoverage = function compactCoverage(
 	return compacted
 }
 
-let pendingEnd = function pendingEnd(pending: PendingCommit): bigint {
-	return pending.ranges[pending.ranges.length - 1]?.end ?? 0n
-}
-
 // Resolve pending commits already covered by a committed high-water mark; return the
 // waiterIds to resolve. Used by both the commit-ack path and the reconnect reconcile.
 let drainCommits = function drainCommits(entry: PartitionEntry, committedOffset: bigint): number[] {
 	let resolved: number[] = []
 	let kept: PendingCommit[] = []
 	for (let pending of entry.pendingCommits) {
-		if (pendingEnd(pending) <= committedOffset) {
+		if (pending.targetOffset <= committedOffset) {
 			resolved.push(pending.waiterId)
 		} else {
 			kept.push(pending)
@@ -501,9 +498,9 @@ let drainCommits = function drainCommits(entry: PartitionEntry, committedOffset:
 	return resolved
 }
 
-// Re-grant reconcile: narrow every pending's ranges to server truth, resolve the
-// fully-covered ones, and rebuild the claimed coverage from what is left — the
-// resend must replay exactly these remainders.
+// Re-grant reconcile: narrow every pending's wire ranges to server truth, resolve by
+// target watermark, and rebuild the claimed coverage from what is left. Empty wire
+// ranges remain pending when another in-flight commit owns their coverage.
 let narrowPendings = function narrowPendings(
 	entry: PartitionEntry,
 	committedOffset: bigint,
@@ -512,17 +509,12 @@ let narrowPendings = function narrowPendings(
 	for (let waiterId of drainCommits(entry, committedOffset)) {
 		runtime.emit({ type: 'reader.commit.resolved', waiterId })
 	}
-	let kept: PendingCommit[] = []
 	for (let pending of entry.pendingCommits) {
-		pending.ranges = compactCoverage(pending.ranges, committedOffset)
-		if (pending.ranges.length === 0) {
-			runtime.emit({ type: 'reader.commit.resolved', waiterId: pending.waiterId })
-		} else {
-			kept.push(pending)
-		}
+		pending.wireRanges = compactCoverage(pending.wireRanges, committedOffset)
 	}
-	entry.pendingCommits = kept
-	entry.claimedRanges = mergeRanges(entry.pendingCommits.flatMap((pending) => pending.ranges))
+	entry.claimedRanges = mergeRanges(
+		entry.pendingCommits.flatMap((pending) => pending.wireRanges)
+	)
 }
 
 // Advance the server-confirmed committed watermark; emits partition.committed (the
@@ -862,7 +854,9 @@ let ackPartitionStart = function ackPartitionStart(
 	// from before the reconnect and commits issued during the hook window alike) —
 	// each pending replays its exact remaining ranges, never a gap-covering span.
 	for (let pending of entry.pendingCommits) {
-		effects.push(commitEffect(entry.partitionSessionId, pending.ranges))
+		if (pending.wireRanges.length > 0) {
+			effects.push(commitEffect(entry.partitionSessionId, pending.wireRanges))
+		}
 	}
 	return effects
 }
@@ -1040,18 +1034,21 @@ let recordCommit = function recordCommit(
 		return []
 	}
 
-	// Clamp to server truth and subtract already-claimed coverage: a duplicate or
-	// overlapping range on the wire is session-fatal, and a fully-covered commit is
-	// simply already done.
-	let ranges = subtractCovered(
-		mergeRanges(event.ranges),
-		entry.claimedRanges,
-		entry.partitionCommittedOffset
-	)
-	if (ranges.length === 0) {
+	let requestedRanges = mergeRanges(event.ranges)
+	let targetOffset = requestedRanges.at(-1)?.end ?? entry.partitionCommittedOffset
+	if (targetOffset <= entry.partitionCommittedOffset) {
 		runtime.emit({ type: 'reader.commit.resolved', waiterId: event.waiterId })
 		return []
 	}
+
+	// Clamp to server truth and subtract already-claimed coverage: a duplicate or
+	// overlapping range on the wire is session-fatal. A fully claimed commit still
+	// remains pending until the server confirms its target watermark.
+	let wireRanges = subtractCovered(
+		requestedRanges,
+		entry.claimedRanges,
+		entry.partitionCommittedOffset
+	)
 
 	// A commit can lose the race with the partition stop: the facade dispatches while
 	// the session is still live, but a commit_response or stop request queued ahead of
@@ -1070,8 +1067,8 @@ let recordCommit = function recordCommit(
 		return []
 	}
 
-	entry.pendingCommits.push({ ranges, waiterId: event.waiterId })
-	entry.claimedRanges = mergeRanges([...entry.claimedRanges, ...ranges])
+	entry.pendingCommits.push({ targetOffset, wireRanges, waiterId: event.waiterId })
+	entry.claimedRanges = mergeRanges([...entry.claimedRanges, ...wireRanges])
 
 	// Send only in `ready` and only over a session granted by the CURRENT stream:
 	// toReady clears sessionIndex and only start_partition repopulates it, so a commit
@@ -1090,8 +1087,8 @@ let recordCommit = function recordCommit(
 		ctx.sessionIndex.get(entry.partitionSessionId) === event.partitionKey
 	let committable =
 		entry.state === 'active' || entry.state === 'stopping-graceful' || entry.state === 'ended'
-	if (sessionLive && committable && !entry.ackPending) {
-		return [commitEffect(entry.partitionSessionId, ranges)]
+	if (sessionLive && committable && !entry.ackPending && wireRanges.length > 0) {
+		return [commitEffect(entry.partitionSessionId, wireRanges)]
 	}
 	return []
 }

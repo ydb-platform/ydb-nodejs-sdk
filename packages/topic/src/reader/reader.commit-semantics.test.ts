@@ -75,7 +75,151 @@ let primeStream = async function primeStream(
 	return stream
 }
 
-// ── stitched commit ranges vs delivered-but-unacked messages ───────────────────
+test('batches per-message commits from one turn behind one promise and one wire request', async (tc) => {
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
+
+	let stream = await primeStream(reader, waitForNextStream)
+	stream.respond(
+		startPartitionSession({ partitionSessionId: 1n, partitionId: 10n, committedOffset: 0n })
+	)
+	await stream.waitForStartResponse()
+
+	let count = 1000
+	let source = Array.from({ length: count }, (_, offset) => ({
+		offset: BigInt(offset),
+		seqNo: BigInt(offset + 1),
+		data: bytes(String(offset)),
+	}))
+	stream.respond(readResponse({ partitionSessionId: 1n, messages: source }))
+	let messages = await collect(reader, count, tc.signal)
+
+	let promises: Promise<void>[] = []
+	for (let message of messages) {
+		promises.push(reader.commit(message))
+	}
+
+	// Promise identity is the allocation contract: all synchronous calls join the
+	// same microtask batch instead of allocating one public promise per message.
+	expect(new Set(promises).size).toBe(1)
+
+	let request = await stream.waitForCommit()
+	expect(request.commitOffsets).toHaveLength(1)
+	expect(request.commitOffsets[0]!.offsets).toMatchObject([{ start: 0n, end: BigInt(count) }])
+	await settle()
+	expect(commitRequests(stream)).toHaveLength(1)
+
+	stream.respond(
+		commitOffsetResponse([{ partitionSessionId: 1n, committedOffset: BigInt(count) }])
+	)
+	await expect(Promise.all(promises)).resolves.toHaveLength(count)
+})
+
+test('merges message and array commit inputs into the same microtask batch', async (tc) => {
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
+
+	let stream = await primeStream(reader, waitForNextStream)
+	stream.respond(
+		startPartitionSession({ partitionSessionId: 1n, partitionId: 10n, committedOffset: 0n })
+	)
+	await stream.waitForStartResponse()
+	stream.respond(
+		readResponse({
+			partitionSessionId: 1n,
+			messages: [
+				{ offset: 0n, seqNo: 1n, data: bytes('a') },
+				{ offset: 1n, seqNo: 2n, data: bytes('b') },
+				{ offset: 2n, seqNo: 3n, data: bytes('c') },
+			],
+		})
+	)
+	let messages = await collect(reader, 3, tc.signal)
+
+	let first = reader.commit(messages[0]!)
+	let rest = reader.commit(messages.slice(1))
+	expect(first).toBe(rest)
+
+	let request = await stream.waitForCommit()
+	expect(request.commitOffsets[0]!.offsets).toMatchObject([{ start: 0n, end: 3n }])
+	stream.respond(commitOffsetResponse([{ partitionSessionId: 1n, committedOffset: 3n }]))
+	await expect(first).resolves.toBeUndefined()
+})
+
+test('keeps separate microtask batches pending behind the same server watermark', async (tc) => {
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
+
+	let stream = await primeStream(reader, waitForNextStream)
+	stream.respond(
+		startPartitionSession({ partitionSessionId: 1n, partitionId: 10n, committedOffset: 5n })
+	)
+	await stream.waitForStartResponse()
+	stream.respond(
+		readResponse({
+			partitionSessionId: 1n,
+			messages: Array.from({ length: 7 }, (_, index) => ({
+				offset: BigInt(index + 5),
+				seqNo: BigInt(index + 1),
+				data: bytes(String(index)),
+			})),
+		})
+	)
+	let messages = await collect(reader, 7, tc.signal)
+
+	let first = reader.commit(messages.slice(0, 5))
+	let firstRequest = await stream.waitForCommit()
+	expect(firstRequest.commitOffsets[0]!.offsets).toMatchObject([{ start: 5n, end: 10n }])
+
+	let second = reader.commit(messages.slice(2))
+	expect(second).not.toBe(first)
+	await settle()
+	let requests = commitRequests(stream)
+	expect(requests).toHaveLength(2)
+	expect(requests[1]!.commitOffsets[0]!.offsets).toMatchObject([{ start: 10n, end: 12n }])
+
+	stream.respond(commitOffsetResponse([{ partitionSessionId: 1n, committedOffset: 12n }]))
+	await expect(Promise.all([first, second])).resolves.toEqual([undefined, undefined])
+})
+
+test('keeps a duplicate from a later microtask pending without sending it twice', async (tc) => {
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
+
+	let stream = await primeStream(reader, waitForNextStream)
+	stream.respond(
+		startPartitionSession({ partitionSessionId: 1n, partitionId: 10n, committedOffset: 0n })
+	)
+	await stream.waitForStartResponse()
+	stream.respond(
+		readResponse({
+			partitionSessionId: 1n,
+			messages: [{ offset: 0n, seqNo: 1n, data: bytes('a') }],
+		})
+	)
+	let [message] = await collect(reader, 1, tc.signal)
+
+	let first = reader.commit(message!)
+	await stream.waitForCommit()
+	let duplicate = reader.commit(message!)
+	let duplicateSettled = false
+	void duplicate.then(
+		() => {
+			duplicateSettled = true
+			return undefined
+		},
+		() => undefined
+	)
+	await settle()
+
+	expect(commitRequests(stream)).toHaveLength(1)
+	expect(duplicateSettled).toBe(false)
+
+	stream.respond(commitOffsetResponse([{ partitionSessionId: 1n, committedOffset: 1n }]))
+	await expect(Promise.all([first, duplicate])).resolves.toEqual([undefined, undefined])
+})
+
+// ── stitched commit ranges ──────────────────────────────────────────────────────
 
 // Each message acknowledges only its own stitched range: with all earlier offsets
 // delivered and no server-side hole, commit(msg4) covers exactly [4, 5). Gap-fill
