@@ -168,7 +168,6 @@ export type ReaderCtx = {
 
 	// byte flow-control
 	inFlightBytes: bigint
-	pendingReadRequestBytes: bigint
 
 	limits: ReaderLimits
 }
@@ -361,7 +360,6 @@ export let createReaderCtx = function createReaderCtx(
 		grantSeq: 0,
 
 		inFlightBytes: 0n,
-		pendingReadRequestBytes: 0n,
 
 		limits,
 	}
@@ -698,7 +696,11 @@ let startPartitionSession = function startPartitionSession(
 	let effects: ReaderEffect[] = [
 		// A stale graceful-stop fallback from the previous stream must not fire against
 		// the freshly granted session.
-		{ type: 'reader.effect.timer.clear', which: 'partition_graceful_timeout', partitionKey: key },
+		{
+			type: 'reader.effect.timer.clear',
+			which: 'partition_graceful_timeout',
+			partitionKey: key,
+		},
 	]
 
 	// COMMIT RECONCILE, half one: resolve pendings covered by committed_offset and
@@ -1094,28 +1096,15 @@ let recordCommit = function recordCommit(
 	return []
 }
 
-// Re-grant server read credit only once at least 1/5 of the buffer budget is
-// pending — batches the ReadRequests instead of sending one per consumed response.
-let CREDIT_REGRANT_DIVISOR = 5n
-
-// Consumer released `bytes`; replenish the server credit past a threshold.
+// Replenish exactly the server-accounted size of responses that have fully passed
+// through read(). This keeps the stream's credit window stable even when one response
+// exceeds the initial grant.
 let releaseBytes = function releaseBytes(ctx: ReaderCtx, bytes: bigint): ReaderEffect[] {
 	ctx.inFlightBytes -= bytes
 	if (ctx.inFlightBytes < 0n) {
 		ctx.inFlightBytes = 0n
 	}
-	ctx.pendingReadRequestBytes += bytes
-
-	// Ceil division so a budget smaller than the divisor still yields a non-zero
-	// threshold.
-	let threshold =
-		(ctx.limits.maxBufferBytes + CREDIT_REGRANT_DIVISOR - 1n) / CREDIT_REGRANT_DIVISOR
-	if (ctx.pendingReadRequestBytes >= threshold) {
-		let credit = ctx.pendingReadRequestBytes
-		ctx.pendingReadRequestBytes = 0n
-		return [readRequestEffect(credit)]
-	}
-	return []
+	return bytes > 0n ? [readRequestEffect(bytes)] : []
 }
 
 // ── Terminal / transitions ──────────────────────────────────────────────────────
@@ -1163,7 +1152,6 @@ let releaseState = function releaseState(ctx: ReaderCtx): void {
 	ctx.partitions.clear()
 	ctx.sessionIndex.clear()
 	ctx.inFlightBytes = 0n
-	ctx.pendingReadRequestBytes = 0n
 }
 
 // Enter `ready` on a successful init. Unlike the writer there is no seqNo recovery:
@@ -1182,7 +1170,6 @@ let toReady = function toReady(
 	// stream grants a fresh maxBufferBytes budget, so old pending credit is moot).
 	ctx.sessionIndex.clear()
 	ctx.inFlightBytes = 0n
-	ctx.pendingReadRequestBytes = 0n
 
 	runtime.emit({ type: 'reader.session', sessionId })
 
@@ -1273,11 +1260,7 @@ let hasPendingWork = function hasPendingWork(ctx: ReaderCtx): boolean {
 // A partition that was stopped (rebalanced away) and never came back: reject its
 // still-pending commits so the caller is not left hanging (at-least-once redelivery
 // covers correctness; the messages go to the partition's new owner).
-let gcPartition = function gcPartition(
-	ctx: ReaderCtx,
-	key: string,
-	runtime: ReaderRuntime
-): void {
+let gcPartition = function gcPartition(ctx: ReaderCtx, key: string, runtime: ReaderRuntime): void {
 	let entry = ctx.partitions.get(key)
 	if (!entry) {
 		return

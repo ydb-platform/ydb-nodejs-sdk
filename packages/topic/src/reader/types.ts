@@ -50,8 +50,8 @@ export type TopicReaderOptions = {
 	// Codecs available for decompression. Defaults to RAW/GZIP/ZSTD (defaultCodecMap).
 	codecMap?: CodecMap
 
-	// Cap on buffered (undelivered-to-consumer) bytes — server read credit is granted
-	// against it. Default 8MiB.
+	// Initial server read-credit window. The server may exceed it for an oversized
+	// message; consumed response bytes are granted back exactly. Default 8MiB.
 	maxBufferBytes?: bigint
 
 	// How often to refresh the auth token on the stream. Default 60s.
@@ -100,6 +100,8 @@ export type TopicReadOptions = {
 // mirroring `TopicWriter` — there is no separate interface. `TopicTxReader` stays an
 // interface because a tx reader is a distinct shape (no `commit()`).
 export interface TopicTxReader extends AsyncDisposable, Disposable {
+	// Server-accounted bytes retained until their responses pass through read().
+	readonly bufferedBytes: bigint
 	// Read messages from the topic stream within a transaction.
 	read(options?: TopicReadOptions): AsyncIterable<TopicMessage[]>
 	// Gracefully close the reader.

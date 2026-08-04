@@ -29,6 +29,7 @@ import {
 } from './reader-internals.js'
 import {
 	type ReaderScope,
+	publishBufferChanged,
 	publishClosed,
 	publishCommitted,
 	publishErrored,
@@ -128,6 +129,7 @@ export class TopicReader implements AsyncDisposable, Disposable {
 	#runtime: ReaderRuntime
 
 	#chunks = new AsyncQueue<Chunk>()
+	#bufferedBytes = 0n
 
 	// waiterId -> commit() promise; the FSM only carries the id, never the callback.
 	#waiters = new Map<number, PromiseWithResolvers<void>>()
@@ -137,10 +139,10 @@ export class TopicReader implements AsyncDisposable, Disposable {
 	// check. A WeakSet so retired sessions do not leak.
 	#ownedSessions = new WeakSet<TopicPartitionSession>()
 
-	// Messages pulled off the chunk queue but not yet yielded to the consumer (an
-	// aborted read() mid-accumulation) — the next read() delivers them first, so a
-	// cancelled call never silently discards dequeued messages.
-	#carry: TopicMessage[] = []
+	// ReadResponses pulled off the chunk queue but not yet fully yielded to the
+	// consumer. Keeping the response boundary preserves its flow-control credit until
+	// the last message from that response passes through the async iterable.
+	#carry: Chunk[] = []
 
 	// tx read offsets per stable partitionKey, recorded ONLY when a batch is yielded
 	// to the consumer — a tx must never bind offsets of messages the app never saw.
@@ -191,7 +193,12 @@ export class TopicReader implements AsyncDisposable, Disposable {
 			tx.onCommit(async () => {
 				// Bind the read offsets to the tx; on failure the commit (and thus the
 				// offsets) roll back, and the reader is torn down by onClose below.
-				await commitTxOffsets(tx, driver, options.consumer, txOffsetUpdates(this.#txReadOffsets))
+				await commitTxOffsets(
+					tx,
+					driver,
+					options.consumer,
+					txOffsetUpdates(this.#txReadOffsets)
+				)
 				// Release the partition once offsets are committed. A tx reader left open
 				// keeps the consumer's partition assigned server-side, so a later reader on
 				// the same consumer never gets a partition session — it hangs until its
@@ -209,6 +216,13 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 	}
 
+	// Server-accounted bytes retained by the reader and not yet fully delivered through
+	// read(). This can exceed maxBufferBytes when a single server response overdraws the
+	// credit window.
+	get bufferedBytes(): bigint {
+		return this.#bufferedBytes
+	}
+
 	read(options?: TopicReadOptions): AsyncIterable<TopicMessage[]> {
 		// Validate eagerly — an async generator would defer the throw to the first
 		// next(), and a zero/negative limit would otherwise spin an infinite
@@ -219,10 +233,7 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 		// `waitMs` is the deprecated alias for `batchWindowMs`.
 		let batchWindowMs = options?.batchWindowMs ?? options?.waitMs
-		if (
-			batchWindowMs !== undefined &&
-			(!Number.isFinite(batchWindowMs) || batchWindowMs < 0)
-		) {
+		if (batchWindowMs !== undefined && (!Number.isFinite(batchWindowMs) || batchWindowMs < 0)) {
 			throw new RangeError(
 				`batchWindowMs must be a non-negative finite number, got ${batchWindowMs}`
 			)
@@ -311,12 +322,9 @@ export class TopicReader implements AsyncDisposable, Disposable {
 				// `batchWindowMs`, block for one chunk. Starts from the carry-over of a
 				// previously aborted call — those messages were dequeued but never
 				// delivered.
-				let batch: TopicMessage[] = this.#takeCarry()
+				let chunks: Chunk[] = this.#takeCarry()
+				let batchLength = chunks.reduce((count, chunk) => count + chunk.messages.length, 0)
 				let closed = false
-				// How many of `batch` were actually handed to the consumer — anything
-				// past this on an abort/early-exit goes back to the carry, so no
-				// dequeued message is ever silently dropped.
-				let delivered = 0
 
 				try {
 					// The batch window is a cancellation source: link it with the user signal
@@ -333,8 +341,8 @@ export class TopicReader implements AsyncDisposable, Disposable {
 					// one more chunk with deliverable messages in hand would stall the
 					// consumer.
 					let wantMore = () =>
-						(batch.length === 0 || batchWindowMs !== undefined) &&
-						(limit === undefined || batch.length < limit)
+						(batchLength === 0 || batchWindowMs !== undefined) &&
+						(limit === undefined || batchLength < limit)
 					while (wantMore()) {
 						let result: IteratorResult<Chunk>
 						try {
@@ -356,53 +364,35 @@ export class TopicReader implements AsyncDisposable, Disposable {
 							closed = true
 							break
 						}
-						let chunk = result.value
-						// Release the response's credit the moment its chunk is consumed — it
-						// has already left the buffer, and nothing downstream (a break, a
-						// consumer throw, a signal abort mid-window) may strand it. dispatch()
-						// on a closed machine is a safe no-op.
-						this.#runtime.machine.dispatch({
-							type: 'reader.read_release',
-							bytes: chunk.releaseBytes,
-						})
-						// Skip messages of partitions force-stopped after buffering: the
-						// partition already belongs to another reader which re-reads them —
-						// delivering here means duplicate processing and commits that reject.
-						for (let message of chunk.messages) {
-							let session = message.partitionSession.deref()
-							if (session !== undefined && !session.isStopped) {
-								batch.push(message)
-							}
+						let chunk = this.#filterChunk(result.value)
+						if (chunk) {
+							chunks.push(chunk)
+							batchLength += chunk.messages.length
 						}
 						if (
-							(limit !== undefined && batch.length >= limit) ||
+							(limit !== undefined && batchLength >= limit) ||
 							batchWindowMs === undefined
 						) {
 							break
 						}
 					}
 
-					if (batch.length > 0) {
-						if (limit !== undefined && batch.length > limit) {
-							for (let i = 0; i < batch.length; i += limit) {
-								let slice = batch.slice(i, i + limit)
-								growTxOffsets(this.#txReadOffsets, slice)
-								delivered = i + slice.length
-								yield slice
+					if (batchLength > 0) {
+						while (batchLength > 0) {
+							let batch = this.#takeBatch(chunks, limit)
+							batchLength -= batch.messages.length
+							growTxOffsets(this.#txReadOffsets, batch.messages)
+							if (batch.releaseBytes > 0n) {
+								this.#releaseReadBytes(batch.releaseBytes)
 							}
-						} else {
-							growTxOffsets(this.#txReadOffsets, batch)
-							delivered = batch.length
-							yield batch
+							yield batch.messages
 						}
 					} else if (batchWindowMs !== undefined && !closed) {
 						// Idle-window tick: yield an empty batch so the consumer can act.
-						yield batch
+						yield []
 					}
 				} finally {
-					if (delivered < batch.length) {
-						this.#carry.push(...batch.slice(delivered))
-					}
+					this.#carry.push(...chunks)
 				}
 
 				if (closed) {
@@ -421,18 +411,64 @@ export class TopicReader implements AsyncDisposable, Disposable {
 		}
 	}
 
+	#releaseReadBytes(bytes: bigint): void {
+		this.#bufferedBytes -= bytes
+		if (this.#bufferedBytes < 0n) {
+			this.#bufferedBytes = 0n
+		}
+		publishBufferChanged(this.#scope, this.#bufferedBytes)
+		this.#runtime.machine.dispatch({ type: 'reader.read_release', bytes })
+	}
+
+	// Remove up to `limit` messages while retaining the response boundary. Credit for
+	// a response is returned only by the batch containing its final message.
+	#takeBatch(chunks: Chunk[], limit: number | undefined): Chunk {
+		let messages: TopicMessage[] = []
+		let releaseBytes = 0n
+		let remaining = limit ?? Infinity
+		while (chunks.length > 0 && remaining > 0) {
+			let chunk = chunks[0]!
+			let count = Math.min(chunk.messages.length, remaining)
+			messages.push(...chunk.messages.splice(0, count))
+			remaining -= count
+			if (chunk.messages.length === 0) {
+				releaseBytes += chunk.releaseBytes
+				chunks.shift()
+			}
+		}
+		return { messages, releaseBytes }
+	}
+
+	// A force-stopped partition is re-read by its new owner. If filtering consumes the
+	// whole response, there is no user-visible message to gate its credit on.
+	#filterChunk(chunk: Chunk): Chunk | undefined {
+		let messages = chunk.messages.filter((message) => {
+			let session = message.partitionSession.deref()
+			return session !== undefined && !session.isStopped
+		})
+		if (messages.length === 0) {
+			this.#releaseReadBytes(chunk.releaseBytes)
+			return undefined
+		}
+		return { messages, releaseBytes: chunk.releaseBytes }
+	}
+
 	// Drain the carry-over, re-applying the stopped-session filter — a partition may
 	// have been lost between the aborted call and this one.
-	#takeCarry(): TopicMessage[] {
+	#takeCarry(): Chunk[] {
 		if (this.#carry.length === 0) {
 			return []
 		}
 		let carried = this.#carry
 		this.#carry = []
-		return carried.filter((message) => {
-			let session = message.partitionSession.deref()
-			return session !== undefined && !session.isStopped
-		})
+		let chunks: Chunk[] = []
+		for (let chunk of carried) {
+			let filtered = this.#filterChunk(chunk)
+			if (filtered) {
+				chunks.push(filtered)
+			}
+		}
+		return chunks
 	}
 
 	async #commitOffsets(input: TopicMessage | TopicMessage[]): Promise<void> {
@@ -523,6 +559,8 @@ export class TopicReader implements AsyncDisposable, Disposable {
 								messages.push(toTopicMessage(this.#codecs, group.session, message))
 							}
 						}
+						this.#bufferedBytes += output.releaseBytes
+						publishBufferChanged(this.#scope, this.#bufferedBytes)
 						this.#chunks.push({ messages, releaseBytes: output.releaseBytes })
 					} catch (error) {
 						// An undecodable message (corrupt payload / unsupported codec)

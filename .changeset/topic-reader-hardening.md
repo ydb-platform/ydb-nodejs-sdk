@@ -11,6 +11,7 @@ Harden the topic reader's commit semantics and multi-topic support, extend the r
 - Soft partition stop honors the documented contract: `onPartitionSessionStop` is awaited before the stop response is sent and the partition keeps accepting reads and commits meanwhile — a real "last chance to commit".
 - Transactional readers bind offsets at `read()` delivery (never covering buffered messages the consumer did not see), cover head gaps from the committed offset, keep tracked offsets when closed before the transaction commits, and route `UpdateOffsetsInTransaction` to the transaction session's node.
 - `read()` validates `limit` and `batchWindowMs`; a read aborted mid-accumulation redelivers the accumulated messages on the next `read()` instead of dropping them.
+- Read flow-control credit is returned only after every message from a server response has passed through the async iterable. `reader.bufferedBytes` and `ydb:topic.reader.buffer.changed` expose the server-accounted bytes still retained by the reader.
 - New reader option `autoPartitioningSupport` declares autopartitioning support to the server; ended partition sessions expose `childPartitionIds` / `adjacentPartitionIds`.
 - The writer validates its configured codec against the server's `supportedCodecs` at init — fail-fast with an actionable error instead of a terminal server error after buffering — and rejects an empty `producer` id (silent no-dedup mode).
 - `readFrom: 0` (the epoch) and `maxLag: 0` reach the InitRequest instead of being silently dropped.

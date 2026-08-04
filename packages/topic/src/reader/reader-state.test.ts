@@ -705,10 +705,7 @@ test('replays each pending commit with its exact remaining ranges on resend', ()
 	// One send per pending, ranges verbatim — a gap-covering [5,9) span would commit
 	// the delivered-but-unacked offsets 6 and 7 behind the app's back.
 	let cs = commitSends(h.effects)
-	expect(cs.map((e) => e.ranges)).toEqual([
-		[{ start: 5n, end: 6n }],
-		[{ start: 8n, end: 9n }],
-	])
+	expect(cs.map((e) => e.ranges)).toEqual([[{ start: 5n, end: 6n }], [{ start: 8n, end: 9n }]])
 })
 
 test('sends a commit under the new session id after a within-stream regrant', () => {
@@ -1233,22 +1230,26 @@ test('ignores a late per-partition graceful timeout after the reader closed', ()
 
 // ── flow-control ────────────────────────────────────────────────────────────────
 
-test('replenishes read credit once released bytes cross the threshold', () => {
-	let h = mk(1000n) // threshold ~200
+test('replenishes exactly the released read credit without delay', () => {
+	let h = mk(1000n)
 	toReadyWithPartition(h)
 	message(h, readMsg(1n, 300n, [5n]))
 	h.effects = []
 	step(h, { type: 'reader.read_release', bytes: 150n })
-	expect(h.effects).toHaveLength(0) // below threshold
-	step(h, { type: 'reader.read_release', bytes: 100n })
-	let send = h.effects.find(
+	let first = h.effects.find(
 		(e): e is Extract<ReaderEffect, { type: 'reader.effect.send.read_request' }> =>
 			e.type === 'reader.effect.send.read_request'
 	)
-	expect(send).toBeDefined()
-	expect(send!.bytesSize).toBe(250n)
+	expect(first?.bytesSize).toBe(150n)
+	expect(h.ctx.inFlightBytes).toBe(150n)
+	h.effects = []
+	step(h, { type: 'reader.read_release', bytes: 100n })
+	let second = h.effects.find(
+		(e): e is Extract<ReaderEffect, { type: 'reader.effect.send.read_request' }> =>
+			e.type === 'reader.effect.send.read_request'
+	)
+	expect(second?.bytesSize).toBe(100n)
 	expect(h.ctx.inFlightBytes).toBe(50n)
-	expect(h.ctx.pendingReadRequestBytes).toBe(0n)
 })
 
 test('resets flow-control on reconnect init', () => {
@@ -1406,10 +1407,7 @@ test('does not double-send a commit issued between start_partition and start_rea
 	// one send per pending with its own ranges.
 	ackStart(h, 7n, 10n)
 	let cs = commitSends(h.effects)
-	expect(cs.map((e) => e.ranges)).toEqual([
-		[{ start: 5n, end: 8n }],
-		[{ start: 8n, end: 10n }],
-	])
+	expect(cs.map((e) => e.ranges)).toEqual([[{ start: 5n, end: 8n }], [{ start: 8n, end: 10n }]])
 })
 
 test('keeps the reassign gc armed from reconnect until the start_ready ack clears it', () => {

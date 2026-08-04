@@ -129,6 +129,7 @@ test('redelivers messages dequeued by an aborted read()', async (tc) => {
 		})
 	)
 	await settle()
+	expect(reader.bufferedBytes).toBe(500n)
 
 	// Long window, no limit: both chunks are dequeued into the pending batch, then
 	// read() blocks waiting for more. Abort during that wait.
@@ -147,6 +148,8 @@ test('redelivers messages dequeued by an aborted read()', async (tc) => {
 	ac.abort(new Error('consumer aborted'))
 	await consume
 	expect(String(thrown)).toContain('consumer aborted')
+	expect(readRequests(stream.sent)).toEqual([1000n])
+	expect(reader.bufferedBytes).toBe(500n)
 
 	// Nothing was yielded, so nothing may be lost: a fresh read() delivers 0..4.
 	// Bounded by idle windows so a redelivery failure cannot hang the suite.
@@ -168,6 +171,10 @@ test('redelivers messages dequeued by an aborted read()', async (tc) => {
 		}
 	}
 	expect(redelivered).toEqual([0n, 1n, 2n, 3n, 4n])
+	// Both response boundaries completed in the yielded batch, so their exact combined
+	// server-accounted size is returned only now.
+	expect(readRequests(stream.sent)).toEqual([1000n, 500n])
+	expect(reader.bufferedBytes).toBe(0n)
 })
 
 test('accepts an oversized response and replenishes the full server-reported bytes', async (tc) => {

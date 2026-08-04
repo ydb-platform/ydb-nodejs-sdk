@@ -90,7 +90,7 @@ await using writer = createTopicWriter(driver, {
 - `topic`: `string | TopicReaderSource | TopicReaderSource[]` — topic path or detailed sources
 - `consumer`: `string` — consumer name
 - `codecMap?`: `Map<Codec | number, CompressionCodec>` — custom codecs for decompression (built‑in ZSTD needs Node.js 22.15+ / 23.8+; register your own for runtimes without zlib zstd)
-- `maxBufferBytes?`: `bigint` — internal buffer cap (default 8 MiB)
+- `maxBufferBytes?`: `bigint` — initial server read-credit window (default 8 MiB); an oversized message may exceed it
 - `updateTokenIntervalMs?`: `number` — auth token refresh interval (default 60000)
 - `gracefulShutdownTimeoutMs?`: `number` — force-close deadline for graceful `close()` before pending commits are dropped (default 30000)
 - `recoveryWindowMs?`: `number` — terminal reconnect window; unbounded by default (reconnect forever, waiting for the server/topic), pass a finite ms value to bound it
@@ -99,6 +99,8 @@ await using writer = createTopicWriter(driver, {
 - `onPartitionSessionStart?`: hook to adjust read/commit offsets per session
 - `onPartitionSessionStop?`: on a graceful stop runs while the session is still committable and is awaited before the stop response — the last chance to commit processed offsets; on a forced stop or end-of-partition it is informational
 - `onCommittedOffset?`: observe every server-confirmed commit advance (commit acks, stop watermarks, offset overrides)
+
+`reader.bufferedBytes` exposes the server-accounted bytes currently retained by the reader and not yet fully delivered through `read()`.
 
 TopicReaderSource supports partition filters and time‑based selectors:
 

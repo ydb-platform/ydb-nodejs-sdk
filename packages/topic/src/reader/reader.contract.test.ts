@@ -465,15 +465,44 @@ test('replenishes read credit once the consumer drains a batch', async () => {
 
 	let iterator = reader.read({ batchWindowMs: 5 })[Symbol.asyncIterator]()
 	await iterator.next() // take the batch
-	// Resume past the yield so the read-release dispatches. This next() may reject with
-	// the terminal error once the reader is destroyed at teardown — swallow it (it is not
-	// the assertion under test, and an un-awaited rejection would fail the run).
-	iterator.next().catch(() => {})
 	await settle()
 
 	let reads = stream.sent.filter((m) => m.clientMessage.case === 'readRequest')
 	expect(reads.length).toBeGreaterThanOrEqual(2)
 	expect(reads.at(-1)!.clientMessage.value.bytesSize).toBe(100n)
+})
+
+test('reports buffered bytes and publishes every change', async (tc) => {
+	using changes = capture<{ bufferedBytes: bigint; consumer: string; topics: string[] }>(
+		'ydb:topic.reader.buffer.changed'
+	)
+	let { driver, waitForNextStream } = makeFakeTopicDriver()
+	using reader = createTopicReader(driver, { topic: '/t', consumer: 'c' })
+	let stream = await primeStream(reader, waitForNextStream)
+	stream.respond(startPartitionSession({ partitionSessionId: 1n, partitionId: 10n }))
+	await stream.waitForStartResponse()
+	stream.respond(
+		readResponse({
+			partitionSessionId: 1n,
+			bytesSize: 300n,
+			messages: [{ offset: 0n, seqNo: 1n, data: bytes('x') }],
+		})
+	)
+	await settle()
+	expect(reader.bufferedBytes).toBe(300n)
+	expect(changes.payloads.at(-1)).toMatchObject({
+		bufferedBytes: 300n,
+		consumer: 'c',
+		topics: ['/t'],
+	})
+
+	for await (let batch of reader.read({ limit: 1, signal: tc.signal })) {
+		expect(batch).toHaveLength(1)
+		break
+	}
+	await settle()
+	expect(reader.bufferedBytes).toBe(0n)
+	expect(changes.payloads.at(-1)?.bufferedBytes).toBe(0n)
 })
 
 test('publishes session-started, partition-started, and committed diagnostics', async (tc) => {
@@ -1371,7 +1400,7 @@ test('answers a re-granted partition exactly once when the previous stream hook 
 
 // ── flow control (release-before-yield) ────────────────────────────────────────
 
-test('releases a chunk exactly once when limit splits it into several yields', async (tc) => {
+test('releases a response only after its final limit slice is yielded', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, {
 		topic: '/t',
@@ -1394,20 +1423,26 @@ test('releases a chunk exactly once when limit splits it into several yields', a
 		})
 	)
 
-	// One chunk of 4 messages, limit 2 → two slices. Break after the FIRST slice: the
-	// credit must have been released once (before the first yield) — never per slice,
-	// and never leaked by the break. (review M5 / READER-8)
+	// One response of 4 messages is split into two iterable values. Receiving the first
+	// half does not release the response because its remaining messages stay carried.
 	for await (let batch of reader.read({ limit: 2, signal: tc.signal })) {
 		expect(batch.length).toBe(2)
 		break
 	}
 	await settle()
+	expect(readRequests(stream.sent)).toEqual([1000n])
 
-	// initial full-buffer credit + exactly one 500n replenishment
+	// The second read completes the original response, so its server-accounted size is
+	// replenished exactly once.
+	for await (let batch of reader.read({ limit: 2, signal: tc.signal })) {
+		expect(batch.length).toBe(2)
+		break
+	}
+	await settle()
 	expect(readRequests(stream.sent)).toEqual([1000n, 500n])
 })
 
-test('releases consumed chunks when the signal aborts mid batch window', async () => {
+test('does not release a response when the signal aborts before yield', async () => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	await using reader = createTopicReader(driver, {
 		topic: '/t',
@@ -1426,9 +1461,8 @@ test('releases consumed chunks when the signal aborts mid batch window', async (
 	)
 	await settle()
 
-	// Long window with limit unset: the chunk is consumed immediately, then read()
-	// keeps waiting for more chunks. Abort during that wait — the abort throws out of
-	// the accumulation, which must not strand the consumed chunk's credit. (M5 edge)
+	// Long window with limit unset: the response leaves the transport queue, but the
+	// iterable has not yielded it yet when the signal aborts.
 	let ac = new AbortController()
 	let thrown: unknown
 	let consume = (async () => {
@@ -1447,7 +1481,15 @@ test('releases consumed chunks when the signal aborts mid batch window', async (
 	expect(String(thrown)).toContain('consumer aborted')
 	await settle()
 
-	// The consumed 400n chunk left the buffer — its credit must be returned.
+	// No iterable value was received, so no read credit is returned yet.
+	expect(readRequests(stream.sent)).toEqual([1000n])
+
+	// A later read receives the carried response and releases its credit then.
+	for await (let batch of reader.read({ limit: 1 })) {
+		expect(batch.map((message) => message.offset)).toEqual([0n])
+		break
+	}
+	await settle()
 	expect(readRequests(stream.sent)).toEqual([1000n, 400n])
 })
 

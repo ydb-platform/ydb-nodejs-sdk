@@ -481,7 +481,9 @@ let applyReaderEffect = function applyReaderEffect(sim: Sim, effect: ReaderEffec
 			)
 			if (!part) break
 			if (!part.stopping) {
-				throw new Error(`unsolicited stop_response for session ${effect.partitionSessionId}`)
+				throw new Error(
+					`unsolicited stop_response for session ${effect.partitionSessionId}`
+				)
 			}
 			// D3: a graceful stop is answered only after BOTH the stop hook completed
 			// (stop_ready) and the pending commits drained — or the per-partition
@@ -820,10 +822,8 @@ let checkInvariants = function checkInvariants(sim: Sim, where: string): void {
 		}
 	}
 
-	if (ctx.inFlightBytes < 0n || ctx.pendingReadRequestBytes < 0n) {
-		throw new Error(
-			`${where}: negative flow-control inFlight=${ctx.inFlightBytes} pending=${ctx.pendingReadRequestBytes}`
-		)
+	if (ctx.inFlightBytes < 0n) {
+		throw new Error(`${where}: negative flow-control inFlight=${ctx.inFlightBytes}`)
 	}
 
 	// sessionIndex is consistent: every entry points to a partition whose current

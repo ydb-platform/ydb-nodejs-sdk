@@ -26,6 +26,7 @@ export type ReaderConfig = {
 }
 
 let openedCh = dc('ydb:topic.reader.opened')
+let bufferChangedCh = dc('ydb:topic.reader.buffer.changed')
 let sessionStartedCh = dc('ydb:topic.reader.session.started')
 let partitionStartedCh = dc('ydb:topic.reader.partition.started')
 let partitionStoppedCh = dc('ydb:topic.reader.partition.stopped')
@@ -43,6 +44,15 @@ let commitCh = tracingChannel<ReaderScope>('tracing:ydb:topic.reader.commit')
 export let publishOpened = function publishOpened(scope: ReaderScope, config: ReaderConfig): void {
 	if (openedCh.hasSubscribers) {
 		openedCh.publish({ ...scope, config })
+	}
+}
+
+export let publishBufferChanged = function publishBufferChanged(
+	scope: ReaderScope,
+	bufferedBytes: bigint
+): void {
+	if (bufferChangedCh.hasSubscribers) {
+		bufferChangedCh.publish({ ...scope, bufferedBytes })
 	}
 }
 
