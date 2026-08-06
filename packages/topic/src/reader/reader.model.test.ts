@@ -838,7 +838,10 @@ let checkInvariants = function checkInvariants(sim: Sim, where: string): void {
 	}
 
 	for (let [key, entry] of ctx.partitions) {
-		if (entry.deliveredWatermark < entry.partitionCommittedOffset) {
+		if (entry.commitRangeFloor < entry.partitionCommittedOffset) {
+			throw new Error(`${where}: commit range floor below committed on ${key}`)
+		}
+		if (entry.deliveredWatermark < entry.commitRangeFloor) {
 			throw new Error(`${where}: delivery watermark below committed on ${key}`)
 		}
 		// Wire ranges are normalized and pairwise disjoint. A fully claimed duplicate
@@ -855,8 +858,9 @@ let checkInvariants = function checkInvariants(sim: Sim, where: string): void {
 		if (rangesLength(union) !== rangesLength(all)) {
 			throw new Error(`${where}: overlapping pending commits on ${key}`)
 		}
-		// Claimed coverage is exactly the pending remainders above the watermark —
-		// the guard recordCommit subtracts to never re-send a claimed offset.
+		// Claimed coverage retains pending remainders above confirmed server truth.
+		// An optimistic floor only filters sends for its grant; the stored coverage is
+		// needed if a later grant does not repeat that override.
 		let expected = clampRanges(union, entry.partitionCommittedOffset)
 		if (!sameRanges(entry.claimedRanges, expected)) {
 			throw new Error(`${where}: claimedRanges drifted from pending coverage on ${key}`)

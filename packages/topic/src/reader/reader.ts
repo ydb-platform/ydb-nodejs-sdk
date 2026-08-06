@@ -650,8 +650,8 @@ export class TopicReader implements AsyncDisposable, Disposable {
 				}
 
 				case 'reader.partition.committed': {
-					// Every server-confirmed advance reports here — commit acks, the
-					// watermark carried by a stop request, and commitOffset overrides alike;
+					// Every server-confirmed advance reports here — commit acks and the
+					// watermark carried by a stop request;
 					// also for ended/stopped partitions (a consumer tracking offsets
 					// externally needs the final ack).
 					if (this.#options.onCommittedOffset) {
