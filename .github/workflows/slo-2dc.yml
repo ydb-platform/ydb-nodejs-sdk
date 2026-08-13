@@ -134,7 +134,7 @@ jobs:
           github_issue: ${{ github.event.pull_request.number }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workload_name: ${{ matrix.sdk.name }}-2dc
-          workload_duration: "1200"
+          workload_duration: "900"
           fail_on_workload_error: "true"
           workload_current_ref: ${{ github.head_ref || github.ref_name }}
           workload_current_image: ydb-app-current
