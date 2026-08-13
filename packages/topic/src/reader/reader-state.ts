@@ -79,11 +79,6 @@ export type PartitionEntry = {
 
 	// offset tracking
 	partitionOffsets: OffsetRange
-	// Highest offset the current grant must not commit below. Starts from the
-	// server-confirmed watermark and may move ahead when the start hook supplies a
-	// commitOffset override. The override is only a request until the server reports
-	// it back, so this floor must never resolve commit waiters or notify observers.
-	commitRangeFloor: bigint
 	partitionCommittedOffset: bigint
 	// Delivery watermark: end of the last delivered message's stitched commit range.
 	// Reset to committed_offset on every grant (redelivery restarts there). Each
@@ -522,27 +517,9 @@ let narrowPendings = function narrowPendings(
 	)
 }
 
-// Apply an optimistic commitOffset override to the current grant. It changes which
-// ranges are safe to send and where delivery stitching begins, but deliberately
-// leaves stored ranges, the confirmed watermark, and pending waiters untouched. A
-// later grant may omit the override and must be able to resend from server truth.
-let applyCommitRangeFloor = function applyCommitRangeFloor(
-	entry: PartitionEntry,
-	commitOffset: bigint
-): void {
-	let floor =
-		commitOffset > entry.partitionCommittedOffset
-			? commitOffset
-			: entry.partitionCommittedOffset
-	entry.commitRangeFloor = floor
-	if (entry.deliveredWatermark < floor) {
-		entry.deliveredWatermark = floor
-	}
-}
-
-// Advance the server-confirmed committed watermark; emits partition.committed so
-// onCommittedOffset sees only durable evidence from commit acks and stop watermarks.
-// Returns true when it advanced.
+// Advance the server-confirmed committed watermark; emits partition.committed (the
+// onCommittedOffset observer must see every advance — commit acks, stop_partition
+// watermarks, and commitOffset overrides alike). Returns true when it advanced.
 let advanceCommitted = function advanceCommitted(
 	entry: PartitionEntry,
 	committedOffset: bigint,
@@ -553,9 +530,6 @@ let advanceCommitted = function advanceCommitted(
 	}
 	entry.partitionCommittedOffset = committedOffset
 	entry.session.partitionCommittedOffset = committedOffset
-	if (entry.commitRangeFloor < committedOffset) {
-		entry.commitRangeFloor = committedOffset
-	}
 	entry.claimedRanges = compactCoverage(entry.claimedRanges, committedOffset)
 	if (entry.deliveredWatermark < committedOffset) {
 		entry.deliveredWatermark = committedOffset
@@ -666,7 +640,6 @@ let upsertPartitionEntry = function upsertPartitionEntry(
 			ackPending: true,
 
 			partitionOffsets,
-			commitRangeFloor: committedOffset,
 			partitionCommittedOffset: committedOffset,
 			deliveredWatermark: committedOffset,
 			claimedRanges: [],
@@ -688,9 +661,6 @@ let upsertPartitionEntry = function upsertPartitionEntry(
 		if (entry.partitionCommittedOffset < committedOffset) {
 			entry.partitionCommittedOffset = committedOffset
 		}
-		// An override belongs to one grant. On re-grant, restart from server truth;
-		// the new hook may explicitly request the optimistic floor again.
-		entry.commitRangeFloor = entry.partitionCommittedOffset
 		// Redelivery restarts at the committed offset — stitch from there again.
 		entry.deliveredWatermark = entry.partitionCommittedOffset
 		entry.state = 'active'
@@ -844,7 +814,8 @@ let stopPartitionSession = function stopPartitionSession(
 // exactly once (recordCommit buffers while ackPending).
 let ackPartitionStart = function ackPartitionStart(
 	ctx: ReaderCtx,
-	event: Extract<ReaderEvent, { type: 'reader.partition.start_ready' }>
+	event: Extract<ReaderEvent, { type: 'reader.partition.start_ready' }>,
+	runtime: ReaderRuntime
 ): ReaderEffect[] {
 	let entry = ctx.partitions.get(event.partitionKey)
 	if (!entry || entry.grantId !== event.grantId || !entry.ackPending) {
@@ -858,11 +829,12 @@ let ackPartitionStart = function ackPartitionStart(
 	}
 	entry.ackPending = false
 
-	// The override is an optimistic wire floor, not a server acknowledgement.
-	// Re-sending below it is session-fatal, but pending commits stay unresolved until
-	// a commit response, stop watermark, or later grant confirms their target.
+	// A commitOffset override moves the server's committed mark: reconcile pending
+	// commits against it exactly like startPartitionSession does with the server's
+	// committed offset. Re-sending a range below the override is session-fatal.
 	if (event.commitOffset !== undefined) {
-		applyCommitRangeFloor(entry, event.commitOffset)
+		advanceCommitted(entry, event.commitOffset, runtime)
+		narrowPendings(entry, entry.partitionCommittedOffset, runtime)
 	}
 
 	let effects: ReaderEffect[] = [
@@ -880,13 +852,10 @@ let ackPartitionStart = function ackPartitionStart(
 	]
 	// The single send of everything buffered for this partition (reconciled pendings
 	// from before the reconnect and commits issued during the hook window alike) —
-	// each pending replays its exact remaining ranges above this grant's optimistic
-	// floor, never a gap-covering span. Stored ranges stay intact for a later grant
-	// that does not repeat the override.
+	// each pending replays its exact remaining ranges, never a gap-covering span.
 	for (let pending of entry.pendingCommits) {
-		let sendRanges = compactCoverage(pending.wireRanges, entry.commitRangeFloor)
-		if (sendRanges.length > 0) {
-			effects.push(commitEffect(entry.partitionSessionId, sendRanges))
+		if (pending.wireRanges.length > 0) {
+			effects.push(commitEffect(entry.partitionSessionId, pending.wireRanges))
 		}
 	}
 	return effects
@@ -1072,9 +1041,9 @@ let recordCommit = function recordCommit(
 		return []
 	}
 
-	// Keep all ranges above server truth so a later grant can resend them if the
-	// current grant's optimistic floor is not repeated. Claimed coverage gives each
-	// offset one owner; a duplicate or overlap on the wire is session-fatal.
+	// Clamp to server truth and subtract already-claimed coverage: a duplicate or
+	// overlapping range on the wire is session-fatal. A fully claimed commit still
+	// remains pending until the server confirms its target watermark.
 	let wireRanges = subtractCovered(
 		requestedRanges,
 		entry.claimedRanges,
@@ -1118,9 +1087,8 @@ let recordCommit = function recordCommit(
 		ctx.sessionIndex.get(entry.partitionSessionId) === event.partitionKey
 	let committable =
 		entry.state === 'active' || entry.state === 'stopping-graceful' || entry.state === 'ended'
-	let sendRanges = compactCoverage(wireRanges, entry.commitRangeFloor)
-	if (sessionLive && committable && !entry.ackPending && sendRanges.length > 0) {
-		return [commitEffect(entry.partitionSessionId, sendRanges)]
+	if (sessionLive && committable && !entry.ackPending && wireRanges.length > 0) {
+		return [commitEffect(entry.partitionSessionId, wireRanges)]
 	}
 	return []
 }
@@ -1446,7 +1414,7 @@ export let readerTransition = function readerTransition(
 					return { effects: recordCommit(ctx, event, runtime) }
 
 				case 'reader.partition.start_ready': {
-					let effects = ackPartitionStart(ctx, event)
+					let effects = ackPartitionStart(ctx, event, runtime)
 					return { effects }
 				}
 
@@ -1505,7 +1473,7 @@ export let readerTransition = function readerTransition(
 				// start_partition is honored during the closing drain, so its async hook
 				// completion must be answered here too.
 				case 'reader.partition.start_ready': {
-					let effects = ackPartitionStart(ctx, event)
+					let effects = ackPartitionStart(ctx, event, runtime)
 					return { effects }
 				}
 

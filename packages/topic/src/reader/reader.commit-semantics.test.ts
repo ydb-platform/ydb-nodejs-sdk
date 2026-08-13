@@ -468,7 +468,7 @@ test('rejects a foreign-reader commit whose partition is not granted locally', a
 
 // ── onCommittedOffset observer ─────────────────────────────────────────────────
 
-test('does not report a start-session commitOffset override before a server ack', async () => {
+test('reports a start-session commitOffset after sending the start response', async () => {
 	let acks: bigint[] = []
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	using reader = createTopicReader(driver, {
@@ -486,12 +486,6 @@ test('does not report a start-session commitOffset override before a server ack'
 	)
 	let response = await stream.waitForStartResponse()
 	expect(response.commitOffset).toBe(10n)
-	await settle()
-	expect(acks).toEqual([])
-
-	// This is the response requested in LOGBROKER-10587. Once the server emits it,
-	// the ordinary confirmed-watermark path reports the override exactly once.
-	stream.respond(commitOffsetResponse([{ partitionSessionId: 1n, committedOffset: 10n }]))
 	await settle()
 	expect(acks).toEqual([10n])
 })

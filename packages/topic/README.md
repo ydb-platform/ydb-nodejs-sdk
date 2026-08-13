@@ -98,7 +98,7 @@ await using writer = createTopicWriter(driver, {
 - `autoPartitioningSupport?`: `boolean` — declare autopartitioning support to the server; ended partitions expose `childPartitionIds`/`adjacentPartitionIds` on their session (off by default)
 - `onPartitionSessionStart?`: hook to adjust read/commit offsets per session
 - `onPartitionSessionStop?`: on a graceful stop runs while the session is still committable and is awaited before the stop response — the last chance to commit processed offsets; on a forced stop or end-of-partition it is informational
-- `onCommittedOffset?`: observe every server-confirmed commit advance (commit acks and stop watermarks); a `commitOffset` returned by `onPartitionSessionStart` is only reported after the server confirms it
+- `onCommittedOffset?`: observe every server-confirmed commit advance (commit acks, stop watermarks, offset overrides)
 
 `reader.bufferedBytes` exposes the server-accounted bytes currently retained by the reader and not yet fully delivered through `read()`.
 
