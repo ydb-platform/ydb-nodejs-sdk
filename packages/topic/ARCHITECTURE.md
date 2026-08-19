@@ -102,7 +102,7 @@ self-dispatches `writer.pump` while more can be sent. `connectEffects` =
 | idle             | (everything else)                                  | same                    | ignored (logged)                                                                                                                                                                                                                                                                                            |
 | connecting       | `writer.write`                                     | same                    | enqueue                                                                                                                                                                                                                                                                                                     |
 | connecting       | `writer.flush`                                     | same                    | set `flushRequested`; emit `writer.flushed` if window empty                                                                                                                                                                                                                                                 |
-| connecting       | `writer.stream.init_response`                      | ready                   | toReady: `attempts=0`; applyInit (recover seqNo HWM once, dedup server-persisted inflight → emit `writer.acknowledgments{skipped}`; emit `writer.session`); resolve flush if drained; dispatch `writer.pump`; clear `start_timeout`/`retry_backoff`/`recovery_window`; schedule `flush_tick`+`update_token` |
+| connecting       | `writer.stream.init_response`                      | ready / errored         | toReady: codec gate first — a non-empty `supportedCodecs` excluding the session codec terminates `errored` before anything reaches the wire; else `attempts=0`; applyInit (recover seqNo HWM once, dedup server-persisted inflight → emit `writer.acknowledgments{skipped}`; emit `writer.session`); resolve flush if drained; dispatch `writer.pump`; clear `start_timeout`/`retry_backoff`/`recovery_window`; schedule `flush_tick`+`update_token` |
 | connecting       | `writer.timer.start_timeout`                       | reconnecting            | toReconnecting(no error)                                                                                                                                                                                                                                                                                    |
 | connecting       | `writer.stream.disconnected` [retryable]           | reconnecting            | toReconnecting(error): record `lastError`; emit `writer.reconnecting{attempt,error}`; schedule `retry_backoff` (+`recovery_window` if finite)                                                                                                                                                               |
 | connecting       | `writer.stream.disconnected` [fatal]               | errored                 | terminate(error): emit `writer.error`+`writer.closed`                                                                                                                                                                                                                                                       |
@@ -234,32 +234,45 @@ stateDiagram-v2
 ```
 
 Per-partition entry lifecycle (inside `ctx.partitions`, keyed by the **stable**
-`partitionId`; the ephemeral `partitionSessionId` mapping lives in `ctx.sessionIndex`
-and is cleared on every reconnect):
+`partitionKey(topicPath, partitionId)` — partition ids alone collide across the
+topics of a multi-topic reader; the ephemeral `partitionSessionId → partitionKey`
+mapping lives in `ctx.sessionIndex` and is cleared on every reconnect):
 
 ```mermaid
 stateDiagram-v2
     [*] --> active: stream.start_partition (grantId++, ackPending)
     active --> active: partition.start_ready → send start_response,\nre-send buffered commits (ackPending=false)
-    active --> stopping_graceful: stop_partition [graceful, pending commits]
-    active --> stopped: stop_partition [force or graceful+drained]
-    stopping_graceful --> stopped: commit_response [drained] → send stop_response
+    active --> stopping_graceful: stop_partition [graceful] (stop hook + timer;\nstill delivers and commits)
+    active --> stopped: stop_partition [force]
+    stopping_graceful --> stopped: partition.stop_ready [drained] → send stop_response
+    stopping_graceful --> stopped: commit_response [drained ∧ stopReady] → send stop_response
     stopping_graceful --> stopped: timer.partition_graceful_timeout (force)
-    active --> ended: stream.end_partition (kept for commit reconcile)
-    stopped --> active: stream.start_partition (re-grant; anchor kept)
+    stopping_graceful --> stopped: stop_partition [force] (escalation)
+    active --> ended: stream.end_partition (kept for commit reconcile;\nchild/adjacent ids on the session)
+    stopped --> active: stream.start_partition (re-grant; pendings narrowed)
     ended --> active: stream.start_partition
     stopped --> [*]: timer.partition_reassign_gc\n(reject pending commits, delete entry)
 ```
+
+The graceful stop is the protocol's soft-stop window: the entry keeps delivering
+buffered data and accepting commits while the async `onPartitionSessionStop` hook
+runs (effect `partition.stop_hook` → event `partition.stop_ready`, guarded by
+`grantId` like the start handshake); the stop response goes out only once the hook
+completed AND the pending commits drained — bounded by the per-partition timeout.
 
 Helper resolution: `terminate(s, reason)` → `s` with `final:{reason}`; emits
 `reader.error` (when `errored`), `reader.commit.rejected` for every pending commit,
 `reader.closed`; clears ctx; effects `transport.close`, clear all timers, `finalize`.
 `toReady` → `ready`: `attempts=0`, clear `sessionIndex`, reset flow-control; emits
 `reader.session`; schedules `update_token`, sends `read_request(maxBufferBytes)`, and
-arms `partition_reassign_gc:pid` for every partition holding pending commits.
+arms `partition_reassign_gc:key` for every partition holding pending commits.
 `toReconnecting(err)` → `reconnecting`: clear `sessionIndex`; emits
 `reader.reconnecting`; schedules `retry_backoff` (+`recovery_window` iff finite).
 `toClosing` → `closing` iff pending work exists, else terminate(closed, 'Reader closed').
+`advanceCommitted(entry, offset)` — the single point where the server-confirmed
+committed watermark moves: compacts claimed ranges, lifts `deliveredWatermark`, and
+emits `partition.committed{session}` so the observer sees every advance (commit acks,
+stop watermarks, commitOffset overrides).
 
 | state                     | event                                                                                               | → next                  | key effects / outputs / timers                                                                                                                                                                                                                                                                                     |
 | ------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -278,15 +291,15 @@ arms `partition_reassign_gc:pid` for every partition holding pending commits.
 | connecting / reconnecting | `timer.partition_reassign_gc`                                                                       | same                    | gcPartition: reject pending commits, delete entry unless it is a granted-but-unacked current grant; no-op if live+acked                                                                                                                                                                                            |
 | connecting / reconnecting | `reader.close`                                                                                      | closing / closed        | toClosing                                                                                                                                                                                                                                                                                                          |
 | connecting / reconnecting | (everything else)                                                                                   | same                    | ignored (logged)                                                                                                                                                                                                                                                                                                   |
-| ready                     | `reader.stream.read_response`                                                                       | same                    | charge `inFlightBytes += bytesSize`; emit one `reader.messages{releaseBytes, groups}` (drops data of unknown/superseded/stopped/ended entries; emitted even when all dropped so the credit is released)                                                                                                            |
-| ready                     | `reader.stream.start_partition`                                                                     | same                    | upsert entry: →`active`, new `grantId`, `ackPending=true`, fresh session id (old id dropped from index), anchor never rewound below `committedOffset`; clear `partition_graceful_timeout:pid`; drain covered commits; emit `partition.started`; effect `partition.start_hook` (response deferred to `start_ready`) |
-| ready                     | `reader.stream.stop_partition` [force]                                                              | same                    | resolve covered commits; entry→`stopped`, emit `partition.stopped(lost)`; arm `partition_reassign_gc:pid` if pendings remain                                                                                                                                                                                       |
-| ready                     | `reader.stream.stop_partition` [graceful, drained]                                                  | same                    | entry→`stopped`, emit `partition.stopped(graceful)`; send `stop_response`                                                                                                                                                                                                                                          |
-| ready                     | `reader.stream.stop_partition` [graceful, pendings]                                                 | same                    | entry→`stopping-graceful`; arm `partition_graceful_timeout:pid`                                                                                                                                                                                                                                                    |
-| ready                     | `reader.stream.commit_response`                                                                     | same                    | advance committed offsets; emit `partition.committed` + `commit.resolved` for drained waiters; a drained `stopping-graceful` entry →`stopped`: emit `partition.stopped(graceful)`, send `stop_response`, clear `partition_graceful_timeout:pid`                                                                    |
-| ready                     | `reader.stream.end_partition`                                                                       | same                    | entry→`ended`, emit `partition.stopped(ended)`; no response; entry kept for commit reconcile                                                                                                                                                                                                                       |
-| ready                     | `reader.commit`                                                                                     | same                    | recordCommit: buffer pending; `send.commit` only if the session is live on the current stream AND entry is `active`/`stopping-graceful`/`ended` AND `!ackPending`; immediate `commit.rejected` (no entry) / `commit.resolved` (all offsets below the anchor)                                                       |
-| ready                     | `reader.partition.start_ready`                                                                      | same                    | ackPartitionStart: no-op if grantId stale / not ackPending / not active / not indexed; else `ackPending=false`, reconcile `commitOffset` override, effects `send.start_response`, clear `partition_reassign_gc:pid`, send all buffered commits (the single send)                                                   |
+| ready                     | `reader.stream.read_response`                                                                       | same                    | charge `inFlightBytes += bytesSize`; stitch each message's `commitRangeStart` from `deliveredWatermark`; emit one `reader.messages{releaseBytes, groups}` (drops data of unknown/superseded/stopped/ended entries — `stopping-graceful` still delivers; emitted even when all dropped so the credit is released)   |
+| ready                     | `reader.stream.start_partition`                                                                     | same                    | upsert entry (key = topicPath+partitionId): →`active`, new `grantId`, `ackPending=true`, fresh session id (old id dropped from index); `deliveredWatermark`/claims restart at `committedOffset`; narrow pendings' ranges to it (resolve emptied); clear `partition_graceful_timeout:key`; emit `partition.started`; effect `partition.start_hook` (response deferred to `start_ready`) |
+| ready                     | `reader.stream.stop_partition` [force]                                                              | same                    | advance committed (emit `partition.committed` if it moved) + resolve covered commits; entry→`stopped`, emit `partition.stopped(lost)`; clear `partition_graceful_timeout:key`; arm `partition_reassign_gc:key` if pendings remain                                                                                  |
+| ready                     | `reader.stream.stop_partition` [graceful]                                                           | same                    | advance committed (emit `partition.committed` if it moved) + resolve covered commits; entry→`stopping-graceful` (still delivers/commits); effect `partition.stop_hook`; arm `partition_graceful_timeout:key`                                                                                                       |
+| ready                     | `reader.stream.commit_response`                                                                     | same                    | advance committed offsets (compact claimed ranges); emit `partition.committed` + `commit.resolved` for drained waiters; a drained `stopping-graceful` entry with `stopReady` →`stopped`: emit `partition.stopped(graceful)`, send `stop_response`, clear `partition_graceful_timeout:key`                          |
+| ready                     | `reader.stream.end_partition`                                                                       | same                    | entry→`ended`, session records child/adjacent partition ids, emit `partition.stopped(ended)`; no response; entry + session index kept so commits still reach the wire                                                                                                                                              |
+| ready                     | `reader.commit`                                                                                     | same                    | recordCommit: clamp the facade's ranges to server committed, subtract claimed coverage (an overlap on the wire is session-fatal); fully covered → immediate `commit.resolved`; uncovered remainder on a `stopped` entry → immediate `commit.rejected` (the commit lost the race with the partition stop — never parked on the gc); else buffer pending + claim; `send.commit` only if the session is live on the current stream AND entry is `active`/`stopping-graceful`/`ended` AND `!ackPending`; `commit.rejected` when no entry exists |
+| ready                     | `reader.partition.start_ready`                                                                      | same                    | ackPartitionStart: no-op if grantId stale / not ackPending / not active / not indexed; else `ackPending=false`, `commitOffset` override advances committed (emit `partition.committed`) + narrows pendings, effects `send.start_response`, clear `partition_reassign_gc:key`, re-send each pending's exact remaining ranges (the single send)                                          |
+| ready                     | `reader.partition.stop_ready`                                                                       | same                    | ackPartitionStop: no-op if grantId stale / not `stopping-graceful`; else `stopReady=true`; when drained →`stopped`: emit `partition.stopped(graceful)`, send `stop_response` (only over the granting stream), clear `partition_graceful_timeout:key`                                                               |
 | ready                     | `reader.read_release`                                                                               | same                    | `inFlightBytes -= bytes`; accumulate credit; `read_request(credit)` once ≥ ceil(maxBufferBytes/5)                                                                                                                                                                                                                  |
 | ready                     | `timer.update_token`                                                                                | same                    | `send.update_token`                                                                                                                                                                                                                                                                                                |
 | ready                     | `timer.partition_reassign_gc` / `timer.partition_graceful_timeout`                                  | same                    | gcPartition / forceStopStalledGraceful (as above)                                                                                                                                                                                                                                                                  |
@@ -296,6 +309,7 @@ arms `partition_reassign_gc:pid` for every partition holding pending commits.
 | ready                     | (everything else)                                                                                   | same                    | ignored (logged)                                                                                                                                                                                                                                                                                                   |
 | closing                   | `stream.read_response` / `start_partition` / `stop_partition` / `commit_response` / `end_partition` | closed [drained] / same | applyStreamEvent (same per-event handling as in ready); then terminate(closed, 'Reader closed') once no pending work                                                                                                                                                                                               |
 | closing                   | `reader.partition.start_ready`                                                                      | same                    | ackPartitionStart (a start honored during the drain still gets answered)                                                                                                                                                                                                                                           |
+| closing                   | `reader.partition.stop_ready`                                                                       | closed [drained] / same | ackPartitionStop; a completed stop hook may finish the drain and with it the close                                                                                                                                                                                                                                 |
 | closing                   | `timer.partition_graceful_timeout`                                                                  | closed [drained] / same | forceStopStalledGraceful; terminate once drained                                                                                                                                                                                                                                                                   |
 | closing                   | `timer.graceful_timeout`                                                                            | closed                  | terminate(closed, 'Reader closed')                                                                                                                                                                                                                                                                                 |
 | closing                   | `reader.stream.disconnected`                                                                        | closed                  | terminate(closed, 'Reader closed') — a drop mid-close abandons un-acked commits                                                                                                                                                                                                                                    |
@@ -354,17 +368,25 @@ stateDiagram-v2
    assigned before the server's high-water mark is recovered.
    Pinned by: writer-state tests, `writer-protocol.test.ts` (live dedup proof).
 2. **commit() is never rejected by a transparent reconnect** (reader). Pending commits
-   are buffered per partition and re-sent after the start handshake on the new session.
-   The only legal rejection paths are the `partition_reassign_gc` timer and terminal
-   shutdown. Pinned by: `reader.model.test.ts` (800-seed invariant).
-3. **Grant epoch** (`grantId` + `ackPending`): a partition grant is live only after
-   `start_ready` → `start_response`; buffered commits are sent exactly once, and stale
-   hook completions (session ids restart at 1 per stream) can never double-answer.
-   Pinned by: reader-state tests, `reader.contract.test.ts` start-handshake tests.
-4. **The gap-fill anchor only moves forward** (`nextCommitStartOffset`, kept on the
-   `partitionId`-keyed entry, surviving reconnects). Below-anchor offsets are skipped —
-   a zero-width or inverted commit range (session-fatal server-side) is unrepresentable.
-   Pinned by: anchor tests in `reader-state.test.ts`, model invariant.
+   are buffered per partition (keyed by `partitionKey` — path + partitionId, so a
+   multi-topic reader's equal partition ids never collide) and their exact remaining
+   ranges are re-sent after the start handshake on the new session. The only legal
+   rejection paths are the `partition_reassign_gc` timer and terminal shutdown.
+   Pinned by: `reader.model.test.ts` (800-seed invariant), `reader.multi-topic.test.ts`.
+3. **Grant epoch** (`grantId` + `ackPending` / `stopReady`): a partition grant is live
+   only after `start_ready` → `start_response`, and a graceful stop is answered only
+   after `stop_ready` + drained commits; buffered commits are sent exactly once, and
+   stale hook completions (session ids restart at 1 per stream) can never double-answer.
+   Pinned by: reader-state tests, `reader.contract.test.ts` start-handshake tests,
+   `reader.partition-lifecycle.test.ts`.
+4. **Commit ranges are stitched at delivery time** (`deliveredWatermark` +
+   per-message `commitRangeStart`): a server-side offset hole (retention, readFrom
+   skip) is attributed to the next delivered message, and a delivered-but-unacked
+   message is never covered by another message's commit. `claimedRanges` subtracts
+   already-sent coverage, so a zero-width, inverted, or overlapping commit range
+   (session-fatal server-side) is unrepresentable.
+   Pinned by: `reader.commit-semantics.test.ts`, stitching tests in
+   `reader-state.test.ts`, model invariant.
 5. **Flow control is charged per ReadResponse** and released only when the facade's
    consumer takes the chunk; credit is re-granted in batches of ≥ maxBufferBytes/5.
 6. **Terminal errors throw from the facade, never end streams silently**: the output
