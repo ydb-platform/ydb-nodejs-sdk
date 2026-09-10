@@ -13,9 +13,7 @@ test('preserves column names when no mapper is configured', async (tc) => {
 
 test('maps object keys without rewriting SQL or nested struct members', async (tc) => {
 	await using driver = new Driver(inject('connectionString'))
-	await using sql = query(driver, {
-		mapColumnName: (name) => name.replace(/_([a-z])/g, (_, char: string) => char.toUpperCase()),
-	})
+	await using sql = query(driver, { mapColumnName: 'camelCase' })
 	let stmt = sql<[{ authorId: number; authorDetails: { first_name: string } }]>`
 		SELECT 1 AS author_id, <|first_name: 'Alice'u|> AS author_details
 	`.signal(tc.signal)
@@ -65,13 +63,22 @@ test('does not call the mapper for positional values or raw values', async (tc) 
 
 test('propagates column mapping into transactions', async (tc) => {
 	await using driver = new Driver(inject('connectionString'))
-	await using sql = query(driver, { mapColumnName: () => 'authorId' })
+	await using sql = query(driver, { mapColumnName: 'camelCase' })
 
 	expect(
 		await sql.begin({ signal: tc.signal }, (tx) =>
 			tx`SELECT 1 AS author_id`.then((rows) => rows)
 		)
 	).toEqual([[{ authorId: 1 }]])
+})
+
+test('rejects collisions between snake_case and camelCase column names', async (tc) => {
+	await using driver = new Driver(inject('connectionString'))
+	await using sql = query(driver, { mapColumnName: 'camelCase' })
+
+	await expect(sql`SELECT 1 AS author_id, 2 AS authorId`.signal(tc.signal)).rejects.toThrow(
+		'Duplicate mapped column name: authorId'
+	)
 })
 
 test('rejects mapped column collisions even for an empty result set', async (tc) => {

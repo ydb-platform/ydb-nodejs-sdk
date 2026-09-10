@@ -139,20 +139,26 @@ Use `mapColumnName` to expose database column names as application object keys w
 changing the SQL:
 
 ```ts
-let sql = query(driver, {
-  mapColumnName: (name) => name.replace(/_([a-z])/g, (_, char) => char.toUpperCase()),
-})
+let sql = query(driver, { mapColumnName: 'camelCase' })
 let [authors] = await sql<[{ authorId: bigint }]>`SELECT author_id FROM authors`
 ```
+
+The built-in mode converts single underscores between ASCII name segments:
+`author_id` becomes `authorId`, and `release_year` becomes `releaseYear`. It preserves
+qualifiers (`b.book_id` becomes `b.bookId`), leading and repeated underscores
+(`_author_id` becomes `_authorId`, `foo__bar` stays unchanged), and existing
+capitalization (`URL_value` becomes `URLValue`, `user_ID` stays unchanged).
+Empty names and names already in camelCase are unchanged. For another naming policy,
+pass a `(name: string) => string` callback instead.
 
 The default preserves column names. The mapper applies to top-level keys in every
 result set, including `.raw()` results and queries inside transactions. It does not
 change nested struct members, values, parameters, or SQL text; `.values()` bypasses
-it. Use a pure, deterministic mapper: it is called for each column in each response
-part, so a column can be mapped more than once as results arrive. If two columns map
+it. Custom callbacks must be pure and deterministic: mapping runs for each column
+in each response part, so a column can be mapped more than once as results arrive. If two columns map
 to the same key, the query rejects with `TypeError` instead of overwriting a value.
-TypeScript result types must describe
-the mapped keys; the generic does not perform the conversion.
+TypeScript result types must describe the mapped keys; the generic does not perform
+the conversion.
 
 All parameter values are converted using `@ydbjs/value`. See its documentation for details on supported types and conversion rules. You can pass native JS types, or use explicit YDB value classes for full control.
 

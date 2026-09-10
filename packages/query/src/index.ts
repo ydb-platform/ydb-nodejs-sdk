@@ -16,6 +16,7 @@ import {
 import { loggers } from '@ydbjs/debug'
 
 import { Query } from './query.js'
+import { camelCaseColumnName } from './column-name.js'
 import { ctx } from './ctx.js'
 import { Fragment, UnsafeString, fragment, identifier, join, unsafe, yql } from './yql.js'
 import { SessionPool, type SessionPoolOptions, sessionAcquireCh } from './session-pool.js'
@@ -50,7 +51,7 @@ let dbg = loggers.query
 export type QueryOptions = {
 	poolOptions?: SessionPoolOptions
 	/** Map top-level result column names to object keys; does not affect values() rows. */
-	mapColumnName?: (name: string) => string
+	mapColumnName?: 'camelCase' | ((name: string) => string)
 }
 
 export type SQL = <T extends any[] = unknown[], P extends any[] = unknown[]>(
@@ -181,6 +182,8 @@ let doImpl = function <T = unknown>(): Promise<T> {
  */
 export function query(driver: Driver, options?: QueryOptions): QueryClient {
 	let sessionPool = new SessionPool(driver, options?.poolOptions)
+	let mapColumnName =
+		options?.mapColumnName === 'camelCase' ? camelCaseColumnName : options?.mapColumnName
 
 	function yqlQuery<P extends any[] = unknown[], T extends any[] = unknown[]>(
 		strings: string | TemplateStringsArray,
@@ -190,7 +193,7 @@ export function query(driver: Driver, options?: QueryOptions): QueryClient {
 		dbg.log('creating query instance for text: %s', text)
 		return ctx.run(
 			ctx.getStore() ?? {},
-			() => new Query<T>(driver, text, params, sessionPool, options?.mapColumnName)
+			() => new Query<T>(driver, text, params, sessionPool, mapColumnName)
 		)
 	}
 
