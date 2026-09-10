@@ -97,18 +97,21 @@ export class Query<T extends any[] = unknown[]>
 
 	#raw: boolean = false
 	#values: boolean = false
+	#mapColumnName: ((name: string) => string) | undefined
 
 	constructor(
 		driver: Driver,
 		text: string,
 		params: Record<string, Value>,
-		sessionPool: SessionPool
+		sessionPool: SessionPool,
+		mapColumnName?: (name: string) => string
 	) {
 		super()
 
 		this.#text = text
 		this.#driver = driver
 		this.#sessionPool = sessionPool
+		this.#mapColumnName = mapColumnName
 		this.#parameters = {}
 
 		for (let key in params) {
@@ -306,6 +309,19 @@ export class Query<T extends any[] = unknown[]>
 							results.push([])
 						}
 
+						let mappedNames: string[] | undefined
+						if (!this.#values && this.#mapColumnName) {
+							let seen = new Set<string>()
+							mappedNames = part.resultSet.columns.map((column) => {
+								let name = this.#mapColumnName!(column.name)
+								if (seen.has(name)) {
+									throw new TypeError(`Duplicate mapped column name: ${name}`)
+								}
+								seen.add(name)
+								return name
+							})
+						}
+
 						for (let i = 0; i < part.resultSet.rows.length; i++) {
 							let result: any = this.#values ? [] : {}
 
@@ -320,9 +336,18 @@ export class Query<T extends any[] = unknown[]>
 									continue
 								}
 
-								result[column.name] = this.#raw
-									? value
-									: toJs(fromYdb(value, column.type!))
+								let decoded = this.#raw ? value : toJs(fromYdb(value, column.type!))
+								if (mappedNames) {
+									// A mapped key such as __proto__ must remain an ordinary column.
+									Object.defineProperty(result, mappedNames[j]!, {
+										value: decoded,
+										enumerable: true,
+										writable: true,
+										configurable: true,
+									})
+								} else {
+									result[column.name] = decoded
+								}
 							}
 
 							results[Number(part.resultSetIndex)]!.push(result)

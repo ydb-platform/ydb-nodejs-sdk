@@ -49,6 +49,8 @@ let dbg = loggers.query
 
 export type QueryOptions = {
 	poolOptions?: SessionPoolOptions
+	/** Map top-level result column names to object keys; does not affect values() rows. */
+	mapColumnName?: (name: string) => string
 }
 
 export type SQL = <T extends any[] = unknown[], P extends any[] = unknown[]>(
@@ -186,7 +188,10 @@ export function query(driver: Driver, options?: QueryOptions): QueryClient {
 	): Query<T> {
 		let { text, params } = yql(strings, ...values)
 		dbg.log('creating query instance for text: %s', text)
-		return ctx.run(ctx.getStore() ?? {}, () => new Query<T>(driver, text, params, sessionPool))
+		return ctx.run(
+			ctx.getStore() ?? {},
+			() => new Query<T>(driver, text, params, sessionPool, options?.mapColumnName)
+		)
 	}
 
 	function txIml<T = unknown>(fn: TransactionContextCallback<T>): Promise<T>
