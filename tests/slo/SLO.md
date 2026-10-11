@@ -17,7 +17,7 @@ After changing the workload, `npm --workspace=@ydbjs/slo run build` type-checks 
 
 `topic.run` coordinates separate `topic.write` and `topic.read` worker threads. Each owns its driver, clients and telemetry provider. The coordinator creates a fresh topic with a unique run ID, one producer per partition and one reader. It removes the topic after a successful run; failed runs retain their topic until the test cluster is removed.
 
-Each message has an application sequence number independent of the SDK's `seqNo`, a run fingerprint, partition identity and deterministic payload. The verifier checks every byte. A repeat of the same business ID at the same partition offset is allowed redelivery; a different offset for that ID is duplicate publication and fails the run.
+Each message has an application sequence number independent of the SDK's `seqNo`, a run fingerprint, partition identity and deterministic payload. The verifier checks the message length and identity header; payload-body integrity is covered by SDK unit and integration tests. A repeat of the same business ID at the same partition offset is allowed redelivery; a different offset for that ID is duplicate publication and fails the run.
 
 The four progress counters are distinct:
 
@@ -85,7 +85,7 @@ The topic write quota is explicitly set to 50 MiB/s per partition (`writeSpeedBy
 
 Each workload container gets 6 CPU and 12 GiB on the 24 CPU / 72 GiB runner. Topic retention is limited to 512 MiB per partition (12 GiB total before storage overhead), protecting the runner's 93 GiB disk during sustained writing. Final flush/read/commit drain is limited to 50 seconds.
 
-Throughput is an observed limit of the whole workload, including payload verification, commit, network and YDB. `suppliedFraction` reports the fraction of one-second samples with acknowledged messages still awaiting delivery; `minimumSuppliedFraction` retains the lowest window value. A low fraction indicates that the reader may be waiting for producers. A nonempty backlog alone does not prove a runtime CPU limit. Prometheus retains pending-message counts and process CPU time alongside throughput and memory; CPU and RSS cover all worker threads and must not be summed across workers.
+Throughput is an observed limit of the whole workload, including message identity checks, commit, network and YDB. `suppliedFraction` reports the fraction of one-second samples with acknowledged messages still awaiting delivery; `minimumSuppliedFraction` retains the lowest window value. A low fraction indicates that the reader may be waiting for producers. A nonempty backlog alone does not prove a runtime CPU limit. Prometheus retains pending-message counts and process CPU time alongside throughput and memory; CPU and RSS cover all worker threads and must not be summed across workers.
 
 `--topic.run.auth=login` uses the disposable cluster's built-in root account and five-minute login tokens. Each worker must observe an accepted changed token and subsequent successful traffic after the old token expired on the same stream. Reconnecting with a new token does not satisfy that check.
 
