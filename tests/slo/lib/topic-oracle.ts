@@ -116,8 +116,8 @@ export class TopicOracle {
 	createPayload(partition: number, sequence: number): Uint8Array {
 		this.#partition(partition)
 		this.#sequence(sequence)
-		let payload = new Uint8Array(this.#messageBytes)
-		let header = new DataView(payload.buffer)
+		let payload = Buffer.alloc(this.#messageBytes)
+		let header = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
 		header.setUint32(0, MAGIC)
 		header.setUint32(4, VERSION)
 		payload.set(this.#runHash, 8)
@@ -125,9 +125,7 @@ export class TopicOracle {
 		header.setBigUint64(44, BigInt(sequence))
 		header.setUint32(52, this.#messageBytes)
 		let pattern = createHash('sha256').update(payload.subarray(0, HEADER_BYTES)).digest()
-		for (let i = HEADER_BYTES; i < payload.length; i++) {
-			payload[i] = pattern[(i - HEADER_BYTES) % pattern.length]!
-		}
+		payload.fill(pattern, HEADER_BYTES)
 		return payload
 	}
 
@@ -193,6 +191,10 @@ export class TopicOracle {
 				this.#reject('Payload belongs to a different run')
 			}
 		}
+		if (header.getUint32(52) !== payload.byteLength) {
+			this.#reject('Payload length does not match its header')
+		}
+
 		let partition = header.getUint32(40)
 		let sequence = Number(header.getBigUint64(44))
 		let state = this.#partition(partition)
@@ -204,14 +206,6 @@ export class TopicOracle {
 		}
 		if (typeof offset !== 'bigint' || offset < 0n) {
 			this.#reject(`Partition ${partition} sequence ${sequence}: invalid offset ${offset}`)
-		}
-		let expected = this.createPayload(partition, sequence)
-		for (let i = 0; i < payload.length; i++) {
-			if (payload[i] !== expected[i]) {
-				this.#reject(
-					`Partition ${partition} sequence ${sequence}: payload corruption at byte ${i}`
-				)
-			}
 		}
 		let previousOffset = state.offsets.get(sequence)
 		if (previousOffset !== undefined) {

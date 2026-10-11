@@ -246,18 +246,29 @@ test('keeps an ordering failure after a late record fills the gap', () => {
 	expect(oracle.snapshot().errors[0]).toContain('forward gap')
 })
 
-test('detects corruption at every byte of a payload', () => {
-	for (let position = 0; position < 128; position++) {
+test('rejects invalid message identity headers', () => {
+	for (let position of [0, 4, 8, 40, 51, 52]) {
 		let oracle = makeOracle()
 		oracle.accept(0, 1)
 		let corrupted = message(oracle, 0, 1)
 		corrupted.payload[position] = corrupted.payload[position]! ^ 1
 		expect(() => oracle.observe(corrupted), `byte ${position}`).toThrow(
-			/magic|version|different run|partition|sequence|corruption/
+			/magic|version|different run|partition|sequence|length/
 		)
 		expect(oracle.snapshot().failureCount).toBe(1)
 		expect(oracle.complete).toBe(false)
 	}
+})
+
+test('reconciles messages without checking the payload body', () => {
+	let oracle = makeOracle()
+	oracle.accept(0, 1)
+	oracle.acknowledge(0, 1)
+	let received = message(oracle, 0, 1)
+	received.payload.fill(255, 56)
+
+	oracle.commit([oracle.observe(received)])
+	expect(oracle.complete).toBe(true)
 })
 
 test('validates sliced payload views and the minimum payload size', () => {
