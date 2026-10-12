@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
-import { workerData } from 'node:worker_threads'
+import { parentPort, workerData } from 'node:worker_threads'
 
 import { ValueType } from '@opentelemetry/api'
 import { Driver } from '@ydbjs/core'
@@ -15,7 +15,7 @@ import {
 	meterProvider,
 	registerLatencyGauges,
 } from '../../lib/telemetry.ts'
-import { type WorkerData, abortOnStop, runPaced } from '../../lib/worker-api.ts'
+import { type WorkerData, abortOnStop, isAbortedBySignal, runPaced } from '../../lib/worker-api.ts'
 
 installSafetyHandlers()
 
@@ -74,6 +74,7 @@ async function readOp(): Promise<void> {
 
 	let opType = 'read' as const
 	let opStatus: 'success' | 'error' = 'error'
+	let cancelled = false
 
 	sdk_pending_operations.add(1, { operation_type: opType })
 
@@ -81,7 +82,7 @@ async function readOp(): Promise<void> {
 		[Symbol.dispose]() {
 			sdk_pending_operations.add(-1, { operation_type: opType })
 
-			if (ctrl.signal.aborted) return
+			if (cancelled) return
 
 			sdk_operations.add(1, { operation_type: opType, operation_status: opStatus })
 			sdk_retry_attempts.add(1 + retries, { operation_type: opType })
@@ -99,8 +100,14 @@ async function readOp(): Promise<void> {
 		opStatus = 'success'
 		latency.recordValue(Math.round((performance.now() - start) * 1000))
 	} catch (err) {
-		if (ctrl.signal.aborted) return
+		if (isAbortedBySignal(err, ctrl.signal)) {
+			cancelled = true
+			return
+		}
 		console.error(err)
+		process.exitCode = 1
+		parentPort?.postMessage({ type: 'failure' })
+		ctrl.abort(err)
 	}
 }
 
@@ -130,4 +137,4 @@ try {
 	console.error('[kv.read] driver close failed:', err)
 }
 
-process.exit(0)
+process.exit(process.exitCode ?? 0)

@@ -6,7 +6,7 @@ import { createTopicReader } from '@ydbjs/topic/reader'
 
 import { installSafetyHandlers } from '../../lib/safety.ts'
 import { meterProvider } from '../../lib/telemetry.ts'
-import { type WorkerData, abortOnStop } from '../../lib/worker-api.ts'
+import { type WorkerData, abortOnStop, isAbortedBySignal } from '../../lib/worker-api.ts'
 
 installSafetyHandlers()
 
@@ -41,8 +41,7 @@ meterProvider
 //   seqno == expected → delivered, expected++
 //   seqno >  expected → LOST (forward gap)   → exit non-zero, FAILS the run
 //   seqno <  expected → duplicate (redelivery of uncommitted after chaos) → fine
-// A persistent loss recurs across the stream, so the supervisor's restart cap
-// turns it into a failed run; a clean run never sees a gap.
+// A loss fails the run immediately; a clean run never sees a gap.
 let expected = new Map<string, bigint>()
 let delivered = 0
 let duplicates = 0
@@ -76,7 +75,7 @@ let duplicates = 0
 		}
 	} catch (err) {
 		// The intentional stop aborts read(); anything else is an SDK failure.
-		if (!ctrl.signal.aborted) {
+		if (!isAbortedBySignal(err, ctrl.signal)) {
 			console.error('[topic.read] reader error:', err)
 			process.exit(1)
 		}

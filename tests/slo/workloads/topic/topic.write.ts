@@ -6,7 +6,7 @@ import { createTopicWriter } from '@ydbjs/topic/writer'
 
 import { installSafetyHandlers } from '../../lib/safety.ts'
 import { meterProvider } from '../../lib/telemetry.ts'
-import { type WorkerData, abortOnStop, runPaced } from '../../lib/worker-api.ts'
+import { type WorkerData, abortOnStop, isAbortedBySignal, runPaced } from '../../lib/worker-api.ts'
 
 installSafetyHandlers()
 
@@ -62,12 +62,11 @@ meterProvider
 	async function writeOp(): Promise<void> {
 		try {
 			// write() is fire-and-forget; the writer reconnects transparently under
-			// chaos. A throw means it failed FATALLY (didn't survive) — crash so the
-			// supervisor restarts us, and a persistent failure exhausts the restart cap.
+			// chaos. A fatal throw fails the run instead of restarting the workload.
 			writers[round % partitions]!.write(payload)
 			round += 1
 		} catch (err) {
-			if (ctrl.signal.aborted) return
+			if (isAbortedBySignal(err, ctrl.signal)) return
 			console.error('[topic.write] fatal write error:', err)
 			process.exit(1)
 		}
