@@ -26,7 +26,6 @@ jobs:
               --worker=kv.read --worker=kv.write
               --kv.setup.prefill=100 --kv.read.keyspace=100 --kv.write.keyspace=100
               --kv.read.rps=100 --kv.write.rps=25
-              --kv.read.qa-final-error=read
           - name: bun-kv
             image: oven/bun
             command: >-
@@ -34,7 +33,6 @@ jobs:
               --worker=kv.read --worker=kv.write
               --kv.setup.prefill=100 --kv.read.keyspace=100 --kv.write.keyspace=100
               --kv.read.rps=100 --kv.write.rps=25
-              --kv.read.qa-final-error=read
           - name: node-topic
             image: node:24
             command: >-
@@ -42,7 +40,6 @@ jobs:
               --worker=topic.write --worker=topic.read
               --topic.setup.partitions=10 --topic.write.partitions=10
               --topic.write.rps=100
-              --topic.read.qa-final-error=commit
           - name: bun-topic
             image: oven/bun
             command: >-
@@ -50,7 +47,6 @@ jobs:
               --worker=topic.write --worker=topic.read
               --topic.setup.partitions=10 --topic.write.partitions=10
               --topic.write.rps=100
-              --topic.read.qa-final-error=commit
     concurrency:
       group: final-error-${{ github.ref }}-${{ matrix.sdk.name }}
       cancel-in-progress: false
