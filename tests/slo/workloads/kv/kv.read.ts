@@ -97,6 +97,10 @@ async function readOp(): Promise<void> {
 			.signal(ctrl.signal)
 			.on('retry', () => retries++)
 
+		if (params['qa-final-error'] === 'read') {
+			throw new Error('SLO_QA_JS_FINAL_READ')
+		}
+
 		opStatus = 'success'
 		latency.recordValue(Math.round((performance.now() - start) * 1000))
 	} catch (err) {

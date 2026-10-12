@@ -72,6 +72,9 @@ let duplicates = 0
 				process.exit(1)
 			}
 			await reader.commit(batch)
+			if (params['qa-final-error'] === 'commit') {
+				throw new Error('SLO_QA_JS_FINAL_COMMIT')
+			}
 		}
 	} catch (err) {
 		// The intentional stop aborts read(); anything else is an SDK failure.
