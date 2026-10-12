@@ -1,0 +1,100 @@
+name: SLO final-error QA
+
+on:
+  push:
+    branches:
+      - qa/slo-final-error-20261012/**
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  workload:
+    name: Gate (${{ matrix.sdk.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        sdk:
+          - name: node-kv
+            image: node:24
+            command: >-
+              --setup=kv.setup --teardown=kv.teardown
+              --worker=kv.read --worker=kv.write
+              --kv.setup.prefill=100 --kv.read.keyspace=100 --kv.write.keyspace=100
+              --kv.read.rps=100 --kv.write.rps=25
+          - name: bun-kv
+            image: oven/bun
+            command: >-
+              --setup=kv.setup --teardown=kv.teardown
+              --worker=kv.read --worker=kv.write
+              --kv.setup.prefill=100 --kv.read.keyspace=100 --kv.write.keyspace=100
+              --kv.read.rps=100 --kv.write.rps=25
+          - name: node-topic
+            image: node:24
+            command: >-
+              --setup=topic.setup --teardown=topic.teardown
+              --worker=topic.write --worker=topic.read
+              --topic.setup.partitions=10 --topic.write.partitions=10
+              --topic.write.rps=100
+          - name: bun-topic
+            image: oven/bun
+            command: >-
+              --setup=topic.setup --teardown=topic.teardown
+              --worker=topic.write --worker=topic.read
+              --topic.setup.partitions=10 --topic.write.partitions=10
+              --topic.write.rps=100
+    concurrency:
+      group: final-error-${{ github.ref }}-${{ matrix.sdk.name }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v5
+        with:
+          path: current
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install infrastructure tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo curl -fLo /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.48.2/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          sudo mkdir -p /usr/local/lib/docker/cli-plugins
+          sudo curl -fLo /usr/local/lib/docker/cli-plugins/docker-compose \
+            https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-x86_64
+          sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          yq --version
+          docker compose version
+
+      - name: Build changed SDK and actual workload
+        working-directory: current
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          docker build --build-arg image="${{ matrix.sdk.image }}" \
+            -t ydb-app-current tests/slo
+
+      - name: Run actual workload process gate
+        uses: ydb-platform/ydb-slo-action/init@1cd8fe8433514e8b1e21461d5babb5169fb6460e
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workload_name: ${{ matrix.sdk.name }}
+          workload_duration: '60'
+          workload_current_ref: qa-${{ github.sha }}
+          workload_current_image: ydb-app-current
+          workload_current_command: ${{ matrix.sdk.command }}
+          fail_on_workload_error: 'true'
+          disable_compose_profiles: workload-baseline,chaos,extra-nodes
