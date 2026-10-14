@@ -40,7 +40,11 @@ let runFailed = false
 
 installSafetyHandlers('log', (kind, err) => {
 	sdk_process_errors_total.add(1, { worker: 'main', kind })
-	if (cli.workers.some((name) => name === 'kv.read' || name === 'kv.write')) {
+	if (
+		cli.workers.some(
+			(name) => name === 'kv.read' || name === 'kv.write' || name === 'kv-rmw.write'
+		)
+	) {
 		runFailed = true
 		ctrl.abort(err)
 	}
@@ -179,7 +183,11 @@ const BACKOFF_MS = [250, 500, 1000]
 async function runForever(name: string): Promise<void> {
 	let url = resolveWorker(name)
 	let data: WorkerData = { name, params: cli.params.get(name) ?? {} }
-	let kvWorker = name === 'kv.read' || name === 'kv.write'
+	let kvWorker = name === 'kv.read' || name === 'kv.write' || name === 'kv-rmw.write'
+	// RMW settles admitted transactions, then performs an independent read. Each
+	// phase has one operation budget; forced termination cannot count as success.
+	let shutdownGrace =
+		name === 'kv-rmw.write' ? 2 * Number(data.params['timeout'] ?? '100') + 5000 : 5000
 
 	let restartTimestamps: number[] = []
 
@@ -210,17 +218,17 @@ async function runForever(name: string): Promise<void> {
 
 			let onAbort = () => {
 				let killer = setTimeout(() => {
-					console.error(`[index] ${name} did not exit in 5s, terminating`)
+					console.error(`[index] ${name} did not exit in ${shutdownGrace}ms, terminating`)
 					terminated = true
 					worker.terminate().catch(() => {})
-				}, 5000)
+				}, shutdownGrace)
 				killer.unref()
 			}
 			if (ctrl.signal.aborted) onAbort()
 			else ctrl.signal.addEventListener('abort', onAbort, { once: true })
 		})
 
-		if (kvWorker && exitCode !== 0 && !terminated) {
+		if (kvWorker && exitCode !== 0 && (!terminated || name === 'kv-rmw.write')) {
 			console.error(`[index] ${name} failed with code ${exitCode}`)
 			runFailed = true
 			ctrl.abort()
@@ -256,9 +264,11 @@ async function runForever(name: string): Promise<void> {
 // ---- Main -----------------------------------------------------------------
 
 // Phase: setup
+let rmwSetupCompleted = false
 if (cli.setup) {
 	console.log(`[index] setup: ${cli.setup}`)
 	let code = await runOnce(cli.setup)
+	rmwSetupCompleted = cli.setup === 'kv-rmw.setup' && code === 0
 	if (code !== 0) {
 		console.error(`[index] setup failed with code ${code}`)
 		runFailed = true
@@ -279,7 +289,7 @@ if (!runFailed && cli.workers.length > 0) {
 }
 
 // Phase: teardown (best-effort даже если run провалился)
-if (cli.teardown) {
+if (cli.teardown && (cli.teardown !== 'kv-rmw.teardown' || rmwSetupCompleted)) {
 	console.log(`[index] teardown: ${cli.teardown}`)
 	let code = await runOnce(cli.teardown)
 	if (code !== 0) {

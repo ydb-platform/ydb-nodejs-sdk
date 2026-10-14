@@ -5,6 +5,7 @@ on:
     types: [opened, reopened, synchronize, labeled]
     branches:
       - main
+      - fix/slo-kv-checks-20261014
 
 jobs:
   ydb-slo-action:
@@ -23,10 +24,16 @@ jobs:
         sdk:
           - name: node-kv
             image: node
-            command: --setup=kv.setup --teardown=kv.teardown --worker=kv.read --worker=kv.write
+            command: --setup=kv.setup --teardown=kv.teardown --worker=kv.read --worker=kv.write --kv.read.rps=1000 --kv.write.rps=100
           - name: bun-kv
             image: oven/bun
-            command: --setup=kv.setup --teardown=kv.teardown --worker=kv.read --worker=kv.write
+            command: --setup=kv.setup --teardown=kv.teardown --worker=kv.read --worker=kv.write --kv.read.rps=1000 --kv.write.rps=100
+          - name: node-kv-rmw
+            image: node
+            command: --setup=kv-rmw.setup --teardown=kv-rmw.teardown --worker=kv-rmw.write --kv-rmw.write.rps=100 --kv-rmw.write.concurrency=4 --kv-rmw.write.timeout=5000
+          - name: bun-kv-rmw
+            image: oven/bun
+            command: --setup=kv-rmw.setup --teardown=kv-rmw.teardown --worker=kv-rmw.write --kv-rmw.write.rps=100 --kv-rmw.write.concurrency=4 --kv-rmw.write.timeout=5000
         topology:
           - name: regular
             workload_suffix: ''
@@ -158,12 +165,8 @@ jobs:
           workload_current_image: ydb-app-current
           workload_current_command: >-
             ${{ matrix.sdk.command }}
-            --kv.read.rps=1000
-            --kv.write.rps=100
           bridge_mode: ${{ matrix.topology.bridge_mode }}
           workload_baseline_ref: ${{ steps.baseline.outputs.ref }}
           workload_baseline_image: ydb-app-baseline
           workload_baseline_command: >-
             ${{ matrix.sdk.command }}
-            --kv.read.rps=1000
-            --kv.write.rps=100
