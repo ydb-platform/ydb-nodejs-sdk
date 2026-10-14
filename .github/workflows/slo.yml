@@ -119,6 +119,12 @@ jobs:
         with:
           node-version: latest
 
+      - name: Use current workload checker with baseline SDK
+        run: |
+          cp -a \
+            "$GITHUB_WORKSPACE/current/tests/slo"/{index.ts,instrument.ts,lib,scripts,workloads,package.json} \
+            "$GITHUB_WORKSPACE/baseline/tests/slo/"
+
       - name: Build current workload image
         run: |
           npm --prefix "$GITHUB_WORKSPACE/current" ci
