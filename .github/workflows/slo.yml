@@ -31,7 +31,7 @@ jobs:
           - name: regular
             workload_suffix: ''
             bridge_mode: false
-            fail_on_workload_error: false
+            fail_on_workload_error: true
           - name: 2dc
             workload_suffix: '-2dc'
             bridge_mode: true
