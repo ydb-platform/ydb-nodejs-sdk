@@ -40,8 +40,10 @@ let runFailed = false
 
 installSafetyHandlers('log', (kind, err) => {
 	sdk_process_errors_total.add(1, { worker: 'main', kind })
-	runFailed = true
-	ctrl.abort(err)
+	if (cli.workers.some((name) => name === 'kv.read' || name === 'kv.write')) {
+		runFailed = true
+		ctrl.abort(err)
+	}
 })
 
 // ---- CLI parsing ----------------------------------------------------------
@@ -177,6 +179,7 @@ const BACKOFF_MS = [250, 500, 1000]
 async function runForever(name: string): Promise<void> {
 	let url = resolveWorker(name)
 	let data: WorkerData = { name, params: cli.params.get(name) ?? {} }
+	let kvWorker = name === 'kv.read' || name === 'kv.write'
 
 	let restartTimestamps: number[] = []
 
@@ -199,7 +202,7 @@ async function runForever(name: string): Promise<void> {
 			})
 			worker.on('exit', (c) => settle(c ?? 1))
 			worker.on('message', (message: { type: string }) => {
-				if (message.type === 'failure') {
+				if (kvWorker && message.type === 'failure') {
 					runFailed = true
 					ctrl.abort()
 				}
@@ -217,7 +220,7 @@ async function runForever(name: string): Promise<void> {
 			else ctrl.signal.addEventListener('abort', onAbort, { once: true })
 		})
 
-		if (exitCode !== 0 && !terminated) {
+		if (kvWorker && exitCode !== 0 && !terminated) {
 			console.error(`[index] ${name} failed with code ${exitCode}`)
 			runFailed = true
 			ctrl.abort()
