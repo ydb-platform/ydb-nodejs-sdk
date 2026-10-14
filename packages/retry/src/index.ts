@@ -5,7 +5,7 @@ import { abortable, linkSignals } from '@ydbjs/abortable'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { loggers } from '@ydbjs/debug'
 import { CommitError, YDBError } from '@ydbjs/error'
-import { ClientError, Status } from 'nice-grpc'
+import { ClientError, Status } from '@ydbjs/grpc'
 
 import type { RetryConfig } from './config.js'
 import type { RetryContext } from './context.js'

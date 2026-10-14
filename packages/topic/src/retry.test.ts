@@ -1,6 +1,6 @@
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { YDBError } from '@ydbjs/error'
-import { ClientError, Status } from 'nice-grpc'
+import { ClientError, Status } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
 import { isRetryableTopicError } from './retry.ts'

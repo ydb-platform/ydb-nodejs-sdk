@@ -5,7 +5,7 @@ import { Codec } from '@ydbjs/api/topic'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { YDBError } from '@ydbjs/error'
 import { expect, test, vi } from 'vitest'
-import { ClientError, Status } from 'nice-grpc'
+import { ClientError, Status } from '@ydbjs/grpc'
 
 import { GZIP_CODEC, RAW_CODEC } from '../codec.ts'
 import type { TX } from '../tx.ts'

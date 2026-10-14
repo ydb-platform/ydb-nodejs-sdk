@@ -1,5 +1,5 @@
 import { context, propagation } from '@opentelemetry/api'
-import { type ClientMiddleware, Metadata } from 'nice-grpc'
+import { type ClientMiddleware, Metadata } from '@ydbjs/grpc'
 
 /**
  * W3C trace context propagation middleware for `@ydbjs/core`'s gRPC client.

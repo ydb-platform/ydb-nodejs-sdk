@@ -9,7 +9,7 @@ import { loggers } from '@ydbjs/debug'
 import { YDBError } from '@ydbjs/error'
 import { type RetryContext, defaultRetryConfig, retry } from '@ydbjs/retry'
 import { linkSignals } from '@ydbjs/abortable'
-import { type Client, ClientError, Status, createChannel, createClient } from 'nice-grpc'
+import { type Client, ClientError, Status, createChannel, createClient } from '@ydbjs/grpc'
 
 import { CredentialsProvider } from './index.js'
 

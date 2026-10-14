@@ -1,7 +1,7 @@
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { YDBError } from '@ydbjs/error'
 import { isRetryableError, isRetryableStreamError } from '@ydbjs/retry'
-import { ClientError, Status } from 'nice-grpc'
+import { ClientError, Status } from '@ydbjs/grpc'
 
 export function isRetryableTopicError(error: unknown, retryOnSchemeError = false): boolean {
 	if (error === undefined || error === null) {

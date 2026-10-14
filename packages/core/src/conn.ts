@@ -5,7 +5,7 @@ import {
 	type ChannelCredentials,
 	type ChannelOptions,
 	createChannel,
-} from 'nice-grpc'
+} from '@ydbjs/grpc'
 
 import type { EndpointInfo } from './hooks.js'
 

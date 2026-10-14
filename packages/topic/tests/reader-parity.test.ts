@@ -10,7 +10,7 @@ import {
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
-import { Status } from 'nice-grpc'
+import { Status } from '@ydbjs/grpc'
 
 import type { TopicMessage } from '../src/message.js'
 import { type TopicReader, createTopicReader } from '../src/reader/index.js'

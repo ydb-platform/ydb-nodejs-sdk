@@ -1,4 +1,4 @@
-import { type CallOptions, type ClientMiddlewareCall, Metadata } from 'nice-grpc'
+import { type CallOptions, type ClientMiddlewareCall, Metadata } from '@ydbjs/grpc'
 
 export abstract class CredentialsProvider {
 	constructor() {

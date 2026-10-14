@@ -1,4 +1,4 @@
-import type { ClientMiddleware, MethodDescriptor } from 'nice-grpc'
+import type { ClientMiddleware, MethodDescriptor } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
 import { addClientMiddleware, getRegisteredClientMiddlewares } from './middleware.ts'

@@ -2,7 +2,7 @@ import { create } from '@bufbuild/protobuf'
 import { connectivityState } from '@grpc/grpc-js'
 import { PileState_State } from '@ydbjs/api/bridge'
 import { ListEndpointsResultSchema } from '@ydbjs/api/discovery'
-import { ClientError, Status } from 'nice-grpc'
+import { ClientError, Status } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
 import { EndpointsUnavailableError } from '../errors.ts'

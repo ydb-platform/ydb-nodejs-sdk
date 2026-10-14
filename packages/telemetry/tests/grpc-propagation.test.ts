@@ -29,9 +29,7 @@ afterEach(() => exporter.reset())
 // Real path only: `addClientMiddleware(propagator)` + a real `Driver` +
 // a real gRPC dispatch through a `nice-grpc` server on an ephemeral port
 // (no Docker/YDB needed, `whoAmI`/`listEndpoints` are stubbed). This
-// exercises nice-grpc's actual `composeClientMiddleware`/client-middleware
-// invocation contract, unlike a hand-rolled `call.next` fake, which would
-// keep passing even if nice-grpc changed how it drives client middleware.
+// exercises middleware composition through the client's actual RPC path.
 async function driveThroughRealDriver(): Promise<{ get(key: string): string | undefined }> {
 	using _ = addClientMiddleware(propagator)
 

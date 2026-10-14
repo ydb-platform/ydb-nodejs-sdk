@@ -6,7 +6,7 @@ import {
 } from '@bufbuild/protoplugin'
 
 let plugin = createEcmaScriptPlugin({
-	name: 'protoc-gen-nice-grpc',
+	name: 'protoc-gen-grpc',
 	version: 'v1',
 
 	generateTs(schema: Schema) {
@@ -15,14 +15,12 @@ let plugin = createEcmaScriptPlugin({
 			let f = schema.generateFile(file.name + '_grpc_pb.ts')
 			f.preamble(file)
 
-			let niceGRPCServiceDefinition = f.import('ServiceDefinition', 'nice-grpc', true)
+			let serviceDefinition = f.import('ServiceDefinition', '@ydbjs/grpc', true)
 			let bufProtoCreate = f.import('create', '@bufbuild/protobuf')
 			let bufProtoMessageInitShape = f.import('MessageInitShape', '@bufbuild/protobuf', true)
 			let bufProtoToBinary = f.import('toBinary', '@bufbuild/protobuf')
 			let bufProtoFromBinary = f.import('fromBinary', '@bufbuild/protobuf')
 
-			// Create a service definition based on the Nice-GRPC one
-			// (see https://github.com/deeplay-io/nice-grpc/blob/7458e8a57aec763d854c2e6eb119bfe6820b17dd/packages/nice-grpc/src/service-definitions/index.ts#L20)
 			for (let service of file.services) {
 				f.print(f.jsDoc(service))
 				f.print(f.export('const', safeIdentifier(service.name + 'Definition')), ' = {')
@@ -40,6 +38,7 @@ let plugin = createEcmaScriptPlugin({
 					f.print('  ', safeIdentifier(method.localName), ': {')
 					f.print('    path: ', f.string(`/${service.typeName}/${method.name}`), ',')
 					f.print('    requestStream: ' + (requestStream ? 'true' : 'false') + ',')
+					f.print('    requestBufferOwned: true,')
 					f.print(
 						'    requestSerialize: (message: ',
 						bufProtoMessageInitShape,
@@ -88,7 +87,7 @@ let plugin = createEcmaScriptPlugin({
 					f.print('    options: {},')
 					f.print('  },')
 				}
-				f.print('} as const satisfies ', niceGRPCServiceDefinition)
+				f.print('} as const satisfies ', serviceDefinition)
 
 				f.print('//@ts-expect-error')
 				f.print(

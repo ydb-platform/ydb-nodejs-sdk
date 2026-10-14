@@ -116,7 +116,7 @@
 	"dependencies": {
 		"@bufbuild/protobuf": "2.12.0",
 		"@grpc/grpc-js": "^1.14.0",
-		"nice-grpc": "^2.1.13"
+		"@ydbjs/grpc": "^0.1.0"
 	},
 	"devDependencies": {
 		"@bufbuild/buf": "^1.61.0",

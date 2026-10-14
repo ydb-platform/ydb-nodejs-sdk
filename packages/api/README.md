@@ -30,21 +30,20 @@ import { PileState, PileState_State } from '@ydbjs/api/bridge' // bridge / multi
 ### Example: Using a Service
 
 ```ts
-import { createClientFactory, createChannel } from 'nice-grpc'
+import { Channel, ChannelCredentials, createClient } from '@ydbjs/grpc'
 import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
 
-const clientFactory = createClientFactory()
-const discoveryClient = clientFactory.create(
-  DiscoveryServiceDefinition,
-  createChannel('http://localhost:2136')
-)
+let channel = new Channel('localhost:2136', ChannelCredentials.createInsecure(), {})
+let discoveryClient = createClient(DiscoveryServiceDefinition, channel)
 
 async function listEndpoints() {
   const response = await discoveryClient.listEndpoints({ database: '/local' })
   console.log(response)
 }
 
-listEndpoints().catch(console.error)
+listEndpoints()
+  .catch(console.error)
+  .finally(() => channel.close())
 ```
 
 ### Using with @ydbjs/core

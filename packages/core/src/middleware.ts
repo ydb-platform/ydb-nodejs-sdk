@@ -1,5 +1,5 @@
 import { loggers } from '@ydbjs/debug'
-import { ClientError, type ClientMiddleware } from 'nice-grpc'
+import { ClientError, type ClientMiddleware } from '@ydbjs/grpc'
 
 let log = loggers.grpc
 

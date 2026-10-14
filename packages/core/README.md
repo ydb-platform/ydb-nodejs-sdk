@@ -27,6 +27,8 @@ npm install @ydbjs/core
 - **Authentication**: Pass a credentials provider from `@ydbjs/auth` to the driver for static, token, anonymous, or cloud metadata authentication.
 - **Middleware**: Internal middleware handles metadata, authentication, and debugging.
 
+Client types, `Metadata`, `ClientError`, `Status`, and middleware types are exported by `@ydbjs/grpc`. `Driver.createClient()` keeps the Promise/AsyncIterable call signatures and call options (`signal`, `metadata`, `onHeader`, `onTrailer`). The driver owns channels; cancelling an RPC does not close its channel.
+
 ## Usage
 
 ### Basic Example

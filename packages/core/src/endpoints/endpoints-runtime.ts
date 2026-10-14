@@ -19,7 +19,7 @@ import type { ListEndpointsResult, EndpointInfo as ProtoEndpointInfo } from '@yd
 import { loggers } from '@ydbjs/debug'
 import { isRetryableError } from '@ydbjs/retry'
 import { type MachineRuntime, createMachineRuntime } from '@ydbjs/fsm'
-import type { ChannelCredentials, ChannelOptions } from 'nice-grpc'
+import type { ChannelCredentials, ChannelOptions } from '@ydbjs/grpc'
 
 import { type Connection, GrpcConnection } from '../conn.js'
 import type { DriverIdentity } from '../driver-identity.js'

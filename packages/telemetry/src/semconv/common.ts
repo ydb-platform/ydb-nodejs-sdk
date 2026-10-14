@@ -11,7 +11,7 @@ import {
 import type { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import type { DriverIdentity } from '@ydbjs/core'
 import { YDBError } from '@ydbjs/error'
-import { ClientError } from 'nice-grpc'
+import { ClientError } from '@ydbjs/grpc'
 
 // Keys used by BOTH pipelines live here. Span-only identifiers go in
 // `spans.ts`; metric-only tag enums go in `metrics.ts`.

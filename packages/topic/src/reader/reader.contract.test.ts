@@ -7,7 +7,7 @@ import { Codec } from '@ydbjs/api/topic'
 import type { StreamReadMessage_FromServer } from '@ydbjs/api/topic'
 import { YDBError } from '@ydbjs/error'
 import { expect, test, vi } from 'vitest'
-import { ClientError, Status } from 'nice-grpc'
+import { ClientError, Status } from '@ydbjs/grpc'
 
 import { ZSTD_CODEC } from '../codec.ts'
 import type { TopicMessage } from '../message.ts'

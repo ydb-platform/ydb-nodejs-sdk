@@ -57,7 +57,7 @@ test('BalancedChannel routes real RPC through connection pool', async (tc) => {
 
 	await driver.ready(tc.signal)
 
-	// createClient() returns a nice-grpc client backed by BalancedChannel when
+	// createClient() returns a client backed by BalancedChannel when
 	// discovery is enabled. Making a real RPC verifies the full path:
 	// BalancedChannel.createCall() → pool.acquire() → real grpc-js channel.
 	let client = driver.createClient(DiscoveryServiceDefinition)

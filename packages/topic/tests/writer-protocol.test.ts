@@ -18,7 +18,7 @@ import {
 import { Driver } from '@ydbjs/core'
 import { YDBError } from '@ydbjs/error'
 import { AsyncPriorityQueue } from '@ydbjs/fsm/queue'
-import { ClientError, Status } from 'nice-grpc'
+import { ClientError, Status } from '@ydbjs/grpc'
 
 import { createTopicWriter } from '../src/writer/index.js'
 import { isRetryableTopicError } from '../src/retry.js'

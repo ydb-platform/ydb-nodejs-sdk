@@ -24,8 +24,8 @@ import {
 	type CompatServiceDefinition,
 	Metadata,
 	composeClientMiddleware,
-	createClientFactory,
-} from 'nice-grpc'
+	createClient,
+} from '@ydbjs/grpc'
 
 import pkg from '../package.json' with { type: 'json' }
 
@@ -335,7 +335,7 @@ export class Driver implements Disposable, AsyncDisposable {
 	}
 
 	/**
-	 * Create a nice-grpc client for the given service.
+	 * Create a gRPC client for the given service.
 	 *
 	 * When discovery is enabled, each RPC is routed through a BalancedChannel that
 	 * selects a connection from the endpoints pool. When disabled, the single
@@ -390,11 +390,11 @@ export class Driver implements Disposable, AsyncDisposable {
 			) as unknown as Channel
 		}
 
-		let factory = createClientFactory().use(this.#middleware)
+		let middleware = this.#middleware
 		if (pinReady) {
 			let ready = pinReady
 
-			factory = factory.use(async function* (call, options) {
+			middleware = composeClientMiddleware(middleware, async function* (call, options) {
 				await (options.signal ? abortable(options.signal, ready) : ready)
 
 				if (disposed) {
@@ -405,9 +405,14 @@ export class Driver implements Disposable, AsyncDisposable {
 			})
 		}
 
-		let client = factory.create(service, channel, {
-			'*': this.options.channelOptions,
-		})
+		let client = createClient(
+			service,
+			channel,
+			{
+				'*': this.options.channelOptions,
+			},
+			middleware
+		)
 
 		if (typeof target !== 'object') {
 			return client
@@ -545,10 +550,6 @@ export class Driver implements Disposable, AsyncDisposable {
 			return call.next(call.request, Object.assign(options, { metadata }))
 		}
 
-		// Order: debug (logging) → stamp (SDK / db / app headers) → any
-		// externally-registered middleware → auth (x-ydb-auth-ticket). Auth runs
-		// last so a token refresh from inside another middleware still wins.
-		//
 		// The registry snapshot is taken at construction — call
 		// addClientMiddleware() BEFORE new Driver(...) for it to apply.
 		let chain = composeClientMiddleware(debug, stamp)
@@ -562,9 +563,12 @@ export class Driver implements Disposable, AsyncDisposable {
 	// FSM owns retry/backoff, and the run_discovery_round effect owns the
 	// tracing:ydb:driver.discovery span; this closure must not add either.
 	#fetchEndpoints: ListEndpoints = async (signal: AbortSignal): Promise<DiscoveryResult> => {
-		let client = (this.#discoveryClient ??= createClientFactory()
-			.use(this.#middleware)
-			.create(DiscoveryServiceDefinition, this.#connection.channel))
+		let client = (this.#discoveryClient ??= createClient(
+			DiscoveryServiceDefinition,
+			this.#connection.channel,
+			{},
+			this.#middleware
+		))
 
 		let response = await client.listEndpoints({ database: this.database }, { signal })
 		assert.ok(response.operation, new DriverResponseError('Missing operation data.'))

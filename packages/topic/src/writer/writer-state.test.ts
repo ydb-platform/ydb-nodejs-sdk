@@ -4,7 +4,7 @@ import { isRetryableTopicError } from '../retry.ts'
 import type { TransitionRuntime } from '@ydbjs/fsm'
 import { YDBError } from '@ydbjs/error'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { ClientError, Status } from 'nice-grpc'
+import { ClientError, Status } from '@ydbjs/grpc'
 
 import {
 	type BufferedMessage,
