@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { ImportDataRequestSchema, ImportDataResponseSchema, ImportFromFsRequestSchema, ImportFromFsResponseSchema, ImportFromS3RequestSchema, ImportFromS3ResponseSchema, ListObjectsInFsExportRequestSchema, ListObjectsInFsExportResponseSchema, ListObjectsInS3ExportRequestSchema, ListObjectsInS3ExportResponseSchema } from "./protos/ydb_import_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.Import.V1.ImportService
@@ -20,13 +20,11 @@ export const ImportServiceDefinition = {
   importFromS3: {
     path: "/Ydb.Import.V1.ImportService/ImportFromS3",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ImportFromS3RequestSchema>) => toBinary(ImportFromS3RequestSchema, create(ImportFromS3RequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ImportFromS3RequestSchema>) => { let bytes = toBinary(ImportFromS3RequestSchema, create(ImportFromS3RequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ImportFromS3RequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ImportFromS3ResponseSchema>) => toBinary(ImportFromS3ResponseSchema, create(ImportFromS3ResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ImportFromS3ResponseSchema>) => { let bytes = toBinary(ImportFromS3ResponseSchema, create(ImportFromS3ResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ImportFromS3ResponseSchema,bytes),
-    options: {},
   },
   /**
    * Imports data from file system.
@@ -37,13 +35,11 @@ export const ImportServiceDefinition = {
   importFromFs: {
     path: "/Ydb.Import.V1.ImportService/ImportFromFs",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ImportFromFsRequestSchema>) => toBinary(ImportFromFsRequestSchema, create(ImportFromFsRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ImportFromFsRequestSchema>) => { let bytes = toBinary(ImportFromFsRequestSchema, create(ImportFromFsRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ImportFromFsRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ImportFromFsResponseSchema>) => toBinary(ImportFromFsResponseSchema, create(ImportFromFsResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ImportFromFsResponseSchema>) => { let bytes = toBinary(ImportFromFsResponseSchema, create(ImportFromFsResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ImportFromFsResponseSchema,bytes),
-    options: {},
   },
   /**
    * List objects from existing export stored in S3 bucket
@@ -53,13 +49,11 @@ export const ImportServiceDefinition = {
   listObjectsInS3Export: {
     path: "/Ydb.Import.V1.ImportService/ListObjectsInS3Export",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ListObjectsInS3ExportRequestSchema>) => toBinary(ListObjectsInS3ExportRequestSchema, create(ListObjectsInS3ExportRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ListObjectsInS3ExportRequestSchema>) => { let bytes = toBinary(ListObjectsInS3ExportRequestSchema, create(ListObjectsInS3ExportRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ListObjectsInS3ExportRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ListObjectsInS3ExportResponseSchema>) => toBinary(ListObjectsInS3ExportResponseSchema, create(ListObjectsInS3ExportResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ListObjectsInS3ExportResponseSchema>) => { let bytes = toBinary(ListObjectsInS3ExportResponseSchema, create(ListObjectsInS3ExportResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ListObjectsInS3ExportResponseSchema,bytes),
-    options: {},
   },
   /**
    * List objects from existing export stored in FS
@@ -69,13 +63,11 @@ export const ImportServiceDefinition = {
   listObjectsInFsExport: {
     path: "/Ydb.Import.V1.ImportService/ListObjectsInFsExport",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ListObjectsInFsExportRequestSchema>) => toBinary(ListObjectsInFsExportRequestSchema, create(ListObjectsInFsExportRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ListObjectsInFsExportRequestSchema>) => { let bytes = toBinary(ListObjectsInFsExportRequestSchema, create(ListObjectsInFsExportRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ListObjectsInFsExportRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ListObjectsInFsExportResponseSchema>) => toBinary(ListObjectsInFsExportResponseSchema, create(ListObjectsInFsExportResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ListObjectsInFsExportResponseSchema>) => { let bytes = toBinary(ListObjectsInFsExportResponseSchema, create(ListObjectsInFsExportResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ListObjectsInFsExportResponseSchema,bytes),
-    options: {},
   },
   /**
    * Writes data to a table.
@@ -86,16 +78,10 @@ export const ImportServiceDefinition = {
   importData: {
     path: "/Ydb.Import.V1.ImportService/ImportData",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ImportDataRequestSchema>) => toBinary(ImportDataRequestSchema, create(ImportDataRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ImportDataRequestSchema>) => { let bytes = toBinary(ImportDataRequestSchema, create(ImportDataRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ImportDataRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ImportDataResponseSchema>) => toBinary(ImportDataResponseSchema, create(ImportDataResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ImportDataResponseSchema>) => { let bytes = toBinary(ImportDataResponseSchema, create(ImportDataResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ImportDataResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-ImportServiceDefinition["name"] = "ImportService";
-//@ts-expect-error
-ImportServiceDefinition["fullName"] = "Ydb.Import.V1.ImportService";

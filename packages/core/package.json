@@ -58,8 +58,7 @@
 		"@ydbjs/debug": "^6.0.0",
 		"@ydbjs/error": "^6.0.6",
 		"@ydbjs/fsm": "^6.1.1",
-		"@ydbjs/retry": "^6.3.0",
-		"@ydbjs/grpc": "^0.1.0"
+		"@ydbjs/retry": "^6.3.0"
 	},
 	"devDependencies": {
 		"@types/debug": "^4.1.12"

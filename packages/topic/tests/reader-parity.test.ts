@@ -1,16 +1,20 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	CreateTopicRequestSchema,
+	type CreateTopicResponse,
+	DescribeConsumerRequestSchema,
+	type DescribeConsumerResponse,
+	DescribeConsumerResultSchema,
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
 
 import { create } from '@bufbuild/protobuf'
 import { anyUnpack } from '@bufbuild/protobuf/wkt'
-import {
-	CreateTopicRequestSchema,
-	DescribeConsumerRequestSchema,
-	DescribeConsumerResultSchema,
-	DropTopicRequestSchema,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
-import { Status } from '@ydbjs/grpc'
+import { status as Status } from '@grpc/grpc-js'
 
 import type { TopicMessage } from '../src/message.js'
 import { type TopicReader, createTopicReader } from '../src/reader/index.js'
@@ -38,21 +42,26 @@ beforeEach(() => {
 afterEach(async () => {
 	for (let path of createdTopics) {
 		// oxlint-disable-next-line no-await-in-loop
-		await topicService.dropTopic(create(DropTopicRequestSchema, { path })).catch(() => {})
+		await unaryCall<DropTopicResponse>((callback) =>
+			topicService.dropTopic(create(DropTopicRequestSchema, { path }), callback)
+		).catch(() => {})
 	}
 })
 
 let makeTopic = async function makeTopic(suffix: string, partitions = 1n): Promise<string> {
 	let path = `topic-parity-${suffix}-${Date.now()}-${seq}`
-	await topicService.createTopic(
-		create(CreateTopicRequestSchema, {
-			path,
-			partitioningSettings: {
-				minActivePartitions: partitions,
-				maxActivePartitions: partitions,
-			},
-			consumers: [{ name: consumerName }],
-		})
+	await unaryCall<CreateTopicResponse>((callback) =>
+		topicService.createTopic(
+			create(CreateTopicRequestSchema, {
+				path,
+				partitioningSettings: {
+					minActivePartitions: partitions,
+					maxActivePartitions: partitions,
+				},
+				consumers: [{ name: consumerName }],
+			}),
+			callback
+		)
 	)
 	createdTopics.push(path)
 	return path
@@ -118,12 +127,15 @@ let waitUntil = async function waitUntil(predicate: () => boolean, ms: number): 
 }
 
 let committedOffset = async function committedOffset(topic: string): Promise<bigint> {
-	let response = await topicService.describeConsumer(
-		create(DescribeConsumerRequestSchema, {
-			path: topic,
-			consumer: consumerName,
-			includeStats: true,
-		})
+	let response = await unaryCall<DescribeConsumerResponse>((callback) =>
+		topicService.describeConsumer(
+			create(DescribeConsumerRequestSchema, {
+				path: topic,
+				consumer: consumerName,
+				includeStats: true,
+			}),
+			callback
+		)
 	)
 	let result = anyUnpack(response.operation!.result!, DescribeConsumerResultSchema)
 	let stats = result?.partitions.find((p) => p.partitionId === 0n)?.partitionConsumerStats

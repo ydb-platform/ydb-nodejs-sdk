@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { DescribePathRequestSchema, DescribePathResponseSchema, ListDirectoryRequestSchema, ListDirectoryResponseSchema, MakeDirectoryRequestSchema, MakeDirectoryResponseSchema, ModifyPermissionsRequestSchema, ModifyPermissionsResponseSchema, RemoveDirectoryRequestSchema, RemoveDirectoryResponseSchema } from "./protos/ydb_scheme_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.Scheme.V1.SchemeService
@@ -19,13 +19,11 @@ export const SchemeServiceDefinition = {
   makeDirectory: {
     path: "/Ydb.Scheme.V1.SchemeService/MakeDirectory",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof MakeDirectoryRequestSchema>) => toBinary(MakeDirectoryRequestSchema, create(MakeDirectoryRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof MakeDirectoryRequestSchema>) => { let bytes = toBinary(MakeDirectoryRequestSchema, create(MakeDirectoryRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(MakeDirectoryRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof MakeDirectoryResponseSchema>) => toBinary(MakeDirectoryResponseSchema, create(MakeDirectoryResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof MakeDirectoryResponseSchema>) => { let bytes = toBinary(MakeDirectoryResponseSchema, create(MakeDirectoryResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(MakeDirectoryResponseSchema,bytes),
-    options: {},
   },
   /**
    * Remove Directory.
@@ -35,13 +33,11 @@ export const SchemeServiceDefinition = {
   removeDirectory: {
     path: "/Ydb.Scheme.V1.SchemeService/RemoveDirectory",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof RemoveDirectoryRequestSchema>) => toBinary(RemoveDirectoryRequestSchema, create(RemoveDirectoryRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof RemoveDirectoryRequestSchema>) => { let bytes = toBinary(RemoveDirectoryRequestSchema, create(RemoveDirectoryRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(RemoveDirectoryRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof RemoveDirectoryResponseSchema>) => toBinary(RemoveDirectoryResponseSchema, create(RemoveDirectoryResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof RemoveDirectoryResponseSchema>) => { let bytes = toBinary(RemoveDirectoryResponseSchema, create(RemoveDirectoryResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(RemoveDirectoryResponseSchema,bytes),
-    options: {},
   },
   /**
    * Returns information about given directory and objects inside it.
@@ -51,13 +47,11 @@ export const SchemeServiceDefinition = {
   listDirectory: {
     path: "/Ydb.Scheme.V1.SchemeService/ListDirectory",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ListDirectoryRequestSchema>) => toBinary(ListDirectoryRequestSchema, create(ListDirectoryRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ListDirectoryRequestSchema>) => { let bytes = toBinary(ListDirectoryRequestSchema, create(ListDirectoryRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ListDirectoryRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ListDirectoryResponseSchema>) => toBinary(ListDirectoryResponseSchema, create(ListDirectoryResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ListDirectoryResponseSchema>) => { let bytes = toBinary(ListDirectoryResponseSchema, create(ListDirectoryResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ListDirectoryResponseSchema,bytes),
-    options: {},
   },
   /**
    * Returns information about object with given path.
@@ -67,13 +61,11 @@ export const SchemeServiceDefinition = {
   describePath: {
     path: "/Ydb.Scheme.V1.SchemeService/DescribePath",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof DescribePathRequestSchema>) => toBinary(DescribePathRequestSchema, create(DescribePathRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof DescribePathRequestSchema>) => { let bytes = toBinary(DescribePathRequestSchema, create(DescribePathRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(DescribePathRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof DescribePathResponseSchema>) => toBinary(DescribePathResponseSchema, create(DescribePathResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof DescribePathResponseSchema>) => { let bytes = toBinary(DescribePathResponseSchema, create(DescribePathResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(DescribePathResponseSchema,bytes),
-    options: {},
   },
   /**
    * Modify permissions.
@@ -83,16 +75,10 @@ export const SchemeServiceDefinition = {
   modifyPermissions: {
     path: "/Ydb.Scheme.V1.SchemeService/ModifyPermissions",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ModifyPermissionsRequestSchema>) => toBinary(ModifyPermissionsRequestSchema, create(ModifyPermissionsRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ModifyPermissionsRequestSchema>) => { let bytes = toBinary(ModifyPermissionsRequestSchema, create(ModifyPermissionsRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ModifyPermissionsRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ModifyPermissionsResponseSchema>) => toBinary(ModifyPermissionsResponseSchema, create(ModifyPermissionsResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ModifyPermissionsResponseSchema>) => { let bytes = toBinary(ModifyPermissionsResponseSchema, create(ModifyPermissionsResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ModifyPermissionsResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-SchemeServiceDefinition["name"] = "SchemeService";
-//@ts-expect-error
-SchemeServiceDefinition["fullName"] = "Ydb.Scheme.V1.SchemeService";

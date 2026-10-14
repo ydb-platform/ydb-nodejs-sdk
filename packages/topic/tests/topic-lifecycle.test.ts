@@ -1,13 +1,17 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	AlterTopicRequestSchema,
+	type AlterTopicResponse,
+	CreateTopicRequestSchema,
+	type CreateTopicResponse,
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import { create } from '@bufbuild/protobuf'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
 
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import {
-	AlterTopicRequestSchema,
-	CreateTopicRequestSchema,
-	DropTopicRequestSchema,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
 import { YDBError } from '@ydbjs/error'
 
@@ -35,16 +39,21 @@ beforeEach(() => {
 
 afterEach(async () => {
 	// A test may or may not have created the topic; drop it if present.
-	await topicService.dropTopic(create(DropTopicRequestSchema, { path: topic })).catch(() => {})
+	await unaryCall<DropTopicResponse>((callback) =>
+		topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
+	).catch(() => {})
 })
 
 let makeTopic = async function makeTopic(): Promise<void> {
-	await topicService.createTopic(
-		create(CreateTopicRequestSchema, {
-			path: topic,
-			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
-			consumers: [{ name: consumer }],
-		})
+	await unaryCall<CreateTopicResponse>((callback) =>
+		topicService.createTopic(
+			create(CreateTopicRequestSchema, {
+				path: topic,
+				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
+				consumers: [{ name: consumer }],
+			}),
+			callback
+		)
 	)
 }
 
@@ -135,12 +144,15 @@ test('keeps reading after the topic is altered mid-stream', async (tc) => {
 
 	// Alter the topic while the read stream is live: bump retention and add a consumer.
 	// Both are plain schema changes a production operator performs on a serving topic.
-	let altered = await topicService.alterTopic(
-		create(AlterTopicRequestSchema, {
-			path: topic,
-			setRetentionPeriod: { seconds: 7200n },
-			addConsumers: [{ name: `${consumer}-extra` }],
-		})
+	let altered = await unaryCall<AlterTopicResponse>((callback) =>
+		topicService.alterTopic(
+			create(AlterTopicRequestSchema, {
+				path: topic,
+				setRetentionPeriod: { seconds: 7200n },
+				addConsumers: [{ name: `${consumer}-extra` }],
+			}),
+			callback
+		)
 	)
 	expect(altered.operation?.status).toBe(StatusIds_StatusCode.SUCCESS)
 
@@ -177,7 +189,9 @@ test(
 			true
 		)
 
-		await topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }))
+		await unaryCall<DropTopicResponse>((callback) =>
+			topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
+		)
 
 		// The drop must not error the reader terminally — it either idles on the stale
 		// stream or reconnects and retries SCHEME_ERROR (retryOnSchemeError).
@@ -198,21 +212,25 @@ test(
 
 // The 1s pre-creation window stacks up SCHEME_ERROR retries, so the recovery leg
 // rides the grown backoff — under CPU contention that can exceed the default budget.
-test('waits for the topic to be created before writing with retryOnSchemeError', { timeout: 30_000 }, async () => {
-	await using writer = createTopicWriter(driver, {
-		topic,
-		producer: 'p',
-		retryOnSchemeError: true,
-	})
-	writer.write(new Uint8Array([42]))
-	// The topic does not exist yet: the flush stays pending while the writer retries
-	// SCHEME_ERROR instead of failing.
-	let flushed = writer.flush()
+test(
+	'waits for the topic to be created before writing with retryOnSchemeError',
+	{ timeout: 30_000 },
+	async () => {
+		await using writer = createTopicWriter(driver, {
+			topic,
+			producer: 'p',
+			retryOnSchemeError: true,
+		})
+		writer.write(new Uint8Array([42]))
+		// The topic does not exist yet: the flush stays pending while the writer retries
+		// SCHEME_ERROR instead of failing.
+		let flushed = writer.flush()
 
-	await new Promise((resolve) => setTimeout(resolve, 1000))
-	await makeTopic()
+		await new Promise((resolve) => setTimeout(resolve, 1000))
+		await makeTopic()
 
-	// Once the topic exists the write is acknowledged and the flush resolves.
-	let seqNo = await flushed
-	expect(seqNo).toBeGreaterThanOrEqual(1n)
-})
+		// Once the topic exists the write is acknowledged and the flush resolves.
+		let seqNo = await flushed
+		expect(seqNo).toBeGreaterThanOrEqual(1n)
+	}
+)

@@ -1,3 +1,12 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	Codec,
+	CreateTopicRequestSchema,
+	type CreateTopicResponse,
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { channel } from 'node:diagnostics_channel'
@@ -7,12 +16,6 @@ import { setTimeout as sleep, setImmediate as turn } from 'node:timers/promises'
 
 import { create } from '@bufbuild/protobuf'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import {
-	Codec,
-	CreateTopicRequestSchema,
-	DropTopicRequestSchema,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
 import { GZIP_CODEC, RAW_CODEC, ZSTD_CODEC } from '../src/codec.ts'
 import { type TopicReader, createTopicReader } from '../src/reader/index.ts'
@@ -177,14 +180,18 @@ async function run() {
 	})
 	await driver.ready(signal.signal)
 	let service = driver.createClient(TopicServiceDefinition)
-	let result = await service.createTopic(
-		create(CreateTopicRequestSchema, {
-			path: topic,
-			partitioningSettings: { minActivePartitions: 3n, maxActivePartitions: 3n },
-			consumers: [{ name: consumer }],
-			supportedCodecs: { codecs: [Codec.RAW, Codec.GZIP, Codec.ZSTD] },
-		}),
-		{ signal: signal.signal }
+	let result = await unaryCall<CreateTopicResponse>(
+		(callback) =>
+			service.createTopic(
+				create(CreateTopicRequestSchema, {
+					path: topic,
+					partitioningSettings: { minActivePartitions: 3n, maxActivePartitions: 3n },
+					consumers: [{ name: consumer }],
+					supportedCodecs: { codecs: [Codec.RAW, Codec.GZIP, Codec.ZSTD] },
+				}),
+				callback
+			),
+		signal.signal
 	)
 	assert.equal(result.operation?.status, StatusIds_StatusCode.SUCCESS)
 	let readerChannel = channel('ydb:topic.reader.reconnecting')
@@ -311,9 +318,11 @@ async function run() {
 		clients = undefined
 	} finally {
 		clients?.destroy()
-		await service.dropTopic(create(DropTopicRequestSchema, { path: topic }), {
-			signal: AbortSignal.timeout(5000),
-		})
+		await unaryCall<DropTopicResponse>(
+			(callback) =>
+				service.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback),
+			AbortSignal.timeout(5000)
+		)
 	}
 	driver.close()
 	await sleep(25)

@@ -15,7 +15,7 @@ let plugin = createEcmaScriptPlugin({
 			let f = schema.generateFile(file.name + '_grpc_pb.ts')
 			f.preamble(file)
 
-			let serviceDefinition = f.import('ServiceDefinition', '@ydbjs/grpc', true)
+			let serviceDefinition = f.import('ServiceDefinition', '@grpc/grpc-js', true)
 			let bufProtoCreate = f.import('create', '@bufbuild/protobuf')
 			let bufProtoMessageInitShape = f.import('MessageInitShape', '@bufbuild/protobuf', true)
 			let bufProtoToBinary = f.import('toBinary', '@bufbuild/protobuf')
@@ -38,13 +38,12 @@ let plugin = createEcmaScriptPlugin({
 					f.print('  ', safeIdentifier(method.localName), ': {')
 					f.print('    path: ', f.string(`/${service.typeName}/${method.name}`), ',')
 					f.print('    requestStream: ' + (requestStream ? 'true' : 'false') + ',')
-					f.print('    requestBufferOwned: true,')
 					f.print(
 						'    requestSerialize: (message: ',
 						bufProtoMessageInitShape,
 						'<typeof ',
 						requestSchema,
-						'>) => ',
+						'>) => { let bytes = ',
 						bufProtoToBinary,
 						'(',
 						requestSchema,
@@ -52,7 +51,7 @@ let plugin = createEcmaScriptPlugin({
 						bufProtoCreate,
 						'(',
 						requestSchema,
-						', message)),'
+						', message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },'
 					)
 					f.print(
 						'    requestDeserialize: (bytes: Uint8Array) => ',
@@ -67,7 +66,7 @@ let plugin = createEcmaScriptPlugin({
 						bufProtoMessageInitShape,
 						'<typeof ',
 						responseSchema,
-						'>) => ',
+						'>) => { let bytes = ',
 						bufProtoToBinary,
 						'(',
 						responseSchema,
@@ -75,7 +74,7 @@ let plugin = createEcmaScriptPlugin({
 						bufProtoCreate,
 						'(',
 						responseSchema,
-						', message)),'
+						', message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },'
 					)
 					f.print(
 						'    responseDeserialize: (bytes: Uint8Array) => ',
@@ -84,25 +83,9 @@ let plugin = createEcmaScriptPlugin({
 						responseSchema,
 						',bytes),'
 					)
-					f.print('    options: {},')
 					f.print('  },')
 				}
 				f.print('} as const satisfies ', serviceDefinition)
-
-				f.print('//@ts-expect-error')
-				f.print(
-					safeIdentifier(service.name + 'Definition'),
-					'["name"] = "',
-					service.name,
-					'";'
-				)
-				f.print('//@ts-expect-error')
-				f.print(
-					safeIdentifier(service.name + 'Definition'),
-					'["fullName"] = "',
-					service.typeName,
-					'";'
-				)
 			}
 		}
 	},

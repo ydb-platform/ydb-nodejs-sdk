@@ -1,11 +1,14 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	CreateTopicRequestSchema,
+	type CreateTopicResponse,
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
 
 import { create } from '@bufbuild/protobuf'
-import {
-	CreateTopicRequestSchema,
-	DropTopicRequestSchema,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
 import { createTopicReader } from '../src/reader/index.js'
 
@@ -23,27 +26,33 @@ beforeEach(async () => {
 	testTopicName = `test-topic-integration-${Date.now()}`
 	testConsumerName = `test-consumer-${Date.now()}`
 
-	await topicService.createTopic(
-		create(CreateTopicRequestSchema, {
-			path: testTopicName,
-			partitioningSettings: {
-				minActivePartitions: 1n,
-				maxActivePartitions: 100n,
-			},
-			consumers: [
-				{
-					name: testConsumerName,
+	await unaryCall<CreateTopicResponse>((callback) =>
+		topicService.createTopic(
+			create(CreateTopicRequestSchema, {
+				path: testTopicName,
+				partitioningSettings: {
+					minActivePartitions: 1n,
+					maxActivePartitions: 100n,
 				},
-			],
-		})
+				consumers: [
+					{
+						name: testConsumerName,
+					},
+				],
+			}),
+			callback
+		)
 	)
 })
 
 afterEach(async () => {
-	await topicService.dropTopic(
-		create(DropTopicRequestSchema, {
-			path: testTopicName,
-		})
+	await unaryCall<DropTopicResponse>((callback) =>
+		topicService.dropTopic(
+			create(DropTopicRequestSchema, {
+				path: testTopicName,
+			}),
+			callback
+		)
 	)
 })
 

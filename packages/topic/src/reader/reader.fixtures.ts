@@ -1,15 +1,19 @@
-import { Codec } from '@ydbjs/api/topic'
-import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import type {
-	StreamReadMessage_CommitOffsetRequest,
-	StreamReadMessage_FromClient,
-	StreamReadMessage_FromServer,
-	StreamReadMessage_InitRequest,
-	StreamReadMessage_ReadRequest,
-	StreamReadMessage_StartPartitionSessionResponse,
-	UpdateOffsetsInTransactionRequest,
-	UpdateTokenRequest,
+import { setImmediate } from 'node:timers/promises'
+import { Duplex } from 'node:stream'
+import type { requestCallback } from '@grpc/grpc-js'
+import {
+	Codec,
+	type StreamReadMessage_CommitOffsetRequest,
+	type StreamReadMessage_FromClient,
+	type StreamReadMessage_FromServer,
+	type StreamReadMessage_InitRequest,
+	type StreamReadMessage_ReadRequest,
+	type StreamReadMessage_StartPartitionSessionResponse,
+	type UpdateOffsetsInTransactionRequest,
+	type UpdateOffsetsInTransactionResponse,
+	type UpdateTokenRequest,
 } from '@ydbjs/api/topic'
+import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import type { Driver } from '@ydbjs/core'
 
 import type { TX } from '../tx.js'
@@ -100,171 +104,117 @@ export let makeFakeTopicDriver = function makeFakeTopicDriver(): FakeTopicDriver
 		},
 		createClient(): unknown {
 			return {
-				updateOffsetsInTransaction(request: UpdateOffsetsInTransactionRequest) {
+				updateOffsetsInTransaction(
+					request: UpdateOffsetsInTransactionRequest,
+					callback: requestCallback<UpdateOffsetsInTransactionResponse>
+				) {
 					txOffsetRequests.push(request)
-					return Promise.resolve({
+					callback(null, {
 						operation: {
 							ready: true,
 							status: StatusIds_StatusCode.SUCCESS,
 							issues: [],
 						},
-					})
+					} as unknown as UpdateOffsetsInTransactionResponse)
+					return { cancel() {} }
 				},
-				streamRead(
-					input: AsyncIterable<StreamReadMessage_FromClient>,
-					opts?: { signal?: AbortSignal }
-				): AsyncIterable<StreamReadMessage_FromServer> {
+				streamRead() {
 					opened++
-					let signal = opts?.signal
-					let readers: Array<
-						PromiseWithResolvers<IteratorResult<StreamReadMessage_FromServer>>
-					> = []
-					let queue: StreamReadMessage_FromServer[] = []
-					let done = false
-
+					let aborted = false
 					let sent: StreamReadMessage_FromClient[] = []
 					let sentWaiters: Array<() => void> = []
-
-					let finish = function finish(): void {
-						done = true
-						for (let reader of readers.splice(0)) {
-							reader.resolve({ value: undefined as never, done: true })
-						}
-					}
-
-					let aborted = false
-					if (signal) {
-						if (signal.aborted) {
-							done = true
-							aborted = true
-						} else {
-							signal.addEventListener(
-								'abort',
-								() => {
-									aborted = true
-									finish()
-								},
-								{ once: true }
-							)
-						}
-					}
-
-					// Drain what the reader sends so tests can assert on it.
-					void (async () => {
-						try {
-							for await (let message of input) {
+					let stream = Object.assign(
+						new Duplex({
+							objectMode: true,
+							read() {},
+							write(message: StreamReadMessage_FromClient, _encoding, callback) {
 								sent.push(message)
-								for (let w of sentWaiters.splice(0)) {
-									w()
+								for (let waiter of sentWaiters.splice(0)) {
+									waiter()
 								}
-							}
-						} catch {
-							// input closed — nothing to do
+								callback()
+							},
+						}),
+						{
+							cancel() {
+								aborted = true
+								stream.destroy()
+							},
 						}
-					})()
+					)
 
 					let waitForClient = async function waitForClient<T>(
-						pick: (m: StreamReadMessage_FromClient) => T | undefined
+						pick: (message: StreamReadMessage_FromClient) => T | undefined
 					): Promise<T> {
 						for (;;) {
 							for (let message of sent) {
-								let picked = pick(message)
-								if (picked !== undefined) {
-									return picked
+								let result = pick(message)
+								if (result !== undefined) {
+									return result
 								}
 							}
-							let d = deferred<void>()
-							sentWaiters.push(d.resolve)
+							let next = deferred<void>()
+							sentWaiters.push(next.resolve)
 							// oxlint-disable-next-line no-await-in-loop
-							await d.promise
+							await next.promise
 						}
 					}
 
 					let handle: FakeReadStream = {
 						respond(message) {
-							if (done) return
-							if (readers.length > 0) {
-								readers.shift()!.resolve({ value: message, done: false })
-							} else {
-								queue.push(message)
+							if (!stream.destroyed && !stream.readableEnded) {
+								stream.push(message)
 							}
 						},
 						disconnect() {
-							finish()
+							stream.push(null)
 						},
 						fail(error) {
-							if (done) return
-							done = true
-							for (let reader of readers.splice(0)) {
-								reader.reject(error)
-							}
+							stream.destroy(error as Error)
 						},
 						wasAborted() {
 							return aborted
 						},
 						sent,
 						waitForInit() {
-							return waitForClient((m) =>
-								m.clientMessage.case === 'initRequest'
-									? m.clientMessage.value
+							return waitForClient((message) =>
+								message.clientMessage.case === 'initRequest'
+									? message.clientMessage.value
 									: undefined
 							)
 						},
 						waitForReadRequest() {
-							return waitForClient((m) =>
-								m.clientMessage.case === 'readRequest'
-									? m.clientMessage.value
+							return waitForClient((message) =>
+								message.clientMessage.case === 'readRequest'
+									? message.clientMessage.value
 									: undefined
 							)
 						},
 						waitForCommit() {
-							return waitForClient((m) =>
-								m.clientMessage.case === 'commitOffsetRequest'
-									? m.clientMessage.value
+							return waitForClient((message) =>
+								message.clientMessage.case === 'commitOffsetRequest'
+									? message.clientMessage.value
 									: undefined
 							)
 						},
 						waitForStartResponse() {
-							return waitForClient((m) =>
-								m.clientMessage.case === 'startPartitionSessionResponse'
-									? m.clientMessage.value
+							return waitForClient((message) =>
+								message.clientMessage.case === 'startPartitionSessionResponse'
+									? message.clientMessage.value
 									: undefined
 							)
 						},
 						waitForUpdateToken() {
-							return waitForClient((m) =>
-								m.clientMessage.case === 'updateTokenRequest'
-									? m.clientMessage.value
+							return waitForClient((message) =>
+								message.clientMessage.case === 'updateTokenRequest'
+									? message.clientMessage.value
 									: undefined
 							)
 						},
 					}
 
 					deliver(handle)
-
-					return {
-						[Symbol.asyncIterator]() {
-							return {
-								next(): Promise<IteratorResult<StreamReadMessage_FromServer>> {
-									if (queue.length > 0) {
-										return Promise.resolve({
-											value: queue.shift()!,
-											done: false,
-										})
-									}
-									if (done) {
-										return Promise.resolve({
-											value: undefined as never,
-											done: true,
-										})
-									}
-									let d = deferred<IteratorResult<StreamReadMessage_FromServer>>()
-									readers.push(d)
-									return d.promise
-								},
-							}
-						},
-					}
+					return stream
 				},
 			}
 		},
@@ -424,4 +374,5 @@ export let settle = async function settle(ticks = 100): Promise<void> {
 		// oxlint-disable-next-line no-await-in-loop
 		await Promise.resolve()
 	}
+	await setImmediate()
 }

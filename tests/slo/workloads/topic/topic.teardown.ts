@@ -1,7 +1,12 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import { workerData } from 'node:worker_threads'
 
 import { create } from '@bufbuild/protobuf'
-import { DropTopicRequestSchema, TopicServiceDefinition } from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
 
 import { installSafetyHandlers } from '../../lib/safety.ts'
@@ -19,7 +24,9 @@ let topic = params['topic'] ?? 'slo-topic'
 
 	console.log('[topic.teardown] dropping topic %s', topic)
 	try {
-		await service.dropTopic(create(DropTopicRequestSchema, { path: topic }))
+		await unaryCall<DropTopicResponse>((callback) =>
+			service.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
+		)
 	} catch {
 		// topic did not exist
 	}

@@ -1,12 +1,15 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	CreateTopicRequestSchema,
+	type CreateTopicResponse,
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import { subscribe, unsubscribe } from 'node:diagnostics_channel'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { create } from '@bufbuild/protobuf'
-import {
-	CreateTopicRequestSchema,
-	DropTopicRequestSchema,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
 
@@ -23,17 +26,22 @@ beforeEach(async () => {
 	let suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 	topic = `reader-flow-control-${suffix}`
 	consumer = `consumer-${suffix}`
-	await topicService.createTopic(
-		create(CreateTopicRequestSchema, {
-			path: topic,
-			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
-			consumers: [{ name: consumer }],
-		})
+	await unaryCall<CreateTopicResponse>((callback) =>
+		topicService.createTopic(
+			create(CreateTopicRequestSchema, {
+				path: topic,
+				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
+				consumers: [{ name: consumer }],
+			}),
+			callback
+		)
 	)
 })
 
 afterEach(async () => {
-	await topicService.dropTopic(create(DropTopicRequestSchema, { path: topic })).catch(() => {})
+	await unaryCall<DropTopicResponse>((callback) =>
+		topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
+	).catch(() => {})
 })
 
 let waitForStableBuffer = async function waitForStableBuffer(

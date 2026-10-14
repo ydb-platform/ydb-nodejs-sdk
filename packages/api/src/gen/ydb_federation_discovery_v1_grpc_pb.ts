@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { ListFederationDatabasesRequestSchema, ListFederationDatabasesResponseSchema } from "./protos/ydb_federation_discovery_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.FederationDiscovery.V1.FederationDiscoveryService
@@ -19,16 +19,10 @@ export const FederationDiscoveryServiceDefinition = {
   listFederationDatabases: {
     path: "/Ydb.FederationDiscovery.V1.FederationDiscoveryService/ListFederationDatabases",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ListFederationDatabasesRequestSchema>) => toBinary(ListFederationDatabasesRequestSchema, create(ListFederationDatabasesRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ListFederationDatabasesRequestSchema>) => { let bytes = toBinary(ListFederationDatabasesRequestSchema, create(ListFederationDatabasesRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ListFederationDatabasesRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ListFederationDatabasesResponseSchema>) => toBinary(ListFederationDatabasesResponseSchema, create(ListFederationDatabasesResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ListFederationDatabasesResponseSchema>) => { let bytes = toBinary(ListFederationDatabasesResponseSchema, create(ListFederationDatabasesResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ListFederationDatabasesResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-FederationDiscoveryServiceDefinition["name"] = "FederationDiscoveryService";
-//@ts-expect-error
-FederationDiscoveryServiceDefinition["fullName"] = "Ydb.FederationDiscovery.V1.FederationDiscoveryService";

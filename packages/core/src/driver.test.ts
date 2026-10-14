@@ -1,11 +1,19 @@
-import { expect, test } from 'vitest'
-import { create } from '@bufbuild/protobuf'
-import { anyPack } from '@bufbuild/protobuf/wkt'
+import { promisify } from 'node:util'
+import { abortable } from '@ydbjs/abortable'
+import { Metadata, connectivityState } from '@grpc/grpc-js'
 import {
 	DiscoveryServiceDefinition,
 	EndpointInfoSchema,
+	type ListEndpointsResponse,
+	ListEndpointsResponseSchema,
 	ListEndpointsResultSchema,
+	type WhoAmIResponse,
+	WhoAmIResponseSchema,
 } from '@ydbjs/api/discovery'
+import { unaryCall } from '@ydbjs/api/stream'
+import { expect, test } from 'vitest'
+import { create } from '@bufbuild/protobuf'
+import { anyPack } from '@bufbuild/protobuf/wkt'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { ServerError, Status, createServer } from 'nice-grpc'
 
@@ -179,10 +187,10 @@ test('adds x-ydb-sdk-build-info header with current sdk version', async () => {
 	server.add(discoveryService, {
 		async listEndpoints(_, context) {
 			receivedBuildInfo = context.metadata.get('x-ydb-sdk-build-info')
-			return {}
+			return create(ListEndpointsResponseSchema, {})
 		},
 		async whoAmI() {
-			return {}
+			return create(WhoAmIResponseSchema, {})
 		},
 	})
 
@@ -193,7 +201,9 @@ test('adds x-ydb-sdk-build-info header with current sdk version', async () => {
 
 	try {
 		let client = driver.createClient(discoveryService)
-		await client.listEndpoints({ database: driver.database })
+		await unaryCall<ListEndpointsResponse>((callback) =>
+			client.listEndpoints({ database: driver.database }, callback)
+		)
 
 		expect(receivedBuildInfo).toBe(`ydb-js-sdk/${pkg.version}`)
 	} finally {
@@ -213,10 +223,10 @@ test('appends registered libraries to x-ydb-sdk-build-info after the native sdk 
 	server.add(discoveryService, {
 		async listEndpoints(_, context) {
 			received.push(context.metadata.get('x-ydb-sdk-build-info') ?? '')
-			return {}
+			return create(ListEndpointsResponseSchema, {})
 		},
 		async whoAmI() {
-			return {}
+			return create(WhoAmIResponseSchema, {})
 		},
 	})
 
@@ -229,11 +239,15 @@ test('appends registered libraries to x-ydb-sdk-build-info after the native sdk 
 		let client = driver.createClient(discoveryService)
 
 		driver[kRegisterLibrary]('@ydbjs/drizzle-adapter', '1.2.3')
-		await client.listEndpoints({ database: driver.database })
+		await unaryCall<ListEndpointsResponse>((callback) =>
+			client.listEndpoints({ database: driver.database }, callback)
+		)
 
 		driver[kRegisterLibrary]('@ydbjs/drizzle-adapter', '1.2.3')
 		driver[kRegisterLibrary]('@ydbjs/other', '0.1.0')
-		await client.listEndpoints({ database: driver.database })
+		await unaryCall<ListEndpointsResponse>((callback) =>
+			client.listEndpoints({ database: driver.database }, callback)
+		)
 
 		expect(received[0]).toBe(`ydb-js-sdk/${pkg.version};@ydbjs/drizzle-adapter/1.2.3`)
 		expect(received[1]).toBe(
@@ -287,18 +301,18 @@ test('createClient with a direct-IO target hard-routes and disposes cleanly', as
 		await driver.ready(tc.signal)
 
 		{
-			using client = driver.createClient(discoveryService, {
+			using client = await driver.createPinnedClient(discoveryService, {
 				nodeId: 1n,
 				endpoint: { host: '127.0.0.1', port, generation: 3 },
 				hard: true,
 			})
 			// The client is Disposable and hard-routes to the pinned node.
 			expect(typeof (client as unknown as Disposable)[Symbol.dispose]).toBe('function')
-			await client.whoAmI({}, { signal: tc.signal })
+			await unaryCall<WhoAmIResponse>((callback) => client.whoAmI({}, callback), tc.signal)
 		}
 		// After dispose the pin is released — a fresh soft client still works.
 		let soft = driver.createClient(discoveryService)
-		await soft.whoAmI({}, { signal: tc.signal })
+		await unaryCall<WhoAmIResponse>((callback) => soft.whoAmI({}, callback), tc.signal)
 	} finally {
 		await server.shutdown()
 	}
@@ -364,7 +378,7 @@ test('survives background rediscovery failure and keeps serving requests', async
 
 		// The pool still serves the endpoint from the last successful round.
 		let client = driver.createClient(discoveryService)
-		await client.whoAmI({}, { signal: tc.signal })
+		await unaryCall<WhoAmIResponse>((callback) => client.whoAmI({}, callback), tc.signal)
 
 		expect(unhandled).toEqual([])
 	} finally {
@@ -405,4 +419,91 @@ test('honors an already aborted ready signal with discovery disabled', async () 
 	})
 	let reason = new Error('caller cancelled readiness')
 	await expect(driver.ready(AbortSignal.abort(reason))).rejects.toBe(reason)
+})
+
+test('closing a native client leaves other clients on the bootstrap channel usable', async (tc) => {
+	await using server = await startBadDiscovery({})
+	using driver = new Driver(`grpc://127.0.0.1:${server.port}/local`, {
+		'ydb.sdk.enable_discovery': false,
+	})
+	let closed = driver.createClient(DiscoveryServiceDefinition)
+	let active = driver.createClient(DiscoveryServiceDefinition)
+
+	await unaryCall<WhoAmIResponse>((callback) => closed.whoAmI({}, callback), tc.signal)
+	closed.close()
+
+	await expect(
+		unaryCall<WhoAmIResponse>((callback) => closed.whoAmI({}, callback), tc.signal)
+	).rejects.toThrow('Client is closed')
+	await expect(
+		unaryCall<WhoAmIResponse>((callback) => active.whoAmI({}, callback), tc.signal)
+	).resolves.toBeDefined()
+})
+
+test('native calls leave caller metadata unchanged', async (tc) => {
+	await using server = await startBadDiscovery({})
+	using driver = new Driver(`grpc://127.0.0.1:${server.port}/local`, {
+		'ydb.sdk.enable_discovery': false,
+	})
+	let client = driver.createClient(DiscoveryServiceDefinition)
+	let metadata = new Metadata()
+	metadata.set('x-existing', 'caller-value')
+	metadata.set('x-ydb-database', '/caller-database')
+	metadata.set('x-ydb-auth-ticket', 'caller-ticket')
+	let original = metadata.getMap()
+
+	await unaryCall<WhoAmIResponse>((callback) => client.whoAmI({}, metadata, callback), tc.signal)
+
+	expect(metadata.getMap()).toEqual(original)
+})
+
+test('rejects endpoint pinning when discovery is disabled', async (tc) => {
+	using driver = new Driver('grpc://127.0.0.1:1/local', { 'ydb.sdk.enable_discovery': false })
+
+	await expect(
+		driver.createPinnedClient(
+			DiscoveryServiceDefinition,
+			{
+				nodeId: 9n,
+				endpoint: { host: '127.0.0.1', port: 2 },
+				hard: true,
+			},
+			tc.signal
+		)
+	).rejects.toThrow('Endpoint pinning requires discovery')
+})
+
+test('closing the driver completes a client readiness wait during discovery', async (tc) => {
+	let discovering = Promise.withResolvers<void>()
+	let release = Promise.withResolvers<void>()
+	await using fixture = {
+		server: createServer(),
+		[Symbol.asyncDispose]() {
+			release.resolve()
+			return this.server.shutdown()
+		},
+	}
+	fixture.server.add(
+		{ listEndpoints: DiscoveryServiceDefinition.listEndpoints },
+		{
+			async listEndpoints(_request, context) {
+				discovering.resolve()
+				await abortable(context.signal, release.promise)
+				return create(ListEndpointsResponseSchema, {})
+			},
+		}
+	)
+	let port = await fixture.server.listen('127.0.0.1:0')
+	using driver = new Driver(`grpc://127.0.0.1:${port}/local`)
+	let client = driver.createClient(DiscoveryServiceDefinition)
+	let pending = promisify(client.waitForReady.bind(client))(Infinity)
+	await abortable(tc.signal, discovering.promise)
+	expect(client.getChannel().getConnectivityState(false)).toBe(
+		connectivityState.TRANSIENT_FAILURE
+	)
+
+	driver.close()
+
+	await expect(pending).rejects.toThrow(/closed|deadline/)
+	expect(client.getChannel().getConnectivityState(false)).toBe(connectivityState.SHUTDOWN)
 })

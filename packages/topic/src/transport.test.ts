@@ -1,11 +1,10 @@
+import { Duplex } from 'node:stream'
 import { create } from '@bufbuild/protobuf'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import {
 	type StreamReadMessage_FromClient,
-	type StreamReadMessage_FromServer,
 	StreamWriteMessage_FromServerSchema,
 } from '@ydbjs/api/topic'
-import { AsyncQueue } from '@ydbjs/fsm/queue'
 import { expect, test, vi } from 'vitest'
 
 import {
@@ -170,6 +169,39 @@ for (let [name, make] of Object.entries(transports)) {
 		expect(createClient).not.toHaveBeenCalled()
 	})
 
+	test(`${name} reports a failed native write and cancels the stream`, async () => {
+		using fixture = make()
+		let failure = new Error('Outgoing stream failed')
+		let cancelled = false
+		let stream = Object.assign(
+			new Duplex({
+				objectMode: true,
+				read() {},
+				write(_message, _encoding, callback) {
+					callback(failure)
+				},
+			}),
+			{
+				cancel() {
+					cancelled = true
+					stream.destroy()
+				},
+			}
+		)
+		vi.spyOn(fixture.driver, 'createClient').mockReturnValue({
+			streamRead: () => stream,
+			streamWrite: () => stream,
+		} as never)
+		let events = fixture.transport.events[Symbol.asyncIterator]()
+
+		fixture.connect()
+		let disconnected = await events.next()
+
+		expect(disconnected.value).toMatchObject({ type: 'transport.stream.disconnected' })
+		expect(disconnected.value?.error).toBe(failure)
+		expect(cancelled).toBe(true)
+	})
+
 	test(`${name} does not open a stream after close interrupts driver readiness`, async () => {
 		using fixture = make()
 		let ready = Promise.withResolvers<void>()
@@ -207,20 +239,30 @@ test('reader sends a new token when the server does not acknowledge an unchanged
 
 test('reader bounds queued token refreshes while outgoing requests are blocked', async () => {
 	let fake = makeReaderDriver()
-	let responses = new AsyncQueue<StreamReadMessage_FromServer>()
-	let requests: AsyncIterable<StreamReadMessage_FromClient> | undefined
-	vi.spyOn(fake.driver, 'createClient').mockReturnValue({
-		streamRead(input: AsyncIterable<StreamReadMessage_FromClient>) {
-			requests = input
-			return responses
-		},
-	} as never)
+	let requests: StreamReadMessage_FromClient[] = []
+	let releaseWrite: (() => void) | undefined
+	let stream = Object.assign(
+		new Duplex({
+			objectMode: true,
+			highWaterMark: 1,
+			read() {},
+			write(message: StreamReadMessage_FromClient, _encoding, callback) {
+				requests.push(message)
+				releaseWrite = callback
+			},
+		}),
+		{
+			cancel() {
+				stream.destroy()
+			},
+		}
+	)
+	vi.spyOn(fake.driver, 'createClient').mockReturnValue({ streamRead: () => stream } as never)
 	let token = vi.spyOn(fake.driver, 'token', 'get').mockResolvedValue('token')
 	let transport = new ReaderTransport(fake.driver, { consumer: 'c', topicsReadSettings: [] })
 	using _ = {
 		[Symbol.dispose]() {
 			transport.destroy()
-			responses.destroy()
 		},
 	}
 	transport.connect()
@@ -231,10 +273,13 @@ test('reader bounds queued token refreshes while outgoing requests are blocked',
 	await transport.sendUpdateToken()
 	expect(token).toHaveBeenCalledTimes(1)
 
-	let iterator = requests![Symbol.asyncIterator]()
-	expect((await iterator.next()).value.clientMessage.case).toBe('initRequest')
-	expect((await iterator.next()).value.clientMessage.case).toBe('updateTokenRequest')
+	expect(requests.map((request) => request.clientMessage.case)).toEqual(['initRequest'])
+	releaseWrite!()
+	await settle()
+	expect(requests.map((request) => request.clientMessage.case)).toEqual([
+		'initRequest',
+		'updateTokenRequest',
+	])
 	await transport.sendUpdateToken()
 	expect(token).toHaveBeenCalledTimes(2)
-	await iterator.return?.()
 })

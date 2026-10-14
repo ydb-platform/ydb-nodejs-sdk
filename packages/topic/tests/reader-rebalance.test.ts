@@ -1,13 +1,16 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	CreateTopicRequestSchema,
+	type CreateTopicResponse,
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import { subscribe, unsubscribe } from 'node:diagnostics_channel'
 
 import { create } from '@bufbuild/protobuf'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
 
-import {
-	CreateTopicRequestSchema,
-	DropTopicRequestSchema,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
 
 import { type TopicReader, createTopicReader } from '../src/reader/index.js'
@@ -29,17 +32,22 @@ let consumer: string
 beforeEach(async () => {
 	topic = `reader-rebalance-${Date.now()}`
 	consumer = `consumer-${Date.now()}`
-	await topicService.createTopic(
-		create(CreateTopicRequestSchema, {
-			path: topic,
-			partitioningSettings: { minActivePartitions: 2n, maxActivePartitions: 2n },
-			consumers: [{ name: consumer }],
-		})
+	await unaryCall<CreateTopicResponse>((callback) =>
+		topicService.createTopic(
+			create(CreateTopicRequestSchema, {
+				path: topic,
+				partitioningSettings: { minActivePartitions: 2n, maxActivePartitions: 2n },
+				consumers: [{ name: consumer }],
+			}),
+			callback
+		)
 	)
 })
 
 afterEach(async () => {
-	await topicService.dropTopic(create(DropTopicRequestSchema, { path: topic })).catch(() => {})
+	await unaryCall<DropTopicResponse>((callback) =>
+		topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
+	).catch(() => {})
 })
 
 // Subscribe to an event channel and gather its payloads; `using` auto-unsubscribes.

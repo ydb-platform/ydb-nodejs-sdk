@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { ExportToFsRequestSchema, ExportToFsResponseSchema, ExportToS3RequestSchema, ExportToS3ResponseSchema, ExportToYtRequestSchema, ExportToYtResponseSchema } from "./protos/ydb_export_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.Export.V1.ExportService
@@ -20,13 +20,11 @@ export const ExportServiceDefinition = {
   exportToYt: {
     path: "/Ydb.Export.V1.ExportService/ExportToYt",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ExportToYtRequestSchema>) => toBinary(ExportToYtRequestSchema, create(ExportToYtRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ExportToYtRequestSchema>) => { let bytes = toBinary(ExportToYtRequestSchema, create(ExportToYtRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ExportToYtRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ExportToYtResponseSchema>) => toBinary(ExportToYtResponseSchema, create(ExportToYtResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ExportToYtResponseSchema>) => { let bytes = toBinary(ExportToYtResponseSchema, create(ExportToYtResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ExportToYtResponseSchema,bytes),
-    options: {},
   },
   /**
    * Exports data to S3.
@@ -37,13 +35,11 @@ export const ExportServiceDefinition = {
   exportToS3: {
     path: "/Ydb.Export.V1.ExportService/ExportToS3",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ExportToS3RequestSchema>) => toBinary(ExportToS3RequestSchema, create(ExportToS3RequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ExportToS3RequestSchema>) => { let bytes = toBinary(ExportToS3RequestSchema, create(ExportToS3RequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ExportToS3RequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ExportToS3ResponseSchema>) => toBinary(ExportToS3ResponseSchema, create(ExportToS3ResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ExportToS3ResponseSchema>) => { let bytes = toBinary(ExportToS3ResponseSchema, create(ExportToS3ResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ExportToS3ResponseSchema,bytes),
-    options: {},
   },
   /**
    * Exports data to file system.
@@ -54,16 +50,10 @@ export const ExportServiceDefinition = {
   exportToFs: {
     path: "/Ydb.Export.V1.ExportService/ExportToFs",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ExportToFsRequestSchema>) => toBinary(ExportToFsRequestSchema, create(ExportToFsRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ExportToFsRequestSchema>) => { let bytes = toBinary(ExportToFsRequestSchema, create(ExportToFsRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ExportToFsRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ExportToFsResponseSchema>) => toBinary(ExportToFsResponseSchema, create(ExportToFsResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ExportToFsResponseSchema>) => { let bytes = toBinary(ExportToFsResponseSchema, create(ExportToFsResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ExportToFsResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-ExportServiceDefinition["name"] = "ExportService";
-//@ts-expect-error
-ExportServiceDefinition["fullName"] = "Ydb.Export.V1.ExportService";

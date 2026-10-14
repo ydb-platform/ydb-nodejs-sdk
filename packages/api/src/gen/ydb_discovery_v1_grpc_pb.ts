@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { ListEndpointsRequestSchema, ListEndpointsResponseSchema, WhoAmIRequestSchema, WhoAmIResponseSchema } from "./protos/ydb_discovery_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.Discovery.V1.DiscoveryService
@@ -17,13 +17,11 @@ export const DiscoveryServiceDefinition = {
   listEndpoints: {
     path: "/Ydb.Discovery.V1.DiscoveryService/ListEndpoints",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ListEndpointsRequestSchema>) => toBinary(ListEndpointsRequestSchema, create(ListEndpointsRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ListEndpointsRequestSchema>) => { let bytes = toBinary(ListEndpointsRequestSchema, create(ListEndpointsRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ListEndpointsRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ListEndpointsResponseSchema>) => toBinary(ListEndpointsResponseSchema, create(ListEndpointsResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ListEndpointsResponseSchema>) => { let bytes = toBinary(ListEndpointsResponseSchema, create(ListEndpointsResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ListEndpointsResponseSchema,bytes),
-    options: {},
   },
   /**
    * @generated from rpc Ydb.Discovery.V1.DiscoveryService.WhoAmI
@@ -31,16 +29,10 @@ export const DiscoveryServiceDefinition = {
   whoAmI: {
     path: "/Ydb.Discovery.V1.DiscoveryService/WhoAmI",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof WhoAmIRequestSchema>) => toBinary(WhoAmIRequestSchema, create(WhoAmIRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof WhoAmIRequestSchema>) => { let bytes = toBinary(WhoAmIRequestSchema, create(WhoAmIRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(WhoAmIRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof WhoAmIResponseSchema>) => toBinary(WhoAmIResponseSchema, create(WhoAmIResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof WhoAmIResponseSchema>) => { let bytes = toBinary(WhoAmIResponseSchema, create(WhoAmIResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(WhoAmIResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-DiscoveryServiceDefinition["name"] = "DiscoveryService";
-//@ts-expect-error
-DiscoveryServiceDefinition["fullName"] = "Ydb.Discovery.V1.DiscoveryService";

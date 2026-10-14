@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { ExecuteYqlPartialResponseSchema, ExecuteYqlRequestSchema, ExecuteYqlResponseSchema, ExplainYqlRequestSchema, ExplainYqlResponseSchema } from "./protos/ydb_scripting_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.Scripting.V1.ScriptingService
@@ -17,13 +17,11 @@ export const ScriptingServiceDefinition = {
   executeYql: {
     path: "/Ydb.Scripting.V1.ScriptingService/ExecuteYql",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ExecuteYqlRequestSchema>) => toBinary(ExecuteYqlRequestSchema, create(ExecuteYqlRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ExecuteYqlRequestSchema>) => { let bytes = toBinary(ExecuteYqlRequestSchema, create(ExecuteYqlRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ExecuteYqlRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ExecuteYqlResponseSchema>) => toBinary(ExecuteYqlResponseSchema, create(ExecuteYqlResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ExecuteYqlResponseSchema>) => { let bytes = toBinary(ExecuteYqlResponseSchema, create(ExecuteYqlResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ExecuteYqlResponseSchema,bytes),
-    options: {},
   },
   /**
    * Executes yql request with streaming result.
@@ -33,13 +31,11 @@ export const ScriptingServiceDefinition = {
   streamExecuteYql: {
     path: "/Ydb.Scripting.V1.ScriptingService/StreamExecuteYql",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ExecuteYqlRequestSchema>) => toBinary(ExecuteYqlRequestSchema, create(ExecuteYqlRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ExecuteYqlRequestSchema>) => { let bytes = toBinary(ExecuteYqlRequestSchema, create(ExecuteYqlRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ExecuteYqlRequestSchema,bytes),
       responseStream: true, 
-    responseSerialize: (message: MessageInitShape<typeof ExecuteYqlPartialResponseSchema>) => toBinary(ExecuteYqlPartialResponseSchema, create(ExecuteYqlPartialResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ExecuteYqlPartialResponseSchema>) => { let bytes = toBinary(ExecuteYqlPartialResponseSchema, create(ExecuteYqlPartialResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ExecuteYqlPartialResponseSchema,bytes),
-    options: {},
   },
   /**
    * @generated from rpc Ydb.Scripting.V1.ScriptingService.ExplainYql
@@ -47,16 +43,10 @@ export const ScriptingServiceDefinition = {
   explainYql: {
     path: "/Ydb.Scripting.V1.ScriptingService/ExplainYql",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ExplainYqlRequestSchema>) => toBinary(ExplainYqlRequestSchema, create(ExplainYqlRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ExplainYqlRequestSchema>) => { let bytes = toBinary(ExplainYqlRequestSchema, create(ExplainYqlRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ExplainYqlRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ExplainYqlResponseSchema>) => toBinary(ExplainYqlResponseSchema, create(ExplainYqlResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ExplainYqlResponseSchema>) => { let bytes = toBinary(ExplainYqlResponseSchema, create(ExplainYqlResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ExplainYqlResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-ScriptingServiceDefinition["name"] = "ScriptingService";
-//@ts-expect-error
-ScriptingServiceDefinition["fullName"] = "Ydb.Scripting.V1.ScriptingService";

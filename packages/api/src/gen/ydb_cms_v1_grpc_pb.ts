@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { AlterDatabaseRequestSchema, AlterDatabaseResponseSchema, CreateDatabaseRequestSchema, CreateDatabaseResponseSchema, DescribeDatabaseOptionsRequestSchema, DescribeDatabaseOptionsResponseSchema, GetDatabaseStatusRequestSchema, GetDatabaseStatusResponseSchema, ListDatabasesRequestSchema, ListDatabasesResponseSchema, RemoveDatabaseRequestSchema, RemoveDatabaseResponseSchema } from "./protos/ydb_cms_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.Cms.V1.CmsService
@@ -19,13 +19,11 @@ export const CmsServiceDefinition = {
   createDatabase: {
     path: "/Ydb.Cms.V1.CmsService/CreateDatabase",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof CreateDatabaseRequestSchema>) => toBinary(CreateDatabaseRequestSchema, create(CreateDatabaseRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof CreateDatabaseRequestSchema>) => { let bytes = toBinary(CreateDatabaseRequestSchema, create(CreateDatabaseRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(CreateDatabaseRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof CreateDatabaseResponseSchema>) => toBinary(CreateDatabaseResponseSchema, create(CreateDatabaseResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof CreateDatabaseResponseSchema>) => { let bytes = toBinary(CreateDatabaseResponseSchema, create(CreateDatabaseResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(CreateDatabaseResponseSchema,bytes),
-    options: {},
   },
   /**
    * Get current database's status.
@@ -35,13 +33,11 @@ export const CmsServiceDefinition = {
   getDatabaseStatus: {
     path: "/Ydb.Cms.V1.CmsService/GetDatabaseStatus",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof GetDatabaseStatusRequestSchema>) => toBinary(GetDatabaseStatusRequestSchema, create(GetDatabaseStatusRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof GetDatabaseStatusRequestSchema>) => { let bytes = toBinary(GetDatabaseStatusRequestSchema, create(GetDatabaseStatusRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(GetDatabaseStatusRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof GetDatabaseStatusResponseSchema>) => toBinary(GetDatabaseStatusResponseSchema, create(GetDatabaseStatusResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof GetDatabaseStatusResponseSchema>) => { let bytes = toBinary(GetDatabaseStatusResponseSchema, create(GetDatabaseStatusResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(GetDatabaseStatusResponseSchema,bytes),
-    options: {},
   },
   /**
    * Alter database resources.
@@ -51,13 +47,11 @@ export const CmsServiceDefinition = {
   alterDatabase: {
     path: "/Ydb.Cms.V1.CmsService/AlterDatabase",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof AlterDatabaseRequestSchema>) => toBinary(AlterDatabaseRequestSchema, create(AlterDatabaseRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof AlterDatabaseRequestSchema>) => { let bytes = toBinary(AlterDatabaseRequestSchema, create(AlterDatabaseRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(AlterDatabaseRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof AlterDatabaseResponseSchema>) => toBinary(AlterDatabaseResponseSchema, create(AlterDatabaseResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof AlterDatabaseResponseSchema>) => { let bytes = toBinary(AlterDatabaseResponseSchema, create(AlterDatabaseResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(AlterDatabaseResponseSchema,bytes),
-    options: {},
   },
   /**
    * List all databases.
@@ -67,13 +61,11 @@ export const CmsServiceDefinition = {
   listDatabases: {
     path: "/Ydb.Cms.V1.CmsService/ListDatabases",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof ListDatabasesRequestSchema>) => toBinary(ListDatabasesRequestSchema, create(ListDatabasesRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof ListDatabasesRequestSchema>) => { let bytes = toBinary(ListDatabasesRequestSchema, create(ListDatabasesRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(ListDatabasesRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof ListDatabasesResponseSchema>) => toBinary(ListDatabasesResponseSchema, create(ListDatabasesResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof ListDatabasesResponseSchema>) => { let bytes = toBinary(ListDatabasesResponseSchema, create(ListDatabasesResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(ListDatabasesResponseSchema,bytes),
-    options: {},
   },
   /**
    * Remove database.
@@ -83,13 +75,11 @@ export const CmsServiceDefinition = {
   removeDatabase: {
     path: "/Ydb.Cms.V1.CmsService/RemoveDatabase",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof RemoveDatabaseRequestSchema>) => toBinary(RemoveDatabaseRequestSchema, create(RemoveDatabaseRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof RemoveDatabaseRequestSchema>) => { let bytes = toBinary(RemoveDatabaseRequestSchema, create(RemoveDatabaseRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(RemoveDatabaseRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof RemoveDatabaseResponseSchema>) => toBinary(RemoveDatabaseResponseSchema, create(RemoveDatabaseResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof RemoveDatabaseResponseSchema>) => { let bytes = toBinary(RemoveDatabaseResponseSchema, create(RemoveDatabaseResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(RemoveDatabaseResponseSchema,bytes),
-    options: {},
   },
   /**
    * Describe supported database options.
@@ -99,16 +89,10 @@ export const CmsServiceDefinition = {
   describeDatabaseOptions: {
     path: "/Ydb.Cms.V1.CmsService/DescribeDatabaseOptions",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof DescribeDatabaseOptionsRequestSchema>) => toBinary(DescribeDatabaseOptionsRequestSchema, create(DescribeDatabaseOptionsRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof DescribeDatabaseOptionsRequestSchema>) => { let bytes = toBinary(DescribeDatabaseOptionsRequestSchema, create(DescribeDatabaseOptionsRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(DescribeDatabaseOptionsRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof DescribeDatabaseOptionsResponseSchema>) => toBinary(DescribeDatabaseOptionsResponseSchema, create(DescribeDatabaseOptionsResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof DescribeDatabaseOptionsResponseSchema>) => { let bytes = toBinary(DescribeDatabaseOptionsResponseSchema, create(DescribeDatabaseOptionsResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(DescribeDatabaseOptionsResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-CmsServiceDefinition["name"] = "CmsService";
-//@ts-expect-error
-CmsServiceDefinition["fullName"] = "Ydb.Cms.V1.CmsService";

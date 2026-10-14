@@ -1,9 +1,13 @@
+import {
+	DiscoveryServiceDefinition,
+	type ListEndpointsResponse,
+	ListEndpointsResultSchema,
+} from '@ydbjs/api/discovery'
+import { unaryCall } from '@ydbjs/api/stream'
 import { expect, inject, test } from 'vitest'
 
-import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { anyUnpack } from '@bufbuild/protobuf/wkt'
-import { ListEndpointsResultSchema } from '@ydbjs/api/discovery'
 
 import { Driver } from '../src/driver.js'
 import type { DiscoveryEvent } from '../src/hooks.js'
@@ -62,7 +66,10 @@ test('BalancedChannel routes real RPC through connection pool', async (tc) => {
 	// BalancedChannel.createCall() → pool.acquire() → real grpc-js channel.
 	let client = driver.createClient(DiscoveryServiceDefinition)
 
-	let response = await client.listEndpoints({ database: driver.database }, { signal: tc.signal })
+	let response = await unaryCall<ListEndpointsResponse>(
+		(callback) => client.listEndpoints({ database: driver.database }, callback),
+		tc.signal
+	)
 
 	expect(response.operation).toBeDefined()
 	expect(response.operation!.status).toBe(StatusIds_StatusCode.SUCCESS)
@@ -93,7 +100,10 @@ test('onCall hook fires for each RPC dispatched through BalancedChannel', async 
 	let callsBefore = callEvents.length
 
 	let client = driver.createClient(DiscoveryServiceDefinition)
-	await client.listEndpoints({ database: driver.database }, { signal: tc.signal })
+	await unaryCall<ListEndpointsResponse>(
+		(callback) => client.listEndpoints({ database: driver.database }, callback),
+		tc.signal
+	)
 
 	// At least one onCall event must have fired for the listEndpoints RPC
 	expect(callEvents.length).toBeGreaterThan(callsBefore)
@@ -125,7 +135,10 @@ test('onCall completion callback fires with status and duration', async (tc) => 
 	let completionsBefore = completions.length
 
 	let client = driver.createClient(DiscoveryServiceDefinition)
-	await client.listEndpoints({ database: driver.database }, { signal: tc.signal })
+	await unaryCall<ListEndpointsResponse>(
+		(callback) => client.listEndpoints({ database: driver.database }, callback),
+		tc.signal
+	)
 
 	// Completion callback must have fired for the RPC
 	expect(completions.length).toBeGreaterThan(completionsBefore)

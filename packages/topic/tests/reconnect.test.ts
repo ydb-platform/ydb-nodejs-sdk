@@ -1,13 +1,16 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	CreateTopicRequestSchema,
+	type CreateTopicResponse,
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import { channel } from 'node:diagnostics_channel'
 import { once } from 'node:events'
 import { type Socket, createConnection, createServer } from 'node:net'
 
 import { create } from '@bufbuild/protobuf'
-import {
-	CreateTopicRequestSchema,
-	DropTopicRequestSchema,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
 import { expect, inject, test } from 'vitest'
 
@@ -74,16 +77,25 @@ test(
 		await using topic = {
 			path: `topic-tcp-reconnect-${Date.now()}`,
 			async [Symbol.asyncDispose]() {
-				await service.dropTopic(create(DropTopicRequestSchema, { path: topic.path }))
+				await unaryCall<DropTopicResponse>((callback) =>
+					service.dropTopic(
+						create(DropTopicRequestSchema, { path: topic.path }),
+						callback
+					)
+				)
 			},
 		}
-		await service.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: topic.path,
-				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
-				consumers: [{ name: 'consumer' }],
-			}),
-			{ signal: tc.signal }
+		await unaryCall<CreateTopicResponse>(
+			(callback) =>
+				service.createTopic(
+					create(CreateTopicRequestSchema, {
+						path: topic.path,
+						partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
+						consumers: [{ name: 'consumer' }],
+					}),
+					callback
+				),
+			tc.signal
 		)
 
 		using driver = new Driver(`grpc://127.0.0.1:${address.port}${upstream.pathname}`, {

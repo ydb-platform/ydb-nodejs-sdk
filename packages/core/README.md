@@ -2,7 +2,7 @@
 
 [![codecov](https://codecov.io/gh/ydb-platform/ydb-js-sdk/graph/badge.svg?component=core)](https://ydb-appteam-sdk-reports.website.yandexcloud.net/ydb-js-sdk/coverage/packages/core/)
 
-The `@ydbjs/core` package provides the core driver and connection management for YDB in JavaScript/TypeScript. It is the foundation for all YDB client operations, handling connection pooling, service client creation, authentication, and middleware.
+The `@ydbjs/core` package provides the core driver and connection management for YDB in JavaScript/TypeScript. It is the foundation for all YDB client operations, handling connection pooling, service client creation, authentication, and native gRPC interceptors.
 
 ## Features
 
@@ -25,9 +25,15 @@ npm install @ydbjs/core
 - **Connection Pool**: Maintains and balances gRPC channels to YDB endpoints.
 - **Service Clients**: Use `driver.createClient(ServiceDefinition)` to get a typed client for any YDB gRPC service (from `@ydbjs/api`).
 - **Authentication**: Pass a credentials provider from `@ydbjs/auth` to the driver for static, token, anonymous, or cloud metadata authentication.
-- **Middleware**: Internal middleware handles metadata, authentication, and debugging.
+- **Interceptors**: Native `@grpc/grpc-js` interceptors handle metadata, authentication, and debugging.
 
-Client types, `Metadata`, `ClientError`, `Status`, and middleware types are exported by `@ydbjs/grpc`. `Driver.createClient()` keeps the Promise/AsyncIterable call signatures and call options (`signal`, `metadata`, `onHeader`, `onTrailer`). The driver owns channels; cancelling an RPC does not close its channel.
+`Driver.createClient()` returns a native `@grpc/grpc-js` client: unary methods take a callback, and streaming methods return Node readable/writable streams. Import `Metadata`, `ServiceError`, `status`, and `Interceptor` directly from `@grpc/grpc-js`. `ServiceClient<Service>` from `@ydbjs/api/client` supplies TypeScript method signatures without a runtime wrapper. The driver owns channels. Closing one client prevents new calls through that client and releases its pin, while other clients remain usable. Existing calls, including calls waiting for connection, keep running; cancel them explicitly with `call.cancel()` or the stream helpers' `AbortSignal`.
+
+`unaryCall`, `readStream`, and `writeStream` from `@ydbjs/api/stream` provide optional Promise/AsyncIterable consumption and `AbortSignal` cancellation around native calls. Headers arrive on the call's `metadata` event; trailers are available in its `status` event.
+
+For an endpoint absent from discovery, await `driver.createPinnedClient(service, { nodeId, endpoint, hard }, signal)`. It requires discovery to be enabled, waits for pin publication, and returns a disposable native client. `close()` or `[Symbol.dispose]()` releases that client's pin. Ordinary `createClient(service, nodeId)` and `createClient(service, { nodeId, hard })` remain synchronous.
+
+Register native interceptors with `addClientInterceptor(interceptor)` before creating a driver. The driver snapshots registrations at construction; disposing the registration affects future drivers. This replaces the previous `addClientMiddleware` hook and generator middleware contract.
 
 ## Usage
 
@@ -36,12 +42,15 @@ Client types, `Metadata`, `ClientError`, `Status`, and middleware types are expo
 ```ts
 import { Driver } from '@ydbjs/core'
 import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
+import { unaryCall } from '@ydbjs/api/stream'
 
 const driver = new Driver('grpc://localhost:2136/local')
 await driver.ready()
 
 const discovery = driver.createClient(DiscoveryServiceDefinition)
-const endpoints = await discovery.listEndpoints({ database: '/local' })
+const endpoints = await unaryCall((callback) =>
+  discovery.listEndpoints({ database: '/local' }, callback)
+)
 console.log(endpoints)
 
 await driver.close()

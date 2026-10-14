@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { tracingChannel } from 'node:diagnostics_channel'
 
 import { create } from '@bufbuild/protobuf'
+import { readStream } from '@ydbjs/api/stream'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import {
 	ExecMode,
@@ -25,7 +26,7 @@ import {
 } from '@ydbjs/retry'
 import { type Value, fromYdb, toJs } from '@ydbjs/value'
 import { typeToString } from '@ydbjs/value/print'
-import type { Metadata } from '@ydbjs/grpc'
+import type { Metadata } from '@grpc/grpc-js'
 
 import { ctx } from './ctx.js'
 import { linkSignals } from '@ydbjs/abortable'
@@ -258,34 +259,27 @@ export class Query<T extends any[] = unknown[]>
 			}
 
 			return await executeQueryCh.tracePromise(async () => {
-				let stream = client.executeQuery(
-					{
-						sessionId: attemptSessionId,
-						execMode: ExecMode.EXECUTE,
-						query: {
-							case: 'queryContent',
-							value: {
-								syntax: this.#syntax,
-								text: this.text,
-							},
+				let stream = client.executeQuery({
+					sessionId: attemptSessionId,
+					execMode: ExecMode.EXECUTE,
+					query: {
+						case: 'queryContent',
+						value: {
+							syntax: this.#syntax,
+							text: this.text,
 						},
-						parameters,
-						statsMode: this.#statsMode,
-						...(this.#poolId && { poolId: this.#poolId }),
-						...(txControl && { txControl }),
 					},
-					{
-						signal,
-						onTrailer: (trailer) => {
-							this.emit('metadata', trailer)
-						},
-					}
-				)
+					parameters,
+					statsMode: this.#statsMode,
+					...(this.#poolId && { poolId: this.#poolId }),
+					...(txControl && { txControl }),
+				})
+				stream.on('status', (status) => this.emit('metadata', status.metadata))
 
 				let results = [] as ArrayifyTuple<T>
 
 				try {
-					for await (let part of stream) {
+					for await (let part of readStream(stream, signal)) {
 						signal.throwIfAborted()
 
 						if (part.status !== StatusIds_StatusCode.SUCCESS) {

@@ -2,8 +2,14 @@ import type { Abortable } from 'node:events'
 import { tracingChannel } from 'node:diagnostics_channel'
 
 import { linkSignals } from '@ydbjs/abortable'
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	type BeginTransactionResponse,
+	type CommitTransactionResponse,
+	QueryServiceDefinition,
+	type RollbackTransactionResponse,
+} from '@ydbjs/api/query'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { QueryServiceDefinition } from '@ydbjs/api/query'
 import type { Driver, DriverIdentity } from '@ydbjs/core'
 import { CommitError, YDBError } from '@ydbjs/error'
 import {
@@ -267,14 +273,18 @@ export function query(driver: Driver, options?: QueryOptions): QueryClient {
 
 			let beginTransactionResult = await txBeginCh.tracePromise(
 				() =>
-					client.beginTransaction(
-						{
-							sessionId: session.id,
-							txSettings: {
-								txMode: { case: options.isolation!, value: {} },
-							},
-						},
-						{ signal }
+					unaryCall<BeginTransactionResponse>(
+						(callback) =>
+							client.beginTransaction(
+								{
+									sessionId: session.id,
+									txSettings: {
+										txMode: { case: options.isolation!, value: {} },
+									},
+								},
+								callback
+							),
+						signal
 					),
 				{
 					driver: driver.identity,
@@ -331,12 +341,16 @@ export function query(driver: Driver, options?: QueryOptions): QueryClient {
 				let txId = attemptStore.transactionId!
 				let commitResult = await txCommitCh.tracePromise(
 					() =>
-						client.commitTransaction(
-							{
-								sessionId: session.id,
-								txId,
-							},
-							{ signal }
+						unaryCall<CommitTransactionResponse>(
+							(callback) =>
+								client.commitTransaction(
+									{
+										sessionId: session.id,
+										txId,
+									},
+									callback
+								),
+							signal
 						),
 					{
 						driver: driver.identity,
@@ -382,10 +396,15 @@ export function query(driver: Driver, options?: QueryOptions): QueryClient {
 				txRollbackCh
 					.tracePromise(
 						() =>
-							client.rollbackTransaction({
-								sessionId: session.id,
-								txId: rollbackTxId,
-							}),
+							unaryCall<RollbackTransactionResponse>((callback) =>
+								client.rollbackTransaction(
+									{
+										sessionId: session.id,
+										txId: rollbackTxId,
+									},
+									callback
+								)
+							),
 						{
 							driver: driver.identity,
 							sessionId: session.id,

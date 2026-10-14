@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { AlterNodeRequestSchema, AlterNodeResponseSchema, CreateNodeRequestSchema, CreateNodeResponseSchema, DescribeNodeRequestSchema, DescribeNodeResponseSchema, DropNodeRequestSchema, DropNodeResponseSchema, SessionRequestSchema, SessionResponseSchema } from "./protos/ydb_coordination_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.Coordination.V1.CoordinationService
@@ -26,13 +26,11 @@ export const CoordinationServiceDefinition = {
   session: {
     path: "/Ydb.Coordination.V1.CoordinationService/Session",
     requestStream: true,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof SessionRequestSchema>) => toBinary(SessionRequestSchema, create(SessionRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof SessionRequestSchema>) => { let bytes = toBinary(SessionRequestSchema, create(SessionRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(SessionRequestSchema,bytes),
       responseStream: true, 
-    responseSerialize: (message: MessageInitShape<typeof SessionResponseSchema>) => toBinary(SessionResponseSchema, create(SessionResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof SessionResponseSchema>) => { let bytes = toBinary(SessionResponseSchema, create(SessionResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(SessionResponseSchema,bytes),
-    options: {},
   },
   /**
    * Creates a new coordination node
@@ -42,13 +40,11 @@ export const CoordinationServiceDefinition = {
   createNode: {
     path: "/Ydb.Coordination.V1.CoordinationService/CreateNode",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof CreateNodeRequestSchema>) => toBinary(CreateNodeRequestSchema, create(CreateNodeRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof CreateNodeRequestSchema>) => { let bytes = toBinary(CreateNodeRequestSchema, create(CreateNodeRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(CreateNodeRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof CreateNodeResponseSchema>) => toBinary(CreateNodeResponseSchema, create(CreateNodeResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof CreateNodeResponseSchema>) => { let bytes = toBinary(CreateNodeResponseSchema, create(CreateNodeResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(CreateNodeResponseSchema,bytes),
-    options: {},
   },
   /**
    * Modifies settings of a coordination node
@@ -58,13 +54,11 @@ export const CoordinationServiceDefinition = {
   alterNode: {
     path: "/Ydb.Coordination.V1.CoordinationService/AlterNode",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof AlterNodeRequestSchema>) => toBinary(AlterNodeRequestSchema, create(AlterNodeRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof AlterNodeRequestSchema>) => { let bytes = toBinary(AlterNodeRequestSchema, create(AlterNodeRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(AlterNodeRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof AlterNodeResponseSchema>) => toBinary(AlterNodeResponseSchema, create(AlterNodeResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof AlterNodeResponseSchema>) => { let bytes = toBinary(AlterNodeResponseSchema, create(AlterNodeResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(AlterNodeResponseSchema,bytes),
-    options: {},
   },
   /**
    * Drops a coordination node
@@ -74,13 +68,11 @@ export const CoordinationServiceDefinition = {
   dropNode: {
     path: "/Ydb.Coordination.V1.CoordinationService/DropNode",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof DropNodeRequestSchema>) => toBinary(DropNodeRequestSchema, create(DropNodeRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof DropNodeRequestSchema>) => { let bytes = toBinary(DropNodeRequestSchema, create(DropNodeRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(DropNodeRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof DropNodeResponseSchema>) => toBinary(DropNodeResponseSchema, create(DropNodeResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof DropNodeResponseSchema>) => { let bytes = toBinary(DropNodeResponseSchema, create(DropNodeResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(DropNodeResponseSchema,bytes),
-    options: {},
   },
   /**
    * Describes a coordination node
@@ -90,16 +82,10 @@ export const CoordinationServiceDefinition = {
   describeNode: {
     path: "/Ydb.Coordination.V1.CoordinationService/DescribeNode",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof DescribeNodeRequestSchema>) => toBinary(DescribeNodeRequestSchema, create(DescribeNodeRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof DescribeNodeRequestSchema>) => { let bytes = toBinary(DescribeNodeRequestSchema, create(DescribeNodeRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(DescribeNodeRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof DescribeNodeResponseSchema>) => toBinary(DescribeNodeResponseSchema, create(DescribeNodeResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof DescribeNodeResponseSchema>) => { let bytes = toBinary(DescribeNodeResponseSchema, create(DescribeNodeResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(DescribeNodeResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-CoordinationServiceDefinition["name"] = "CoordinationService";
-//@ts-expect-error
-CoordinationServiceDefinition["fullName"] = "Ydb.Coordination.V1.CoordinationService";

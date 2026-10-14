@@ -1,9 +1,16 @@
+import {
+	DiscoveryServiceDefinition,
+	ListEndpointsResponseSchema,
+	ListEndpointsResultSchema,
+	type WhoAmIResponse,
+	WhoAmIResponseSchema,
+} from '@ydbjs/api/discovery'
+import { unaryCall } from '@ydbjs/api/stream'
 import { channel } from 'node:diagnostics_channel'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
-import { DiscoveryServiceDefinition, ListEndpointsResultSchema } from '@ydbjs/api/discovery'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { createServer } from 'nice-grpc'
 import { expect, test } from 'vitest'
@@ -34,7 +41,7 @@ test.for([false, true])(
 			},
 			{
 				async listEndpoints() {
-					return {
+					return create(ListEndpointsResponseSchema, {
 						operation: {
 							ready: true,
 							status: StatusIds_StatusCode.SUCCESS,
@@ -43,14 +50,14 @@ test.for([false, true])(
 								create(ListEndpointsResultSchema, { endpoints })
 							),
 						},
-					}
+					})
 				},
 				async whoAmI() {
 					if (++callsOnOriginal === 1) {
 						entered.resolve()
 						await release.promise
 					}
-					return { operation: { id: 'original' } }
+					return create(WhoAmIResponseSchema, { operation: { id: 'original' } })
 				},
 			}
 		)
@@ -58,7 +65,7 @@ test.for([false, true])(
 			{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 			{
 				async whoAmI() {
-					return { operation: { id: 'replacement' } }
+					return create(WhoAmIResponseSchema, { operation: { id: 'replacement' } })
 				},
 			}
 		)
@@ -89,7 +96,10 @@ test.for([false, true])(
 
 		let client = driver.createClient(DiscoveryServiceDefinition)
 		let completed = false
-		let original = client.whoAmI({}, { signal: tc.signal })
+		let original = unaryCall<WhoAmIResponse>(
+			(callback) => client.whoAmI({}, callback),
+			tc.signal
+		)
 		void original.then(
 			() => {
 				completed = true
@@ -104,7 +114,10 @@ test.for([false, true])(
 		endpoints = [{ nodeId: 2, address: '127.0.0.1', port: secondPort }]
 		await expect.poll(() => observed.retired, { timeout: 5000 }).toBe(true)
 
-		let replacement = await client.whoAmI({}, { signal: tc.signal })
+		let replacement = await unaryCall<WhoAmIResponse>(
+			(callback) => client.whoAmI({}, callback),
+			tc.signal
+		)
 		expect(replacement.operation?.id).toBe('replacement')
 		let shutdown = goaway ? servers.first.shutdown() : undefined
 		// Let retirement sweeps run after GOAWAY while the existing RPC is still active.

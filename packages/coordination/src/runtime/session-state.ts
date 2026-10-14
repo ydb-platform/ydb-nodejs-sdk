@@ -1,3 +1,4 @@
+import type { ClientDuplexStream } from '@grpc/grpc-js'
 import { fail } from 'node:assert/strict'
 
 import type { SessionResponse } from '@ydbjs/api/coordination'
@@ -514,10 +515,7 @@ export interface StreamOpenParams {
 }
 
 export type CoordinationSessionClient = {
-	session(
-		request: AsyncIterable<StreamEnvelope>,
-		options?: { signal?: AbortSignal }
-	): AsyncIterable<SessionResponse>
+	session(): ClientDuplexStream<StreamEnvelope, SessionResponse>
 }
 
 export type StreamEnvelope = {

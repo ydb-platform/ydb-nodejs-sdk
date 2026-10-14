@@ -1,13 +1,16 @@
+import { unaryCall } from '@ydbjs/api/stream'
+import {
+	Codec,
+	CreateTopicRequestSchema,
+	type CreateTopicResponse,
+	DropTopicRequestSchema,
+	type DropTopicResponse,
+	TopicServiceDefinition,
+} from '@ydbjs/api/topic'
 import { subscribe, unsubscribe } from 'node:diagnostics_channel'
 
 import { create } from '@bufbuild/protobuf'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import {
-	Codec,
-	CreateTopicRequestSchema,
-	DropTopicRequestSchema,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
 import { Driver } from '@ydbjs/core'
 import { YDBError } from '@ydbjs/error'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
@@ -33,17 +36,22 @@ beforeEach(async () => {
 	testConsumerName = `test-consumer-${Date.now()}`
 	testProducerName = `test-producer-${Date.now()}`
 
-	await topicService.createTopic(
-		create(CreateTopicRequestSchema, {
-			path: testTopicName,
-			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 100n },
-			consumers: [{ name: testConsumerName }],
-		})
+	await unaryCall<CreateTopicResponse>((callback) =>
+		topicService.createTopic(
+			create(CreateTopicRequestSchema, {
+				path: testTopicName,
+				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 100n },
+				consumers: [{ name: testConsumerName }],
+			}),
+			callback
+		)
 	)
 })
 
 afterEach(async () => {
-	await topicService.dropTopic(create(DropTopicRequestSchema, { path: testTopicName }))
+	await unaryCall<DropTopicResponse>((callback) =>
+		topicService.dropTopic(create(DropTopicRequestSchema, { path: testTopicName }), callback)
+	)
 })
 
 let encode = function encode(text: string): Uint8Array {
@@ -103,7 +111,10 @@ test('surfaces server BAD_REQUEST for messageGroupId without matching producer',
 	})
 	try {
 		writer.write(encode('mismatched-pair'))
-		let error = await writer.flush(tc.signal).then(() => null, (caught: unknown) => caught)
+		let error = await writer.flush(tc.signal).then(
+			() => null,
+			(caught: unknown) => caught
+		)
 		expect(error).toBeInstanceOf(YDBError)
 		expect((error as YDBError).code).toBe(StatusIds_StatusCode.BAD_REQUEST)
 		expect((error as YDBError).message).toContain(
@@ -116,15 +127,20 @@ test('surfaces server BAD_REQUEST for messageGroupId without matching producer',
 
 test('rejects RAW writes into a GZIP-only topic terminally', { timeout: 20_000 }, async (tc) => {
 	let path = `writer-parity-gzip-only-${Date.now()}`
-	await topicService.createTopic(
-		create(CreateTopicRequestSchema, {
-			path,
-			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
-			supportedCodecs: { codecs: [Codec.GZIP] },
-		})
+	await unaryCall<CreateTopicResponse>((callback) =>
+		topicService.createTopic(
+			create(CreateTopicRequestSchema, {
+				path,
+				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
+				supportedCodecs: { codecs: [Codec.GZIP] },
+			}),
+			callback
+		)
 	)
 	tc.onTestFinished(async () => {
-		await topicService.dropTopic(create(DropTopicRequestSchema, { path }))
+		await unaryCall<DropTopicResponse>((callback) =>
+			topicService.dropTopic(create(DropTopicRequestSchema, { path }), callback)
+		)
 	})
 
 	// Default codec is RAW — not in the topic's allowed set. The writer validates
@@ -133,7 +149,10 @@ test('rejects RAW writes into a GZIP-only topic terminally', { timeout: 20_000 }
 	let writer = createTopicWriter(driver, { topic: path, producer: testProducerName })
 	try {
 		writer.write(encode('raw-into-gzip-only'))
-		let error = await writer.flush(tc.signal).then(() => null, (caught: unknown) => caught)
+		let error = await writer.flush(tc.signal).then(
+			() => null,
+			(caught: unknown) => caught
+		)
 		expect(error).toBeInstanceOf(Error)
 		expect((error as Error).message).toMatch(/codec 1 .*supported codecs: 2/i)
 		// The rejection is terminal: the writer is dead, not reconnecting.
@@ -324,15 +343,20 @@ test('fails reads of a custom codec without codecMap registration', async (tc) =
 
 test('routes writes to the writer-level pinned partition', { timeout: 20_000 }, async (tc) => {
 	let path = `writer-parity-partitions-${Date.now()}`
-	await topicService.createTopic(
-		create(CreateTopicRequestSchema, {
-			path,
-			partitioningSettings: { minActivePartitions: 2n, maxActivePartitions: 2n },
-			consumers: [{ name: testConsumerName }],
-		})
+	await unaryCall<CreateTopicResponse>((callback) =>
+		topicService.createTopic(
+			create(CreateTopicRequestSchema, {
+				path,
+				partitioningSettings: { minActivePartitions: 2n, maxActivePartitions: 2n },
+				consumers: [{ name: testConsumerName }],
+			}),
+			callback
+		)
 	)
 	tc.onTestFinished(async () => {
-		await topicService.dropTopic(create(DropTopicRequestSchema, { path }))
+		await unaryCall<DropTopicResponse>((callback) =>
+			topicService.dropTopic(create(DropTopicRequestSchema, { path }), callback)
+		)
 	})
 
 	await using writerZero = createTopicWriter(driver, {

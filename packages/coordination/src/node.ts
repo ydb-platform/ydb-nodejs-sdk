@@ -3,14 +3,18 @@ import * as assert from 'node:assert/strict'
 import { create, fromBinary } from '@bufbuild/protobuf'
 import {
 	AlterNodeRequestSchema,
+	type AlterNodeResponse,
 	type Config,
 	ConfigSchema,
 	ConsistencyMode,
 	CoordinationServiceDefinition,
 	CreateNodeRequestSchema,
+	type CreateNodeResponse,
 	DescribeNodeRequestSchema,
+	type DescribeNodeResponse,
 	DescribeNodeResultSchema,
 	DropNodeRequestSchema,
+	type DropNodeResponse,
 	RateLimiterCountersMode,
 } from '@ydbjs/api/coordination'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
@@ -18,7 +22,8 @@ import type { Entry } from '@ydbjs/api/scheme'
 import type { Driver } from '@ydbjs/core'
 import { loggers } from '@ydbjs/debug'
 import { YDBError } from '@ydbjs/error'
-import type { Client } from '@ydbjs/grpc'
+import type { ServiceClient } from '@ydbjs/api/client'
+import { unaryCall } from '@ydbjs/api/stream'
 
 let dbg = loggers.coordination.extend('node')
 
@@ -37,7 +42,7 @@ export interface CoordinationNodeDescription {
 }
 
 export class CoordinationNodeRuntime {
-	#client: Client<typeof CoordinationServiceDefinition>
+	#client: ServiceClient<typeof CoordinationServiceDefinition>
 
 	constructor(driver: Driver) {
 		this.#client = driver.createClient(CoordinationServiceDefinition)
@@ -46,9 +51,10 @@ export class CoordinationNodeRuntime {
 	async describe(path: string, signal?: AbortSignal): Promise<CoordinationNodeDescription> {
 		dbg.log('reading configuration of coordination node at %s', path)
 		let request = create(DescribeNodeRequestSchema, { path })
-		let response = signal
-			? await this.#client.describeNode(request, { signal })
-			: await this.#client.describeNode(request)
+		let response = await unaryCall<DescribeNodeResponse>(
+			(callback) => this.#client.describeNode(request, callback),
+			signal
+		)
 
 		assert.ok(response.operation, 'Missing operation in coordination response')
 		assert.ok(response.operation.ready, 'Coordination operation is not ready')
@@ -78,9 +84,10 @@ export class CoordinationNodeRuntime {
 	async create(path: string, cfg: CoordinationNodeConfig, signal?: AbortSignal): Promise<void> {
 		dbg.log('creating coordination node at %s', path)
 		let request = create(CreateNodeRequestSchema, { path, config: toNodeConfigMessage(cfg) })
-		let response = signal
-			? await this.#client.createNode(request, { signal })
-			: await this.#client.createNode(request)
+		let response = await unaryCall<CreateNodeResponse>(
+			(callback) => this.#client.createNode(request, callback),
+			signal
+		)
 
 		assert.ok(response.operation, 'Missing operation in coordination response')
 		assert.ok(response.operation.ready, 'Coordination operation is not ready')
@@ -95,9 +102,10 @@ export class CoordinationNodeRuntime {
 	async alter(path: string, cfg: CoordinationNodeConfig, signal?: AbortSignal): Promise<void> {
 		dbg.log('updating configuration of coordination node at %s', path)
 		let request = create(AlterNodeRequestSchema, { path, config: toNodeConfigMessage(cfg) })
-		let response = signal
-			? await this.#client.alterNode(request, { signal })
-			: await this.#client.alterNode(request)
+		let response = await unaryCall<AlterNodeResponse>(
+			(callback) => this.#client.alterNode(request, callback),
+			signal
+		)
 
 		assert.ok(response.operation, 'Missing operation in coordination response')
 		assert.ok(response.operation.ready, 'Coordination operation is not ready')
@@ -112,9 +120,10 @@ export class CoordinationNodeRuntime {
 	async drop(path: string, signal?: AbortSignal): Promise<void> {
 		dbg.log('dropping coordination node at %s', path)
 		let request = create(DropNodeRequestSchema, { path })
-		let response = signal
-			? await this.#client.dropNode(request, { signal })
-			: await this.#client.dropNode(request)
+		let response = await unaryCall<DropNodeResponse>(
+			(callback) => this.#client.dropNode(request, callback),
+			signal
+		)
 
 		assert.ok(response.operation, 'Missing operation in coordination response')
 		assert.ok(response.operation.ready, 'Coordination operation is not ready')

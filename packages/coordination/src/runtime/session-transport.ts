@@ -1,3 +1,4 @@
+import { readStream, writeStream } from '@ydbjs/api/stream'
 import { create } from '@bufbuild/protobuf'
 import { abortable, linkSignals } from '@ydbjs/abortable'
 import {
@@ -329,7 +330,7 @@ export class SessionTransport implements Disposable {
 		let ac = new AbortController()
 		let input = new AsyncQueue<StreamEnvelope>()
 
-		let grpcStream = this.#client.session(input, { signal: ac.signal })
+		let grpcStream = this.#client.session()
 
 		input.push({
 			request: {
@@ -357,9 +358,16 @@ export class SessionTransport implements Disposable {
 		let handleWatch = this.#handleWatch.bind(this)
 		let endEmitted = false
 
+		void writeStream(input, grpcStream, ac.signal).catch((error) => {
+			if (!ac.signal.aborted) {
+				dispatch({ type: 'transport.stream.error', error })
+				ac.abort(error)
+			}
+		})
+
 		let ingestTask = (async () => {
 			try {
-				for await (let response of grpcStream) {
+				for await (let response of readStream(grpcStream, ac.signal)) {
 					// Responses and watch notifications are resolved directly —
 					// they bypass the FSM because they don't affect transport state.
 					let msg = classifyMessage(response)
@@ -377,7 +385,7 @@ export class SessionTransport implements Disposable {
 					dispatch({ type: 'transport.stream.message', response })
 				}
 			} catch (error) {
-				if (!isAbortError(error)) {
+				if (!ac.signal.aborted && !isAbortError(error)) {
 					dispatch({ type: 'transport.stream.error', error })
 				}
 			} finally {

@@ -5,7 +5,7 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { LoginRequestSchema, LoginResponseSchema } from "./protos/ydb_auth_pb.js";
-import type { ServiceDefinition } from "@ydbjs/grpc";
+import type { ServiceDefinition } from "@grpc/grpc-js";
 
 /**
  * @generated from service Ydb.Auth.V1.AuthService
@@ -19,16 +19,10 @@ export const AuthServiceDefinition = {
   login: {
     path: "/Ydb.Auth.V1.AuthService/Login",
     requestStream: false,
-    requestBufferOwned: true,
-    requestSerialize: (message: MessageInitShape<typeof LoginRequestSchema>) => toBinary(LoginRequestSchema, create(LoginRequestSchema, message)),
+    requestSerialize: (message: MessageInitShape<typeof LoginRequestSchema>) => { let bytes = toBinary(LoginRequestSchema, create(LoginRequestSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     requestDeserialize: (bytes: Uint8Array) => fromBinary(LoginRequestSchema,bytes),
       responseStream: false, 
-    responseSerialize: (message: MessageInitShape<typeof LoginResponseSchema>) => toBinary(LoginResponseSchema, create(LoginResponseSchema, message)),
+    responseSerialize: (message: MessageInitShape<typeof LoginResponseSchema>) => { let bytes = toBinary(LoginResponseSchema, create(LoginResponseSchema, message)); return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) },
     responseDeserialize: (bytes: Uint8Array) => fromBinary(LoginResponseSchema,bytes),
-    options: {},
   },
 } as const satisfies ServiceDefinition
-//@ts-expect-error
-AuthServiceDefinition["name"] = "AuthService";
-//@ts-expect-error
-AuthServiceDefinition["fullName"] = "Ydb.Auth.V1.AuthService";

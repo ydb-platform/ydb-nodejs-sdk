@@ -27,35 +27,31 @@ import { QueryServiceDefinition } from '@ydbjs/api/query'
 import { PileState, PileState_State } from '@ydbjs/api/bridge' // bridge / multi-pile (2-DC) clusters
 ```
 
-### Example: Using a Service
-
-```ts
-import { Channel, ChannelCredentials, createClient } from '@ydbjs/grpc'
-import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
-
-let channel = new Channel('localhost:2136', ChannelCredentials.createInsecure(), {})
-let discoveryClient = createClient(DiscoveryServiceDefinition, channel)
-
-async function listEndpoints() {
-  const response = await discoveryClient.listEndpoints({ database: '/local' })
-  console.log(response)
-}
-
-listEndpoints()
-  .catch(console.error)
-  .finally(() => channel.close())
-```
-
 ### Using with @ydbjs/core
 
 ```ts
 import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
 import { Driver } from '@ydbjs/core'
 
-const driver = new Driver('grpc://localhost:2136')
-const client = driver.createClient(DiscoveryServiceDefinition)
-client.listEndpoints({ database: '/local' })
+let driver = new Driver('grpc://localhost:2136/local')
+await driver.ready()
+let client = driver.createClient(DiscoveryServiceDefinition)
+
+client.listEndpoints({ database: driver.database }, (error, response) => {
+  driver.close()
+  if (error) {
+    console.error(error)
+    return
+  }
+  console.log(response)
+})
 ```
+
+Service definitions use native grpc-js `Buffer` serializers and can be passed directly to `makeClientConstructor` from `@grpc/grpc-js`. `ServiceClient` from `@ydbjs/api/client` supplies TypeScript method signatures only; it creates no runtime client or wrapper.
+
+`@ydbjs/api/stream` provides `unaryCall(start, signal)`, `readStream(call, signal)`, and `writeStream(input, call, signal)` for SDK code that uses promises or async iteration. They operate on existing native calls and preserve native errors and metadata. `writeStream` owns request writes and half-close; the caller owns RPC cancellation and must release a blocked input iterator when aborting.
+
+Low-level clients use native `Metadata`, `CallOptions`, interceptors, and `ServiceError` from `@grpc/grpc-js`. The previous nice-grpc Promise/AsyncIterable method signatures, metadata facade, ts-proto definition conversion, and `ClientError` compatibility are not retained.
 
 ## Development
 
