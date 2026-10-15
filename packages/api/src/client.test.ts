@@ -2,6 +2,8 @@ import { setTimeout } from 'node:timers/promises'
 
 import {
 	Client,
+	InterceptingCall,
+	type Interceptor,
 	Metadata,
 	Server,
 	ServerCredentials,
@@ -580,4 +582,66 @@ test('stops requests at server EOF while the response consumer is paused', async
 		producer.release({ done: true, value: undefined })
 		await stream.return?.()
 	}
+})
+
+async function checkBufferedCancellation(bidi: boolean, signal: AbortSignal) {
+	let buffered = Promise.withResolvers<void>()
+	let received = 0
+	let observer: Interceptor = (options, nextCall) =>
+		new InterceptingCall(nextCall(options), {
+			start(metadata, _listener, next) {
+				next(metadata, {
+					onReceiveMessage(message, forward) {
+						forward(message)
+						received += 1
+						if (received === 3) {
+							buffered.resolve()
+						}
+					},
+				})
+			},
+		})
+	using peer = await serve({
+		server(call) {
+			for (let value of [1, 2, 3]) {
+				call.write({ value })
+			}
+		},
+		bidi(call) {
+			call.once('data', () => {
+				for (let value of [1, 2, 3]) {
+					call.write({ value })
+				}
+			})
+		},
+	})
+	let controller = new AbortController()
+	let options = {
+		signal: AbortSignal.any([signal, controller.signal]),
+		interceptors: [observer],
+	}
+	let responses = bidi
+		? peer.client.bidi(messages(1), options)
+		: peer.client.server({ value: 0 }, options)
+	let stream = responses[Symbol.asyncIterator]()
+	let reason = new Error('cancel buffered responses')
+
+	try {
+		expect((await stream.next()).value?.value).toBe(1)
+		await buffered.promise
+		controller.abort(reason)
+		await expect(stream.next()).rejects.toBe(reason)
+	} finally {
+		await stream.return?.()
+	}
+}
+
+test('discards buffered server-stream responses after caller cancellation', async (tc) => {
+	expect.assertions(2)
+	await checkBufferedCancellation(false, tc.signal)
+})
+
+test('discards buffered bidirectional responses after caller cancellation', async (tc) => {
+	expect.assertions(2)
+	await checkBufferedCancellation(true, tc.signal)
 })

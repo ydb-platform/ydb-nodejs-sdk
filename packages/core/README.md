@@ -33,6 +33,8 @@ The driver owns channels. A service client's `close()` prevents new calls throug
 
 For an endpoint absent from discovery, await `driver.createPinnedClient(service, { nodeId, endpoint, hard }, signal)`. It requires discovery to be enabled, waits for pin publication, and returns a disposable async client. `close()` or `[Symbol.dispose]()` releases that client's pin. Ordinary `createClient(service, nodeId)` and `createClient(service, { nodeId, hard })` remain synchronous.
 
+Per-call `interceptors` and `interceptor_providers` extend the driver interceptor chain; they do not replace authentication or driver metadata.
+
 Register native interceptors with `addClientInterceptor(interceptor)` before creating a driver. The driver snapshots registrations at construction; disposing the registration affects future drivers. This replaces the previous `addClientMiddleware` hook and generator middleware contract.
 
 ## Usage

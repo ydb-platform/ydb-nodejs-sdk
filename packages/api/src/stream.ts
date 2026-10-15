@@ -122,7 +122,14 @@ export async function* readCall<Response>(
 			})
 		}
 
-		yield* call
+		for await (let response of call) {
+			signal?.throwIfAborted()
+			if (inputFailed) {
+				throw inputError
+			}
+
+			yield response
+		}
 		signal?.throwIfAborted()
 		if (inputFailed) {
 			throw inputError

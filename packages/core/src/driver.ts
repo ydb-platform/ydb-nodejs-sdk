@@ -334,6 +334,27 @@ export class Driver implements Disposable, AsyncDisposable {
 		let client = new Client(this.cs.host, credentials.createInsecure(), {
 			channelOverride: channel,
 			interceptors: this.#interceptors,
+			// grpc-js per-call interceptors replace client defaults unless composed explicitly.
+			callInvocationTransformer: (call) => {
+				let options = call.callOptions
+				if (options.interceptors?.length) {
+					options = {
+						...options,
+						interceptors: [...this.#interceptors, ...options.interceptors],
+					}
+				}
+				if (options.interceptor_providers?.length) {
+					options = {
+						...options,
+						interceptor_providers: [
+							...this.#interceptors.map((interceptor) => () => interceptor),
+							...options.interceptor_providers,
+						],
+					}
+				}
+
+				return options === call.callOptions ? call : { ...call, callOptions: options }
+			},
 		})
 
 		return createServiceClient(service, client)

@@ -70,7 +70,7 @@ try {
 
 Unary and client-streaming methods return `Promise<Response>`. Server-streaming and bidirectional methods return `AsyncIterable<Response>` and start when iteration begins. Request streams accept `AsyncIterable<Request>`; writes respect grpc-js backpressure. Breaking out of response iteration cancels the RPC. Finishing a request stream half-closes it and allows the server to send its remaining responses.
 
-`ClientCallOptions` extends grpc-js `CallOptions` with `metadata`, `signal`, `onHeader`, and `onTrailer`. Metadata, credentials, interceptors, and server errors use native grpc-js types. Cancellation rejects with `signal.reason`; request-producer failures retain their original error. Producers that wait for external input must also release that input when cancelled: the adapter requests iterator cleanup without waiting indefinitely for a blocked `next()`.
+`ClientCallOptions` extends grpc-js `CallOptions` with `metadata`, `signal`, `onHeader`, and `onTrailer`. Metadata, credentials, interceptors, and server errors use native grpc-js types. Cancellation rejects with `signal.reason` before another buffered response is delivered; request-producer failures retain their original error. Producers that wait for external input must also release that input when cancelled: the adapter requests iterator cleanup without waiting indefinitely for a blocked `next()`.
 
 `ServiceClient<Service>` infers methods from the native grpc-js `ServiceDefinition` and exposes `close()` for the underlying native client. The definitions also work directly with grpc-js `makeClientConstructor`. RPC failures preserve the native `ServiceError`, including its status code, details, and trailing metadata.
 
