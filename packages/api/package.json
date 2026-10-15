@@ -119,7 +119,7 @@
 	},
 	"dependencies": {
 		"@bufbuild/protobuf": "2.12.0",
-		"@grpc/grpc-js": "^1.14.0"
+		"@grpc/grpc-js": "^1.14.6"
 	},
 	"devDependencies": {
 		"@bufbuild/buf": "^1.61.0",

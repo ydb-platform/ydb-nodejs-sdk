@@ -29,7 +29,7 @@ export type ServiceClient<Service extends ServiceDefinition> = Pick<Client, 'clo
 		: Promise<Response<Service[Method]>>
 }
 
-export function createClient<Service extends ServiceDefinition>(
+export function createServiceClient<Service extends ServiceDefinition>(
 	service: Service,
 	nativeClient: Client
 ): ServiceClient<Service> {

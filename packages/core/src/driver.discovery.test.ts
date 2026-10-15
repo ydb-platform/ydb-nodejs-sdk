@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { createServer } from 'nice-grpc'
+import { createTestServer } from '../../../tests/grpc-server.ts'
 import { expect, test } from 'vitest'
 
 import { Driver } from './driver.ts'
@@ -23,8 +23,8 @@ test.for([false, true])(
 		let entered = Promise.withResolvers<void>()
 		let release = Promise.withResolvers<void>()
 		await using servers = {
-			first: createServer(),
-			second: createServer(),
+			first: createTestServer(),
+			second: createTestServer(),
 			async [Symbol.asyncDispose]() {
 				release.resolve()
 				await Promise.all([this.first.shutdown(), this.second.shutdown()])

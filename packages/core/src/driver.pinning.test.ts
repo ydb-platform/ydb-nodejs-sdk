@@ -9,15 +9,15 @@ import { setImmediate } from 'node:timers/promises'
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { createServer } from 'nice-grpc'
+import { createTestServer } from '../../../tests/grpc-server.ts'
 import { expect, test } from 'vitest'
 
 import { Driver } from './driver.ts'
 
 // Controlled discovery keeps the pinned node absent; a real cluster may discover it and hide the race.
 async function pinFixture() {
-	let discovery = createServer()
-	let direct = createServer()
+	let discovery = createTestServer()
+	let direct = createTestServer()
 	let discoveryPort = 0
 	let calls = 0
 

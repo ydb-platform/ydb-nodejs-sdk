@@ -14,7 +14,7 @@ import {
 } from '@grpc/grpc-js'
 import { expect, test } from 'vitest'
 
-import { createClient } from './client.js'
+import { createServiceClient } from './client.js'
 
 interface Message {
 	value: number
@@ -81,7 +81,7 @@ async function serve(handlers: Handlers) {
 	let client = new Client(`127.0.0.1:${port}`, credentials.createInsecure())
 
 	return {
-		client: createClient(definition, client),
+		client: createServiceClient(definition, client),
 		[Symbol.dispose]() {
 			client.close()
 			server.forceShutdown()

@@ -3,10 +3,10 @@ import { anyPack } from '@bufbuild/protobuf/wkt'
 import { Client, credentials } from '@grpc/grpc-js'
 import { abortable } from '@ydbjs/abortable'
 import { AuthServiceDefinition, LoginResponseSchema, LoginResultSchema } from '@ydbjs/api/auth'
-import { createClient } from '@ydbjs/api/client'
+import { createServiceClient } from '@ydbjs/api/client'
 import { DiscoveryServiceDefinition, WhoAmIResponseSchema } from '@ydbjs/api/discovery'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { createServer } from 'nice-grpc'
+import { createTestServer } from '../../../tests/grpc-server.ts'
 import { expect, test } from 'vitest'
 
 import { StaticCredentialsProvider } from './static.ts'
@@ -25,7 +25,7 @@ test.for([false, true])(
 		})
 		let logins = 0
 		await using fixture = {
-			server: createServer(),
+			server: createTestServer(),
 			[Symbol.asyncDispose]() {
 				allowRefresh.resolve()
 				return this.server.shutdown()
@@ -70,7 +70,7 @@ test.for([false, true])(
 		expect(await provider.getToken(true, tc.signal)).toBe(tokens[0])
 
 		using rpc = {
-			client: createClient(
+			client: createServiceClient(
 				DiscoveryServiceDefinition,
 				new Client(`127.0.0.1:${port}`, credentials.createInsecure(), {
 					interceptors: [provider.interceptor],

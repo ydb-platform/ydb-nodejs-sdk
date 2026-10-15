@@ -3,7 +3,7 @@ import { channel as dc, tracingChannel } from 'node:diagnostics_channel'
 
 import { anyUnpack } from '@bufbuild/protobuf/wkt'
 import { type ChannelOptions, Client, credentials } from '@grpc/grpc-js'
-import { type ServiceClient, createClient } from '@ydbjs/api/client'
+import { type ServiceClient, createServiceClient } from '@ydbjs/api/client'
 import { AuthServiceDefinition, LoginResultSchema } from '@ydbjs/api/auth'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { loggers } from '@ydbjs/debug'
@@ -92,7 +92,7 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 			: credentials.createInsecure()
 
 		let client = new Client(address, channelCredentials, channelOptions)
-		this.#client = createClient(AuthServiceDefinition, client)
+		this.#client = createServiceClient(AuthServiceDefinition, client)
 	}
 
 	/**

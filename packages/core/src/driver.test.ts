@@ -11,7 +11,8 @@ import { expect, test } from 'vitest'
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { ServerError, Status, createServer } from 'nice-grpc'
+import { status } from '@grpc/grpc-js'
+import { createTestServer } from '../../../tests/grpc-server.ts'
 
 import { Driver, kRegisterLibrary } from './driver.ts'
 import {
@@ -25,7 +26,7 @@ import pkg from '../package.json' with { type: 'json' }
 // Stand up a discovery server whose listEndpoints returns a caller-supplied
 // operation object (to exercise the #fetchEndpoints error paths).
 async function startBadDiscovery(operation: unknown) {
-	let server = createServer()
+	let server = createTestServer()
 	server.add(
 		{
 			listEndpoints: DiscoveryServiceDefinition.listEndpoints,
@@ -173,7 +174,7 @@ test('allows custom channel options override', () => {
 })
 
 test('adds x-ydb-sdk-build-info header with current sdk version', async () => {
-	let server = createServer()
+	let server = createTestServer()
 	let receivedBuildInfo: string | undefined
 	let discoveryService = {
 		listEndpoints: DiscoveryServiceDefinition.listEndpoints,
@@ -182,7 +183,9 @@ test('adds x-ydb-sdk-build-info header with current sdk version', async () => {
 
 	server.add(discoveryService, {
 		async listEndpoints(_, context) {
-			receivedBuildInfo = context.metadata.get('x-ydb-sdk-build-info')
+			receivedBuildInfo = context.metadata.get('x-ydb-sdk-build-info')[0] as
+				| string
+				| undefined
 			return create(ListEndpointsResponseSchema, {})
 		},
 		async whoAmI() {
@@ -207,7 +210,7 @@ test('adds x-ydb-sdk-build-info header with current sdk version', async () => {
 })
 
 test('appends registered libraries to x-ydb-sdk-build-info after the native sdk token', async () => {
-	let server = createServer()
+	let server = createTestServer()
 	let received: string[] = []
 	let discoveryService = {
 		listEndpoints: DiscoveryServiceDefinition.listEndpoints,
@@ -216,7 +219,9 @@ test('appends registered libraries to x-ydb-sdk-build-info after the native sdk 
 
 	server.add(discoveryService, {
 		async listEndpoints(_, context) {
-			received.push(context.metadata.get('x-ydb-sdk-build-info') ?? '')
+			received.push(
+				(context.metadata.get('x-ydb-sdk-build-info')[0] as string | undefined) ?? ''
+			)
 			return create(ListEndpointsResponseSchema, {})
 		},
 		async whoAmI() {
@@ -252,7 +257,7 @@ test('appends registered libraries to x-ydb-sdk-build-info after the native sdk 
 test('createClient with a direct-IO target hard-routes and disposes cleanly', async (tc) => {
 	// A discovery server that reports itself as node 1; the direct client then
 	// hard-routes there and its whoAmI succeeds.
-	let server = createServer()
+	let server = createTestServer()
 	let port = 0
 	let discoveryService = {
 		listEndpoints: DiscoveryServiceDefinition.listEndpoints,
@@ -313,7 +318,7 @@ test('survives background rediscovery failure and keeps serving requests', async
 	let trap = (reason: unknown) => unhandled.push(reason)
 	process.on('unhandledRejection', trap)
 
-	let server = createServer()
+	let server = createTestServer()
 	let port = 0
 	let calls = 0
 	let discoveryService = {
@@ -327,7 +332,7 @@ test('survives background rediscovery failure and keeps serving requests', async
 		async listEndpoints() {
 			calls += 1
 			if (calls > 1) {
-				throw new ServerError(Status.UNAVAILABLE, 'Connection dropped')
+				throw Object.assign(new Error('Connection dropped'), { code: status.UNAVAILABLE })
 			}
 			let result = create(ListEndpointsResultSchema, {
 				endpoints: [
@@ -463,7 +468,7 @@ test('closing the driver rejects readiness during discovery', async (tc) => {
 	let discovering = Promise.withResolvers<void>()
 	let release = Promise.withResolvers<void>()
 	await using fixture = {
-		server: createServer(),
+		server: createTestServer(),
 		[Symbol.asyncDispose]() {
 			release.resolve()
 			return this.server.shutdown()

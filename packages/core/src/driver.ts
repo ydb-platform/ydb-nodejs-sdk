@@ -12,7 +12,7 @@ import {
 	type ServiceDefinition,
 	credentials,
 } from '@grpc/grpc-js'
-import { type ServiceClient, createClient as createServiceClient } from '@ydbjs/api/client'
+import { type ServiceClient, createServiceClient } from '@ydbjs/api/client'
 import { abortable, linkSignals } from '@ydbjs/abortable'
 import {
 	DiscoveryServiceDefinition,

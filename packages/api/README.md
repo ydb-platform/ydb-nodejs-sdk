@@ -46,11 +46,11 @@ driver.close()
 
 ```ts
 import { Client, credentials, Metadata } from '@grpc/grpc-js'
-import { createClient } from '@ydbjs/api/client'
+import { createServiceClient } from '@ydbjs/api/client'
 import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
 
 let nativeClient = new Client('localhost:2136', credentials.createInsecure())
-let client = createClient(DiscoveryServiceDefinition, nativeClient)
+let client = createServiceClient(DiscoveryServiceDefinition, nativeClient)
 let metadata = new Metadata()
 metadata.set('x-ydb-database', '/local')
 

@@ -1,8 +1,8 @@
 import { create } from '@bufbuild/protobuf'
 import { DiscoveryServiceDefinition, WhoAmIResponseSchema } from '@ydbjs/api/discovery'
 import { Client, Metadata, credentials, status } from '@grpc/grpc-js'
-import { createClient } from '@ydbjs/api/client'
-import { createServer } from 'nice-grpc'
+import { createServiceClient } from '@ydbjs/api/client'
+import { createTestServer } from '../../../tests/grpc-server.ts'
 import { expect, test } from 'vitest'
 
 import { CredentialsProvider } from './index.ts'
@@ -13,15 +13,15 @@ async function fixture(getToken: CredentialsProvider['getToken']) {
 		override getToken = getToken
 	}
 
-	let server = createServer()
+	let server = createTestServer()
 	let received: Record<string, string | undefined> | undefined
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
 			async whoAmI(_request, context) {
 				received = {
-					token: context.metadata.get('x-ydb-auth-ticket'),
-					existing: context.metadata.get('x-existing'),
+					token: context.metadata.get('x-ydb-auth-ticket')[0] as string | undefined,
+					existing: context.metadata.get('x-existing')[0] as string | undefined,
 				}
 				return create(WhoAmIResponseSchema, {})
 			},
@@ -29,7 +29,7 @@ async function fixture(getToken: CredentialsProvider['getToken']) {
 	)
 
 	let port = await server.listen('127.0.0.1:0')
-	let client = createClient(
+	let client = createServiceClient(
 		DiscoveryServiceDefinition,
 		new Client(`127.0.0.1:${port}`, credentials.createInsecure(), {
 			interceptors: [new Provider().interceptor],
