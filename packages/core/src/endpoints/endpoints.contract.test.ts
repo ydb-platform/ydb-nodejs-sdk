@@ -1,8 +1,7 @@
 import { create } from '@bufbuild/protobuf'
-import { connectivityState } from '@grpc/grpc-js'
 import { PileState_State } from '@ydbjs/api/bridge'
 import { ListEndpointsResultSchema } from '@ydbjs/api/discovery'
-import { Metadata, status as Status } from '@grpc/grpc-js'
+import { Status } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
 import { EndpointsUnavailableError } from '../errors.ts'
@@ -451,7 +450,7 @@ test('idle_sweep closes a retired channel in SHUTDOWN', async (tc) => {
 	await h.pool.ready(tc.signal)
 	await retireNode2(h, discovery)
 
-	connections.byNode(2n)!.driveState(connectivityState.SHUTDOWN)
+	connections.byNode(2n)!.driveState('closed')
 	h.machine.dispatch({ type: 'endpoints.timer.idle_sweep' })
 	await settle()
 
@@ -466,7 +465,7 @@ test('idle_sweep keeps a retired channel that is READY', async (tc) => {
 	await h.pool.ready(tc.signal)
 	await retireNode2(h, discovery)
 
-	connections.byNode(2n)!.driveState(connectivityState.READY)
+	connections.byNode(2n)!.driveState('ready')
 	h.machine.dispatch({ type: 'endpoints.timer.idle_sweep' })
 	await settle()
 
@@ -485,7 +484,7 @@ test('idle_sweep reaps a retired channel idle past the grace window', async (tc)
 	await h.pool.ready(tc.signal)
 	await retireNode2(h, discovery)
 
-	connections.byNode(2n)!.driveState(connectivityState.TRANSIENT_FAILURE)
+	connections.byNode(2n)!.driveState('idle')
 	h.machine.dispatch({ type: 'endpoints.timer.idle_sweep' })
 	await settle()
 
@@ -501,7 +500,7 @@ test('a retryable initial failure recovers on the next successful round', async 
 		Object.assign(new Error('transient'), {
 			code: Status.UNAVAILABLE,
 			details: 'transient',
-			metadata: new Metadata(),
+			metadata: {},
 		})
 	)
 	discovery.push(discoveryResult([endpoint(1)])) // backoff retry succeeds
@@ -650,7 +649,7 @@ test('keeps a live channel through repeated retirement and revival', async (tc) 
 	await h.pool.ready(tc.signal)
 	h.pool.acquire(2n)
 	let connection = h.connections.byNode(2n)!
-	connection.driveState(connectivityState.READY)
+	connection.driveState('ready')
 	h.pool.callStarted(2n)
 	try {
 		for (let endpoints of [[endpoint(1)], [endpoint(1), endpoint(2)], [endpoint(1)]]) {
@@ -687,4 +686,23 @@ test('rejects ready while a live call keeps the pool closing', async (tc) => {
 		h.pool.callEnded(1n)
 		await closing
 	}
+})
+
+test('keeps a retired connection while its GOAWAY session drains a live RPC', async (tc) => {
+	let discovery = makeFakeDiscovery()
+	let connections = makeFakeConnectionFactory()
+	await using h = setup([endpoint(1), endpoint(2)], { discovery, connections, retiredGraceMs: 0 })
+	await h.pool.ready(tc.signal)
+	await retireNode2(h, discovery)
+	connections.byNode(2n)!.driveState('idle')
+	h.pool.callStarted(2n)
+
+	h.machine.dispatch({ type: 'endpoints.timer.idle_sweep' })
+	await settle()
+	expect(connections.byNode(2n)!.closed).toBe(false)
+
+	h.pool.callEnded(2n)
+	h.machine.dispatch({ type: 'endpoints.timer.idle_sweep' })
+	await settle()
+	expect(connections.byNode(2n)!.closed).toBe(true)
 })

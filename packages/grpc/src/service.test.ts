@@ -1,13 +1,9 @@
 import { setTimeout } from 'node:timers/promises'
 
 import {
-	Client,
-	InterceptingCall,
-	type Interceptor,
 	Metadata,
 	Server,
 	ServerCredentials,
-	credentials,
 	type handleBidiStreamingCall,
 	type handleClientStreamingCall,
 	type handleServerStreamingCall,
@@ -16,7 +12,9 @@ import {
 } from '@grpc/grpc-js'
 import { expect, test } from 'vitest'
 
-import { createServiceClient } from './client.js'
+import { Client } from './client.ts'
+import { createServiceClient } from './service.ts'
+import type { Metadata as CallMetadata } from './types.ts'
 
 interface Message {
 	value: number
@@ -33,8 +31,10 @@ function serialize(message: Message): Buffer {
 	return bytes
 }
 
-function deserialize(bytes: Buffer): Message {
-	return { value: bytes.readUInt32LE(), padding: bytes.subarray(4) }
+function deserialize(bytes: Uint8Array): Message {
+	let buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+
+	return { value: buffer.readUInt32LE(), padding: buffer.subarray(4) }
 }
 
 function method<RequestStream extends boolean, ResponseStream extends boolean>(
@@ -80,7 +80,7 @@ async function serve(handlers: Handlers) {
 			}
 		})
 	})
-	let client = new Client(`127.0.0.1:${port}`, credentials.createInsecure())
+	let client = new Client(`http://127.0.0.1:${port}`)
 
 	return {
 		client: createServiceClient(definition, client),
@@ -106,7 +106,7 @@ async function collect(stream: AsyncIterable<Message>): Promise<number[]> {
 	return values
 }
 
-test('awaits a unary response with native request, header and trailer metadata', async (tc) => {
+test('awaits a unary response with request, header and trailer metadata', async (tc) => {
 	let requestMetadata: Metadata | undefined
 	using peer = await serve({
 		unary(call, respond) {
@@ -119,11 +119,9 @@ test('awaits a unary response with native request, header and trailer metadata',
 			respond(null, { value: call.request.value + 1 }, trailer)
 		},
 	})
-	let metadata = new Metadata()
-	metadata.set('x-request', 'request')
-	metadata.set('x-data-bin', Buffer.from([1, 2, 3]))
-	let header: Metadata | undefined
-	let trailer = Promise.withResolvers<Metadata>()
+	let metadata = { 'x-request': 'request', 'x-data-bin': new Uint8Array([1, 2, 3]) }
+	let header: CallMetadata | undefined
+	let trailer = Promise.withResolvers<CallMetadata>()
 
 	let response = await peer.client.unary(
 		{ value: 41 },
@@ -140,16 +138,15 @@ test('awaits a unary response with native request, header and trailer metadata',
 	expect(response).toEqual({ value: 42, padding: Buffer.alloc(0) })
 	expect(requestMetadata?.get('x-request')).toEqual(['request'])
 	expect(requestMetadata?.get('x-data-bin')).toEqual([Buffer.from([1, 2, 3])])
-	expect(header).toBeInstanceOf(Metadata)
-	expect(header?.get('x-header')).toEqual(['header'])
-	expect((await trailer.promise).get('x-trailer')).toEqual(['trailer'])
-	expect(metadata.getMap()).toEqual({
+	expect(header?.['x-header']).toEqual('header')
+	expect((await trailer.promise)['x-trailer']).toEqual('trailer')
+	expect(metadata).toEqual({
 		'x-request': 'request',
-		'x-data-bin': Buffer.from([1, 2, 3]),
+		'x-data-bin': new Uint8Array([1, 2, 3]),
 	})
 })
 
-test('preserves native unary status, details and binary trailers', async (tc) => {
+test('preserves unary status, details and binary trailers', async (tc) => {
 	let metadata = new Metadata()
 	metadata.set('x-error-bin', Buffer.from([4, 5]))
 	using peer = await serve({
@@ -163,10 +160,8 @@ test('preserves native unary status, details and binary trailers', async (tc) =>
 		.catch((failure: unknown) => failure)
 	expect(error).toBeInstanceOf(Error)
 	expect(error).toMatchObject({ code: status.RESOURCE_EXHAUSTED, details: 'capacity' })
-	expect((error as { metadata: Metadata }).metadata).toBeInstanceOf(Metadata)
-	expect((error as { metadata: Metadata }).metadata.get('x-error-bin')).toEqual([
-		Buffer.from([4, 5]),
-	])
+	let bytes = (error as { metadata: CallMetadata }).metadata['x-error-bin'] as Uint8Array
+	expect([...bytes]).toEqual([4, 5])
 })
 
 test('does not start already-aborted calls or consume their inputs', async () => {
@@ -209,7 +204,7 @@ test('cancels a pending unary call with the caller reason', async (tc) => {
 	await cancelled.promise
 })
 
-test('passes the native deadline to grpc-js', async (tc) => {
+test('enforces the call deadline', async (tc) => {
 	using peer = await serve({ unary() {} })
 
 	await expect(
@@ -584,64 +579,31 @@ test('stops requests at server EOF while the response consumer is paused', async
 	}
 })
 
-async function checkBufferedCancellation(bidi: boolean, signal: AbortSignal) {
-	let buffered = Promise.withResolvers<void>()
-	let received = 0
-	let observer: Interceptor = (options, nextCall) =>
-		new InterceptingCall(nextCall(options), {
-			start(metadata, _listener, next) {
-				next(metadata, {
-					onReceiveMessage(message, forward) {
-						forward(message)
-						received += 1
-						if (received === 3) {
-							buffered.resolve()
-						}
-					},
-				})
-			},
-		})
+test('handles a producer rejection that races synchronous cancellation', async (tc) => {
 	using peer = await serve({
-		server(call) {
-			for (let value of [1, 2, 3]) {
-				call.write({ value })
-			}
-		},
 		bidi(call) {
-			call.once('data', () => {
-				for (let value of [1, 2, 3]) {
-					call.write({ value })
-				}
-			})
+			call.resume()
 		},
 	})
 	let controller = new AbortController()
-	let options = {
-		signal: AbortSignal.any([signal, controller.signal]),
-		interceptors: [observer],
+	let reason = new Error('cancel inside producer')
+	let input: AsyncIterable<Message> = {
+		[Symbol.asyncIterator]() {
+			return {
+				next() {
+					controller.abort(reason)
+					return Promise.reject(new Error('producer also failed'))
+				},
+			}
+		},
 	}
-	let responses = bidi
-		? peer.client.bidi(messages(1), options)
-		: peer.client.server({ value: 0 }, options)
-	let stream = responses[Symbol.asyncIterator]()
-	let reason = new Error('cancel buffered responses')
 
-	try {
-		expect((await stream.next()).value?.value).toBe(1)
-		await buffered.promise
-		controller.abort(reason)
-		await expect(stream.next()).rejects.toBe(reason)
-	} finally {
-		await stream.return?.()
-	}
-}
-
-test('discards buffered server-stream responses after caller cancellation', async (tc) => {
-	expect.assertions(2)
-	await checkBufferedCancellation(false, tc.signal)
-})
-
-test('discards buffered bidirectional responses after caller cancellation', async (tc) => {
-	expect.assertions(2)
-	await checkBufferedCancellation(true, tc.signal)
+	await expect(
+		collect(
+			peer.client.bidi(input, {
+				signal: AbortSignal.any([tc.signal, controller.signal]),
+			})
+		)
+	).rejects.toBe(reason)
+	await new Promise<void>((resolve) => setImmediate(resolve))
 })

@@ -1,3 +1,4 @@
+import { MessageSizeError } from '@ydbjs/grpc'
 import {
 	Codec,
 	CreateTopicRequestSchema,
@@ -241,9 +242,8 @@ test('rejects an oversized payload with a permanent error', async (tc) => {
 
 		expect(error).toBeInstanceOf(Error)
 		expect((error as ServiceError).code).toBe(Status.RESOURCE_EXHAUSTED)
-		expect((error as ServiceError).details).toMatch(
-			/Attempted to send message with a size larger than/
-		)
+		expect(error).toBeInstanceOf(MessageSizeError)
+		expect(error).toMatchObject({ direction: 'request', limit: 64 * 1024 * 1024 })
 		expect(isRetryableTopicError(error)).toBe(false)
 	}
 })
