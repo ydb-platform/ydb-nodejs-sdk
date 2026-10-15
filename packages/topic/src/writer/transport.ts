@@ -1,4 +1,3 @@
-import { readStream, writeStream } from '@ydbjs/api/stream'
 import { create } from '@bufbuild/protobuf'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import {
@@ -187,17 +186,13 @@ export class WriterTransport {
 					return
 				}
 
-				let stream = this.#driver.createClient(TopicServiceDefinition).streamWrite()
-
-				void writeStream(input, stream, ac.signal).catch((error) => {
-					if (!ac.signal.aborted) {
-						this.#disconnect(error)
-					}
-				})
+				let stream = this.#driver
+					.createClient(TopicServiceDefinition)
+					.streamWrite(input, { signal: ac.signal })
 
 				dbg.log('stream opened (getLastSeqNo=%s)', getLastSeqNo)
 
-				for await (let response of readStream(stream, ac.signal)) {
+				for await (let response of stream) {
 					if (ac.signal.aborted) {
 						return
 					}

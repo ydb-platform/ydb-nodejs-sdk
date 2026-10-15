@@ -1,14 +1,11 @@
-import { Metadata, credentials, makeClientConstructor } from '@grpc/grpc-js'
-import type { ServiceClient } from '@ydbjs/api/client'
+import { Client, Metadata, credentials } from '@grpc/grpc-js'
+import { createClient } from '@ydbjs/api/client'
 import { create } from '@bufbuild/protobuf'
 import {
 	DiscoveryServiceDefinition,
-	type ListEndpointsResponse,
 	ListEndpointsResponseSchema,
-	type WhoAmIResponse,
 	WhoAmIResponseSchema,
 } from '@ydbjs/api/discovery'
-import { unaryCall } from '@ydbjs/api/stream'
 import { context, propagation, trace } from '@opentelemetry/api'
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
 import { W3CTraceContextPropagator } from '@opentelemetry/core'
@@ -69,9 +66,7 @@ async function driveThroughRealDriver(): Promise<{
 
 	try {
 		let client = driver.createClient(discoveryService)
-		await unaryCall<ListEndpointsResponse>((callback) =>
-			client.listEndpoints({ database: driver.database }, callback)
-		)
+		await client.listEndpoints({ database: driver.database })
 
 		if (!received) {
 			throw new Error('listEndpoints was not invoked')
@@ -138,20 +133,19 @@ test('standalone propagator leaves caller metadata unchanged', async (tc) => {
 		}
 	)
 	let port = await fixture.server.listen('127.0.0.1:0')
-	let NativeClient = makeClientConstructor(DiscoveryServiceDefinition, 'DiscoveryService')
-	let client = new NativeClient(`127.0.0.1:${port}`, credentials.createInsecure(), {
-		interceptors: [propagator],
-	}) as unknown as ServiceClient<typeof DiscoveryServiceDefinition>
+	let client = createClient(
+		DiscoveryServiceDefinition,
+		new Client(`127.0.0.1:${port}`, credentials.createInsecure(), {
+			interceptors: [propagator],
+		})
+	)
 	let metadata = new Metadata()
 	metadata.set('x-existing', 'caller-value')
 	let span = trace.getTracer('test').startSpan('outer')
 
 	try {
 		await context.with(trace.setSpan(context.active(), span), () =>
-			unaryCall<WhoAmIResponse>(
-				(callback) => client.whoAmI({}, metadata, callback),
-				tc.signal
-			)
+			client.whoAmI({}, { metadata, signal: tc.signal })
 		)
 	} finally {
 		span.end()

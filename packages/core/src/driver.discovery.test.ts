@@ -2,10 +2,8 @@ import {
 	DiscoveryServiceDefinition,
 	ListEndpointsResponseSchema,
 	ListEndpointsResultSchema,
-	type WhoAmIResponse,
 	WhoAmIResponseSchema,
 } from '@ydbjs/api/discovery'
-import { unaryCall } from '@ydbjs/api/stream'
 import { channel } from 'node:diagnostics_channel'
 import { setTimeout as delay } from 'node:timers/promises'
 
@@ -96,10 +94,7 @@ test.for([false, true])(
 
 		let client = driver.createClient(DiscoveryServiceDefinition)
 		let completed = false
-		let original = unaryCall<WhoAmIResponse>(
-			(callback) => client.whoAmI({}, callback),
-			tc.signal
-		)
+		let original = client.whoAmI({}, { signal: tc.signal })
 		void original.then(
 			() => {
 				completed = true
@@ -114,10 +109,7 @@ test.for([false, true])(
 		endpoints = [{ nodeId: 2, address: '127.0.0.1', port: secondPort }]
 		await expect.poll(() => observed.retired, { timeout: 5000 }).toBe(true)
 
-		let replacement = await unaryCall<WhoAmIResponse>(
-			(callback) => client.whoAmI({}, callback),
-			tc.signal
-		)
+		let replacement = await client.whoAmI({}, { signal: tc.signal })
 		expect(replacement.operation?.id).toBe('replacement')
 		let shutdown = goaway ? servers.first.shutdown() : undefined
 		// Let retirement sweeps run after GOAWAY while the existing RPC is still active.

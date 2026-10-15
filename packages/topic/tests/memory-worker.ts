@@ -1,10 +1,7 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	Codec,
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import assert from 'node:assert/strict'
@@ -180,18 +177,14 @@ async function run() {
 	})
 	await driver.ready(signal.signal)
 	let service = driver.createClient(TopicServiceDefinition)
-	let result = await unaryCall<CreateTopicResponse>(
-		(callback) =>
-			service.createTopic(
-				create(CreateTopicRequestSchema, {
-					path: topic,
-					partitioningSettings: { minActivePartitions: 3n, maxActivePartitions: 3n },
-					consumers: [{ name: consumer }],
-					supportedCodecs: { codecs: [Codec.RAW, Codec.GZIP, Codec.ZSTD] },
-				}),
-				callback
-			),
-		signal.signal
+	let result = await service.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: topic,
+			partitioningSettings: { minActivePartitions: 3n, maxActivePartitions: 3n },
+			consumers: [{ name: consumer }],
+			supportedCodecs: { codecs: [Codec.RAW, Codec.GZIP, Codec.ZSTD] },
+		}),
+		{ signal: signal.signal }
 	)
 	assert.equal(result.operation?.status, StatusIds_StatusCode.SUCCESS)
 	let readerChannel = channel('ydb:topic.reader.reconnecting')
@@ -318,11 +311,9 @@ async function run() {
 		clients = undefined
 	} finally {
 		clients?.destroy()
-		await unaryCall<DropTopicResponse>(
-			(callback) =>
-				service.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback),
-			AbortSignal.timeout(5000)
-		)
+		await service.dropTopic(create(DropTopicRequestSchema, { path: topic }), {
+			signal: AbortSignal.timeout(5000),
+		})
 	}
 	driver.close()
 	await sleep(25)

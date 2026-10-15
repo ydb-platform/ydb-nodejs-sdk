@@ -1,16 +1,12 @@
-import { promisify } from 'node:util'
 import { abortable } from '@ydbjs/abortable'
-import { Metadata, connectivityState } from '@grpc/grpc-js'
+import { Metadata } from '@grpc/grpc-js'
 import {
 	DiscoveryServiceDefinition,
 	EndpointInfoSchema,
-	type ListEndpointsResponse,
 	ListEndpointsResponseSchema,
 	ListEndpointsResultSchema,
-	type WhoAmIResponse,
 	WhoAmIResponseSchema,
 } from '@ydbjs/api/discovery'
-import { unaryCall } from '@ydbjs/api/stream'
 import { expect, test } from 'vitest'
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
@@ -201,9 +197,7 @@ test('adds x-ydb-sdk-build-info header with current sdk version', async () => {
 
 	try {
 		let client = driver.createClient(discoveryService)
-		await unaryCall<ListEndpointsResponse>((callback) =>
-			client.listEndpoints({ database: driver.database }, callback)
-		)
+		await client.listEndpoints({ database: driver.database })
 
 		expect(receivedBuildInfo).toBe(`ydb-js-sdk/${pkg.version}`)
 	} finally {
@@ -239,15 +233,11 @@ test('appends registered libraries to x-ydb-sdk-build-info after the native sdk 
 		let client = driver.createClient(discoveryService)
 
 		driver[kRegisterLibrary]('@ydbjs/drizzle-adapter', '1.2.3')
-		await unaryCall<ListEndpointsResponse>((callback) =>
-			client.listEndpoints({ database: driver.database }, callback)
-		)
+		await client.listEndpoints({ database: driver.database })
 
 		driver[kRegisterLibrary]('@ydbjs/drizzle-adapter', '1.2.3')
 		driver[kRegisterLibrary]('@ydbjs/other', '0.1.0')
-		await unaryCall<ListEndpointsResponse>((callback) =>
-			client.listEndpoints({ database: driver.database }, callback)
-		)
+		await client.listEndpoints({ database: driver.database })
 
 		expect(received[0]).toBe(`ydb-js-sdk/${pkg.version};@ydbjs/drizzle-adapter/1.2.3`)
 		expect(received[1]).toBe(
@@ -308,11 +298,11 @@ test('createClient with a direct-IO target hard-routes and disposes cleanly', as
 			})
 			// The client is Disposable and hard-routes to the pinned node.
 			expect(typeof (client as unknown as Disposable)[Symbol.dispose]).toBe('function')
-			await unaryCall<WhoAmIResponse>((callback) => client.whoAmI({}, callback), tc.signal)
+			await client.whoAmI({}, { signal: tc.signal })
 		}
 		// After dispose the pin is released — a fresh soft client still works.
 		let soft = driver.createClient(discoveryService)
-		await unaryCall<WhoAmIResponse>((callback) => soft.whoAmI({}, callback), tc.signal)
+		await soft.whoAmI({}, { signal: tc.signal })
 	} finally {
 		await server.shutdown()
 	}
@@ -378,7 +368,7 @@ test('survives background rediscovery failure and keeps serving requests', async
 
 		// The pool still serves the endpoint from the last successful round.
 		let client = driver.createClient(discoveryService)
-		await unaryCall<WhoAmIResponse>((callback) => client.whoAmI({}, callback), tc.signal)
+		await client.whoAmI({}, { signal: tc.signal })
 
 		expect(unhandled).toEqual([])
 	} finally {
@@ -421,7 +411,7 @@ test('honors an already aborted ready signal with discovery disabled', async () 
 	await expect(driver.ready(AbortSignal.abort(reason))).rejects.toBe(reason)
 })
 
-test('closing a native client leaves other clients on the bootstrap channel usable', async (tc) => {
+test('closing a service client leaves other clients on the bootstrap channel usable', async (tc) => {
 	await using server = await startBadDiscovery({})
 	using driver = new Driver(`grpc://127.0.0.1:${server.port}/local`, {
 		'ydb.sdk.enable_discovery': false,
@@ -429,18 +419,14 @@ test('closing a native client leaves other clients on the bootstrap channel usab
 	let closed = driver.createClient(DiscoveryServiceDefinition)
 	let active = driver.createClient(DiscoveryServiceDefinition)
 
-	await unaryCall<WhoAmIResponse>((callback) => closed.whoAmI({}, callback), tc.signal)
+	await closed.whoAmI({}, { signal: tc.signal })
 	closed.close()
 
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) => closed.whoAmI({}, callback), tc.signal)
-	).rejects.toThrow('Client is closed')
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) => active.whoAmI({}, callback), tc.signal)
-	).resolves.toBeDefined()
+	await expect(closed.whoAmI({}, { signal: tc.signal })).rejects.toThrow('Client is closed')
+	await expect(active.whoAmI({}, { signal: tc.signal })).resolves.toBeDefined()
 })
 
-test('native calls leave caller metadata unchanged', async (tc) => {
+test('service calls leave caller metadata unchanged', async (tc) => {
 	await using server = await startBadDiscovery({})
 	using driver = new Driver(`grpc://127.0.0.1:${server.port}/local`, {
 		'ydb.sdk.enable_discovery': false,
@@ -452,7 +438,7 @@ test('native calls leave caller metadata unchanged', async (tc) => {
 	metadata.set('x-ydb-auth-ticket', 'caller-ticket')
 	let original = metadata.getMap()
 
-	await unaryCall<WhoAmIResponse>((callback) => client.whoAmI({}, metadata, callback), tc.signal)
+	await client.whoAmI({}, { metadata, signal: tc.signal })
 
 	expect(metadata.getMap()).toEqual(original)
 })
@@ -473,7 +459,7 @@ test('rejects endpoint pinning when discovery is disabled', async (tc) => {
 	).rejects.toThrow('Endpoint pinning requires discovery')
 })
 
-test('closing the driver completes a client readiness wait during discovery', async (tc) => {
+test('closing the driver rejects readiness during discovery', async (tc) => {
 	let discovering = Promise.withResolvers<void>()
 	let release = Promise.withResolvers<void>()
 	await using fixture = {
@@ -495,15 +481,10 @@ test('closing the driver completes a client readiness wait during discovery', as
 	)
 	let port = await fixture.server.listen('127.0.0.1:0')
 	using driver = new Driver(`grpc://127.0.0.1:${port}/local`)
-	let client = driver.createClient(DiscoveryServiceDefinition)
-	let pending = promisify(client.waitForReady.bind(client))(Infinity)
+	let pending = driver.ready(tc.signal)
 	await abortable(tc.signal, discovering.promise)
-	expect(client.getChannel().getConnectivityState(false)).toBe(
-		connectivityState.TRANSIENT_FAILURE
-	)
 
 	driver.close()
 
-	await expect(pending).rejects.toThrow(/closed|deadline/)
-	expect(client.getChannel().getConnectivityState(false)).toBe(connectivityState.SHUTDOWN)
+	await expect(pending).rejects.toThrow(/closed|destroyed/i)
 })

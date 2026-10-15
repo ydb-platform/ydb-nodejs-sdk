@@ -2,7 +2,6 @@ import { EventEmitter } from 'node:events'
 import { tracingChannel } from 'node:diagnostics_channel'
 
 import { create } from '@bufbuild/protobuf'
-import { readStream } from '@ydbjs/api/stream'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import {
 	ExecMode,
@@ -259,27 +258,34 @@ export class Query<T extends any[] = unknown[]>
 			}
 
 			return await executeQueryCh.tracePromise(async () => {
-				let stream = client.executeQuery({
-					sessionId: attemptSessionId,
-					execMode: ExecMode.EXECUTE,
-					query: {
-						case: 'queryContent',
-						value: {
-							syntax: this.#syntax,
-							text: this.text,
+				let stream = client.executeQuery(
+					{
+						sessionId: attemptSessionId,
+						execMode: ExecMode.EXECUTE,
+						query: {
+							case: 'queryContent',
+							value: {
+								syntax: this.#syntax,
+								text: this.text,
+							},
 						},
+						parameters,
+						statsMode: this.#statsMode,
+						...(this.#poolId && { poolId: this.#poolId }),
+						...(txControl && { txControl }),
 					},
-					parameters,
-					statsMode: this.#statsMode,
-					...(this.#poolId && { poolId: this.#poolId }),
-					...(txControl && { txControl }),
-				})
-				stream.on('status', (status) => this.emit('metadata', status.metadata))
+					{
+						signal,
+						onTrailer: (trailer) => {
+							this.emit('metadata', trailer)
+						},
+					}
+				)
 
 				let results = [] as ArrayifyTuple<T>
 
 				try {
-					for await (let part of readStream(stream, signal)) {
+					for await (let part of stream) {
 						signal.throwIfAborted()
 
 						if (part.status !== StatusIds_StatusCode.SUCCESS) {

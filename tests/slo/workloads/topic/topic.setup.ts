@@ -1,9 +1,6 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { workerData } from 'node:worker_threads'
@@ -28,25 +25,20 @@ let partitions = parseInt(params['partitions'] ?? '10', 10)
 
 	// Drop any leftover from a previous run (ignore "not found").
 	try {
-		await unaryCall<DropTopicResponse>((callback) =>
-			service.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
-		)
+		await service.dropTopic(create(DropTopicRequestSchema, { path: topic }))
 	} catch {
 		// topic did not exist
 	}
 
-	await unaryCall<CreateTopicResponse>((callback) =>
-		service.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: topic,
-				partitioningSettings: {
-					minActivePartitions: BigInt(partitions),
-					maxActivePartitions: BigInt(partitions),
-				},
-				consumers: [{ name: consumer }],
-			}),
-			callback
-		)
+	await service.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: topic,
+			partitioningSettings: {
+				minActivePartitions: BigInt(partitions),
+				maxActivePartitions: BigInt(partitions),
+			},
+			consumers: [{ name: consumer }],
+		})
 	)
 
 	console.log(

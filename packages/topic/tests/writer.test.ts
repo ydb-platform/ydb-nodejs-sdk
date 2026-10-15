@@ -1,9 +1,6 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { createHash } from 'node:crypto'
@@ -32,24 +29,19 @@ beforeEach(async () => {
 	testConsumerName = `test-consumer-${Date.now()}`
 	testProducerName = `test-producer-${Date.now()}`
 
-	await unaryCall<CreateTopicResponse>((callback) =>
-		driver.createClient(TopicServiceDefinition).createTopic(
-			create(CreateTopicRequestSchema, {
-				path: testTopicName,
-				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 100n },
-				consumers: [{ name: testConsumerName }],
-			}),
-			callback
-		)
+	await driver.createClient(TopicServiceDefinition).createTopic(
+		create(CreateTopicRequestSchema, {
+			path: testTopicName,
+			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 100n },
+			consumers: [{ name: testConsumerName }],
+		})
 	)
 })
 
 afterEach(async () => {
-	await unaryCall<DropTopicResponse>((callback) =>
-		driver
-			.createClient(TopicServiceDefinition)
-			.dropTopic(create(DropTopicRequestSchema, { path: testTopicName }), callback)
-	)
+	await driver
+		.createClient(TopicServiceDefinition)
+		.dropTopic(create(DropTopicRequestSchema, { path: testTopicName }))
 })
 
 let encode = function encode(text: string): Uint8Array {

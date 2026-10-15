@@ -1,12 +1,7 @@
 import { create } from '@bufbuild/protobuf'
-import {
-	DiscoveryServiceDefinition,
-	type WhoAmIResponse,
-	WhoAmIResponseSchema,
-} from '@ydbjs/api/discovery'
-import { Metadata, credentials, makeClientConstructor, status } from '@grpc/grpc-js'
-import type { ServiceClient } from '@ydbjs/api/client'
-import { unaryCall } from '@ydbjs/api/stream'
+import { DiscoveryServiceDefinition, WhoAmIResponseSchema } from '@ydbjs/api/discovery'
+import { Client, Metadata, credentials, status } from '@grpc/grpc-js'
+import { createClient } from '@ydbjs/api/client'
 import { createServer } from 'nice-grpc'
 import { expect, test } from 'vitest'
 
@@ -34,10 +29,12 @@ async function fixture(getToken: CredentialsProvider['getToken']) {
 	)
 
 	let port = await server.listen('127.0.0.1:0')
-	let Client = makeClientConstructor(DiscoveryServiceDefinition, 'DiscoveryService')
-	let client = new Client(`127.0.0.1:${port}`, credentials.createInsecure(), {
-		interceptors: [new Provider().interceptor],
-	}) as unknown as ServiceClient<typeof DiscoveryServiceDefinition>
+	let client = createClient(
+		DiscoveryServiceDefinition,
+		new Client(`127.0.0.1:${port}`, credentials.createInsecure(), {
+			interceptors: [new Provider().interceptor],
+		})
+	)
 
 	return {
 		client,
@@ -57,10 +54,7 @@ test('attaches credentials while preserving caller metadata', async (tc) => {
 	metadata.set('x-existing', 'value')
 	metadata.set('x-ydb-auth-ticket', 'stale-token')
 
-	await unaryCall<WhoAmIResponse>(
-		(callback) => server.client.whoAmI({}, metadata, callback),
-		tc.signal
-	)
+	await server.client.whoAmI({}, { metadata, signal: tc.signal })
 
 	expect(server.received).toEqual({ token: 'secret-token', existing: 'value' })
 	expect(metadata.getMap()).toEqual({ 'x-existing': 'value', 'x-ydb-auth-ticket': 'stale-token' })
@@ -76,10 +70,7 @@ test('cancels a call while its credentials provider is pending', async () => {
 		return pending.promise
 	})
 	let controller = new AbortController()
-	let response = unaryCall<WhoAmIResponse>(
-		(callback) => server.client.whoAmI({}, callback),
-		controller.signal
-	)
+	let response = server.client.whoAmI({}, { signal: controller.signal })
 	await started.promise
 
 	controller.abort(new Error('cancelled by caller'))
@@ -98,11 +89,9 @@ test('honors a native deadline while its credentials provider ignores cancellati
 		return new Promise(() => {})
 	})
 
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) =>
-			server.client.whoAmI({}, { deadline: Date.now() + 30 }, callback)
-		)
-	).rejects.toMatchObject({ code: status.DEADLINE_EXCEEDED })
+	await expect(server.client.whoAmI({}, { deadline: Date.now() + 30 })).rejects.toMatchObject({
+		code: status.DEADLINE_EXCEEDED,
+	})
 
 	expect(providerSignal?.aborted).toBe(true)
 	expect(server.received).toBeUndefined()
@@ -113,9 +102,7 @@ test('reports provider failures without sending an unauthenticated RPC', async (
 		throw new Error('token unavailable')
 	})
 
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) => server.client.whoAmI({}, callback), tc.signal)
-	).rejects.toMatchObject({
+	await expect(server.client.whoAmI({}, { signal: tc.signal })).rejects.toMatchObject({
 		code: status.UNKNOWN,
 		details: expect.stringContaining('token unavailable'),
 	})
@@ -131,10 +118,7 @@ test('preserves native per-call credentials alongside the YDB token', async (tc)
 		callback(null, metadata)
 	})
 
-	await unaryCall<WhoAmIResponse>(
-		(callback) => server.client.whoAmI({}, { credentials: extraCredentials }, callback),
-		tc.signal
-	)
+	await server.client.whoAmI({}, { credentials: extraCredentials, signal: tc.signal })
 
 	expect(server.received).toEqual({ token: 'secret-token', existing: 'native-credential' })
 })

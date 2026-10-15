@@ -1,9 +1,6 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
@@ -39,37 +36,29 @@ beforeEach(async () => {
 	testProducerName = `test-producer-${Date.now()}`
 	testConsumerName = `test-consumer-${Date.now()}`
 
-	await unaryCall<CreateTopicResponse>(
-		(callback) =>
-			topicService.createTopic(
-				create(CreateTopicRequestSchema, {
-					path: testTopicName,
-					partitioningSettings: {
-						minActivePartitions: 1n,
-						maxActivePartitions: 100n,
-					},
-					consumers: [
-						{
-							name: testConsumerName,
-						},
-					],
-				}),
-				callback
-			),
-		AbortSignal.timeout(1000)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: testTopicName,
+			partitioningSettings: {
+				minActivePartitions: 1n,
+				maxActivePartitions: 100n,
+			},
+			consumers: [
+				{
+					name: testConsumerName,
+				},
+			],
+		}),
+		{ signal: AbortSignal.timeout(1000) }
 	)
 })
 
 afterEach(async () => {
-	await unaryCall<DropTopicResponse>(
-		(callback) =>
-			topicService.dropTopic(
-				create(DropTopicRequestSchema, {
-					path: testTopicName,
-				}),
-				callback
-			),
-		AbortSignal.timeout(1000)
+	await topicService.dropTopic(
+		create(DropTopicRequestSchema, {
+			path: testTopicName,
+		}),
+		{ signal: AbortSignal.timeout(1000) }
 	)
 })
 // #endregion

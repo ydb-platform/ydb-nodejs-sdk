@@ -1,10 +1,7 @@
-import { readStream, unaryCall, writeStream } from '@ydbjs/api/stream'
 import {
 	Codec,
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	type StreamWriteMessage_FromClient,
 	StreamWriteMessage_FromClientSchema,
 	type StreamWriteMessage_FromServer,
@@ -40,21 +37,16 @@ let topicName: string
 
 beforeEach(async () => {
 	topicName = `writer-protocol-${Date.now()}`
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: topicName,
-				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: topicName,
+			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
+		})
 	)
 })
 
 afterEach(async () => {
-	await unaryCall<DropTopicResponse>((callback) =>
-		topicService.dropTopic(create(DropTopicRequestSchema, { path: topicName }), callback)
-	)
+	await topicService.dropTopic(create(DropTopicRequestSchema, { path: topicName }))
 })
 
 // A minimal raw StreamWrite driver for the test.
@@ -82,9 +74,8 @@ let openWriteStream = function openWriteStream(
 		}),
 		100
 	)
-	let stream = driver.createClient(TopicServiceDefinition).streamWrite()
-	void writeStream(input, stream, signal).catch((error) => stream.destroy(error))
-	let iterator = readStream(stream, signal)[Symbol.asyncIterator]()
+	let stream = driver.createClient(TopicServiceDefinition).streamWrite(input, { signal })
+	let iterator = stream[Symbol.asyncIterator]()
 
 	let next = async function next(): Promise<StreamWriteMessage_FromServer> {
 		let result = await iterator.next()

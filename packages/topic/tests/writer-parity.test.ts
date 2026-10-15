@@ -1,10 +1,7 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	Codec,
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { subscribe, unsubscribe } from 'node:diagnostics_channel'
@@ -36,22 +33,17 @@ beforeEach(async () => {
 	testConsumerName = `test-consumer-${Date.now()}`
 	testProducerName = `test-producer-${Date.now()}`
 
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: testTopicName,
-				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 100n },
-				consumers: [{ name: testConsumerName }],
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: testTopicName,
+			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 100n },
+			consumers: [{ name: testConsumerName }],
+		})
 	)
 })
 
 afterEach(async () => {
-	await unaryCall<DropTopicResponse>((callback) =>
-		topicService.dropTopic(create(DropTopicRequestSchema, { path: testTopicName }), callback)
-	)
+	await topicService.dropTopic(create(DropTopicRequestSchema, { path: testTopicName }))
 })
 
 let encode = function encode(text: string): Uint8Array {
@@ -127,20 +119,15 @@ test('surfaces server BAD_REQUEST for messageGroupId without matching producer',
 
 test('rejects RAW writes into a GZIP-only topic terminally', { timeout: 20_000 }, async (tc) => {
 	let path = `writer-parity-gzip-only-${Date.now()}`
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path,
-				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
-				supportedCodecs: { codecs: [Codec.GZIP] },
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path,
+			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
+			supportedCodecs: { codecs: [Codec.GZIP] },
+		})
 	)
 	tc.onTestFinished(async () => {
-		await unaryCall<DropTopicResponse>((callback) =>
-			topicService.dropTopic(create(DropTopicRequestSchema, { path }), callback)
-		)
+		await topicService.dropTopic(create(DropTopicRequestSchema, { path }))
 	})
 
 	// Default codec is RAW — not in the topic's allowed set. The writer validates
@@ -343,20 +330,15 @@ test('fails reads of a custom codec without codecMap registration', async (tc) =
 
 test('routes writes to the writer-level pinned partition', { timeout: 20_000 }, async (tc) => {
 	let path = `writer-parity-partitions-${Date.now()}`
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path,
-				partitioningSettings: { minActivePartitions: 2n, maxActivePartitions: 2n },
-				consumers: [{ name: testConsumerName }],
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path,
+			partitioningSettings: { minActivePartitions: 2n, maxActivePartitions: 2n },
+			consumers: [{ name: testConsumerName }],
+		})
 	)
 	tc.onTestFinished(async () => {
-		await unaryCall<DropTopicResponse>((callback) =>
-			topicService.dropTopic(create(DropTopicRequestSchema, { path }), callback)
-		)
+		await topicService.dropTopic(create(DropTopicRequestSchema, { path }))
 	})
 
 	await using writerZero = createTopicWriter(driver, {

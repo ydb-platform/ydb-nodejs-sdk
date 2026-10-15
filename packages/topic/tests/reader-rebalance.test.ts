@@ -1,9 +1,6 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { subscribe, unsubscribe } from 'node:diagnostics_channel'
@@ -32,22 +29,17 @@ let consumer: string
 beforeEach(async () => {
 	topic = `reader-rebalance-${Date.now()}`
 	consumer = `consumer-${Date.now()}`
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: topic,
-				partitioningSettings: { minActivePartitions: 2n, maxActivePartitions: 2n },
-				consumers: [{ name: consumer }],
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: topic,
+			partitioningSettings: { minActivePartitions: 2n, maxActivePartitions: 2n },
+			consumers: [{ name: consumer }],
+		})
 	)
 })
 
 afterEach(async () => {
-	await unaryCall<DropTopicResponse>((callback) =>
-		topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
-	).catch(() => {})
+	await topicService.dropTopic(create(DropTopicRequestSchema, { path: topic })).catch(() => {})
 })
 
 // Subscribe to an event channel and gather its payloads; `using` auto-unsubscribes.

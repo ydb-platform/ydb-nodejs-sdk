@@ -1,14 +1,7 @@
-import type {
-	ClientDuplexStream,
-	ClientReadableStream,
-	ClientUnaryCall,
-	ClientWritableStream,
-	MethodDefinition,
-	ServiceDefinition,
-} from '@grpc/grpc-js'
+import type { Metadata, MethodDefinition, ServiceDefinition } from '@grpc/grpc-js'
 import { expectTypeOf } from 'vitest'
 
-import type { ServiceClient } from '../src/client.js'
+import type { ClientCallOptions, ServiceClient } from '../src/client.js'
 
 type Request = { value: number }
 type Response = { result: string }
@@ -21,19 +14,22 @@ interface Methods extends ServiceDefinition {
 }
 
 declare let client: ServiceClient<Methods>
-expectTypeOf(
-	client.unary({ value: 1 }, (_error, response) => {
-		expectTypeOf(response).toEqualTypeOf<Response | undefined>()
-	})
-).toEqualTypeOf<ClientUnaryCall>()
-expectTypeOf(client.read({ value: 1 })).toEqualTypeOf<ClientReadableStream<Response>>()
-expectTypeOf(client.write(() => {})).toEqualTypeOf<ClientWritableStream<Request>>()
-expectTypeOf(client.bidi()).toEqualTypeOf<ClientDuplexStream<Request, Response>>()
-client.bidi().write({ value: 1 })
+declare let input: AsyncIterable<Request>
+declare let metadata: Metadata
+let options: ClientCallOptions = { metadata, deadline: Date.now() + 1000 }
+expectTypeOf(client.unary({ value: 1 }, options)).toEqualTypeOf<Promise<Response>>()
+expectTypeOf(client.read({ value: 1 })).toEqualTypeOf<AsyncIterable<Response>>()
+expectTypeOf(client.write(input)).toEqualTypeOf<Promise<Response>>()
+expectTypeOf(client.bidi(input)).toEqualTypeOf<AsyncIterable<Response>>()
+expectTypeOf(client.close()).toEqualTypeOf<void>()
 
 // @ts-expect-error Service definitions must not permit arbitrary method names.
 client.unknown({ value: 1 })
-// @ts-expect-error Unary calls require a callback.
-client.unary({ value: 1 })
-// @ts-expect-error A native duplex stream validates request message types.
-client.bidi().write({ value: 'invalid' })
+// @ts-expect-error Unary calls accept options, not native callbacks.
+client.unary({ value: 1 }, () => {})
+// @ts-expect-error Bidirectional calls require an iterable of request messages.
+client.bidi({ value: 1 })
+// @ts-expect-error Native callback methods are not part of the async client.
+client.makeUnaryRequest()
+// @ts-expect-error Native readiness callbacks are not part of the async client.
+client.waitForReady()

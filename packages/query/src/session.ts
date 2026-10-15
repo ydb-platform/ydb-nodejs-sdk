@@ -12,14 +12,8 @@
 
 import { tracingChannel } from 'node:diagnostics_channel'
 
-import { readStream, unaryCall } from '@ydbjs/api/stream'
-import {
-	type CreateSessionResponse,
-	type DeleteSessionResponse,
-	QueryServiceDefinition,
-	type SessionState,
-} from '@ydbjs/api/query'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
+import { QueryServiceDefinition, type SessionState } from '@ydbjs/api/query'
 import type { Driver, DriverIdentity } from '@ydbjs/core'
 import { loggers } from '@ydbjs/debug'
 import { YDBError } from '@ydbjs/error'
@@ -159,10 +153,7 @@ export class Session {
 	 */
 	static async open(driver: Driver, signal?: AbortSignal): Promise<Session> {
 		let bootstrap = driver.createClient(QueryServiceDefinition)
-		let resp = await unaryCall<CreateSessionResponse>(
-			(callback) => bootstrap.createSession({}, callback),
-			signal
-		)
+		let resp = await bootstrap.createSession({}, signal ? { signal } : {})
 		if (resp.status !== StatusIds_StatusCode.SUCCESS) {
 			throw new YDBError(resp.status, resp.issues)
 		}
@@ -195,9 +186,9 @@ export class Session {
 
 		try {
 			let client = this.#driver.createClient(QueryServiceDefinition, this.nodeId)
-			let stream = readStream(
-				client.attachSession({ sessionId: this.id }),
-				this.#attach.signal
+			let stream = client.attachSession(
+				{ sessionId: this.id },
+				{ signal: this.#attach.signal }
 			)
 			let iterator = stream[Symbol.asyncIterator]()
 
@@ -257,13 +248,7 @@ export class Session {
 			uptime: Date.now() - this.createdAt,
 		}
 		sessionDeleteCh
-			.tracePromise(
-				() =>
-					unaryCall<DeleteSessionResponse>((callback) =>
-						client.deleteSession({ sessionId: this.id }, callback)
-					),
-				ctx
-			)
+			.tracePromise(() => client.deleteSession({ sessionId: this.id }), ctx)
 			.catch((err) => {
 				dbg.log('deleteSession for %s failed: %O', this.id, err)
 			})

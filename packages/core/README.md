@@ -27,11 +27,11 @@ npm install @ydbjs/core
 - **Authentication**: Pass a credentials provider from `@ydbjs/auth` to the driver for static, token, anonymous, or cloud metadata authentication.
 - **Interceptors**: Native `@grpc/grpc-js` interceptors handle metadata, authentication, and debugging.
 
-`Driver.createClient()` returns a native `@grpc/grpc-js` client: unary methods take a callback, and streaming methods return Node readable/writable streams. Import `Metadata`, `ServiceError`, `status`, and `Interceptor` directly from `@grpc/grpc-js`. `ServiceClient<Service>` from `@ydbjs/api/client` supplies TypeScript method signatures without a runtime wrapper. The driver owns channels. Closing one client prevents new calls through that client and releases its pin, while other clients remain usable. Existing calls, including calls waiting for connection, keep running; cancel them explicitly with `call.cancel()` or the stream helpers' `AbortSignal`.
+`Driver.createClient()` returns a typed asynchronous client: unary methods return a `Promise`, response streams return an `AsyncIterable`, and request streams accept an `AsyncIterable`. Pass `{ signal }` to cancel a call. Per-call options also accept native grpc-js options, `metadata`, and `onHeader` / `onTrailer` callbacks with native `Metadata` objects. Errors retain the native grpc-js `ServiceError` fields and trailers.
 
-`unaryCall`, `readStream`, and `writeStream` from `@ydbjs/api/stream` provide optional Promise/AsyncIterable consumption and `AbortSignal` cancellation around native calls. Headers arrive on the call's `metadata` event; trailers are available in its `status` event.
+The driver owns channels. A service client's `close()` prevents new calls through that client while other clients remain usable. Existing calls continue until completion or cancellation through their `AbortSignal`.
 
-For an endpoint absent from discovery, await `driver.createPinnedClient(service, { nodeId, endpoint, hard }, signal)`. It requires discovery to be enabled, waits for pin publication, and returns a disposable native client. `close()` or `[Symbol.dispose]()` releases that client's pin. Ordinary `createClient(service, nodeId)` and `createClient(service, { nodeId, hard })` remain synchronous.
+For an endpoint absent from discovery, await `driver.createPinnedClient(service, { nodeId, endpoint, hard }, signal)`. It requires discovery to be enabled, waits for pin publication, and returns a disposable async client. `close()` or `[Symbol.dispose]()` releases that client's pin. Ordinary `createClient(service, nodeId)` and `createClient(service, { nodeId, hard })` remain synchronous.
 
 Register native interceptors with `addClientInterceptor(interceptor)` before creating a driver. The driver snapshots registrations at construction; disposing the registration affects future drivers. This replaces the previous `addClientMiddleware` hook and generator middleware contract.
 
@@ -42,18 +42,15 @@ Register native interceptors with `addClientInterceptor(interceptor)` before cre
 ```ts
 import { Driver } from '@ydbjs/core'
 import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
-import { unaryCall } from '@ydbjs/api/stream'
 
-const driver = new Driver('grpc://localhost:2136/local')
+let driver = new Driver('grpc://localhost:2136/local')
 await driver.ready()
 
-const discovery = driver.createClient(DiscoveryServiceDefinition)
-const endpoints = await unaryCall((callback) =>
-  discovery.listEndpoints({ database: '/local' }, callback)
-)
+let discovery = driver.createClient(DiscoveryServiceDefinition)
+let endpoints = await discovery.listEndpoints({ database: '/local' })
 console.log(endpoints)
 
-await driver.close()
+driver.close()
 ```
 
 ### Using Authentication Providers

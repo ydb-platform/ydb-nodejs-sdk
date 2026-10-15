@@ -338,3 +338,22 @@ test('closing a client completes its pending readiness wait', async () => {
 	client.close()
 	await expect(pending).rejects.toThrow(/closed|deadline/)
 })
+
+test('closing the endpoint pool completes a native readiness wait', async () => {
+	let fake = makeFakePool()
+	let pool = fake.pool as EndpointPool & { closed: boolean; snapshot: RoutingSnapshot }
+	pool.snapshot = EMPTY_SNAPSHOT
+	pool.closed = false
+	let channel = new BalancedChannel(pool)
+	let client = new Client('unused', credentials.createInsecure(), { channelOverride: channel })
+	let pending = promisify(client.waitForReady.bind(client))(Infinity)
+	await new Promise<void>((resolve) => setImmediate(resolve))
+	expect(client.getChannel().getConnectivityState(false)).toBe(
+		connectivityState.TRANSIENT_FAILURE
+	)
+
+	pool.closed = true
+
+	await expect(pending).rejects.toThrow(/closed|deadline/)
+	expect(client.getChannel().getConnectivityState(false)).toBe(connectivityState.SHUTDOWN)
+})

@@ -10,8 +10,8 @@
 '@ydbjs/error': minor
 ---
 
-Use native grpc-js clients, streams, Metadata, CallOptions, interceptors and ServiceError throughout the SDK. Remove the nice-grpc runtime dependency and its client facade.
+Replace the nice-grpc runtime dependency with a small async adapter over grpc-js. Service methods retain Promise results and AsyncIterable request/response streams, with AbortSignal cancellation and native stream backpressure.
 
-Driver.createClient now returns a native grpc-js client: unary methods take callbacks and streaming methods return native streams. Use createPinnedClient to await endpoint pin acquisition explicitly. Replace addClientMiddleware and CredentialsProvider.middleware with native addClientInterceptor and CredentialsProvider.interceptor. Metadata.get returns an array; handle native ServiceError codes instead of nice-grpc ClientError. Query metadata events carry native Metadata.
+Driver.createClient returns the async service client. Use createPinnedClient to await endpoint pin acquisition explicitly. ClientCallOptions accepts native Metadata and grpc-js call options alongside signal, onHeader and onTrailer. Replace addClientMiddleware and CredentialsProvider.middleware with native addClientInterceptor and CredentialsProvider.interceptor. Metadata.get returns an array; server failures retain native ServiceError codes, details and trailers. Query metadata events carry native Metadata.
 
-High-level TopicWriter, TopicReader, query and coordination operations retain their APIs. Native stream helpers provide AbortSignal cancellation, async reading and request backpressure without a replacement client framework.
+High-level TopicWriter, TopicReader, query and coordination operations retain their APIs. Custom service definitions use the native grpc-js ServiceDefinition format.

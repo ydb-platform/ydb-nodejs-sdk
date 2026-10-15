@@ -1,16 +1,11 @@
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
-import { type ClientUnaryCall, credentials, makeClientConstructor } from '@grpc/grpc-js'
+import { Client, credentials } from '@grpc/grpc-js'
 import { abortable } from '@ydbjs/abortable'
 import { AuthServiceDefinition, LoginResponseSchema, LoginResultSchema } from '@ydbjs/api/auth'
-import type { ServiceClient } from '@ydbjs/api/client'
-import {
-	DiscoveryServiceDefinition,
-	type WhoAmIResponse,
-	WhoAmIResponseSchema,
-} from '@ydbjs/api/discovery'
+import { createClient } from '@ydbjs/api/client'
+import { DiscoveryServiceDefinition, WhoAmIResponseSchema } from '@ydbjs/api/discovery'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { unaryCall } from '@ydbjs/api/stream'
 import { createServer } from 'nice-grpc'
 import { expect, test } from 'vitest'
 
@@ -74,19 +69,21 @@ test.for([false, true])(
 		)
 		expect(await provider.getToken(true, tc.signal)).toBe(tokens[0])
 
-		let NativeClient = makeClientConstructor(DiscoveryServiceDefinition, 'DiscoveryService')
 		using rpc = {
-			client: new NativeClient(`127.0.0.1:${port}`, credentials.createInsecure(), {
-				interceptors: [provider.interceptor],
-			}) as unknown as ServiceClient<typeof DiscoveryServiceDefinition>,
+			client: createClient(
+				DiscoveryServiceDefinition,
+				new Client(`127.0.0.1:${port}`, credentials.createInsecure(), {
+					interceptors: [provider.interceptor],
+				})
+			),
 			[Symbol.dispose]() {
 				this.client.close()
 			},
 		}
-		let call: ClientUnaryCall | undefined
-		let response = unaryCall<WhoAmIResponse>(
-			(callback) => (call = rpc.client.whoAmI({}, callback)),
-			tc.signal
+		let controller = new AbortController()
+		let response = rpc.client.whoAmI(
+			{},
+			{ signal: AbortSignal.any([tc.signal, controller.signal]) }
 		)
 		await abortable(tc.signal, refreshStarted.promise)
 		let refreshed = provider.getToken(true, tc.signal).then(
@@ -96,7 +93,7 @@ test.for([false, true])(
 
 		await response
 		if (lateCancel) {
-			call!.cancel()
+			controller.abort()
 		}
 		allowRefresh.resolve()
 

@@ -230,19 +230,24 @@ test('keeps the transaction consumer registered at reader creation', async (tc) 
 test('cancels a pending transaction-offset request with the commit hook signal', async (tc) => {
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	let entered = Promise.withResolvers<void>()
-	let cancelled = false
 	let innerCreateClient = driver.createClient.bind(driver) as (...args: unknown[]) => object
 	;(driver as unknown as { createClient: (...args: unknown[]) => unknown }).createClient = (
 		...args
 	) => ({
 		...innerCreateClient(...args),
-		updateOffsetsInTransaction() {
+		updateOffsetsInTransaction(_request: unknown, options?: { signal?: AbortSignal }) {
 			entered.resolve()
-			return {
-				cancel: () => {
-					cancelled = true
-				},
+			let signal = options?.signal
+			if (!signal) {
+				return Promise.reject(new Error('Missing transaction commit signal'))
 			}
+			return new Promise((_, reject) => {
+				if (signal.aborted) {
+					reject(signal.reason)
+				} else {
+					signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+				}
+			})
 		},
 	})
 	let fake = makeFakeTx()
@@ -263,5 +268,4 @@ test('cancels a pending transaction-offset request with the commit hook signal',
 	await entered.promise
 	ctrl.abort(reason)
 	expect(await outcome).toBe(reason)
-	expect(cancelled).toBe(true)
 })

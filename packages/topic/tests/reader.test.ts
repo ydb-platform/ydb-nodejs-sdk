@@ -1,9 +1,6 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
@@ -26,33 +23,27 @@ beforeEach(async () => {
 	testTopicName = `test-topic-integration-${Date.now()}`
 	testConsumerName = `test-consumer-${Date.now()}`
 
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: testTopicName,
-				partitioningSettings: {
-					minActivePartitions: 1n,
-					maxActivePartitions: 100n,
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: testTopicName,
+			partitioningSettings: {
+				minActivePartitions: 1n,
+				maxActivePartitions: 100n,
+			},
+			consumers: [
+				{
+					name: testConsumerName,
 				},
-				consumers: [
-					{
-						name: testConsumerName,
-					},
-				],
-			}),
-			callback
-		)
+			],
+		})
 	)
 })
 
 afterEach(async () => {
-	await unaryCall<DropTopicResponse>((callback) =>
-		topicService.dropTopic(
-			create(DropTopicRequestSchema, {
-				path: testTopicName,
-			}),
-			callback
-		)
+	await topicService.dropTopic(
+		create(DropTopicRequestSchema, {
+			path: testTopicName,
+		})
 	)
 })
 

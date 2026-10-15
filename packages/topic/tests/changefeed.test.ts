@@ -1,9 +1,4 @@
-import { unaryCall } from '@ydbjs/api/stream'
-import {
-	AlterTopicRequestSchema,
-	type AlterTopicResponse,
-	TopicServiceDefinition,
-} from '@ydbjs/api/topic'
+import { AlterTopicRequestSchema, TopicServiceDefinition } from '@ydbjs/api/topic'
 import { create } from '@bufbuild/protobuf'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { Driver } from '@ydbjs/core'
@@ -55,14 +50,11 @@ let makeChangefeed = async function makeChangefeed(): Promise<void> {
 
 	// A changefeed topic is created without consumers; the only way to attach one is
 	// AlterTopic on the `<table>/<feed>` path.
-	let altered = await unaryCall<AlterTopicResponse>((callback) =>
-		topicService.alterTopic(
-			create(AlterTopicRequestSchema, {
-				path: `${table}/feed`,
-				addConsumers: [{ name: consumer }],
-			}),
-			callback
-		)
+	let altered = await topicService.alterTopic(
+		create(AlterTopicRequestSchema, {
+			path: `${table}/feed`,
+			addConsumers: [{ name: consumer }],
+		})
 	)
 	expect(altered.operation?.status).toBe(StatusIds_StatusCode.SUCCESS)
 }

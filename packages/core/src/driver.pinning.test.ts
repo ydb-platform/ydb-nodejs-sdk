@@ -2,10 +2,8 @@ import {
 	DiscoveryServiceDefinition,
 	ListEndpointsResponseSchema,
 	ListEndpointsResultSchema,
-	type WhoAmIResponse,
 	WhoAmIResponseSchema,
 } from '@ydbjs/api/discovery'
-import { unaryCall } from '@ydbjs/api/stream'
 import { setImmediate } from 'node:timers/promises'
 
 import { create } from '@bufbuild/protobuf'
@@ -89,10 +87,7 @@ test.for([true, false])(
 			...fixture.target,
 			hard,
 		})
-		let response = await unaryCall<WhoAmIResponse>(
-			(callback) => client.whoAmI({}, callback),
-			tc.signal
-		)
+		let response = await client.whoAmI({}, { signal: tc.signal })
 		expect(response.operation?.id).toBe('direct')
 	}
 )
@@ -110,16 +105,13 @@ test('disposing one client preserves another client pin to the same node', async
 		fixture.target
 	)
 	await setImmediate()
-	await unaryCall<WhoAmIResponse>((callback) => first.whoAmI({}, callback), tc.signal)
+	await first.whoAmI({}, { signal: tc.signal })
 
 	first[Symbol.dispose]()
 	first[Symbol.dispose]()
 	await setImmediate()
 
-	let response = await unaryCall<WhoAmIResponse>(
-		(callback) => second.whoAmI({}, callback),
-		tc.signal
-	)
+	let response = await second.whoAmI({}, { signal: tc.signal })
 	expect(response.operation?.id).toBe('direct')
 
 	second[Symbol.dispose]()
@@ -129,9 +121,7 @@ test('disposing one client preserves another client pin to the same node', async
 		nodeId: 9n,
 		hard: true,
 	})
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) => unpinned.whoAmI({}, callback), tc.signal)
-	).rejects.toThrow(/No endpoint/)
+	await expect(unpinned.whoAmI({}, { signal: tc.signal })).rejects.toThrow(/No endpoint/)
 })
 
 test('disposing before the first RPC releases the original target after caller mutation', async (tc) => {
@@ -146,18 +136,14 @@ test('disposing before the first RPC releases the original target after caller m
 	fixture.target.nodeId = 10n
 	client[Symbol.dispose]()
 	await setImmediate()
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) => client.whoAmI({}, callback), tc.signal)
-	).rejects.toThrow('Client is closed')
+	await expect(client.whoAmI({}, { signal: tc.signal })).rejects.toThrow('Client is closed')
 	expect(fixture.calls).toBe(0)
 
 	let unpinned = fixture.driver.createClient(DiscoveryServiceDefinition, {
 		nodeId: 9n,
 		hard: true,
 	})
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) => unpinned.whoAmI({}, callback), tc.signal)
-	).rejects.toThrow(/No endpoint/)
+	await expect(unpinned.whoAmI({}, { signal: tc.signal })).rejects.toThrow(/No endpoint/)
 })
 
 test('closing the driver rejects a pending client pin', async (tc) => {
@@ -185,17 +171,11 @@ test('cancelling the first RPC leaves the client pin available for another call'
 	)
 	let controller = new AbortController()
 
-	let pending = unaryCall<WhoAmIResponse>(
-		(callback) => client.whoAmI({}, callback),
-		controller.signal
-	)
+	let pending = client.whoAmI({}, { signal: controller.signal })
 	controller.abort(new Error('Caller cancelled'))
 	await expect(pending).rejects.toThrow(/aborted|Caller cancelled/i)
 
-	let response = await unaryCall<WhoAmIResponse>(
-		(callback) => client.whoAmI({}, callback),
-		tc.signal
-	)
+	let response = await client.whoAmI({}, { signal: tc.signal })
 	expect(response.operation?.id).toBe('direct')
 	expect(fixture.calls).toBe(1)
 })
@@ -209,24 +189,18 @@ test('disposing an older client preserves a replacement pin address', async (tc)
 		fixture.target
 	)
 	await setImmediate()
-	await unaryCall<WhoAmIResponse>((callback) => first.whoAmI({}, callback), tc.signal)
+	await first.whoAmI({}, { signal: tc.signal })
 
 	using replacement = await fixture.driver.createPinnedClient(DiscoveryServiceDefinition, {
 		...fixture.target,
 		endpoint: { host: '127.0.0.1', port: fixture.discoveryPort, generation: 1 },
 	})
-	let response = await unaryCall<WhoAmIResponse>(
-		(callback) => replacement.whoAmI({}, callback),
-		tc.signal
-	)
+	let response = await replacement.whoAmI({}, { signal: tc.signal })
 	expect(response.operation?.id).toBe('discovery')
 
 	first[Symbol.dispose]()
 	await setImmediate()
-	response = await unaryCall<WhoAmIResponse>(
-		(callback) => replacement.whoAmI({}, callback),
-		tc.signal
-	)
+	response = await replacement.whoAmI({}, { signal: tc.signal })
 	expect(response.operation?.id).toBe('discovery')
 })
 
@@ -238,20 +212,17 @@ test('disposing a retired handle again preserves a newly created pin', async (tc
 		DiscoveryServiceDefinition,
 		fixture.target
 	)
-	await unaryCall<WhoAmIResponse>((callback) => first.whoAmI({}, callback), tc.signal)
+	await first.whoAmI({}, { signal: tc.signal })
 
 	first[Symbol.dispose]()
 
 	using next = await fixture.driver.createPinnedClient(DiscoveryServiceDefinition, fixture.target)
-	await unaryCall<WhoAmIResponse>((callback) => next.whoAmI({}, callback), tc.signal)
+	await next.whoAmI({}, { signal: tc.signal })
 
 	first[Symbol.dispose]()
 	await setImmediate()
 
-	let response = await unaryCall<WhoAmIResponse>(
-		(callback) => next.whoAmI({}, callback),
-		tc.signal
-	)
+	let response = await next.whoAmI({}, { signal: tc.signal })
 	expect(response.operation?.id).toBe('direct')
 })
 
@@ -270,10 +241,7 @@ test('keeps pin confirmations ordered when an earlier client is disposed', async
 	})
 
 	first[Symbol.dispose]()
-	let response = await unaryCall<WhoAmIResponse>(
-		(callback) => second.whoAmI({}, callback),
-		tc.signal
-	)
+	let response = await second.whoAmI({}, { signal: tc.signal })
 
 	expect(response.operation?.id).toBe('discovery')
 	expect(fixture.calls).toBe(0)
@@ -296,10 +264,7 @@ test.for([false, true])(
 
 		for (let client of clients) {
 			// oxlint-disable-next-line no-await-in-loop
-			let response = await unaryCall<WhoAmIResponse>(
-				(callback) => client.whoAmI({}, callback),
-				tc.signal
-			)
+			let response = await client.whoAmI({}, { signal: tc.signal })
 			responses.push(response.operation?.id)
 		}
 
@@ -308,10 +273,7 @@ test.for([false, true])(
 		pinned[Symbol.dispose]()
 		await setImmediate()
 
-		let response = await unaryCall<WhoAmIResponse>(
-			(callback) => discovered.whoAmI({}, callback),
-			tc.signal
-		)
+		let response = await discovered.whoAmI({}, { signal: tc.signal })
 		expect(response.operation?.id).toBe('discovery')
 	}
 )
@@ -331,13 +293,11 @@ test('aborting pin acquisition releases the pending endpoint registration', asyn
 	await setImmediate()
 
 	let client = fixture.driver.createClient(DiscoveryServiceDefinition, { nodeId: 9n, hard: true })
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) => client.whoAmI({}, callback), tc.signal)
-	).rejects.toThrow(/No endpoint/)
+	await expect(client.whoAmI({}, { signal: tc.signal })).rejects.toThrow(/No endpoint/)
 	expect(fixture.calls).toBe(0)
 })
 
-test('native close releases only its own pin and is idempotent with dispose', async (tc) => {
+test('service client close releases only its own pin and is idempotent with dispose', async (tc) => {
 	await using fixture = await pinFixture()
 	await fixture.driver.ready(tc.signal)
 	using first = await fixture.driver.createPinnedClient(
@@ -355,12 +315,7 @@ test('native close releases only its own pin and is idempotent with dispose', as
 	first[Symbol.dispose]()
 	await setImmediate()
 
-	await expect(
-		unaryCall<WhoAmIResponse>((callback) => first.whoAmI({}, callback), tc.signal)
-	).rejects.toThrow('Client is closed')
-	let response = await unaryCall<WhoAmIResponse>(
-		(callback) => second.whoAmI({}, callback),
-		tc.signal
-	)
+	await expect(first.whoAmI({}, { signal: tc.signal })).rejects.toThrow('Client is closed')
+	let response = await second.whoAmI({}, { signal: tc.signal })
 	expect(response.operation?.id).toBe('direct')
 })

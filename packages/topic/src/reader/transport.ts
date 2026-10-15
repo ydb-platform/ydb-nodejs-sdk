@@ -1,4 +1,3 @@
-import { readStream, writeStream } from '@ydbjs/api/stream'
 import { create } from '@bufbuild/protobuf'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import {
@@ -157,17 +156,13 @@ export class ReaderTransport {
 					return
 				}
 
-				let stream = this.#driver.createClient(TopicServiceDefinition).streamRead()
-
-				void writeStream(this.#requests(input), stream, ac.signal).catch((error) => {
-					if (!ac.signal.aborted) {
-						this.#disconnect(error)
-					}
-				})
+				let stream = this.#driver
+					.createClient(TopicServiceDefinition)
+					.streamRead(this.#requests(input), { signal: ac.signal })
 
 				dbg.log('stream opened (consumer=%s)', this.#params.consumer)
 
-				for await (let response of readStream(stream, ac.signal)) {
+				for await (let response of stream) {
 					if (ac.signal.aborted) {
 						return
 					}

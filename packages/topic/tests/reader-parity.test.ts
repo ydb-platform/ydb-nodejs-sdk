@@ -1,12 +1,8 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DescribeConsumerRequestSchema,
-	type DescribeConsumerResponse,
 	DescribeConsumerResultSchema,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { afterEach, beforeEach, expect, inject, test } from 'vitest'
@@ -42,26 +38,21 @@ beforeEach(() => {
 afterEach(async () => {
 	for (let path of createdTopics) {
 		// oxlint-disable-next-line no-await-in-loop
-		await unaryCall<DropTopicResponse>((callback) =>
-			topicService.dropTopic(create(DropTopicRequestSchema, { path }), callback)
-		).catch(() => {})
+		await topicService.dropTopic(create(DropTopicRequestSchema, { path })).catch(() => {})
 	}
 })
 
 let makeTopic = async function makeTopic(suffix: string, partitions = 1n): Promise<string> {
 	let path = `topic-parity-${suffix}-${Date.now()}-${seq}`
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path,
-				partitioningSettings: {
-					minActivePartitions: partitions,
-					maxActivePartitions: partitions,
-				},
-				consumers: [{ name: consumerName }],
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path,
+			partitioningSettings: {
+				minActivePartitions: partitions,
+				maxActivePartitions: partitions,
+			},
+			consumers: [{ name: consumerName }],
+		})
 	)
 	createdTopics.push(path)
 	return path
@@ -127,15 +118,12 @@ let waitUntil = async function waitUntil(predicate: () => boolean, ms: number): 
 }
 
 let committedOffset = async function committedOffset(topic: string): Promise<bigint> {
-	let response = await unaryCall<DescribeConsumerResponse>((callback) =>
-		topicService.describeConsumer(
-			create(DescribeConsumerRequestSchema, {
-				path: topic,
-				consumer: consumerName,
-				includeStats: true,
-			}),
-			callback
-		)
+	let response = await topicService.describeConsumer(
+		create(DescribeConsumerRequestSchema, {
+			path: topic,
+			consumer: consumerName,
+			includeStats: true,
+		})
 	)
 	let result = anyUnpack(response.operation!.result!, DescribeConsumerResultSchema)
 	let stats = result?.partitions.find((p) => p.partitionId === 0n)?.partitionConsumerStats

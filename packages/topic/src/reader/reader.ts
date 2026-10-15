@@ -1,7 +1,7 @@
 import { isPromise } from 'node:util/types'
 
 import { create } from '@bufbuild/protobuf'
-import { unaryCall } from '@ydbjs/api/stream'
+import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import {
 	OffsetsRangeSchema,
 	TopicServiceDefinition,
@@ -9,9 +9,7 @@ import {
 	UpdateOffsetsInTransactionRequestSchema,
 	UpdateOffsetsInTransactionRequest_TopicOffsetsSchema,
 	UpdateOffsetsInTransactionRequest_TopicOffsets_PartitionOffsetsSchema,
-	type UpdateOffsetsInTransactionResponse,
 } from '@ydbjs/api/topic'
-import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { linkSignals } from '@ydbjs/abortable'
 import type { Driver } from '@ydbjs/core'
 import { loggers } from '@ydbjs/debug'
@@ -123,10 +121,7 @@ let commitTxOffsets = async function commitTxOffsets(
 	dbg.log('committing read offsets in tx %s (%d partitions)', tx.transactionId, updates.length)
 
 	let client = driver.createClient(TopicServiceDefinition, tx.nodeId)
-	let response = await unaryCall<UpdateOffsetsInTransactionResponse>(
-		(callback) => client.updateOffsetsInTransaction(request, callback),
-		signal
-	)
+	let response = await client.updateOffsetsInTransaction(request, signal ? { signal } : undefined)
 	if (response.operation?.status !== StatusIds_StatusCode.SUCCESS) {
 		// YDBError carries the status code and issues, so retry classifiers and user
 		// code can inspect it like every other server-status failure in the package.

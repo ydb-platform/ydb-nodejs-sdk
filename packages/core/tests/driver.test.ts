@@ -1,9 +1,4 @@
-import {
-	DiscoveryServiceDefinition,
-	type ListEndpointsResponse,
-	ListEndpointsResultSchema,
-} from '@ydbjs/api/discovery'
-import { unaryCall } from '@ydbjs/api/stream'
+import { DiscoveryServiceDefinition, ListEndpointsResultSchema } from '@ydbjs/api/discovery'
 import { expect, inject, test } from 'vitest'
 
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
@@ -66,10 +61,7 @@ test('BalancedChannel routes real RPC through connection pool', async (tc) => {
 	// BalancedChannel.createCall() → pool.acquire() → real grpc-js channel.
 	let client = driver.createClient(DiscoveryServiceDefinition)
 
-	let response = await unaryCall<ListEndpointsResponse>(
-		(callback) => client.listEndpoints({ database: driver.database }, callback),
-		tc.signal
-	)
+	let response = await client.listEndpoints({ database: driver.database }, { signal: tc.signal })
 
 	expect(response.operation).toBeDefined()
 	expect(response.operation!.status).toBe(StatusIds_StatusCode.SUCCESS)
@@ -100,10 +92,7 @@ test('onCall hook fires for each RPC dispatched through BalancedChannel', async 
 	let callsBefore = callEvents.length
 
 	let client = driver.createClient(DiscoveryServiceDefinition)
-	await unaryCall<ListEndpointsResponse>(
-		(callback) => client.listEndpoints({ database: driver.database }, callback),
-		tc.signal
-	)
+	await client.listEndpoints({ database: driver.database }, { signal: tc.signal })
 
 	// At least one onCall event must have fired for the listEndpoints RPC
 	expect(callEvents.length).toBeGreaterThan(callsBefore)
@@ -135,10 +124,7 @@ test('onCall completion callback fires with status and duration', async (tc) => 
 	let completionsBefore = completions.length
 
 	let client = driver.createClient(DiscoveryServiceDefinition)
-	await unaryCall<ListEndpointsResponse>(
-		(callback) => client.listEndpoints({ database: driver.database }, callback),
-		tc.signal
-	)
+	await client.listEndpoints({ database: driver.database }, { signal: tc.signal })
 
 	// Completion callback must have fired for the RPC
 	expect(completions.length).toBeGreaterThan(completionsBefore)

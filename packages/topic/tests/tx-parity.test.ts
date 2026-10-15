@@ -1,9 +1,6 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { create } from '@bufbuild/protobuf'
@@ -31,22 +28,17 @@ beforeEach(async () => {
 	testConsumerName = `test-consumer-${Date.now()}`
 	testProducerName = `test-producer-${Date.now()}`
 
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: testTopicName,
-				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 100n },
-				consumers: [{ name: testConsumerName }],
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: testTopicName,
+			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 100n },
+			consumers: [{ name: testConsumerName }],
+		})
 	)
 })
 
 afterEach(async () => {
-	await unaryCall<DropTopicResponse>((callback) =>
-		topicService.dropTopic(create(DropTopicRequestSchema, { path: testTopicName }), callback)
-	)
+	await topicService.dropTopic(create(DropTopicRequestSchema, { path: testTopicName }))
 })
 
 let encode = function encode(text: string): Uint8Array {

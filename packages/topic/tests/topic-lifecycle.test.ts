@@ -1,11 +1,7 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	AlterTopicRequestSchema,
-	type AlterTopicResponse,
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { create } from '@bufbuild/protobuf'
@@ -39,21 +35,16 @@ beforeEach(() => {
 
 afterEach(async () => {
 	// A test may or may not have created the topic; drop it if present.
-	await unaryCall<DropTopicResponse>((callback) =>
-		topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
-	).catch(() => {})
+	await topicService.dropTopic(create(DropTopicRequestSchema, { path: topic })).catch(() => {})
 })
 
 let makeTopic = async function makeTopic(): Promise<void> {
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: topic,
-				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
-				consumers: [{ name: consumer }],
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: topic,
+			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
+			consumers: [{ name: consumer }],
+		})
 	)
 }
 
@@ -144,15 +135,12 @@ test('keeps reading after the topic is altered mid-stream', async (tc) => {
 
 	// Alter the topic while the read stream is live: bump retention and add a consumer.
 	// Both are plain schema changes a production operator performs on a serving topic.
-	let altered = await unaryCall<AlterTopicResponse>((callback) =>
-		topicService.alterTopic(
-			create(AlterTopicRequestSchema, {
-				path: topic,
-				setRetentionPeriod: { seconds: 7200n },
-				addConsumers: [{ name: `${consumer}-extra` }],
-			}),
-			callback
-		)
+	let altered = await topicService.alterTopic(
+		create(AlterTopicRequestSchema, {
+			path: topic,
+			setRetentionPeriod: { seconds: 7200n },
+			addConsumers: [{ name: `${consumer}-extra` }],
+		})
 	)
 	expect(altered.operation?.status).toBe(StatusIds_StatusCode.SUCCESS)
 
@@ -189,9 +177,7 @@ test(
 			true
 		)
 
-		await unaryCall<DropTopicResponse>((callback) =>
-			topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }), callback)
-		)
+		await topicService.dropTopic(create(DropTopicRequestSchema, { path: topic }))
 
 		// The drop must not error the reader terminally — it either idles on the stale
 		// stream or reconnects and retries SCHEME_ERROR (retryOnSchemeError).

@@ -1,9 +1,6 @@
-import { unaryCall } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	TopicServiceDefinition,
 } from '@ydbjs/api/topic'
 import { bench, inject } from 'vitest'
@@ -30,22 +27,19 @@ async function setup() {
 	testTopicName = `test-topic-bench-${Date.now()}`
 	testConsumerName = `test-consumer-${Date.now()}`
 
-	await unaryCall<CreateTopicResponse>((callback) =>
-		driver.createClient(TopicServiceDefinition).createTopic(
-			create(CreateTopicRequestSchema, {
-				path: testTopicName,
-				partitioningSettings: {
-					minActivePartitions: 1n,
-					maxActivePartitions: 100n,
+	await driver.createClient(TopicServiceDefinition).createTopic(
+		create(CreateTopicRequestSchema, {
+			path: testTopicName,
+			partitioningSettings: {
+				minActivePartitions: 1n,
+				maxActivePartitions: 100n,
+			},
+			consumers: [
+				{
+					name: testConsumerName,
 				},
-				consumers: [
-					{
-						name: testConsumerName,
-					},
-				],
-			}),
-			callback
-		)
+			],
+		})
 	)
 
 	writer = createTopicWriter(driver, {
@@ -57,13 +51,10 @@ async function setup() {
 async function teardown() {
 	writer.destroy()
 
-	await unaryCall<DropTopicResponse>((callback) =>
-		driver.createClient(TopicServiceDefinition).dropTopic(
-			create(DropTopicRequestSchema, {
-				path: testTopicName,
-			}),
-			callback
-		)
+	await driver.createClient(TopicServiceDefinition).dropTopic(
+		create(DropTopicRequestSchema, {
+			path: testTopicName,
+		})
 	)
 }
 

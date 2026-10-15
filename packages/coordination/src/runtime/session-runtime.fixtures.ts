@@ -1,5 +1,3 @@
-import { setImmediate } from 'node:timers/promises'
-import { Duplex } from 'node:stream'
 import type { SessionResponse } from '@ydbjs/api/coordination'
 import type { Driver } from '@ydbjs/core'
 
@@ -51,32 +49,75 @@ export let makeFakeDriver = function makeFakeDriver(): FakeDriverHandle {
 	let driver = {
 		createClient(): unknown {
 			return {
-				session() {
-					let stream = Object.assign(
-						new Duplex({
-							objectMode: true,
-							read() {},
-							write(_message, _encoding, callback) {
-								callback()
-							},
-						}),
-						{
-							cancel() {
-								stream.destroy()
-							},
+				session(
+					_input: unknown,
+					opts?: { signal?: AbortSignal }
+				): AsyncIterable<SessionResponse> {
+					let signal = opts?.signal
+					// Readers waiting for the next stream item.
+					let readers: Array<(result: IteratorResult<SessionResponse>) => void> = []
+					let queue: SessionResponse[] = []
+					let done = false
+
+					let finish = function finish(): void {
+						done = true
+						for (let reader of readers.splice(0)) {
+							reader({ value: undefined as unknown as SessionResponse, done: true })
 						}
-					)
-					deliverHandle({
+					}
+
+					// When the stream's abort signal fires, end all pending readers so that
+					// closeStream / ingest[Symbol.asyncDispose]() can complete without deadlocking.
+					if (signal) {
+						if (signal.aborted) {
+							done = true
+						} else {
+							signal.addEventListener('abort', finish, { once: true })
+						}
+					}
+
+					let handle: FakeStreamHandle = {
 						respond(response) {
-							if (!stream.destroyed && !stream.readableEnded) {
-								stream.push(response)
+							if (done) {
+								return
+							}
+							if (readers.length > 0) {
+								readers.shift()!({ value: response, done: false })
+							} else {
+								queue.push(response)
 							}
 						},
 						disconnect() {
-							stream.push(null)
+							finish()
 						},
-					})
-					return stream
+					}
+
+					deliverHandle(handle)
+
+					return {
+						[Symbol.asyncIterator]() {
+							return {
+								next(): Promise<IteratorResult<SessionResponse>> {
+									if (queue.length > 0) {
+										return Promise.resolve({
+											value: queue.shift()!,
+											done: false,
+										})
+									}
+									if (done) {
+										return Promise.resolve({
+											value: undefined as unknown as SessionResponse,
+											done: true,
+										})
+									}
+									let { promise, resolve } =
+										createDeferred<IteratorResult<SessionResponse>>()
+									readers.push(resolve)
+									return promise
+								},
+							}
+						},
+					}
 				},
 			}
 		},
@@ -107,7 +148,6 @@ export let settle = async function settle(ticks = 100): Promise<void> {
 		// oxlint-disable-next-line no-await-in-loop
 		await Promise.resolve()
 	}
-	await setImmediate()
 }
 
 // Yield to the macrotask queue (timers, I/O callbacks) once.

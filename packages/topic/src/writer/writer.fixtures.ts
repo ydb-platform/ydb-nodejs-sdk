@@ -1,5 +1,3 @@
-import { setImmediate } from 'node:timers/promises'
-import { Duplex } from 'node:stream'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import type {
 	StreamWriteMessage_FromClient,
@@ -62,81 +60,144 @@ export let makeFakeTopicDriver = function makeFakeTopicDriver(): FakeTopicDriver
 		},
 		createClient(): unknown {
 			return {
-				streamWrite() {
-					let aborted = false
+				streamWrite(
+					input: AsyncIterable<StreamWriteMessage_FromClient>,
+					opts?: { signal?: AbortSignal }
+				): AsyncIterable<StreamWriteMessage_FromServer> {
+					let signal = opts?.signal
+					let readers: Array<
+						PromiseWithResolvers<IteratorResult<StreamWriteMessage_FromServer>>
+					> = []
+					let queue: StreamWriteMessage_FromServer[] = []
+					let done = false
+
 					let sent: StreamWriteMessage_FromClient[] = []
 					let sentWaiters: Array<() => void> = []
-					let stream = Object.assign(
-						new Duplex({
-							objectMode: true,
-							read() {},
-							write(message: StreamWriteMessage_FromClient, _encoding, callback) {
-								sent.push(message)
-								for (let waiter of sentWaiters.splice(0)) {
-									waiter()
-								}
-								callback()
-							},
-						}),
-						{
-							cancel() {
-								aborted = true
-								stream.destroy()
-							},
+
+					let finish = function finish(): void {
+						done = true
+						for (let reader of readers.splice(0)) {
+							reader.resolve({ value: undefined as never, done: true })
 						}
-					)
+					}
+
+					let aborted = false
+					if (signal) {
+						if (signal.aborted) {
+							done = true
+							aborted = true
+						} else {
+							signal.addEventListener(
+								'abort',
+								() => {
+									aborted = true
+									finish()
+								},
+								{ once: true }
+							)
+						}
+					}
+
+					// Drain what the writer sends so tests can assert on it.
+					void (async () => {
+						try {
+							for await (let message of input) {
+								sent.push(message)
+								for (let w of sentWaiters.splice(0)) {
+									w()
+								}
+							}
+						} catch {
+							// input closed — nothing to do
+						}
+					})()
 
 					let waitForClient = async function waitForClient<T>(
-						pick: (message: StreamWriteMessage_FromClient) => T | undefined
+						pick: (m: StreamWriteMessage_FromClient) => T | undefined
 					): Promise<T> {
 						for (;;) {
 							for (let message of sent) {
-								let result = pick(message)
-								if (result !== undefined) {
-									return result
+								let picked = pick(message)
+								if (picked !== undefined) {
+									return picked
 								}
 							}
-							let next = deferred<void>()
-							sentWaiters.push(next.resolve)
+							let d = deferred<void>()
+							sentWaiters.push(d.resolve)
 							// oxlint-disable-next-line no-await-in-loop
-							await next.promise
+							await d.promise
 						}
 					}
 
 					let handle: FakeWriteStream = {
 						respond(message) {
-							if (!stream.destroyed && !stream.readableEnded) {
-								stream.push(message)
+							if (done) {
+								return
+							}
+							if (readers.length > 0) {
+								readers.shift()!.resolve({ value: message, done: false })
+							} else {
+								queue.push(message)
 							}
 						},
 						disconnect() {
-							stream.push(null)
+							finish()
 						},
 						fail(error) {
-							stream.destroy(error as Error)
+							if (done) {
+								return
+							}
+							done = true
+							for (let reader of readers.splice(0)) {
+								reader.reject(error)
+							}
 						},
 						wasAborted() {
 							return aborted
 						},
 						sent,
 						waitForInit() {
-							return waitForClient((message) =>
-								message.clientMessage.case === 'initRequest'
-									? message.clientMessage.value
+							return waitForClient((m) =>
+								m.clientMessage.case === 'initRequest'
+									? m.clientMessage.value
 									: undefined
 							)
 						},
 						waitForWrite() {
-							return waitForClient((message) =>
-								message.clientMessage.case === 'writeRequest'
-									? message.clientMessage.value
+							return waitForClient((m) =>
+								m.clientMessage.case === 'writeRequest'
+									? m.clientMessage.value
 									: undefined
 							)
 						},
 					}
 
 					deliver(handle)
-					return stream
+
+					return {
+						[Symbol.asyncIterator]() {
+							return {
+								next(): Promise<IteratorResult<StreamWriteMessage_FromServer>> {
+									if (queue.length > 0) {
+										return Promise.resolve({
+											value: queue.shift()!,
+											done: false,
+										})
+									}
+									if (done) {
+										return Promise.resolve({
+											value: undefined as never,
+											done: true,
+										})
+									}
+									let d =
+										deferred<IteratorResult<StreamWriteMessage_FromServer>>()
+									readers.push(d)
+									return d.promise
+								},
+							}
+						},
+					}
 				},
 			}
 		},
@@ -202,7 +263,6 @@ export let settle = async function settle(ticks = 100): Promise<void> {
 		// oxlint-disable-next-line no-await-in-loop
 		await Promise.resolve()
 	}
-	await setImmediate()
 }
 
 export let tick = function tick(): Promise<void> {

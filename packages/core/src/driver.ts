@@ -6,19 +6,17 @@ import { create } from '@bufbuild/protobuf'
 import { anyUnpack } from '@bufbuild/protobuf/wkt'
 import {
 	type ChannelOptions,
+	Client,
 	InterceptingCall,
 	type Interceptor,
 	type ServiceDefinition,
 	credentials,
-	makeClientConstructor,
 } from '@grpc/grpc-js'
-import type { ServiceClient } from '@ydbjs/api/client'
-import { unaryCall } from '@ydbjs/api/stream'
+import { type ServiceClient, createClient as createServiceClient } from '@ydbjs/api/client'
 import { abortable, linkSignals } from '@ydbjs/abortable'
 import {
 	DiscoveryServiceDefinition,
 	EndpointInfoSchema,
-	type ListEndpointsResponse,
 	ListEndpointsResultSchema,
 } from '@ydbjs/api/discovery'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
@@ -320,7 +318,7 @@ export class Driver implements Disposable, AsyncDisposable {
 		this.#teardown((pool) => pool[Symbol.dispose]())
 	}
 
-	/** Create a native grpc-js client; closing it leaves the driver's channels open. */
+	/** Create an async service client that borrows the driver's channels. */
 	createClient<Service extends ServiceDefinition>(
 		service: Service,
 		target?: bigint | ClientTarget
@@ -333,15 +331,15 @@ export class Driver implements Disposable, AsyncDisposable {
 			nodeId,
 			hard
 		)
-		let Client = makeClientConstructor(service, 'YDB')
-
-		return new Client(this.cs.host, credentials.createInsecure(), {
+		let client = new Client(this.cs.host, credentials.createInsecure(), {
 			channelOverride: channel,
 			interceptors: this.#interceptors,
-		}) as unknown as ServiceClient<Service>
+		})
+
+		return createServiceClient(service, client)
 	}
 
-	/** Wait for the endpoint pin to be published before exposing its native client. */
+	/** Wait for the endpoint pin to be published before exposing its client. */
 	async createPinnedClient<Service extends ServiceDefinition>(
 		service: Service,
 		target: PinnedClientTarget,
@@ -521,24 +519,17 @@ export class Driver implements Disposable, AsyncDisposable {
 	// tracing:ydb:driver.discovery span; this closure must not add either.
 	#fetchEndpoints: ListEndpoints = async (signal: AbortSignal): Promise<DiscoveryResult> => {
 		if (!this.#discoveryClient) {
-			let DiscoveryClient = makeClientConstructor(
-				DiscoveryServiceDefinition,
-				'DiscoveryService'
-			)
-			this.#discoveryClient = new DiscoveryClient(
-				this.cs.host,
-				credentials.createInsecure(),
-				{
-					channelOverride: this.#connection.channel,
-					interceptors: this.#interceptors,
-				}
-			) as unknown as ServiceClient<typeof DiscoveryServiceDefinition>
+			let client = new Client(this.cs.host, credentials.createInsecure(), {
+				channelOverride: this.#connection.channel,
+				interceptors: this.#interceptors,
+			})
+
+			this.#discoveryClient = createServiceClient(DiscoveryServiceDefinition, client)
 		}
 
-		let client = this.#discoveryClient
-		let response = await unaryCall<ListEndpointsResponse>(
-			(callback) => client.listEndpoints({ database: this.database }, callback),
-			signal
+		let response = await this.#discoveryClient.listEndpoints(
+			{ database: this.database },
+			{ signal }
 		)
 		assert.ok(response.operation, new DriverResponseError('Missing operation data.'))
 

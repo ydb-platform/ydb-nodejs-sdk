@@ -1,10 +1,5 @@
 import { create } from '@bufbuild/protobuf'
-import {
-	DiscoveryServiceDefinition,
-	type WhoAmIResponse,
-	WhoAmIResponseSchema,
-} from '@ydbjs/api/discovery'
-import { unaryCall } from '@ydbjs/api/stream'
+import { DiscoveryServiceDefinition, WhoAmIResponseSchema } from '@ydbjs/api/discovery'
 import { execFile } from 'node:child_process'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -72,9 +67,6 @@ test('uses the configured TLS identity when the endpoint has no override', async
 		channelOptions: { 'grpc.ssl_target_name_override': 'ydb.test' },
 	})
 	await expect(
-		unaryCall<WhoAmIResponse>(
-			(callback) => driver.createClient(service).whoAmI({}, callback),
-			tc.signal
-		)
+		driver.createClient(service).whoAmI({}, { signal: tc.signal })
 	).resolves.toBeDefined()
 })

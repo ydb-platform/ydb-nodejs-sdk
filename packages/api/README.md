@@ -37,21 +37,42 @@ let driver = new Driver('grpc://localhost:2136/local')
 await driver.ready()
 let client = driver.createClient(DiscoveryServiceDefinition)
 
-client.listEndpoints({ database: driver.database }, (error, response) => {
-  driver.close()
-  if (error) {
-    console.error(error)
-    return
-  }
-  console.log(response)
-})
+let response = await client.listEndpoints({ database: driver.database })
+console.log(response)
+driver.close()
 ```
 
-Service definitions use native grpc-js `Buffer` serializers and can be passed directly to `makeClientConstructor` from `@grpc/grpc-js`. `ServiceClient` from `@ydbjs/api/client` supplies TypeScript method signatures only; it creates no runtime client or wrapper.
+### Using with grpc-js
 
-`@ydbjs/api/stream` provides `unaryCall(start, signal)`, `readStream(call, signal)`, and `writeStream(input, call, signal)` for SDK code that uses promises or async iteration. They operate on existing native calls and preserve native errors and metadata. `writeStream` owns request writes and half-close; the caller owns RPC cancellation and must release a blocked input iterator when aborting.
+```ts
+import { Client, credentials, Metadata } from '@grpc/grpc-js'
+import { createClient } from '@ydbjs/api/client'
+import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
 
-Low-level clients use native `Metadata`, `CallOptions`, interceptors, and `ServiceError` from `@grpc/grpc-js`. The previous nice-grpc Promise/AsyncIterable method signatures, metadata facade, ts-proto definition conversion, and `ClientError` compatibility are not retained.
+let nativeClient = new Client('localhost:2136', credentials.createInsecure())
+let client = createClient(DiscoveryServiceDefinition, nativeClient)
+let metadata = new Metadata()
+metadata.set('x-ydb-database', '/local')
+
+try {
+  let response = await client.listEndpoints(
+    { database: '/local' },
+    {
+      metadata,
+      signal: AbortSignal.timeout(5000),
+    }
+  )
+  console.log(response)
+} finally {
+  client.close()
+}
+```
+
+Unary and client-streaming methods return `Promise<Response>`. Server-streaming and bidirectional methods return `AsyncIterable<Response>` and start when iteration begins. Request streams accept `AsyncIterable<Request>`; writes respect grpc-js backpressure. Breaking out of response iteration cancels the RPC. Finishing a request stream half-closes it and allows the server to send its remaining responses.
+
+`ClientCallOptions` extends grpc-js `CallOptions` with `metadata`, `signal`, `onHeader`, and `onTrailer`. Metadata, credentials, interceptors, and server errors use native grpc-js types. Cancellation rejects with `signal.reason`; request-producer failures retain their original error. Producers that wait for external input must also release that input when cancelled: the adapter requests iterator cleanup without waiting indefinitely for a blocked `next()`.
+
+`ServiceClient<Service>` infers methods from the native grpc-js `ServiceDefinition` and exposes `close()` for the underlying native client. The definitions also work directly with grpc-js `makeClientConstructor`. RPC failures preserve the native `ServiceError`, including its status code, details, and trailing metadata.
 
 ## Development
 

@@ -1,9 +1,6 @@
-import { readStream, unaryCall, writeStream } from '@ydbjs/api/stream'
 import {
 	CreateTopicRequestSchema,
-	type CreateTopicResponse,
 	DropTopicRequestSchema,
-	type DropTopicResponse,
 	type StreamReadMessage_FromClient,
 	StreamReadMessage_FromClientSchema,
 	type StreamReadMessage_FromServer,
@@ -35,22 +32,17 @@ let consumerName: string
 beforeEach(async () => {
 	topicName = `reader-protocol-${Date.now()}`
 	consumerName = `consumer-${Date.now()}`
-	await unaryCall<CreateTopicResponse>((callback) =>
-		topicService.createTopic(
-			create(CreateTopicRequestSchema, {
-				path: topicName,
-				partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
-				consumers: [{ name: consumerName }],
-			}),
-			callback
-		)
+	await topicService.createTopic(
+		create(CreateTopicRequestSchema, {
+			path: topicName,
+			partitioningSettings: { minActivePartitions: 1n, maxActivePartitions: 1n },
+			consumers: [{ name: consumerName }],
+		})
 	)
 })
 
 afterEach(async () => {
-	await unaryCall<DropTopicResponse>((callback) =>
-		topicService.dropTopic(create(DropTopicRequestSchema, { path: topicName }), callback)
-	)
+	await topicService.dropTopic(create(DropTopicRequestSchema, { path: topicName }))
 })
 
 // A minimal raw StreamRead driver for the test.
@@ -74,9 +66,8 @@ let openReadStream = function openReadStream(signal: AbortSignal): ReadStream {
 		}),
 		100
 	)
-	let stream = driver.createClient(TopicServiceDefinition).streamRead()
-	void writeStream(input, stream, signal).catch((error) => stream.destroy(error))
-	let iterator = readStream(stream, signal)[Symbol.asyncIterator]()
+	let stream = driver.createClient(TopicServiceDefinition).streamRead(input, { signal })
+	let iterator = stream[Symbol.asyncIterator]()
 
 	let next = async function next(): Promise<StreamReadMessage_FromServer> {
 		let result = await iterator.next()

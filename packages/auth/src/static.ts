@@ -2,10 +2,9 @@ import * as tls from 'node:tls'
 import { channel as dc, tracingChannel } from 'node:diagnostics_channel'
 
 import { anyUnpack } from '@bufbuild/protobuf/wkt'
-import { type ChannelOptions, credentials, makeClientConstructor } from '@grpc/grpc-js'
-import type { ServiceClient } from '@ydbjs/api/client'
-import { unaryCall } from '@ydbjs/api/stream'
-import { AuthServiceDefinition, type LoginResponse, LoginResultSchema } from '@ydbjs/api/auth'
+import { type ChannelOptions, Client, credentials } from '@grpc/grpc-js'
+import { type ServiceClient, createClient } from '@ydbjs/api/client'
+import { AuthServiceDefinition, LoginResultSchema } from '@ydbjs/api/auth'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { loggers } from '@ydbjs/debug'
 import { YDBError } from '@ydbjs/error'
@@ -92,12 +91,8 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 			? credentials.createFromSecureContext(tls.createSecureContext(secureOptions))
 			: credentials.createInsecure()
 
-		let AuthClient = makeClientConstructor(AuthServiceDefinition, 'AuthService')
-		this.#client = new AuthClient(
-			address,
-			channelCredentials,
-			channelOptions
-		) as unknown as ServiceClient<typeof AuthServiceDefinition>
+		let client = new Client(address, channelCredentials, channelOptions)
+		this.#client = createClient(AuthServiceDefinition, client)
 	}
 
 	/**
@@ -221,10 +216,9 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 	async #loginAttempt(signal: AbortSignal): Promise<string> {
 		debug.log('attempting login with user: %s', this.#username)
 
-		let response = await unaryCall<LoginResponse>(
-			(callback) =>
-				this.#client.login({ user: this.#username, password: this.#password }, callback),
-			signal
+		let response = await this.#client.login(
+			{ user: this.#username, password: this.#password },
+			{ signal }
 		)
 		if (!response.operation) {
 			throw new Error('No operation in response')
