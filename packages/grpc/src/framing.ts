@@ -1,3 +1,4 @@
+import { Transform } from 'node:stream'
 import { gunzip, inflate } from 'node:zlib'
 
 import { MessageSizeError, RpcError, Status } from './error.js'
@@ -85,6 +86,31 @@ export class FrameDecoder {
 			throw new RpcError(Status.INTERNAL, 'Truncated gRPC message')
 		}
 	}
+}
+
+export function createFrameStream(limit: number): Transform {
+	let decoder = new FrameDecoder(limit)
+	return new Transform({
+		readableObjectMode: true,
+		// Do not parse the next chunk while the consumer retains the current frame batch.
+		readableHighWaterMark: 0,
+		transform(chunk: Buffer, _encoding, callback) {
+			try {
+				let frames = decoder.push(chunk)
+				callback(null, frames.length ? frames : undefined)
+			} catch (error) {
+				callback(error as Error)
+			}
+		},
+		flush(callback) {
+			try {
+				decoder.finish()
+				callback()
+			} catch (error) {
+				callback(error as Error)
+			}
+		},
+	})
 }
 
 export async function decompress(frame: Frame, encoding: string, limit: number): Promise<Buffer> {

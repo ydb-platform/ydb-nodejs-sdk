@@ -8,11 +8,12 @@ import {
 	constants,
 } from 'node:http2'
 import { connect as connectSocket } from 'node:net'
+import { finished as streamFinished } from 'node:stream'
 import { connect as connectTls } from 'node:tls'
 
 import { type Deadline, createDeadline } from './deadline.js'
 import { MessageSizeError, RpcError, Status } from './error.js'
-import { FrameDecoder, decompress } from './framing.js'
+import { type Frame, createFrameStream, decompress } from './framing.js'
 import { requestHeaders, responseMetadata } from './metadata.js'
 import type { CallOptions, ClientOptions, MethodDefinition, RpcStatus, Transport } from './types.js'
 
@@ -426,6 +427,8 @@ export class Client implements Transport, Disposable {
 		let writing = new AbortController()
 		let stream: ClientHttp2Stream | undefined
 		let session: Session | undefined
+		let frames: ReturnType<typeof createFrameStream> | undefined
+		let stopReading: (() => void) | undefined
 		let deadline: Deadline | undefined
 		let reported = false
 		let completed = false
@@ -459,6 +462,7 @@ export class Client implements Transport, Disposable {
 			failure = error
 			controller.abort(error)
 			writing.abort(error)
+			frames?.destroy()
 			stopDeadline()
 			options.signal?.removeEventListener('abort', onAbort)
 			this.#releaseCall(session, connectionFailed)
@@ -582,6 +586,14 @@ export class Client implements Transport, Disposable {
 					)
 				}
 			})
+			frames = createFrameStream(this.#options.maxReceiveBytes!)
+			frames.on('error', fail)
+			stopReading = streamFinished(stream, { writable: false }, (error) => {
+				if (error) {
+					frames!.destroy(error)
+				}
+			})
+			stream.pipe(frames)
 			void writeRequests(
 				stream,
 				method,
@@ -593,10 +605,9 @@ export class Client implements Transport, Disposable {
 					fail(error)
 				}
 			})
-			let decoder = new FrameDecoder(this.#options.maxReceiveBytes!)
-			for await (let chunk of stream.iterator({ destroyOnReturn: false })) {
+			for await (let batch of frames.iterator({ destroyOnReturn: false })) {
 				controller.signal.throwIfAborted()
-				for (let frame of decoder.push(chunk as Buffer)) {
+				for (let frame of batch as Frame[]) {
 					controller.signal.throwIfAborted()
 					let bytes = frame.data
 					if (frame.compressed) {
@@ -629,7 +640,6 @@ export class Client implements Transport, Disposable {
 				}
 			}
 			controller.signal.throwIfAborted()
-			decoder.finish()
 			if (!receivedStatus) {
 				throw new RpcError(Status.UNKNOWN, 'RPC ended without grpc-status')
 			}
@@ -657,6 +667,11 @@ export class Client implements Transport, Disposable {
 			options.signal?.removeEventListener('abort', onAbort)
 			this.#releaseCall(session, connectionFailed)
 			this.#calls.delete(fail)
+			stopReading?.()
+			if (frames) {
+				stream?.unpipe(frames)
+				frames.destroy()
+			}
 			stream?.close(constants.NGHTTP2_CANCEL)
 		}
 	}

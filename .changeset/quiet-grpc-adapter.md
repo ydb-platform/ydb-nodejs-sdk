@@ -18,3 +18,5 @@ Use `createServiceClient(service, transport)` for standalone calls. `Driver.crea
 Call options accept plain metadata records, signals, absolute deadlines, and header/trailer/status observers. `RpcError` carries code, details, and trailing metadata; `MessageSizeError` identifies permanent local size-limit failures. Query metadata events expose the same record format. Register `addMetadataHook` before constructing Driver to add tracing headers. Credential providers supply `getToken`; Driver handles authentication and mandatory headers without middleware or interceptor adapters.
 
 High-level TopicWriter, TopicReader, query, and coordination operations retain their APIs. Generated API definitions remain independent of the transport at runtime. Request framing sends the header and serialized body separately, avoiding the payload copy used to prepend a gRPC frame header.
+
+Decode incoming HTTP/2 fragments into bounded gRPC frame batches before async iteration, preserving cancellation and response ordering without scheduling an iterator step for every fragment.
