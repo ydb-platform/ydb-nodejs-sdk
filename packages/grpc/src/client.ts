@@ -601,7 +601,12 @@ export class Client implements Transport, Disposable {
 			)
 			stream.on('close', () => {
 				writing.abort()
-				if (!completed && !receivedStatus) {
+				// Normal EOF can precede consumption of complete buffered gRPC frames.
+				if (
+					!completed &&
+					!receivedStatus &&
+					(stream!.rstCode !== constants.NGHTTP2_NO_ERROR || !stream!.readableEnded)
+				) {
 					fail(streamError(stream!.rstCode, session!.socket.destroyed))
 				}
 			})

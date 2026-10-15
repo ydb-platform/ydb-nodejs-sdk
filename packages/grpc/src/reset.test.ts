@@ -1,8 +1,9 @@
 import { constants, createServer } from 'node:http2'
+import { setImmediate } from 'node:timers/promises'
 
 import { expect, test } from 'vitest'
 
-import { collect, deferred, rawServer, reply, requests, service } from '../tests/fixtures.ts'
+import { collect, deferred, frame, rawServer, reply, requests, service } from '../tests/fixtures.ts'
 import { Client } from './client.ts'
 import { Status } from './error.ts'
 
@@ -146,3 +147,35 @@ for (let status of [Status.OK, Status.PERMISSION_DENIED]) {
 		}
 	})
 }
+
+test('drains complete responses before reporting missing status after a normal HTTP/2 close', async (tc) => {
+	let closed = deferred()
+	await using peer = await rawServer(async (stream) => {
+		stream.once('close', () => closed.resolve())
+		await requests(stream)
+		stream.respond({ ':status': 200, 'content-type': 'application/grpc' })
+		stream.end(Buffer.concat([frame('first'), frame('second')]))
+	})
+	using client = new Client(peer.authority)
+	let response = client.call(service.serverStream, '', { signal: tc.signal })
+	let iterator = response[Symbol.asyncIterator]()
+
+	expect((await iterator.next()).value).toBe('first')
+	await closed.promise
+	await new Promise<void>((resolve, reject) => {
+		peer.sessions[0]!.ping((error) => {
+			if (error) {
+				reject(error)
+			} else {
+				resolve()
+			}
+		})
+	})
+	await setImmediate(undefined, { signal: tc.signal })
+
+	expect((await iterator.next()).value).toBe('second')
+	await expect(iterator.next()).rejects.toMatchObject({
+		code: Status.UNKNOWN,
+		details: 'RPC ended without grpc-status',
+	})
+})
