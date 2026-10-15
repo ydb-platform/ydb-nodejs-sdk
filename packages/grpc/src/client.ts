@@ -93,6 +93,21 @@ function httpError(code: number): RpcError {
 	return new RpcError(mapping[code] ?? Status.UNKNOWN, `Unexpected HTTP status ${code}`)
 }
 
+function streamError(code: number, sessionDestroyed: boolean): RpcError {
+	// Node also uses CANCEL when the underlying connection disappears.
+	if (code === constants.NGHTTP2_CANCEL && sessionDestroyed) {
+		return new RpcError(Status.UNAVAILABLE, 'HTTP/2 session closed')
+	}
+
+	let mapping: Record<number, Status> = {
+		[constants.NGHTTP2_REFUSED_STREAM]: Status.UNAVAILABLE,
+		[constants.NGHTTP2_CANCEL]: Status.CANCELLED,
+		[constants.NGHTTP2_ENHANCE_YOUR_CALM]: Status.RESOURCE_EXHAUSTED,
+		[constants.NGHTTP2_INADEQUATE_SECURITY]: Status.PERMISSION_DENIED,
+	}
+	return new RpcError(mapping[code] ?? Status.INTERNAL, `HTTP/2 stream reset with code ${code}`)
+}
+
 function timeoutHeader(deadline: number): string {
 	let remaining = Math.max(0, deadline - Date.now())
 	for (let [scale, unit] of [
@@ -315,6 +330,8 @@ export class Client implements Transport, Disposable {
 		let socket = connectHttp2(this.#authority, {
 			...options.tls,
 			settings: { enablePush: false, initialWindowSize: options.streamWindowBytes },
+			// Queued request bodies must not make Node reject response headers on another RPC.
+			maxSessionMemory: Number.MAX_SAFE_INTEGER,
 			...(this.#socketPath && {
 				createConnection: () =>
 					options.tls
@@ -567,23 +584,25 @@ export class Client implements Transport, Disposable {
 				}
 			})
 			stream.on('end', () => writing.abort())
-			stream.on('error', (error) =>
+			stream.on('error', (error: NodeJS.ErrnoException) =>
 				connectionFailed(
-					new RpcError(Status.UNAVAILABLE, 'HTTP/2 stream failed', {}, { cause: error })
+					error.code === 'ERR_HTTP2_STREAM_ERROR'
+						? streamError(stream!.rstCode, session!.socket.destroyed)
+						: new RpcError(
+								Status.UNAVAILABLE,
+								'HTTP/2 stream failed',
+								{},
+								{ cause: error }
+							)
 				)
 			)
 			stream.on('aborted', () =>
-				connectionFailed(new RpcError(Status.CANCELLED, 'RPC aborted by peer'))
+				connectionFailed(streamError(stream!.rstCode, session!.socket.destroyed))
 			)
 			stream.on('close', () => {
 				writing.abort()
 				if (!completed && !receivedStatus) {
-					fail(
-						new RpcError(
-							stream!.rstCode ? Status.UNAVAILABLE : Status.UNKNOWN,
-							'RPC closed without grpc-status'
-						)
-					)
+					fail(streamError(stream!.rstCode, session!.socket.destroyed))
 				}
 			})
 			frames = createFrameStream(this.#options.maxReceiveBytes!)
