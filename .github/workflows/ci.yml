@@ -85,9 +85,6 @@ jobs:
     env:
       GRPC_TEST_RUNTIME: ${{ matrix.runtime }}
       GRPC_TEST_VERSION: ${{ matrix.version }}
-      GRPC_TEST_RESULTS: ${{ runner.temp }}/grpc-results/results.json
-      GRPC_TEST_WITNESS: ${{ runner.temp }}/grpc-results/workers.jsonl
-      GRPC_TEST_GO_SERVER: ${{ runner.temp }}/grpc-interop-go
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -103,16 +100,21 @@ jobs:
         with:
           go-version: '1.25.5'
           cache-dependency-path: packages/grpc/tests/interop-go/go.sum
+      - name: Prepare runtime evidence
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/grpc-results"
+          : > "$RUNNER_TEMP/grpc-results/workers.jsonl"
+          {
+            echo "GRPC_TEST_RESULTS=$RUNNER_TEMP/grpc-results/results.json"
+            echo "GRPC_TEST_WITNESS=$RUNNER_TEMP/grpc-results/workers.jsonl"
+            echo "GRPC_TEST_GO_SERVER=$RUNNER_TEMP/grpc-interop-go"
+          } >> "$GITHUB_ENV"
       - name: Build grpc-go interoperability server
         working-directory: packages/grpc/tests/interop-go
         env:
           GOTOOLCHAIN: local
         run: go build -mod=readonly -o "$GRPC_TEST_GO_SERVER" .
-      - name: Prepare runtime evidence
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/grpc-results"
-          : > "$GRPC_TEST_WITNESS"
       - name: Test gRPC on Node
         if: matrix.runtime == 'node'
         run: node node_modules/vitest/vitest.mjs run --config vitest.grpc.config.ts
