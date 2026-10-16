@@ -127,22 +127,25 @@ export async function decompress(frame: Frame, encoding: string, limit: number):
 	return new Promise((resolve, reject) => {
 		decode(frame.data, { maxOutputLength: Math.max(1, limit) }, (error, data) => {
 			if (error) {
-				let tooLarge = (error as NodeJS.ErrnoException).code === 'ERR_BUFFER_TOO_LARGE'
+				if ((error as NodeJS.ErrnoException).code === 'ERR_BUFFER_TOO_LARGE') {
+					reject(new MessageSizeError('response', limit, { cause: error }))
+					return
+				}
 				reject(
-					tooLarge
-						? new MessageSizeError('response', limit, { cause: error })
-						: new RpcError(
-								Status.INTERNAL,
-								'Failed to decompress gRPC message',
-								{},
-								{ cause: error }
-							)
+					new RpcError(
+						Status.INTERNAL,
+						'Failed to decompress gRPC message',
+						{},
+						{ cause: error }
+					)
 				)
-			} else if (data.length > limit) {
-				reject(new MessageSizeError('response', limit))
-			} else {
-				resolve(data)
+				return
 			}
+			if (data.length > limit) {
+				reject(new MessageSizeError('response', limit))
+				return
+			}
+			resolve(data)
 		})
 	})
 }

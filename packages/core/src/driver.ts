@@ -283,26 +283,24 @@ export class Driver implements Disposable, AsyncDisposable {
 	}
 
 	close(): void {
-		// Synchronous teardown — dispatch destroy; the pool closes channels and
+		// Synchronous teardown — dispatch destroy; the pool closes connections and
 		// publishes ydb:driver.closed on a later turn.
 		this.#teardown((pool) => pool[Symbol.dispose]())
 	}
 
-	/** Create an async service client that borrows the driver's channels. */
+	/** Create an async service client that borrows the driver's connections. */
 	createClient<Service extends ServiceDefinition>(
 		service: Service,
 		target?: bigint | ClientTarget
 	): ServiceClient<Service> {
 		let nodeId = typeof target === 'bigint' ? target : target?.nodeId
 		let hard = typeof target === 'object' ? (target.hard ?? false) : false
-		return createServiceClient(
-			service,
-			createRoutingTransport(
-				this.#endpoints?.pool ?? this.#connection,
-				this.#prepareMetadata,
-				{ signal: this.#closedController.signal, hooks: this.options.hooks, nodeId, hard }
-			)
+		let transport = createRoutingTransport(
+			this.#endpoints?.pool ?? this.#connection,
+			this.#prepareMetadata,
+			{ signal: this.#closedController.signal, hooks: this.options.hooks, nodeId, hard }
 		)
+		return createServiceClient(service, transport)
 	}
 
 	/** Wait for the endpoint pin to be published before exposing its client. */
@@ -502,12 +500,10 @@ export class Driver implements Disposable, AsyncDisposable {
 	// tracing:ydb:driver.discovery span; this closure must not add either.
 	#fetchEndpoints: ListEndpoints = async (signal: AbortSignal): Promise<DiscoveryResult> => {
 		if (!this.#discoveryClient) {
-			this.#discoveryClient = createServiceClient(
-				DiscoveryServiceDefinition,
-				createRoutingTransport(this.#connection, this.#prepareMetadata, {
-					signal: this.#closedController.signal,
-				})
-			)
+			let transport = createRoutingTransport(this.#connection, this.#prepareMetadata, {
+				signal: this.#closedController.signal,
+			})
+			this.#discoveryClient = createServiceClient(DiscoveryServiceDefinition, transport)
 		}
 
 		let response = await this.#discoveryClient.listEndpoints(

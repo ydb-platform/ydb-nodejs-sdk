@@ -18,7 +18,7 @@ import { requestHeaders, responseMetadata } from './metadata.js'
 import type { CallOptions, ClientOptions, MethodDefinition, RpcStatus, Transport } from './types.js'
 
 interface Session {
-	socket: ClientHttp2Session
+	http2: ClientHttp2Session
 	ready: Promise<void>
 	connected: boolean
 	retired: boolean
@@ -185,11 +185,12 @@ async function writeRequests<Request, Response>(
 			let drain: Promise<unknown> | undefined
 			stream.cork()
 			try {
-				let writable = stream.write(header)
+				let canWriteAfterHeader = stream.write(header)
+				let canWriteAfterBody = true
 				if (body.length > 0) {
-					writable = stream.write(body) && writable
+					canWriteAfterBody = stream.write(body)
 				}
-				if (!writable) {
+				if (!canWriteAfterHeader || !canWriteAfterBody) {
 					drain = once(stream, 'drain', { signal })
 				}
 			} finally {
@@ -268,7 +269,7 @@ export class Client implements Transport, Disposable {
 		if (this.#closed) {
 			return 'closed'
 		}
-		if (!this.#current || this.#current.socket.destroyed || this.#current.retired) {
+		if (!this.#current || this.#current.http2.destroyed || this.#current.retired) {
 			return 'idle'
 		}
 		return this.#current.connected ? 'ready' : 'connecting'
@@ -284,15 +285,15 @@ export class Client implements Transport, Disposable {
 			throw new RpcError(Status.CANCELLED, 'Client is closed')
 		}
 		let session = this.#current
-		if (!session || session.retired || session.socket.destroyed || session.socket.closed) {
+		if (!session || session.retired || session.http2.destroyed || session.http2.closed) {
 			session = this.#openSession()
 		}
 		session.waiters += 1
-		session.socket.ref()
+		session.http2.ref()
 		try {
 			await waitWithSignal(session.ready, signal)
 			signal?.throwIfAborted()
-			if (session.retired || session.socket.destroyed || session.socket.closed) {
+			if (session.retired || session.http2.destroyed || session.http2.closed) {
 				throw new RpcError(Status.UNAVAILABLE, 'Connection closed before starting the RPC')
 			}
 			return session
@@ -310,6 +311,29 @@ export class Client implements Transport, Disposable {
 		session.pingTimer = undefined
 	}
 
+	#startKeepalive(session: Session): void {
+		let options = this.#options
+		if (!options.keepaliveIntervalMs) {
+			return
+		}
+		let http2 = session.http2
+		session.keepaliveTimer = setInterval(() => {
+			if (session.retired || http2.destroyed || session.pingTimer) {
+				return
+			}
+			session.pingTimer = setTimeout(() => {
+				http2.destroy(new RpcError(Status.UNAVAILABLE, 'Keepalive ping timed out'))
+			}, options.keepaliveTimeoutMs ?? 10000).unref()
+			http2.ping((error) => {
+				clearTimeout(session.pingTimer)
+				session.pingTimer = undefined
+				if (error && !session.retired && !http2.destroyed) {
+					http2.destroy(error)
+				}
+			})
+		}, options.keepaliveIntervalMs).unref()
+	}
+
 	#releaseCall(session: Session | undefined, call: (error: unknown) => void): void {
 		if (!session) {
 			return
@@ -320,14 +344,14 @@ export class Client implements Transport, Disposable {
 
 	#updateRef(session: Session): void {
 		if (session.waiters === 0 && session.calls.size === 0) {
-			session.socket.unref()
+			session.http2.unref()
 		}
 	}
 
 	#openSession(): Session {
 		let ready = Promise.withResolvers<void>()
 		let options = this.#options
-		let socket = connectHttp2(this.#authority, {
+		let http2 = connectHttp2(this.#authority, {
 			...options.tls,
 			settings: { enablePush: false, initialWindowSize: options.streamWindowBytes },
 			// Queued request bodies must not make Node reject response headers on another RPC.
@@ -344,7 +368,7 @@ export class Client implements Transport, Disposable {
 			}),
 		})
 		let session: Session = {
-			socket,
+			http2,
 			ready: ready.promise,
 			connected: false,
 			retired: false,
@@ -354,39 +378,21 @@ export class Client implements Transport, Disposable {
 		this.#current = session
 		this.#sessions.add(session)
 		void ready.promise.catch(() => {})
-		socket.once('remoteSettings', () => {
+		http2.once('remoteSettings', () => {
 			clearTimeout(session.connectTimer)
 			try {
 				if (options.connectionWindowBytes !== undefined) {
-					socket.setLocalWindowSize(options.connectionWindowBytes)
+					http2.setLocalWindowSize(options.connectionWindowBytes)
 				}
 				session.connected = true
 				this.#updateRef(session)
 				ready.resolve()
-				if (options.keepaliveIntervalMs) {
-					session.keepaliveTimer = setInterval(() => {
-						if (session.retired || socket.destroyed || session.pingTimer) {
-							return
-						}
-						session.pingTimer = setTimeout(() => {
-							socket.destroy(
-								new RpcError(Status.UNAVAILABLE, 'Keepalive ping timed out')
-							)
-						}, options.keepaliveTimeoutMs ?? 10000).unref()
-						socket.ping((error) => {
-							clearTimeout(session.pingTimer)
-							session.pingTimer = undefined
-							if (error && !session.retired && !socket.destroyed) {
-								socket.destroy(error)
-							}
-						})
-					}, options.keepaliveIntervalMs).unref()
-				}
+				this.#startKeepalive(session)
 			} catch (error) {
-				socket.destroy(error as Error)
+				http2.destroy(error as Error)
 			}
 		})
-		socket.on('error', (error) => {
+		http2.on('error', (error) => {
 			let failure = new RpcError(
 				Status.UNAVAILABLE,
 				'HTTP/2 session failed',
@@ -398,7 +404,7 @@ export class Client implements Transport, Disposable {
 				fail(failure)
 			}
 		})
-		socket.on('goaway', (code, _lastStreamId, data) => {
+		http2.on('goaway', (code, _lastStreamId, data) => {
 			if (
 				!session.retired &&
 				code === constants.NGHTTP2_ENHANCE_YOUR_CALM &&
@@ -413,9 +419,9 @@ export class Client implements Transport, Disposable {
 			if (this.#current === session) {
 				this.#current = undefined
 			}
-			socket.close()
+			http2.close()
 		})
-		socket.once('close', () => {
+		http2.once('close', () => {
 			this.#stopTimers(session)
 			this.#sessions.delete(session)
 			if (this.#current === session) {
@@ -429,7 +435,7 @@ export class Client implements Transport, Disposable {
 		})
 		if (options.connectTimeoutMs) {
 			session.connectTimer = setTimeout(() => {
-				socket.destroy(new RpcError(Status.UNAVAILABLE, 'Connection timed out'))
+				http2.destroy(new RpcError(Status.UNAVAILABLE, 'Connection timed out'))
 			}, options.connectTimeoutMs).unref()
 		}
 		return session
@@ -448,11 +454,11 @@ export class Client implements Transport, Disposable {
 		let stopReading: (() => void) | undefined
 		let deadline: Deadline | undefined
 		let expiresAt: number | undefined
-		let reported = false
-		let completed = false
-		let failed = false
-		let failure: unknown
-		let receivedStatus: RpcStatus | undefined
+		let statusReported = false
+		let responseFinished = false
+		let responseFailed = false
+		let responseError: unknown
+		let terminalStatus: RpcStatus | undefined
 		let encoding = 'identity'
 		let receivedMessages = 0
 		let onDeadline = () => fail(deadline!.signal.reason)
@@ -460,38 +466,38 @@ export class Client implements Transport, Disposable {
 			deadline?.signal.removeEventListener('abort', onDeadline)
 			deadline?.[Symbol.dispose]()
 		}
-		let notify = (status: RpcStatus) => {
-			if (reported) {
+		let notifyStatus = (status: RpcStatus) => {
+			if (statusReported) {
 				return
 			}
-			reported = true
+			statusReported = true
 			try {
 				options.onStatus?.(status)
 			} catch {
-				// A terminal observer cannot change the completed RPC.
+				// Observer errors must not replace the terminal transport status.
 			}
 		}
 		let fail = (error: unknown, status = errorStatus(error)) => {
-			if (completed) {
+			if (responseFinished) {
 				return
 			}
-			completed = true
-			failed = true
-			failure = error
+			responseFinished = true
+			responseFailed = true
+			responseError = error
 			controller.abort(error)
 			writing.abort(error)
 			frames?.destroy()
 			stopDeadline()
 			options.signal?.removeEventListener('abort', onAbort)
-			this.#releaseCall(session, connectionFailed)
+			this.#releaseCall(session, failBeforeTerminalStatus)
 			this.#calls.delete(fail)
 			stream?.close(constants.NGHTTP2_CANCEL)
-			notify(status)
+			notifyStatus(status)
 		}
 		let onAbort = () =>
 			fail(options.signal!.reason, errorStatus(options.signal!.reason, Status.CANCELLED))
-		let connectionFailed = (error: unknown) => {
-			if (!receivedStatus) {
+		let failBeforeTerminalStatus = (error: unknown) => {
+			if (!terminalStatus) {
 				// A peer's deadline reset can be observed before the local timer callback runs.
 				if (
 					error instanceof RpcError &&
@@ -504,15 +510,15 @@ export class Client implements Transport, Disposable {
 				fail(error)
 			}
 		}
-		let acceptStatus = (headers: IncomingHttpHeaders, rawHeaders?: string[]) => {
+		let acceptTerminalStatus = (headers: IncomingHttpHeaders, rawHeaders?: string[]) => {
 			let status = statusFromHeaders(headers, rawHeaders)
 			if (status) {
-				receivedStatus = status
+				terminalStatus = status
 				writing.abort()
 				stopDeadline()
-				this.#releaseCall(session, connectionFailed)
+				this.#releaseCall(session, failBeforeTerminalStatus)
 				options.onTrailer?.(status.metadata)
-				notify(status)
+				notifyStatus(status)
 			}
 		}
 		this.#calls.add(fail)
@@ -546,7 +552,7 @@ export class Client implements Transport, Disposable {
 				outgoingHeaders['grpc-timeout'] = timeoutHeader(expiresAt!)
 			}
 			try {
-				stream = session.socket.request(outgoingHeaders)
+				stream = session.http2.request(outgoingHeaders)
 			} catch (error) {
 				throw new RpcError(
 					Status.UNAVAILABLE,
@@ -555,19 +561,19 @@ export class Client implements Transport, Disposable {
 					{ cause: error }
 				)
 			}
-			session.calls.add(connectionFailed)
-			session.socket.ref()
+			session.calls.add(failBeforeTerminalStatus)
+			session.http2.ref()
 			stream.on('response', (headers, _flags, rawHeaders) => {
-				if (completed) {
+				if (responseFinished) {
 					return
 				}
 				try {
 					options.onHeader?.(responseMetadata(headers, rawHeaders))
-					acceptStatus(headers, rawHeaders)
-					if (completed) {
+					acceptTerminalStatus(headers, rawHeaders)
+					if (responseFinished) {
 						return
 					}
-					if (headers[':status'] !== 200 && !receivedStatus) {
+					if (headers[':status'] !== 200 && !terminalStatus) {
 						throw httpError(Number(headers[':status']))
 					}
 					let contentType = headers['content-type']
@@ -586,39 +592,36 @@ export class Client implements Transport, Disposable {
 				}
 			})
 			stream.on('trailers', (headers) => {
-				if (!completed) {
+				if (!responseFinished) {
 					try {
-						acceptStatus(headers)
+						acceptTerminalStatus(headers)
 					} catch (error) {
 						fail(error)
 					}
 				}
 			})
 			stream.on('end', () => writing.abort())
-			stream.on('error', (error: NodeJS.ErrnoException) =>
-				connectionFailed(
-					error.code === 'ERR_HTTP2_STREAM_ERROR'
-						? streamError(stream!.rstCode, session!.socket.destroyed)
-						: new RpcError(
-								Status.UNAVAILABLE,
-								'HTTP/2 stream failed',
-								{},
-								{ cause: error }
-							)
+			stream.on('error', (error: NodeJS.ErrnoException) => {
+				if (error.code === 'ERR_HTTP2_STREAM_ERROR') {
+					failBeforeTerminalStatus(streamError(stream!.rstCode, session!.http2.destroyed))
+					return
+				}
+				failBeforeTerminalStatus(
+					new RpcError(Status.UNAVAILABLE, 'HTTP/2 stream failed', {}, { cause: error })
 				)
-			)
+			})
 			stream.on('aborted', () =>
-				connectionFailed(streamError(stream!.rstCode, session!.socket.destroyed))
+				failBeforeTerminalStatus(streamError(stream!.rstCode, session!.http2.destroyed))
 			)
 			stream.on('close', () => {
 				writing.abort()
 				// Normal EOF can precede consumption of complete buffered gRPC frames.
 				if (
-					!completed &&
-					!receivedStatus &&
+					!responseFinished &&
+					!terminalStatus &&
 					(stream!.rstCode !== constants.NGHTTP2_NO_ERROR || !stream!.readableEnded)
 				) {
-					connectionFailed(streamError(stream!.rstCode, session!.socket.destroyed))
+					failBeforeTerminalStatus(streamError(stream!.rstCode, session!.http2.destroyed))
 				}
 			})
 			frames = createFrameStream(this.#options.maxReceiveBytes!)
@@ -675,32 +678,32 @@ export class Client implements Transport, Disposable {
 				}
 			}
 			controller.signal.throwIfAborted()
-			if (!receivedStatus) {
+			if (!terminalStatus) {
 				throw new RpcError(Status.UNKNOWN, 'RPC ended without grpc-status')
 			}
-			if (receivedStatus.code !== Status.OK) {
+			if (terminalStatus.code !== Status.OK) {
 				throw new RpcError(
-					receivedStatus.code,
-					receivedStatus.details,
-					receivedStatus.metadata
+					terminalStatus.code,
+					terminalStatus.details,
+					terminalStatus.metadata
 				)
 			}
 			if (!method.responseStream && receivedMessages !== 1) {
 				throw new RpcError(Status.INTERNAL, 'Received no response for a unary RPC')
 			}
-			completed = true
-			notify(receivedStatus)
+			responseFinished = true
+			notifyStatus(terminalStatus)
 		} catch (error) {
 			fail(error)
-			throw failed ? failure : error
+			throw responseFailed ? responseError : error
 		} finally {
-			if (!completed) {
+			if (!responseFinished) {
 				fail(new RpcError(Status.CANCELLED, 'Response consumer stopped'))
 			}
 			writing.abort()
 			stopDeadline()
 			options.signal?.removeEventListener('abort', onAbort)
-			this.#releaseCall(session, connectionFailed)
+			this.#releaseCall(session, failBeforeTerminalStatus)
 			this.#calls.delete(fail)
 			stopReading?.()
 			if (frames) {
@@ -722,7 +725,7 @@ export class Client implements Transport, Disposable {
 		}
 		for (let session of this.#sessions) {
 			this.#stopTimers(session)
-			session.socket.destroy()
+			session.http2.destroy()
 		}
 		this.#current = undefined
 	}

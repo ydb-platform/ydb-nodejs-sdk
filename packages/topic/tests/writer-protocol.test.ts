@@ -75,7 +75,8 @@ let openWriteStream = function openWriteStream(
 		}),
 		100
 	)
-	let stream = driver.createClient(TopicServiceDefinition).streamWrite(input, { signal })
+	let client = driver.createClient(TopicServiceDefinition)
+	let stream = client.streamWrite(input, { signal })
 	let iterator = stream[Symbol.asyncIterator]()
 
 	let next = async function next(): Promise<StreamWriteMessage_FromServer> {

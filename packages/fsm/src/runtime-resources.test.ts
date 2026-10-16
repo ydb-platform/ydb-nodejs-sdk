@@ -7,7 +7,8 @@ import { expect, test } from 'vitest'
 
 import { createMachineRuntime } from './runtime.js'
 
-function promiseCounter() {
+// async_hooks counts instrumented PROMISE resources, not physical heap allocations.
+function promiseResourceCounter() {
 	let count = 0
 	let hook = createHook({
 		init(_id, type) {
@@ -26,7 +27,7 @@ function promiseCounter() {
 }
 
 function promiseHookWitness(): number {
-	let counter = promiseCounter()
+	let counter = promiseResourceCounter()
 	counter.hook.enable()
 	try {
 		Promise.resolve()
@@ -36,7 +37,7 @@ function promiseHookWitness(): number {
 	return counter.count
 }
 
-test('idle dispatch does not allocate promises for each synchronous transition', async (tc) => {
+test('idle dispatch does not create PROMISE resources for each synchronous transition', async (tc) => {
 	let witnessed = promiseHookWitness()
 	if ('bun' in process.versions && witnessed === 0) {
 		tc.skip('This Bun runtime does not emit PROMISE async_hooks resources')
@@ -53,7 +54,7 @@ test('idle dispatch does not allocate promises for each synchronous transition',
 			},
 			effects: {},
 		})
-		let counter = promiseCounter()
+		let counter = promiseResourceCounter()
 		let event = { type: 'item' }
 
 		counter.hook.enable()
@@ -74,7 +75,7 @@ test('idle dispatch does not allocate promises for each synchronous transition',
 	expect(large).toBeLessThanOrEqual(small + 1)
 })
 
-test('synchronous effects allocate at most one promise per effect in a busy drain', async (tc) => {
+test('synchronous effects create at most one PROMISE resource per effect in a busy drain', async (tc) => {
 	let witnessed = promiseHookWitness()
 	if ('bun' in process.versions && witnessed === 0) {
 		tc.skip('This Bun runtime does not emit PROMISE async_hooks resources')
@@ -97,7 +98,7 @@ test('synchronous effects allocate at most one promise per effect in a busy drai
 				},
 			},
 		})
-		let counter = promiseCounter()
+		let counter = promiseResourceCounter()
 		let event = { type: 'item' }
 		let checkpoint = setImmediate()
 
@@ -118,7 +119,7 @@ test('synchronous effects allocate at most one promise per effect in a busy drai
 
 	let small = await measure(64)
 	let large = await measure(4096)
-	// The event-loop checkpoint and runner may add a fixed number of promises.
+	// The event-loop checkpoint and runner may add a fixed number of PROMISE resources.
 	expect(large - small).toBeLessThanOrEqual(4096 - 64 + 16)
 })
 

@@ -69,8 +69,8 @@ class Runtime<
 
 	// Ownership precedes synchronous transitions; close() allocates its completion only when it waits.
 	#draining = false
-	#drainTask: Promise<void> | null = null
-	#resolveDrain: (() => void) | null = null
+	#drainCompletion: Promise<void> | null = null
+	#resolveDrainCompletion: (() => void) | null = null
 
 	#eventQueue: Array<E | undefined> = []
 	#eventHead = 0
@@ -312,12 +312,12 @@ class Runtime<
 	}
 
 	#waitForDrain(): Promise<void> {
-		if (!this.#drainTask) {
+		if (!this.#drainCompletion) {
 			let { promise, resolve } = Promise.withResolvers<void>()
-			this.#drainTask = promise
-			this.#resolveDrain = resolve
+			this.#drainCompletion = promise
+			this.#resolveDrainCompletion = resolve
 		}
-		return this.#drainTask
+		return this.#drainCompletion
 	}
 
 	#drain(): Promise<void> | undefined {
@@ -327,7 +327,7 @@ class Runtime<
 
 		this.#draining = true
 		try {
-			let effects = this.#advance()
+			let effects = this.#advanceToEffects()
 			if (effects) {
 				return this.#runEffects(effects)
 			}
@@ -338,7 +338,7 @@ class Runtime<
 		return undefined
 	}
 
-	#advance(): FX[] | undefined {
+	#advanceToEffects(): FX[] | undefined {
 		while (this.#eventQueue.length > 0 && !this.#destroyed) {
 			let event = this.#eventQueue[this.#eventHead]!
 			this.#eventQueue[this.#eventHead] = undefined
@@ -395,7 +395,7 @@ class Runtime<
 					await (handler(this.#ctx, effect as never, this.#hookRuntime) ??
 						(completedEffect ??= Promise.resolve()))
 				}
-				effects = this.#advance()
+				effects = this.#advanceToEffects()
 			}
 		} catch (error) {
 			await this.#handleError(error)
@@ -414,9 +414,9 @@ class Runtime<
 
 	#finishDrain(): void {
 		this.#draining = false
-		this.#drainTask = null
-		let resolve = this.#resolveDrain
-		this.#resolveDrain = null
+		this.#drainCompletion = null
+		let resolve = this.#resolveDrainCompletion
+		this.#resolveDrainCompletion = null
 		// Wake close() before abort listeners enqueue their own microtasks.
 		resolve?.()
 		if (this.#closing && !this.#destroyed && this.#eventQueue.length === 0) {

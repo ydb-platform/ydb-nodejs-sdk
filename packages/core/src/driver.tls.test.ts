@@ -74,8 +74,9 @@ test.for([
 			[option]: { ca },
 			transportOptions: { tls: { servername: 'ydb.test' } },
 		})
-		await expect(
-			driver.createClient(service).whoAmI({}, { signal: tc.signal })
-		).resolves.toBeDefined()
+		let client = driver.createClient(service)
+		let response = client.whoAmI({}, { signal: tc.signal })
+
+		await expect(response).resolves.toBeDefined()
 	}
 )

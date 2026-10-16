@@ -70,7 +70,7 @@ interface Handlers {
 }
 
 // A loopback peer makes transport EOF, cancellation and non-OK trailers deterministic.
-async function serve(handlers: Handlers) {
+async function inProcessGrpcPeer(handlers: Handlers) {
 	let server = new Server()
 	server.addService(definition, { ...handlers })
 	let port = await new Promise<number>((resolve, reject) => {
@@ -110,7 +110,7 @@ async function collect(stream: AsyncIterable<Message>): Promise<number[]> {
 
 test('awaits a unary response with request, header and trailer metadata', async (tc) => {
 	let requestMetadata: Metadata | undefined
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		unary(call, respond) {
 			requestMetadata = call.metadata
 			let header = new Metadata()
@@ -151,7 +151,7 @@ test('awaits a unary response with request, header and trailer metadata', async 
 test('preserves unary status, details and binary trailers', async (tc) => {
 	let metadata = new Metadata()
 	metadata.set('x-error-bin', Buffer.from([4, 5]))
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		unary(_call, respond) {
 			respond({ code: status.RESOURCE_EXHAUSTED, details: 'capacity', metadata })
 		},
@@ -167,7 +167,7 @@ test('preserves unary status, details and binary trailers', async (tc) => {
 })
 
 test('does not start already-aborted calls or consume their inputs', async () => {
-	using peer = await serve({})
+	using peer = await inProcessGrpcPeer({})
 	let reason = new Error('already cancelled')
 	let signal = AbortSignal.abort(reason)
 	let consumed = 0
@@ -186,7 +186,7 @@ test('does not start already-aborted calls or consume their inputs', async () =>
 test('cancels a pending unary call with the caller reason', async (tc) => {
 	let started = Promise.withResolvers<void>()
 	let cancelled = Promise.withResolvers<void>()
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		unary(call) {
 			call.on('cancelled', cancelled.resolve)
 			started.resolve()
@@ -207,7 +207,7 @@ test('cancels a pending unary call with the caller reason', async (tc) => {
 })
 
 test('enforces the call deadline', async (tc) => {
-	using peer = await serve({ unary() {} })
+	using peer = await inProcessGrpcPeer({ unary() {} })
 
 	await expect(
 		peer.client.unary(
@@ -222,7 +222,7 @@ test('enforces the call deadline', async (tc) => {
 
 test('starts a response stream only when iteration begins', async (tc) => {
 	let calls = 0
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		server(call) {
 			calls++
 			call.write({ value: call.request.value })
@@ -237,7 +237,7 @@ test('starts a response stream only when iteration begins', async (tc) => {
 })
 
 test('yields every server response and completes after OK trailers', async (tc) => {
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		server(call) {
 			call.write({ value: 1 })
 			call.write({ value: 2 })
@@ -249,7 +249,7 @@ test('yields every server response and completes after OK trailers', async (tc) 
 })
 
 test('rejects response iteration on non-OK trailers', async (tc) => {
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		server(call) {
 			call.emit('error', { code: status.PERMISSION_DENIED, details: 'denied' })
 		},
@@ -265,7 +265,7 @@ test('rejects response iteration on non-OK trailers', async (tc) => {
 
 test('cancels the RPC when a response consumer breaks early', async (tc) => {
 	let cancelled = Promise.withResolvers<void>()
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		server(call) {
 			call.on('cancelled', cancelled.resolve)
 			call.write({ value: 1 })
@@ -281,7 +281,7 @@ test('cancels the RPC when a response consumer breaks early', async (tc) => {
 
 test('aborts a pending response read with the caller reason', async (tc) => {
 	let started = Promise.withResolvers<void>()
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		server() {
 			started.resolve()
 		},
@@ -302,7 +302,7 @@ test('aborts a pending response read with the caller reason', async (tc) => {
 })
 
 test('half-closes bidirectional input and reads the remaining responses', async (tc) => {
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		bidi(call) {
 			let received: Message[] = []
 			call.on('data', (message: Message) => received.push(message))
@@ -321,7 +321,7 @@ test('half-closes bidirectional input and reads the remaining responses', async 
 })
 
 test('returns a client-streaming response after input ends', async (tc) => {
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		client(call, respond) {
 			let sum = 0
 			call.on('data', (message: Message) => {
@@ -338,7 +338,7 @@ test('propagates a bidirectional producer failure without replacing it with canc
 	let started = Promise.withResolvers<void>()
 	let cancelled = Promise.withResolvers<void>()
 	let failure = new Error('producer failed')
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		bidi(call) {
 			call.on('cancelled', cancelled.resolve)
 			call.on('data', started.resolve)
@@ -356,7 +356,7 @@ test('propagates a bidirectional producer failure without replacing it with canc
 
 test('propagates a client-streaming producer failure', async (tc) => {
 	let failure = new Error('producer failed')
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		client(call) {
 			call.resume()
 		},
@@ -387,7 +387,7 @@ test('bounds request production while a peer stops reading', async (tc) => {
 		await setTimeout(50, undefined, { signal: tc.signal })
 		expect(produced).toBeGreaterThan(0)
 		expect(produced).toBeLessThan(256)
-		expect((await peer.snapshot()).requestBytes).toBe(0)
+		expect((await peer.snapshot()).consumedRequestBytes).toBe(0)
 	} finally {
 		await peer.command('resume-requests')
 	}
@@ -423,13 +423,13 @@ test('aborts a drain wait and closes the request producer', async (tc) => {
 	await setTimeout(50, undefined, { signal: tc.signal })
 	expect(produced).toBeGreaterThan(0)
 	expect(produced).toBeLessThan(256)
-	expect((await peer.snapshot()).requestBytes).toBe(0)
+	expect((await peer.snapshot()).consumedRequestBytes).toBe(0)
 	controller.abort(reason)
 	expect(await failure).toBe(reason)
 	expect(closed).toBe(true)
 	expect(await peer.wait('request-closed')).toBe(constants.NGHTTP2_CANCEL)
 	let received = await peer.snapshot()
-	expect(received.requestBytes).toBe(0)
+	expect(received.consumedRequestBytes).toBe(0)
 	expect(received.bufferedRequestBytes).toBe(0)
 	expect(received.requestMessages).toBe(0)
 	expect(received.requestResetCodes).toEqual([constants.NGHTTP2_CANCEL])
@@ -463,7 +463,7 @@ function blockedInput() {
 }
 
 test('finishes a response stream without waiting for a blocked request producer', async (tc) => {
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		bidi(call) {
 			call.on('data', () => call.end())
 		},
@@ -478,7 +478,7 @@ test('finishes a response stream without waiting for a blocked request producer'
 })
 
 test('stops a client-streaming producer after an early server response', async (tc) => {
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		client(call, respond) {
 			call.once('data', () => respond(null, { value: 42 }))
 		},
@@ -495,7 +495,7 @@ test('stops a client-streaming producer after an early server response', async (
 test('cancels while a request next is blocked and never writes its late value', async (tc) => {
 	let started = Promise.withResolvers<void>()
 	let received: number[] = []
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		bidi(call) {
 			call.on('data', (message: Message) => {
 				received.push(message.value)
@@ -526,7 +526,7 @@ test('cancels while a request next is blocked and never writes its late value', 
 })
 
 test('stops requests on abort while the response consumer is paused', async (tc) => {
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		bidi(call) {
 			call.once('data', (message: Message) => call.write(message))
 		},
@@ -553,7 +553,7 @@ test('stops requests on abort while the response consumer is paused', async (tc)
 
 test('stops requests at server EOF while the response consumer is paused', async (tc) => {
 	let end = Promise.withResolvers<() => void>()
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		bidi(call) {
 			call.once('data', (message: Message) => {
 				call.write(message)
@@ -578,7 +578,7 @@ test('stops requests at server EOF while the response consumer is paused', async
 })
 
 test('handles a producer rejection that races synchronous cancellation', async (tc) => {
-	using peer = await serve({
+	using peer = await inProcessGrpcPeer({
 		bidi(call) {
 			call.resume()
 		},

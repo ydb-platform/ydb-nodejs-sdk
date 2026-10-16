@@ -22,7 +22,7 @@ export type FaultScenario =
 type Snapshot = {
 	sessions: number
 	streams: number
-	requestBytes: number
+	consumedRequestBytes: number
 	bufferedRequestBytes: number
 	requestMessages: number
 	requestResetCodes: number[]

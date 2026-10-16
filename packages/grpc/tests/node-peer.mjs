@@ -14,7 +14,7 @@ let observations = []
 let pings = 0
 let pingDelays = []
 let small
-let requestBytes = 0
+let consumedRequestBytes = 0
 let requestMessages = 0
 let requestResetCodes = []
 let stopping = false
@@ -146,7 +146,7 @@ server.on('stream', (stream, headers) => {
 					event('request-closed', stream.rstCode)
 				})
 				stream.on('data', (chunk) => {
-					requestBytes += chunk.length
+					consumedRequestBytes += chunk.length
 					let offset = 0
 					while (offset < chunk.length) {
 						if (headerBytes < 5) {
@@ -215,7 +215,7 @@ async function command(name) {
 			return {
 				sessions: sessions.length,
 				streams: streams.length,
-				requestBytes,
+				consumedRequestBytes,
 				bufferedRequestBytes: streams.reduce(
 					(size, stream) => size + stream.readableLength,
 					0

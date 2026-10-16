@@ -443,7 +443,7 @@ let retireNode2 = async function retireNode2(
 	await settle()
 }
 
-test('idle_sweep closes a retired channel in SHUTDOWN', async (tc) => {
+test('reaps a closed retired connection during idle sweep', async (tc) => {
 	let discovery = makeFakeDiscovery()
 	let connections = makeFakeConnectionFactory()
 	await using h = setup([endpoint(1), endpoint(2)], { discovery, connections })
@@ -458,7 +458,7 @@ test('idle_sweep closes a retired channel in SHUTDOWN', async (tc) => {
 	expect(h.pool.snapshot.byNodeId.has(2n)).toBe(false)
 })
 
-test('idle_sweep keeps a retired channel that is READY', async (tc) => {
+test('keeps a ready retired connection during idle sweep', async (tc) => {
 	let discovery = makeFakeDiscovery()
 	let connections = makeFakeConnectionFactory()
 	await using h = setup([endpoint(1), endpoint(2)], { discovery, connections })
@@ -473,13 +473,13 @@ test('idle_sweep keeps a retired channel that is READY', async (tc) => {
 	expect(connections.byNode(2n)!.closed).toBe(false)
 })
 
-test('idle_sweep reaps a retired channel idle past the grace window', async (tc) => {
+test('reaps a retired connection idle past the grace window', async (tc) => {
 	let discovery = makeFakeDiscovery()
 	let connections = makeFakeConnectionFactory()
 	await using h = setup([endpoint(1), endpoint(2)], {
 		discovery,
 		connections,
-		retiredGraceMs: 0, // any non-READY state is immediately past grace
+		retiredGraceMs: 0,
 	})
 	await h.pool.ready(tc.signal)
 	await retireNode2(h, discovery)

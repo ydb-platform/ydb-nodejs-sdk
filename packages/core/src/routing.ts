@@ -49,17 +49,17 @@ export function createRoutingTransport(
 
 			using linked = linkSignals(options.signal, routing.signal)
 			let connection: Connection | undefined
-			let started = false
-			let finished = false
-			let start = 0
+			let registeredWithPool = false
+			let statusReported = false
+			let startedAt = 0
 			let onComplete: ((event: CallCompleteEvent) => void) | undefined
 			let restore = routing.hooks?.onCall ? AsyncLocalStorage.snapshot() : undefined
-			let finish = (status: RpcStatus) => {
-				if (finished) {
+			let reportStatus = (status: RpcStatus) => {
+				if (statusReported) {
 					return
 				}
 
-				finished = true
+				statusReported = true
 				if (pool && connection) {
 					let nodeId = connection.endpoint.nodeId
 					if (
@@ -78,7 +78,7 @@ export function createRoutingTransport(
 					restore(() =>
 						safeHook('onComplete', onComplete, {
 							grpcStatusCode: status.code,
-							duration: performance.now() - start,
+							duration: performance.now() - startedAt,
 						})
 					)
 				}
@@ -102,16 +102,18 @@ export function createRoutingTransport(
 					throw new Error('Client is closed')
 				}
 
-				connection = pool
-					? routing.hard && routing.nodeId !== undefined
-						? pool.acquireNode(routing.nodeId, { hard: true })
-						: pool.acquire(routing.nodeId)
-					: (source as Connection)
+				if (!pool) {
+					connection = source as Connection
+				} else if (routing.hard && routing.nodeId !== undefined) {
+					connection = pool.acquireNode(routing.nodeId, { hard: true })
+				} else {
+					connection = pool.acquire(routing.nodeId)
+				}
 				if (pool) {
 					pool.callStarted(connection.endpoint.nodeId)
-					started = true
+					registeredWithPool = true
 					if (routing.hooks?.onCall) {
-						start = performance.now()
+						startedAt = performance.now()
 						let snapshot = pool.snapshot
 						let completion = safeHook('onCall', routing.hooks.onCall, {
 							method: method.path,
@@ -134,27 +136,29 @@ export function createRoutingTransport(
 					...options,
 					metadata,
 					signal: linked.signal,
-					onStatus: finish,
+					onStatus: reportStatus,
 				})
-				finish({ code: Status.OK, details: '', metadata: {} })
+				reportStatus({ code: Status.OK, details: '', metadata: {} })
 			} catch (error) {
-				finish(
-					error instanceof RpcError
-						? error
-						: {
-								code: linked.signal.aborted ? Status.CANCELLED : Status.UNKNOWN,
-								details: error instanceof Error ? error.message : String(error),
-								metadata: {},
-							}
-				)
+				let status: RpcStatus
+				if (error instanceof RpcError) {
+					status = error
+				} else {
+					status = {
+						code: linked.signal.aborted ? Status.CANCELLED : Status.UNKNOWN,
+						details: error instanceof Error ? error.message : String(error),
+						metadata: {},
+					}
+				}
+				reportStatus(status)
 				throw error
 			} finally {
-				finish({
+				reportStatus({
 					code: Status.CANCELLED,
 					details: 'Response iterator closed',
 					metadata: {},
 				})
-				if (started) {
+				if (registeredWithPool) {
 					pool!.callEnded(connection!.endpoint.nodeId)
 				}
 			}

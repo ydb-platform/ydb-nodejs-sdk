@@ -29,37 +29,26 @@ import { PileState, PileState_State } from '@ydbjs/api/bridge' // bridge / multi
 
 ### Using with @ydbjs/core
 
+Driver takes the database from the connection string and adds database and authentication metadata to each call.
+
 ```ts
 import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
 import { Driver } from '@ydbjs/core'
 
-let driver = new Driver('grpc://localhost:2136/local')
-await driver.ready()
+using driver = new Driver('grpc://localhost:2136/local')
+let signal = AbortSignal.timeout(5000)
+await driver.ready(signal)
 let client = driver.createClient(DiscoveryServiceDefinition)
 
-let response = await client.listEndpoints({ database: driver.database })
+let response = await client.listEndpoints({ database: driver.database }, { signal })
 console.log(response)
-driver.close()
 ```
 
 ### Using the standalone transport
 
-```ts
-import { Client, createServiceClient } from '@ydbjs/grpc'
-import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
+Pass a generated service definition and a transport to `createServiceClient(service, transport)` from `@ydbjs/grpc` for direct gRPC access. The transport connects to one authority; Driver supplies YDB discovery, authentication, database metadata, and node selection.
 
-using transport = new Client('http://localhost:2136')
-let client = createServiceClient(DiscoveryServiceDefinition, transport)
-let response = await client.listEndpoints(
-  { database: '/local' },
-  {
-    metadata: { 'x-ydb-database': '/local' },
-    signal: AbortSignal.timeout(5000),
-  }
-)
-```
-
-Unary and client-streaming methods return `Promise<Response>`. Server-streaming and bidirectional methods return `AsyncIterable<Response>`. The standalone transport connects to one authority; use `Driver` for YDB discovery, authentication, and node selection. See [`@ydbjs/grpc`](../grpc/README.md) for cancellation, metadata, and connection options.
+Unary and client-streaming methods return `Promise<Response>`. Server-streaming and bidirectional methods return `AsyncIterable<Response>`. See [`@ydbjs/grpc`](../grpc/README.md) for cancellation, metadata, and connection options.
 
 ## Development
 

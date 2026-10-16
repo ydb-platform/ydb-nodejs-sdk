@@ -444,7 +444,8 @@ test('releases a consumed event while a later effect blocks the remaining queue'
 	}
 })
 
-function countPromiseAllocations(action: () => void): number {
+// async_hooks counts instrumented PROMISE resources, not physical heap allocations.
+function countPromiseResources(action: () => void): number {
 	let count = 0
 	let hook = createHook({
 		init(_id, type) {
@@ -463,12 +464,12 @@ function countPromiseAllocations(action: () => void): number {
 	return count
 }
 
-test('keeps promise allocation constant while an effect blocks queued events', async (tc) => {
-	let probe = countPromiseAllocations(() => {
+test('keeps the PROMISE resource count constant while an effect blocks queued events', async (tc) => {
+	let probe = countPromiseResources(() => {
 		void Promise.resolve()
 	})
 	if (process.versions.bun && probe === 0) {
-		tc.skip('This runtime does not emit PROMISE async_hooks; allocation coverage requires Node')
+		tc.skip('This runtime does not emit PROMISE async_hooks; resource coverage requires Node')
 	}
 	expect(probe).toBeGreaterThan(0)
 
@@ -500,11 +501,11 @@ test('keeps promise allocation constant while an effect blocks queued events', a
 		for (let round = 0; round < 3; round++) {
 			gate = Promise.withResolvers<void>()
 			machine.dispatch({ type: 'block' })
-			let single = countPromiseAllocations(() => {
+			let single = countPromiseResources(() => {
 				machine.dispatch({ type: 'item' })
 			})
 			for (let size of [64, 4000]) {
-				let burst = countPromiseAllocations(() => {
+				let burst = countPromiseResources(() => {
 					for (let index = 0; index < size; index++) {
 						machine.dispatch({ type: 'item' })
 					}
@@ -519,7 +520,7 @@ test('keeps promise allocation constant while an effect blocks queued events', a
 			expect(machine.ctx.processed).toBe(processed)
 		}
 		await machine.close()
-		let stopped = countPromiseAllocations(() => {
+		let stopped = countPromiseResources(() => {
 			for (let index = 0; index < 4000; index++) {
 				machine.dispatch({ type: 'item' })
 			}
