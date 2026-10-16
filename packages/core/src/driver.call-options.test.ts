@@ -43,8 +43,9 @@ test('keeps mandatory headers and auth after caller metadata and metadata hooks'
 		'x-ydb-auth-ticket': 'caller-token',
 	})
 	let options = Object.freeze({ signal: tc.signal, metadata })
+	let client = driver.createClient(DiscoveryServiceDefinition)
 
-	await driver.createClient(DiscoveryServiceDefinition).whoAmI({}, options)
+	await client.whoAmI({}, options)
 
 	expect(received?.get('x-hook')).toEqual(['present'])
 	expect(received?.get('x-caller')).toEqual(['present'])
@@ -79,8 +80,11 @@ test('keeps registered metadata hooks in an existing driver after registration d
 		'ydb.sdk.enable_discovery': false,
 	})
 
-	await first.createClient(DiscoveryServiceDefinition).whoAmI({}, { signal: tc.signal })
-	await second.createClient(DiscoveryServiceDefinition).whoAmI({}, { signal: tc.signal })
+	let firstClient = first.createClient(DiscoveryServiceDefinition)
+	let secondClient = second.createClient(DiscoveryServiceDefinition)
+
+	await firstClient.whoAmI({}, { signal: tc.signal })
+	await secondClient.whoAmI({}, { signal: tc.signal })
 
 	expect(observed).toEqual(['retained', undefined])
 })
@@ -114,9 +118,10 @@ test('cancels authentication before opening an RPC when a token provider ignores
 	})
 	let controller = new AbortController()
 	let reason = new Error('caller cancelled token wait')
-	let pending = driver
-		.createClient(DiscoveryServiceDefinition)
-		.whoAmI({}, { signal: AbortSignal.any([tc.signal, controller.signal]) })
+	let signal = AbortSignal.any([tc.signal, controller.signal])
+	let client = driver.createClient(DiscoveryServiceDefinition)
+
+	let pending = client.whoAmI({}, { signal })
 	await entered.promise
 
 	controller.abort(reason)
@@ -140,12 +145,11 @@ test('applies the RPC deadline while credentials are pending', async (tc) => {
 		'ydb.sdk.enable_discovery': false,
 		credentialsProvider: new PendingCredentials(),
 	})
+	let client = driver.createClient(DiscoveryServiceDefinition)
 
-	await expect(
-		driver
-			.createClient(DiscoveryServiceDefinition)
-			.whoAmI({}, { signal: tc.signal, deadline: Date.now() + 30 })
-	).rejects.toMatchObject({ code: Status.DEADLINE_EXCEEDED })
+	let pending = client.whoAmI({}, { signal: tc.signal, deadline: Date.now() + 30 })
+
+	await expect(pending).rejects.toMatchObject({ code: Status.DEADLINE_EXCEEDED })
 	expect(providerSignal?.aborted).toBe(true)
 })
 
@@ -171,8 +175,9 @@ test('does not abort completed credential requests when the RPC ends', async (tc
 		'ydb.sdk.enable_discovery': false,
 		credentialsProvider: new RefreshingCredentials(),
 	})
+	let client = driver.createClient(DiscoveryServiceDefinition)
 
-	await driver.createClient(DiscoveryServiceDefinition).whoAmI({}, { signal: tc.signal })
+	await client.whoAmI({}, { signal: tc.signal })
 	driver.close()
 
 	expect(providerSignal?.aborted).toBe(false)
@@ -201,9 +206,10 @@ test('reports credential failures without opening an unauthenticated RPC', async
 		'ydb.sdk.enable_discovery': false,
 		credentialsProvider: new FailingCredentials(),
 	})
+	let client = driver.createClient(DiscoveryServiceDefinition)
 
-	await expect(
-		driver.createClient(DiscoveryServiceDefinition).whoAmI({}, { signal: tc.signal })
-	).rejects.toBe(failure)
+	let pending = client.whoAmI({}, { signal: tc.signal })
+
+	await expect(pending).rejects.toBe(failure)
 	expect(calls).toBe(0)
 })
