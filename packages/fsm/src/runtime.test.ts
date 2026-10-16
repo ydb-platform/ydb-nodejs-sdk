@@ -1,6 +1,9 @@
 // oxlint-disable no-await-in-loop
 
-import { setTimeout as sleep } from 'node:timers/promises'
+import { createHook } from 'node:async_hooks'
+import { setImmediate, setTimeout as sleep } from 'node:timers/promises'
+
+import { abortable } from '@ydbjs/abortable'
 
 import { expect, test } from 'vitest'
 
@@ -80,6 +83,259 @@ test('close drains queued events and runs effects before shutdown', async () => 
 
 	expect(initialCtx.sum).toBe(6)
 	expect(initialCtx.recorded).toEqual([1, 2, 3])
+})
+
+test('close waits for a blocked effect and drains the accepted burst in FIFO order', async (tc) => {
+	type Event = { type: 'block' } | { type: 'item'; value: number }
+	type Effect = { type: 'wait' }
+
+	let gate = Promise.withResolvers<void>()
+	let values = Array.from({ length: 64 }, (_, index) => index)
+	await using machine = createMachineRuntime<
+		'ready',
+		{ seen: number[] },
+		{},
+		Event,
+		Effect,
+		number
+	>({
+		initialState: 'ready',
+		ctx: { seen: [] },
+		env: {},
+		transition(ctx, event, runtime) {
+			if (event.type === 'block') {
+				return { effects: [{ type: 'wait' }] }
+			}
+
+			ctx.seen.push(event.value)
+			runtime.emit(event.value)
+		},
+		effects: { wait: () => gate.promise },
+	})
+	let received = (async () => {
+		let outputs: number[] = []
+		for await (let output of machine) {
+			outputs.push(output)
+		}
+		return outputs
+	})()
+
+	try {
+		machine.dispatch({ type: 'block' })
+		for (let value of values) {
+			machine.dispatch({ type: 'item', value })
+		}
+		expect(machine.ctx.seen).toEqual([])
+
+		let reason = new Error('close after accepted burst')
+		let settled = false
+		let closing = machine.close(reason).then(() => {
+			settled = true
+			return undefined
+		})
+		machine.dispatch({ type: 'item', value: 64 })
+		await setImmediate(undefined, { signal: tc.signal })
+		expect(settled).toBe(false)
+		expect(machine.signal.aborted).toBe(false)
+
+		gate.resolve()
+		await closing
+		expect(machine.ctx.seen).toEqual(values)
+		expect(await received).toEqual(values)
+		expect(machine.signal.reason).toBe(reason)
+	} finally {
+		gate.resolve()
+	}
+})
+
+test('queues reentrant events after a blocked burst and accepts a later drain', async (tc) => {
+	type Event = { type: 'block' } | { type: 'item'; value: number }
+	type Effect = { type: 'wait' }
+
+	let gate = Promise.withResolvers<void>()
+	let reentrantProcessed = Promise.withResolvers<void>()
+	let laterProcessed = Promise.withResolvers<void>()
+	let values = Array.from({ length: 32 }, (_, index) => index)
+	await using machine = createMachineRuntime<
+		'ready',
+		{ seen: number[] },
+		{},
+		Event,
+		Effect,
+		never
+	>({
+		initialState: 'ready',
+		ctx: { seen: [] },
+		env: {},
+		transition(ctx, event, runtime) {
+			if (event.type === 'block') {
+				return { effects: [{ type: 'wait' }] }
+			}
+
+			ctx.seen.push(event.value)
+			if (event.value === 0) {
+				runtime.dispatch({ type: 'item', value: 33 })
+			}
+			if (event.value === 33) {
+				reentrantProcessed.resolve()
+			}
+			if (event.value === 34) {
+				laterProcessed.resolve()
+			}
+		},
+		effects: {
+			async wait(_ctx, _effect, runtime) {
+				await gate.promise
+				runtime.dispatch({ type: 'item', value: 32 })
+			},
+		},
+	})
+
+	try {
+		machine.dispatch({ type: 'block' })
+		for (let value of values) {
+			machine.dispatch({ type: 'item', value })
+		}
+		expect(machine.ctx.seen).toEqual([])
+
+		gate.resolve()
+		await abortable(tc.signal, reentrantProcessed.promise)
+		expect(machine.ctx.seen).toEqual([...values, 32, 33])
+		machine.dispatch({ type: 'item', value: 34 })
+		await abortable(tc.signal, laterProcessed.promise)
+		expect(machine.ctx.seen).toEqual([...values, 32, 33, 34])
+		await machine.close()
+	} finally {
+		gate.resolve()
+	}
+})
+
+test('drops a queued burst when its blocked effect rejects', async (tc) => {
+	type Event = { type: 'block' } | { type: 'item'; value: number }
+	type Effect = { type: 'wait' }
+
+	let gate = Promise.withResolvers<void>()
+	let reason = new Error('blocked effect failed')
+	await using machine = createMachineRuntime<
+		'ready',
+		{ seen: number[] },
+		{},
+		Event,
+		Effect,
+		number
+	>({
+		initialState: 'ready',
+		ctx: { seen: [] },
+		env: {},
+		transition(ctx, event, runtime) {
+			if (event.type === 'block') {
+				return { effects: [{ type: 'wait' }] }
+			}
+
+			ctx.seen.push(event.value)
+			runtime.emit(event.value)
+		},
+		effects: { wait: () => gate.promise },
+	})
+	let received: number[] = []
+	let failure = (async () => {
+		try {
+			for await (let output of machine) {
+				received.push(output)
+			}
+		} catch (error) {
+			return error
+		}
+	})()
+
+	try {
+		machine.dispatch({ type: 'block' })
+		for (let value = 0; value < 64; value++) {
+			machine.dispatch({ type: 'item', value })
+		}
+		gate.reject(reason)
+
+		expect(await abortable(tc.signal, failure)).toBe(reason)
+		machine.dispatch({ type: 'item', value: 64 })
+		expect(machine.ctx.seen).toEqual([])
+		expect(received).toEqual([])
+		expect(machine.signal.reason).toBe(reason)
+	} finally {
+		gate.resolve()
+	}
+})
+
+function countPromiseAllocations(action: () => void): number {
+	let count = 0
+	let hook = createHook({
+		init(_id, type) {
+			if (type === 'PROMISE') {
+				count += 1
+			}
+		},
+	})
+
+	hook.enable()
+	try {
+		action()
+	} finally {
+		hook.disable()
+	}
+	return count
+}
+
+test('keeps promise allocation constant while an effect blocks queued events', async (tc) => {
+	let probe = countPromiseAllocations(() => {
+		void Promise.resolve()
+	})
+	if (process.versions.bun && probe === 0) {
+		tc.skip('This runtime does not emit PROMISE async_hooks; allocation coverage requires Node')
+	}
+	expect(probe).toBeGreaterThan(0)
+
+	type Event = { type: 'block' } | { type: 'item' }
+	type Effect = { type: 'wait' }
+	let gate = Promise.withResolvers<void>()
+	await using machine = createMachineRuntime<
+		'ready',
+		{ processed: number },
+		{},
+		Event,
+		Effect,
+		never
+	>({
+		initialState: 'ready',
+		ctx: { processed: 0 },
+		env: {},
+		transition(ctx, event) {
+			if (event.type === 'block') {
+				return { effects: [{ type: 'wait' }] }
+			}
+			ctx.processed += 1
+		},
+		effects: { wait: () => gate.promise },
+	})
+
+	try {
+		machine.dispatch({ type: 'block' })
+		let single = countPromiseAllocations(() => {
+			machine.dispatch({ type: 'item' })
+		})
+		let burst = countPromiseAllocations(() => {
+			for (let index = 0; index < 4000; index++) {
+				machine.dispatch({ type: 'item' })
+			}
+		})
+
+		expect(machine.ctx.processed).toBe(0)
+		// Queueing behind an active drain must not create a waiter for every event.
+		expect(burst).toBeLessThanOrEqual(single + 1)
+		gate.resolve()
+		await machine.close()
+		expect(machine.ctx.processed).toBe(4001)
+	} finally {
+		gate.resolve()
+	}
 })
 
 test('ingests async iterable source and maps input to events', async () => {

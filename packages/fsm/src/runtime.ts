@@ -199,6 +199,10 @@ class Runtime<
 
 		this.#eventQueue.push(event)
 
+		if (this.#drainTask) {
+			return
+		}
+
 		// Drain handles errors internally (via #handleError → destroy).
 		// Suppress the rejected promise so Node does not surface it as
 		// an unhandled rejection when dispatch is fire-and-forget.
@@ -304,13 +308,8 @@ class Runtime<
 	}
 
 	async #drain(): Promise<void> {
-		// Loop rather than branch: multiple callers may be waiting on the same
-		// drainTask. When it resolves they all wake up simultaneously — the loop
-		// ensures each re-checks whether a new task was already started before
-		// creating another one. A drain re-entered from a transition or effect
-		// (via dispatch) also lands here: the event is already in the shared queue
-		// and the running loop will pick it up, so waiting is correct — starting a
-		// second loop would process it against stale (pre-transition) state.
+		// A caller waiting for an existing drain must re-check ownership when
+		// resumed: another caller may have started draining the queued tail.
 		while (this.#drainTask) {
 			// oxlint-disable-next-line no-await-in-loop
 			await this.#drainTask
