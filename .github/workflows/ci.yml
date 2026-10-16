@@ -77,11 +77,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { id: node22, runtime: node, version: '22', node: '22', bun: '1.4.3' }
-          - { id: node24, runtime: node, version: '24', node: '24', bun: '1.4.3' }
-          - { id: node26, runtime: node, version: '26', node: '26', bun: '1.4.3' }
-          - { id: bun13, runtime: bun, version: '1.3.14', node: '24', bun: '1.3.14' }
-          - { id: bun14, runtime: bun, version: '1.4.3', node: '24', bun: '1.4.3' }
+          - { id: node22, runtime: node, version: '22', node: '22' }
+          - { id: node24, runtime: node, version: '24', node: '24' }
+          - { id: node26, runtime: node, version: '26', node: '26' }
+          - { id: bun14, runtime: bun, version: '1.4.3', node: '24' }
     env:
       GRPC_TEST_RUNTIME: ${{ matrix.runtime }}
       GRPC_TEST_VERSION: ${{ matrix.version }}
@@ -95,7 +94,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           node-version: ${{ matrix.node }}
-          bun-version: ${{ matrix.bun }}
+          bun-version: '1.4.3'
       - uses: actions/setup-go@v7
         with:
           go-version: '1.25.5'

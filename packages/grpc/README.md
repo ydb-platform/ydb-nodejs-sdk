@@ -1,6 +1,6 @@
 # @ydbjs/grpc
 
-A gRPC client transport over Node.js HTTP/2, with Promise unary calls and AsyncIterable streams. Requires Node.js 22.15 or later. It has no runtime package dependencies.
+A gRPC client transport over `node:http2`, with Promise unary calls and AsyncIterable streams. Runs on Node.js `^22.15.0 || >=23.8.0` or Bun `>=1.4.0`. It has no runtime package dependencies.
 
 ## Calling a service
 

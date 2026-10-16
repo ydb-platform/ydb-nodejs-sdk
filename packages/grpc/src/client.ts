@@ -624,30 +624,7 @@ export class Client implements Transport, Disposable {
 			frames = createFrameStream(this.#options.maxReceiveBytes!)
 			frames.on('error', fail)
 			stopReading = streamFinished(stream, { writable: false }, (error) => {
-				if (!error) {
-					return
-				}
-				if (
-					(error as NodeJS.ErrnoException).code === 'ERR_STREAM_PREMATURE_CLOSE' &&
-					receivedStatus &&
-					stream!.rstCode === constants.NGHTTP2_NO_ERROR &&
-					stream!.destroyed &&
-					!completed &&
-					!frames!.destroyed &&
-					!frames!.writableEnded
-				) {
-					// Terminal trailers can arrive before the Readable drains its buffered DATA.
-					stream!.unpipe(frames!)
-					try {
-						let chunk: Buffer | null
-						while ((chunk = stream!.read()) !== null) {
-							frames!.write(chunk)
-						}
-						frames!.end()
-					} catch (drainError) {
-						frames!.destroy(drainError as Error)
-					}
-				} else {
+				if (error) {
 					frames!.destroy(error)
 				}
 			})
