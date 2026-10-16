@@ -1,3 +1,4 @@
+import { constants } from 'node:http2'
 import { setTimeout } from 'node:timers/promises'
 
 import {
@@ -12,6 +13,7 @@ import {
 } from '@grpc/grpc-js'
 import { expect, test } from 'vitest'
 
+import { nodePeer } from '../tests/node-peer.ts'
 import { Client } from './client.ts'
 import { createServiceClient } from './service.ts'
 import type { Metadata as CallMetadata } from './types.ts'
@@ -368,50 +370,39 @@ test('propagates a client-streaming producer failure', async (tc) => {
 })
 
 test('bounds request production while a peer stops reading', async (tc) => {
-	let connected = Promise.withResolvers<() => void>()
 	let produced = 0
 	let padding = new Uint8Array(128 * 1024)
-	using peer = await serve({
-		client(call, respond) {
-			let received = 0
-			call.on('data', () => {
-				received++
-			})
-			call.on('end', () => respond(null, { value: received }))
-			call.pause()
-			connected.resolve(() => call.resume())
-		},
-	})
+	await using peer = await nodePeer({ type: 'backpressure', initialWindowSize: 65535 }, tc.signal)
+	using transport = new Client(peer.authority)
+	let client = createServiceClient(definition, transport)
 	async function* input() {
 		for (let value = 0; value < 256; value++) {
 			produced++
 			yield { value, padding }
 		}
 	}
-	let response = peer.client.client(input(), { signal: tc.signal })
-	let resume = await connected.promise
+	let response = client.client(input(), { signal: tc.signal })
+	await peer.wait('request-started')
 	try {
 		await setTimeout(50, undefined, { signal: tc.signal })
 		expect(produced).toBeGreaterThan(0)
 		expect(produced).toBeLessThan(256)
+		expect((await peer.snapshot()).requestBytes).toBe(0)
 	} finally {
-		resume()
+		await peer.command('resume-requests')
 	}
 
 	expect((await response).value).toBe(256)
+	expect((await peer.snapshot()).requestMessages).toBe(256)
 })
 
 test('aborts a drain wait and closes the request producer', async (tc) => {
-	let connected = Promise.withResolvers<void>()
 	let produced = 0
 	let closed = false
 	let padding = new Uint8Array(128 * 1024)
-	using peer = await serve({
-		bidi(call) {
-			call.pause()
-			connected.resolve()
-		},
-	})
+	await using peer = await nodePeer({ type: 'backpressure', initialWindowSize: 0 }, tc.signal)
+	using transport = new Client(peer.authority)
+	let client = createServiceClient(definition, transport)
 	async function* input() {
 		try {
 			for (let value = 0; value < 256; value++) {
@@ -425,16 +416,23 @@ test('aborts a drain wait and closes the request producer', async (tc) => {
 	let controller = new AbortController()
 	let reason = new Error('abort blocked writes')
 	let response = collect(
-		peer.client.bidi(input(), { signal: AbortSignal.any([tc.signal, controller.signal]) })
+		client.bidi(input(), { signal: AbortSignal.any([tc.signal, controller.signal]) })
 	)
 	let failure = response.catch((error: unknown) => error)
-	await connected.promise
+	await peer.wait('request-started')
 	await setTimeout(50, undefined, { signal: tc.signal })
 	expect(produced).toBeGreaterThan(0)
 	expect(produced).toBeLessThan(256)
+	expect((await peer.snapshot()).requestBytes).toBe(0)
 	controller.abort(reason)
 	expect(await failure).toBe(reason)
 	expect(closed).toBe(true)
+	expect(await peer.wait('request-closed')).toBe(constants.NGHTTP2_CANCEL)
+	let received = await peer.snapshot()
+	expect(received.requestBytes).toBe(0)
+	expect(received.bufferedRequestBytes).toBe(0)
+	expect(received.requestMessages).toBe(0)
+	expect(received.requestResetCodes).toEqual([constants.NGHTTP2_CANCEL])
 })
 
 function blockedInput() {

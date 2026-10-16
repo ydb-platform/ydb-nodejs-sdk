@@ -8,12 +8,12 @@ export type FaultScenario =
 	| { type: 'reset'; code: number; streaming: boolean }
 	| { type: 'terminal-reset'; status: number }
 	| { type: 'receive-tail'; fault: 'malformed' | 'truncated' | 'gzip' }
+	| { type: 'backpressure'; initialWindowSize: 0 | 65535 }
 	| {
 			type:
 				| 'missing-status'
 				| 'premature-close'
 				| 'partial-body'
-				| 'response-cancel'
 				| 'flow-control'
 				| 'keepalive'
 				| 'keepalive-cap'
@@ -22,6 +22,10 @@ export type FaultScenario =
 type Snapshot = {
 	sessions: number
 	streams: number
+	requestBytes: number
+	bufferedRequestBytes: number
+	requestMessages: number
+	requestResetCodes: number[]
 	attemptedResets: number[]
 	observations: { name: string; value: unknown; at: number }[]
 	pings: number

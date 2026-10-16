@@ -14,10 +14,17 @@ let observations = []
 let pings = 0
 let pingDelays = []
 let small
+let requestBytes = 0
+let requestMessages = 0
+let requestResetCodes = []
 let stopping = false
 let input = createInterface({ input: process.stdin })
 let server = createServer(
-	scenario.type === 'flow-control' ? { settings: { initialWindowSize: 0 } } : {}
+	scenario.type === 'flow-control'
+		? { settings: { initialWindowSize: 0 } }
+		: scenario.type === 'backpressure'
+			? { settings: { initialWindowSize: scenario.initialWindowSize } }
+			: {}
 )
 
 function send(record) {
@@ -126,6 +133,52 @@ server.on('stream', (stream, headers) => {
 				stream.write(frame('incomplete body').subarray(0, 6))
 				event('first-sent')
 				break
+			case 'backpressure': {
+				let header = Buffer.alloc(5)
+				let headerBytes = 0
+				let remaining = 0
+				let aborted = false
+				stream.once('aborted', () => {
+					aborted = true
+				})
+				stream.once('close', () => {
+					requestResetCodes.push(stream.rstCode)
+					event('request-closed', stream.rstCode)
+				})
+				stream.on('data', (chunk) => {
+					requestBytes += chunk.length
+					let offset = 0
+					while (offset < chunk.length) {
+						if (headerBytes < 5) {
+							let count = Math.min(5 - headerBytes, chunk.length - offset)
+							chunk.copy(header, headerBytes, offset, offset + count)
+							headerBytes += count
+							offset += count
+							if (headerBytes < 5) continue
+							if (header[0] !== 0) throw new Error('Unexpected compressed request')
+							remaining = header.readUInt32BE(1)
+						}
+						let count = Math.min(remaining, chunk.length - offset)
+						remaining -= count
+						offset += count
+						if (remaining === 0) {
+							headerBytes = 0
+							requestMessages += 1
+						}
+					}
+				})
+				stream.once('end', () => {
+					if (aborted || stream.destroyed) return
+					if (headerBytes !== 0 || remaining !== 0)
+						throw new Error('Truncated request frame')
+					let response = Buffer.alloc(4)
+					response.writeUInt32LE(requestMessages)
+					reply(stream, [response])
+				})
+				stream.pause()
+				event('request-started')
+				break
+			}
 			case 'flow-control':
 				if (headers[':path'] === '/test.Transport/Large') {
 					event('large-started')
@@ -162,12 +215,22 @@ async function command(name) {
 			return {
 				sessions: sessions.length,
 				streams: streams.length,
+				requestBytes,
+				bufferedRequestBytes: streams.reduce(
+					(size, stream) => size + stream.readableLength,
+					0
+				),
+				requestMessages,
+				requestResetCodes,
 				attemptedResets,
 				observations,
 				pings,
 				pingDelays,
 				errors,
 			}
+		case 'resume-requests':
+			streams[0].resume()
+			return null
 		case 'reply-small':
 			reply(small, ['concurrent response'])
 			return null
