@@ -74,7 +74,8 @@ class Runtime<
 	// output queue mid-drain.
 	#drainTask: Promise<void> | null = null
 
-	#eventQueue: E[] = []
+	#eventQueue: Array<E | undefined> = []
+	#eventHead = 0
 	#outputQueue = new AsyncQueue<O>()
 
 	#closing = false
@@ -147,6 +148,10 @@ class Runtime<
 			using combined = linkSignals(this.#ac.signal, ac.signal, signal)
 
 			try {
+				if (combined.signal.aborted) {
+					return
+				}
+
 				for await (let input of source) {
 					if (combined.signal.aborted) {
 						return
@@ -283,6 +288,7 @@ class Runtime<
 
 			// Hard shutdown: drop queued events immediately.
 			this.#eventQueue.length = 0
+			this.#eventHead = 0
 
 			// Release pending iterators. An internal fault makes the output iterator
 			// throw the stop reason (so consumers observe the failure instead of a
@@ -327,7 +333,20 @@ class Runtime<
 
 		try {
 			while (this.#eventQueue.length > 0 && !this.#destroyed) {
-				let event = this.#eventQueue.shift()!
+				let event = this.#eventQueue[this.#eventHead]!
+				this.#eventQueue[this.#eventHead] = undefined
+				this.#eventHead += 1
+
+				if (this.#eventHead === this.#eventQueue.length) {
+					this.#eventQueue.length = 0
+					this.#eventHead = 0
+				} else if (
+					this.#eventHead >= 1024 &&
+					this.#eventHead >= this.#eventQueue.length - this.#eventHead
+				) {
+					this.#eventQueue = this.#eventQueue.slice(this.#eventHead)
+					this.#eventHead = 0
+				}
 				let result = this.#transition(this.#ctx, event, this.#hookRuntime)
 
 				if (!result) {
