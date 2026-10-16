@@ -67,12 +67,10 @@ class Runtime<
 	#effects: RuntimeOptions<S, LC, RC, E, FX, O>['effects']
 	#transition: RuntimeOptions<S, LC, RC, E, FX, O>['transition']
 
-	// Assigned synchronously BEFORE the drain loop body runs its first transition
-	// (via a pre-created deferred), so every observer — a nested dispatch, close(),
-	// an external drain — sees the in-flight drain and waits for it instead of
-	// starting a second loop against stale (pre-transition) state or sealing the
-	// output queue mid-drain.
+	// Ownership precedes synchronous transitions; close() allocates its completion only when it waits.
+	#draining = false
 	#drainTask: Promise<void> | null = null
+	#resolveDrain: (() => void) | null = null
 
 	#eventQueue: Array<E | undefined> = []
 	#eventHead = 0
@@ -204,14 +202,14 @@ class Runtime<
 
 		this.#eventQueue.push(event)
 
-		if (this.#drainTask) {
+		if (this.#draining) {
 			return
 		}
 
 		// Drain handles errors internally (via #handleError → destroy).
 		// Suppress the rejected promise so Node does not surface it as
 		// an unhandled rejection when dispatch is fire-and-forget.
-		this.#drain().catch(() => {})
+		this.#drain()?.catch(() => {})
 	}
 
 	async close(reason?: unknown): Promise<void> {
@@ -230,9 +228,9 @@ class Runtime<
 			// Drain first so all outputs emitted during pending transitions are
 			// delivered before the output queue is sealed. A drain may already be
 			// in flight — wait for that loop to finish, then drain any tail.
-			while (this.#drainTask) {
+			while (this.#draining) {
 				// oxlint-disable-next-line no-await-in-loop
-				await this.#drainTask
+				await this.#waitForDrain()
 			}
 			await this.#drain()
 
@@ -313,62 +311,76 @@ class Runtime<
 		await this.destroy(new Error('Runtime async disposed'))
 	}
 
-	async #drain(): Promise<void> {
-		// A caller waiting for an existing drain must re-check ownership when
-		// resumed: another caller may have started draining the queued tail.
-		while (this.#drainTask) {
-			// oxlint-disable-next-line no-await-in-loop
-			await this.#drainTask
+	#waitForDrain(): Promise<void> {
+		if (!this.#drainTask) {
+			let { promise, resolve } = Promise.withResolvers<void>()
+			this.#drainTask = promise
+			this.#resolveDrain = resolve
 		}
+		return this.#drainTask
+	}
 
+	#drain(): Promise<void> | undefined {
 		if (this.#destroyed || this.#eventQueue.length === 0) {
 			return
 		}
 
-		// Assign the task via a pre-created deferred BEFORE the body runs its first
-		// (synchronous) transition, so a close()/dispatch issued from within that
-		// transition already observes the in-flight drain.
-		let { promise, resolve } = Promise.withResolvers<void>()
-		this.#drainTask = promise
-
+		this.#draining = true
 		try {
-			while (this.#eventQueue.length > 0 && !this.#destroyed) {
-				let event = this.#eventQueue[this.#eventHead]!
-				this.#eventQueue[this.#eventHead] = undefined
-				this.#eventHead += 1
+			let effects = this.#advance()
+			if (effects) {
+				return this.#runEffects(effects)
+			}
+		} catch (error) {
+			return this.#drainFailed(error)
+		}
+		this.#finishDrain()
+		return undefined
+	}
 
-				if (this.#eventHead === this.#eventQueue.length) {
-					this.#eventQueue.length = 0
-					this.#eventHead = 0
-				} else if (
-					this.#eventHead >= 1024 &&
-					this.#eventHead >= this.#eventQueue.length - this.#eventHead
-				) {
-					this.#eventQueue = this.#eventQueue.slice(this.#eventHead)
-					this.#eventHead = 0
-				}
-				let result = this.#transition(this.#ctx, event, this.#hookRuntime)
+	#advance(): FX[] | undefined {
+		while (this.#eventQueue.length > 0 && !this.#destroyed) {
+			let event = this.#eventQueue[this.#eventHead]!
+			this.#eventQueue[this.#eventHead] = undefined
+			this.#eventHead += 1
 
-				if (!result) {
-					continue
-				}
+			if (this.#eventHead === this.#eventQueue.length) {
+				this.#eventQueue.length = 0
+				this.#eventHead = 0
+			} else if (
+				this.#eventHead >= 1024 &&
+				this.#eventHead >= this.#eventQueue.length - this.#eventHead
+			) {
+				this.#eventQueue = this.#eventQueue.slice(this.#eventHead)
+				this.#eventHead = 0
+			}
+			let result = this.#transition(this.#ctx, event, this.#hookRuntime)
 
-				if (result.state !== undefined) {
-					this.#state = result.state
-				}
+			if (!result) {
+				continue
+			}
 
-				// A terminal transition: stop accepting events now; the seal happens in
-				// the finally below, after this transition's effects (cleanup) run and
-				// the already-queued tail drains (terminal states ignore it).
-				if (result.final) {
-					this.#markClosing(result.final.reason)
-				}
+			if (result.state !== undefined) {
+				this.#state = result.state
+			}
 
-				if (!result.effects || result.effects.length === 0) {
-					continue
-				}
+			if (result.final) {
+				this.#markClosing(result.final.reason)
+			}
 
-				for (let effect of result.effects) {
+			if (!result.effects || result.effects.length === 0) {
+				continue
+			}
+			return result.effects
+		}
+		return undefined
+	}
+
+	async #runEffects(effects: FX[] | undefined): Promise<void> {
+		let completedEffect: Promise<void> | undefined
+		try {
+			while (effects) {
+				for (let effect of effects) {
 					if (this.#destroyed) {
 						return
 					}
@@ -378,22 +390,37 @@ class Runtime<
 						throw new Error(`Missing effect handler for effect type "${effect.type}"`)
 					}
 
+					// Keep the await boundary; a drain-local cache cannot retain caller context beyond this drain.
 					// oxlint-disable-next-line no-await-in-loop
-					await handler(this.#ctx, effect as never, this.#hookRuntime)
+					await (handler(this.#ctx, effect as never, this.#hookRuntime) ??
+						(completedEffect ??= Promise.resolve()))
 				}
+				effects = this.#advance()
 			}
 		} catch (error) {
 			await this.#handleError(error)
 		} finally {
-			this.#drainTask = null
-			resolve()
-			// A close requested from within this drain (hook close()) seals here,
-			// after every queued event's outputs made it into the queue. dispatch()
-			// rejects new events once #closing is set, so the queue is empty unless
-			// the loop bailed on destroy — where sealing is destroy()'s job.
-			if (this.#closing && !this.#destroyed && this.#eventQueue.length === 0) {
-				this.#seal()
-			}
+			this.#finishDrain()
+		}
+	}
+
+	async #drainFailed(error: unknown): Promise<void> {
+		try {
+			await this.#handleError(error)
+		} finally {
+			this.#finishDrain()
+		}
+	}
+
+	#finishDrain(): void {
+		this.#draining = false
+		this.#drainTask = null
+		let resolve = this.#resolveDrain
+		this.#resolveDrain = null
+		// Wake close() before abort listeners enqueue their own microtasks.
+		resolve?.()
+		if (this.#closing && !this.#destroyed && this.#eventQueue.length === 0) {
+			this.#seal()
 		}
 	}
 
