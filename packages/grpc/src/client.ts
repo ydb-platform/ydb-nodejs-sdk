@@ -447,6 +447,7 @@ export class Client implements Transport, Disposable {
 		let frames: ReturnType<typeof createFrameStream> | undefined
 		let stopReading: (() => void) | undefined
 		let deadline: Deadline | undefined
+		let expiresAt: number | undefined
 		let reported = false
 		let completed = false
 		let failed = false
@@ -491,6 +492,15 @@ export class Client implements Transport, Disposable {
 			fail(options.signal!.reason, errorStatus(options.signal!.reason, Status.CANCELLED))
 		let connectionFailed = (error: unknown) => {
 			if (!receivedStatus) {
+				// A peer's deadline reset can be observed before the local timer callback runs.
+				if (
+					error instanceof RpcError &&
+					error.code === Status.CANCELLED &&
+					deadline &&
+					expiresAt! <= Date.now()
+				) {
+					error = new RpcError(Status.DEADLINE_EXCEEDED, 'Deadline exceeded')
+				}
 				fail(error)
 			}
 		}
@@ -512,7 +522,8 @@ export class Client implements Transport, Disposable {
 				onAbort()
 			}
 			controller.signal.throwIfAborted()
-			deadline = createDeadline(options.deadline)
+			expiresAt = options.deadline === undefined ? undefined : Number(options.deadline)
+			deadline = createDeadline(expiresAt)
 			if (deadline?.signal.aborted) {
 				onDeadline()
 			} else {
@@ -532,7 +543,7 @@ export class Client implements Transport, Disposable {
 			}
 			delete outgoingHeaders['grpc-timeout']
 			if (deadline) {
-				outgoingHeaders['grpc-timeout'] = timeoutHeader(Number(options.deadline))
+				outgoingHeaders['grpc-timeout'] = timeoutHeader(expiresAt!)
 			}
 			try {
 				stream = session.socket.request(outgoingHeaders)
@@ -607,13 +618,36 @@ export class Client implements Transport, Disposable {
 					!receivedStatus &&
 					(stream!.rstCode !== constants.NGHTTP2_NO_ERROR || !stream!.readableEnded)
 				) {
-					fail(streamError(stream!.rstCode, session!.socket.destroyed))
+					connectionFailed(streamError(stream!.rstCode, session!.socket.destroyed))
 				}
 			})
 			frames = createFrameStream(this.#options.maxReceiveBytes!)
 			frames.on('error', fail)
 			stopReading = streamFinished(stream, { writable: false }, (error) => {
-				if (error) {
+				if (!error) {
+					return
+				}
+				if (
+					(error as NodeJS.ErrnoException).code === 'ERR_STREAM_PREMATURE_CLOSE' &&
+					receivedStatus &&
+					stream!.rstCode === constants.NGHTTP2_NO_ERROR &&
+					stream!.destroyed &&
+					!completed &&
+					!frames!.destroyed &&
+					!frames!.writableEnded
+				) {
+					// Terminal trailers can arrive before the Readable drains its buffered DATA.
+					stream!.unpipe(frames!)
+					try {
+						let chunk: Buffer | null
+						while ((chunk = stream!.read()) !== null) {
+							frames!.write(chunk)
+						}
+						frames!.end()
+					} catch (drainError) {
+						frames!.destroy(drainError as Error)
+					}
+				} else {
 					frames!.destroy(error)
 				}
 			})

@@ -1,68 +1,50 @@
-import { constants } from 'node:http2'
-import { setTimeout } from 'node:timers/promises'
+import { setImmediate, setTimeout } from 'node:timers/promises'
 
 import { expect, test } from 'vitest'
 
-import { deferred, rawServer } from '../tests/fixtures.ts'
+import { nodePeer } from '../tests/node-peer.ts'
 import { Client } from './client.ts'
+
+async function waitForRetiredConnection(client: Client, signal: AbortSignal): Promise<void> {
+	while (client.state !== 'idle') {
+		// oxlint-disable-next-line no-await-in-loop
+		await setImmediate(undefined, { signal })
+	}
+}
 
 // A peer can reject frequent pings without rejecting an RPC; the next connection must retain that feedback.
 test('increases the next connection ping interval after too_many_pings GOAWAY', async (tc) => {
-	let firstClosed = deferred()
-	let secondPing = deferred()
-	let connections = 0
-	await using peer = await rawServer(() => {})
-	peer.server.on('session', (session) => {
-		connections++
-		let connection = connections
-		session.once('ping', () => {
-			if (connection === 1) {
-				session.once('close', firstClosed.resolve)
-				session.goaway(
-					constants.NGHTTP2_ENHANCE_YOUR_CALM,
-					0,
-					Buffer.from('too_many_pings')
-				)
-				session.close()
-			} else {
-				secondPing.resolve()
-			}
-		})
-	})
+	await using peer = await nodePeer({ type: 'keepalive' }, tc.signal)
 	let options = { keepaliveIntervalMs: 40, keepaliveTimeoutMs: 1000 }
 	using client = new Client(peer.authority, options)
 	await client.connect(tc.signal)
-	await firstClosed.promise
+	await peer.wait('goaway-sent')
+	await waitForRetiredConnection(client, tc.signal)
+	await peer.wait('session-closed-1')
 	let started = performance.now()
 
 	await client.connect(tc.signal)
-	await secondPing.promise
+	let pingDelay = await peer.wait('ping-2')
 
 	expect(performance.now() - started).toBeGreaterThanOrEqual(60)
-	expect(connections).toBe(2)
+	expect(pingDelay).toBeGreaterThanOrEqual(60)
+	expect((await peer.snapshot()).sessions).toBe(2)
 	expect(options.keepaliveIntervalMs).toBe(40)
 })
 
 test('caps ping backoff before a Node timer can overflow to one millisecond', async (tc) => {
-	let pings = 0
-	await using peer = await rawServer(() => {})
-	peer.server.on('session', (session) => {
-		session.on('ping', () => {
-			pings++
-		})
-	})
+	await using peer = await nodePeer({ type: 'keepalive-cap' }, tc.signal)
 	using client = new Client(peer.authority, { keepaliveIntervalMs: 1_500_000_000 })
 	await client.connect(tc.signal)
-	let first = peer.sessions[0]!
-	let closed = deferred()
-	first.once('close', closed.resolve)
-	first.goaway(constants.NGHTTP2_ENHANCE_YOUR_CALM, 0, Buffer.from('too_many_pings'))
-	first.close()
-	await closed.promise
+	await peer.wait('session-1')
+	await peer.command('send-goaway')
+	await waitForRetiredConnection(client, tc.signal)
+	await peer.wait('session-closed-1')
 
 	await client.connect(tc.signal)
 	await setTimeout(50, undefined, { signal: tc.signal })
 
-	expect(pings).toBe(0)
-	expect(peer.sessions).toHaveLength(2)
+	let state = await peer.snapshot()
+	expect(state.pings).toBe(0)
+	expect(state.sessions).toBe(2)
 })

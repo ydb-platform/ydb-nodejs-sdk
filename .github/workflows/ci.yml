@@ -66,6 +66,70 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  grpc-runtimes:
+    name: gRPC (${{ matrix.id }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: grpc-${{ github.event_name }}-${{ github.ref }}-${{ matrix.id }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { id: node22, runtime: node, version: '22', node: '22', bun: '1.4.3' }
+          - { id: node24, runtime: node, version: '24', node: '24', bun: '1.4.3' }
+          - { id: node26, runtime: node, version: '26', node: '26', bun: '1.4.3' }
+          - { id: bun13, runtime: bun, version: '1.3.14', node: '24', bun: '1.3.14' }
+          - { id: bun14, runtime: bun, version: '1.4.3', node: '24', bun: '1.4.3' }
+    env:
+      GRPC_TEST_RUNTIME: ${{ matrix.runtime }}
+      GRPC_TEST_VERSION: ${{ matrix.version }}
+      GRPC_TEST_RESULTS: ${{ runner.temp }}/grpc-results/results.json
+      GRPC_TEST_WITNESS: ${{ runner.temp }}/grpc-results/workers.jsonl
+      GRPC_TEST_GO_SERVER: ${{ runner.temp }}/grpc-interop-go
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Preserve independent Node peer
+        run: echo "GRPC_TEST_NODE=$(node -p 'process.execPath')" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node }}
+          bun-version: ${{ matrix.bun }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.25.5'
+          cache-dependency-path: packages/grpc/tests/interop-go/go.sum
+      - name: Build grpc-go interoperability server
+        working-directory: packages/grpc/tests/interop-go
+        env:
+          GOTOOLCHAIN: local
+        run: go build -mod=readonly -o "$GRPC_TEST_GO_SERVER" .
+      - name: Prepare runtime evidence
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/grpc-results"
+          : > "$GRPC_TEST_WITNESS"
+      - name: Test gRPC on Node
+        if: matrix.runtime == 'node'
+        run: node node_modules/vitest/vitest.mjs run --config vitest.grpc.config.ts
+      - name: Test gRPC on Bun
+        if: matrix.runtime == 'bun'
+        run: bun --bun node_modules/vitest/vitest.mjs run --config vitest.grpc.config.ts
+      - name: Verify complete suite and actual worker runtime
+        if: always()
+        run: node scripts/verify-grpc-tests.mjs "$GRPC_TEST_RESULTS" "$GRPC_TEST_WITNESS" "$RUNNER_TEMP/grpc-results/verification.json"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: grpc-${{ matrix.id }}
+          path: ${{ runner.temp }}/grpc-results/
+          if-no-files-found: error
+          retention-days: 30
+
   test:
     name: Test
     runs-on: ubuntu-latest

@@ -1,43 +1,17 @@
-import { type Http2Session } from 'node:http2'
-
 import { expect, test } from 'vitest'
 
-import { deferred, frame, rawServer, service } from '../tests/fixtures.ts'
+import { deferred, service } from '../tests/fixtures.ts'
+import { nodePeer } from '../tests/node-peer.ts'
 import { Client } from './client.ts'
 
-async function ping(session: Http2Session): Promise<void> {
-	await new Promise<void>((resolve, reject) => {
-		session.ping((error) => {
-			if (error) {
-				reject(error)
-			} else {
-				resolve()
-			}
-		})
-	})
-}
-
 // Protocol faults after accepted data require a controlled peer; YDB cannot schedule them deterministically.
-for (let [name, tail, details] of [
-	['malformed next frame', Buffer.from([2, 0, 0, 0, 0]), 'Invalid gRPC compression flag'],
-	['truncated next frame', frame('truncated').subarray(0, 7), 'Truncated gRPC message'],
+for (let [name, fault, details] of [
+	['malformed next frame', 'malformed', 'Invalid gRPC compression flag'],
+	['truncated next frame', 'truncated', 'Truncated gRPC message'],
 ] as const) {
 	test(`preserves the current response batch before a ${name}`, async (tc) => {
-		let finish = deferred<() => Promise<void>>()
 		let terminal = deferred()
-		await using peer = await rawServer((stream) => {
-			let session = stream.session!
-			stream.respond(
-				{ ':status': 200, 'content-type': 'application/grpc' },
-				{ waitForTrailers: true }
-			)
-			stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }))
-			stream.write(Buffer.concat([frame('first'), frame('second')]))
-			finish.resolve(async () => {
-				stream.end(tail)
-				await ping(session)
-			})
-		})
+		await using peer = await nodePeer({ type: 'receive-tail', fault }, tc.signal)
 		using client = new Client(peer.authority)
 		let response = client.call(service.serverStream, '', {
 			signal: tc.signal,
@@ -46,8 +20,7 @@ for (let [name, tail, details] of [
 		let iterator = response[Symbol.asyncIterator]()
 
 		expect((await iterator.next()).value).toBe('first')
-		let sendTail = await finish.promise
-		await sendTail()
+		await peer.command('send-tail')
 		if (name === 'truncated next frame') {
 			await terminal.promise
 		}
@@ -57,27 +30,13 @@ for (let [name, tail, details] of [
 }
 
 test('preserves the decompression error and cause after accepted responses', async (tc) => {
-	let finish = deferred<() => Promise<void>>()
-	await using peer = await rawServer((stream) => {
-		let session = stream.session!
-		stream.respond(
-			{ ':status': 200, 'content-type': 'application/grpc', 'grpc-encoding': 'gzip' },
-			{ waitForTrailers: true }
-		)
-		stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }))
-		stream.write(Buffer.concat([frame('first'), frame('second')]))
-		finish.resolve(async () => {
-			stream.end(frame('invalid gzip', true))
-			await ping(session)
-		})
-	})
+	await using peer = await nodePeer({ type: 'receive-tail', fault: 'gzip' }, tc.signal)
 	using client = new Client(peer.authority)
 	let response = client.call(service.serverStream, '', { signal: tc.signal })
 	let iterator = response[Symbol.asyncIterator]()
 
 	expect((await iterator.next()).value).toBe('first')
-	let sendTail = await finish.promise
-	await sendTail()
+	await peer.command('send-tail')
 	expect((await iterator.next()).value).toBe('second')
 	await expect(iterator.next()).rejects.toMatchObject({
 		code: 13,
@@ -87,12 +46,7 @@ test('preserves the decompression error and cause after accepted responses', asy
 })
 
 test('cancels a read while the frame body is incomplete', async (tc) => {
-	let started = deferred()
-	await using peer = await rawServer((stream) => {
-		stream.respond({ ':status': 200, 'content-type': 'application/grpc' })
-		stream.write(frame('incomplete body').subarray(0, 6))
-		started.resolve()
-	})
+	await using peer = await nodePeer({ type: 'partial-body' }, tc.signal)
 	using client = new Client(peer.authority)
 	let controller = new AbortController()
 	let reason = new Error('cancel partial response')
@@ -102,8 +56,8 @@ test('cancels a read while the frame body is incomplete', async (tc) => {
 	let iterator = response[Symbol.asyncIterator]()
 	let pending = iterator.next()
 	let failure = pending.catch((error: unknown) => error)
-	await started.promise
-	await ping(peer.sessions[0]!)
+	await peer.wait('first-sent')
+	await peer.command('ping')
 
 	controller.abort(reason)
 
@@ -111,21 +65,16 @@ test('cancels a read while the frame body is incomplete', async (tc) => {
 })
 
 test('settles a pending response read when the HTTP/2 session closes prematurely', async (tc) => {
-	let reset = deferred<() => void>()
-	await using peer = await rawServer((stream) => {
-		stream.respond({ ':status': 200, 'content-type': 'application/grpc' })
-		stream.write(frame('first'))
-		reset.resolve(() => stream.session?.destroy())
-	})
+	await using peer = await nodePeer({ type: 'premature-close' }, tc.signal)
 	using client = new Client(peer.authority)
 	let response = client.call(service.serverStream, '', { signal: tc.signal })
 	let iterator = response[Symbol.asyncIterator]()
 	expect((await iterator.next()).value).toBe('first')
 	let pending = iterator.next()
 	let failure = pending.catch((error: unknown) => error)
-	let resetStream = await reset.promise
+	await peer.wait('first-sent')
 
-	resetStream()
+	await peer.command('destroy-session')
 
 	expect(await failure).toMatchObject({ code: 14 })
 })
