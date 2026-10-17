@@ -15,7 +15,7 @@ class TestCredentials extends CredentialsProvider {
 // The loopback peer exposes headers that YDB does not return to the caller.
 test('keeps mandatory headers and auth after caller metadata and metadata hooks', async (tc) => {
 	let received: Metadata | undefined
-	await using server = new Server()
+	using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
@@ -56,7 +56,7 @@ test('keeps mandatory headers and auth after caller metadata and metadata hooks'
 
 test('keeps registered metadata hooks in an existing driver after registration disposal', async (tc) => {
 	let observed: Array<Metadata[string] | undefined> = []
-	await using server = new Server()
+	using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
@@ -91,7 +91,7 @@ test('cancels authentication before opening an RPC when a token provider ignores
 	let entered = Promise.withResolvers<void>()
 	let token = Promise.withResolvers<string>()
 	let calls = 0
-	await using server = new Server()
+	using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
@@ -159,7 +159,7 @@ test('does not abort completed credential requests when the RPC ends', async (tc
 			return 'cached-token'
 		}
 	}
-	await using server = new Server()
+	using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
@@ -189,7 +189,7 @@ test('reports credential failures without opening an unauthenticated RPC', async
 			throw failure
 		}
 	}
-	await using server = new Server()
+	using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{

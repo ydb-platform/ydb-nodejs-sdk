@@ -284,7 +284,7 @@ async function serve(
 	}
 }
 
-export class Server implements AsyncDisposable {
+export class Server implements Disposable {
 	#server: Http2Server
 	#methods = new Map<string, Method>()
 	#sessions = new Set<ServerHttp2Session>()
@@ -440,11 +440,7 @@ export class Server implements AsyncDisposable {
 		this.#methods.clear()
 	}
 
-	async [Symbol.asyncDispose](): Promise<void> {
-		try {
-			await this.close()
-		} finally {
-			this.destroy()
-		}
+	[Symbol.dispose](): void {
+		this.destroy()
 	}
 }

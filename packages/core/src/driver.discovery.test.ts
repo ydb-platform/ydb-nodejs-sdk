@@ -125,7 +125,7 @@ test.for([false, true])(
 test.for(['drain', 'return', 'abort'] as const)(
 	'graceful driver disposal waits for a buffered response consumer to %s',
 	async (mode, tc) => {
-		await using server = new Server()
+		using server = new Server()
 		let port = 0
 		let service = {
 			messages: {

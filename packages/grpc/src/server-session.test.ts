@@ -9,7 +9,7 @@ import { Server } from './server.ts'
 
 // Withheld flow credit reproduces queue pressure without depending on network speed.
 test('accepts other RPCs while a large response waits for HTTP/2 flow credit', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let large = 'x'.repeat(12 * 1024 * 1024)
 	let calls: string[] = []
 	server.add(service, {

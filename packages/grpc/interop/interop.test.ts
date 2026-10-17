@@ -209,7 +209,7 @@ test('drains a large gzip response backlog after the Go server sends its trailer
 })
 
 test('serves a large unary response to the official Go client', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	server.add(definition, {
 		unary(request) {
 			expect(request.payload?.body.length).toBe(271828)
@@ -224,7 +224,7 @@ test('serves a large unary response to the official Go client', async (tc) => {
 })
 
 test('aggregates a request stream sent by the official Go client', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let received: number[] = []
 	server.add(definition, {
 		async client(requests) {
@@ -243,7 +243,7 @@ test('aggregates a request stream sent by the official Go client', async (tc) =>
 })
 
 test('streams every requested response to the official Go client', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	server.add(definition, {
 		async *server(request) {
 			for (let parameter of request.responseParameters) {
@@ -258,7 +258,7 @@ test('streams every requested response to the official Go client', async (tc) =>
 })
 
 test('answers each Go bidi request before the client half-closes its stream', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let received: number[] = []
 	server.add(definition, {
 		async *bidi(requests) {
@@ -278,7 +278,7 @@ test('answers each Go bidi request before the client half-closes its stream', as
 })
 
 test('exchanges repeated and binary metadata with the official Go client', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let binary = new Uint8Array([0, 10, 255, 11])
 	server.add(definition, {
 		empty(_request, context) {
@@ -298,7 +298,7 @@ test('exchanges repeated and binary metadata with the official Go client', async
 })
 
 test('sends an error status, Unicode details and trailers to the official Go client', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	server.add(definition, {
 		unary(request) {
 			let status = request.responseStatus!
@@ -312,7 +312,7 @@ test('sends an error status, Unicode details and trailers to the official Go cli
 })
 
 test('aborts its handler when the official Go client cancels a streaming response', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let cancelled = Promise.withResolvers<boolean>()
 	server.add(definition, {
 		async *server(_request, context) {
@@ -331,7 +331,7 @@ test('aborts its handler when the official Go client cancels a streaming respons
 })
 
 test('propagates the official Go client deadline to its handler', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let expired = Promise.withResolvers<boolean>()
 	let deadline: number | undefined
 	server.add(definition, {
@@ -384,7 +384,7 @@ test('serves a trusted TLS connection from the official Go client', async (tc) =
 		],
 		{ signal: tc.signal }
 	)
-	await using server = new Server({
+	using server = new Server({
 		tls: { key: await readFile(keyPath), cert: await readFile(certPath) },
 	})
 	server.add(definition, {

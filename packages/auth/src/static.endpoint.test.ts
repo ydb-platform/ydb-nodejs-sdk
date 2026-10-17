@@ -39,7 +39,7 @@ function loginServer(options?: ServerOptions) {
 
 test.for(['http', 'grpc'])('authenticates at the configured %s endpoint', async (protocol, tc) => {
 	let { server, requests } = loginServer()
-	await using peer = server
+	using peer = server
 	let port = await peer.listen('127.0.0.1:0')
 	let provider = new StaticCredentialsProvider(
 		{ username: 'test-user', password: 'test-password' },
@@ -58,7 +58,7 @@ test('authenticates through the configured Unix socket', async (tc) => {
 		},
 	}
 	let { server, requests } = loginServer()
-	await using peer = server
+	using peer = server
 	let endpoint = `unix://${join(files.path, 'auth.sock')}`
 	await peer.listen(endpoint)
 	let provider = new StaticCredentialsProvider(
@@ -104,7 +104,7 @@ test.for(['grpcs', 'grpc'])(
 		)
 		let ca = await readFile(certificate)
 		let { server, requests } = loginServer({ tls: { key: await readFile(key), cert: ca } })
-		await using peer = server
+		using peer = server
 		let port = await peer.listen('127.0.0.1:0')
 		let provider = new StaticCredentialsProvider(
 			{ username: 'test-user', password: 'test-password' },

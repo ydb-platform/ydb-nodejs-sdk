@@ -52,7 +52,7 @@ test.for([
 	{ headers: { ':method': 'GET' }, status: 405 },
 	{ headers: { 'content-type': 'application/json' }, status: 415 },
 ])('rejects an unsupported HTTP request with $status', async ({ headers, status }, tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let calls = 0
 	server.add(service, { unary: () => String(++calls) })
 	let port = await server.listen()
@@ -64,7 +64,7 @@ test.for([
 })
 
 test('returns UNIMPLEMENTED for an unregistered RPC', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let port = await server.listen()
 
 	let response = await request(port, frame('request'), tc.signal)
@@ -113,7 +113,7 @@ test.for([
 		encoding: 'br',
 	},
 ])('rejects $name before calling a unary handler', async ({ body, code, encoding }, tc) => {
-	await using server = new Server({ maxReceiveBytes: 64 })
+	using server = new Server({ maxReceiveBytes: 64 })
 	let calls = 0
 	server.add(service, { unary: () => String(++calls) })
 	let port = await server.listen()
@@ -130,7 +130,7 @@ test.for([
 })
 
 test('decodes a compressed request before invoking its handler', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	server.add(service, { unary: (value) => value })
 	let port = await server.listen()
 
@@ -143,7 +143,7 @@ test('decodes a compressed request before invoking its handler', async (tc) => {
 })
 
 test('rejects invalid binary request metadata before invoking its handler', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let calls = 0
 	server.add(service, { unary: () => String(++calls) })
 	let port = await server.listen()
@@ -157,7 +157,7 @@ test('rejects invalid binary request metadata before invoking its handler', asyn
 test.for(['sendHeader', 'setTrailer'] as const)(
 	'returns a gRPC error when a handler passes invalid metadata to %s',
 	async (operation, tc) => {
-		await using server = new Server()
+		using server = new Server()
 		server.add(service, {
 			unary(_request, context) {
 				context[operation]({ 'x-data-bin': 'not bytes' })
@@ -176,7 +176,7 @@ test.for(['sendHeader', 'setTrailer'] as const)(
 )
 
 test('returns INTERNAL when a thrown status contains invalid metadata', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	server.add(service, {
 		unary() {
 			throw new RpcError(Status.PERMISSION_DENIED, 'denied', { 'x-data-bin': 'not bytes' })
@@ -190,7 +190,7 @@ test('returns INTERNAL when a thrown status contains invalid metadata', async (t
 })
 
 test('rejects an oversized serialized response without sending its body', async (tc) => {
-	await using server = new Server({ maxSendBytes: 8 })
+	using server = new Server({ maxSendBytes: 8 })
 	server.add(service, { unary: () => 'x'.repeat(9) })
 	let port = await server.listen()
 
@@ -200,25 +200,50 @@ test('rejects an oversized serialized response without sending its body', async 
 	expect(response.body.length).toBe(0)
 })
 
-test.for(['close', 'asyncDispose'] as const)(
-	'drains an active RPC before %s completes',
-	async (operation, tc) => {
-		await using server = new Server()
-		let started = Promise.withResolvers<AbortSignal>()
-		let release = Promise.withResolvers<void>()
-		let calls = 0
-		server.add(service, {
-			async unary(_request, context) {
-				calls++
-				started.resolve(context.signal)
-				await release.promise
-				return 'completed'
+test('drains an active RPC before close completes', async (tc) => {
+	using server = new Server()
+	let started = Promise.withResolvers<AbortSignal>()
+	let release = Promise.withResolvers<void>()
+	let calls = 0
+	server.add(service, {
+		async unary(_request, context) {
+			calls++
+			started.resolve(context.signal)
+			await release.promise
+			return 'completed'
+		},
+	})
+	let port = await server.listen()
+	let session = connect(`http://127.0.0.1:${port}`)
+	try {
+		let stream = session.request(
+			{
+				':method': 'POST',
+				':path': service.unary.path,
+				'content-type': 'application/grpc',
 			},
+			{ signal: tc.signal }
+		)
+		let chunks: Buffer[] = []
+		let trailers: IncomingHttpHeaders = {}
+		stream.on('data', (chunk: Buffer) => chunks.push(chunk))
+		stream.on('trailers', (value) => {
+			trailers = value
 		})
-		let port = await server.listen()
-		let session = connect(`http://127.0.0.1:${port}`)
-		try {
-			let stream = session.request(
+		let ended = once(stream, 'end', { signal: tc.signal }).catch((error: unknown) => error)
+		stream.end(frame('request'))
+		let signal = await started.promise
+		let goaway = once(session, 'goaway', { signal: tc.signal })
+		let closed = false
+		let closing = server.close().then(() => {
+			closed = true
+			return undefined
+		})
+		await goaway
+		expect(closed).toBe(false)
+		expect(signal.aborted).toBe(false)
+		let lateResponse = (async () => {
+			let late = session.request(
 				{
 					':method': 'POST',
 					':path': service.unary.path,
@@ -226,69 +251,39 @@ test.for(['close', 'asyncDispose'] as const)(
 				},
 				{ signal: tc.signal }
 			)
-			let chunks: Buffer[] = []
-			let trailers: IncomingHttpHeaders = {}
-			stream.on('data', (chunk: Buffer) => chunks.push(chunk))
-			stream.on('trailers', (value) => {
-				trailers = value
-			})
-			let ended = once(stream, 'end', { signal: tc.signal }).catch((error: unknown) => error)
-			stream.end(frame('request'))
-			let signal = await started.promise
-			let goaway = once(session, 'goaway', { signal: tc.signal })
-			let closed = false
-			let closing = (
-				operation === 'close' ? server.close() : server[Symbol.asyncDispose]()
-			).then(() => {
-				closed = true
-				return undefined
-			})
-			await goaway
-			expect(closed).toBe(false)
-			expect(signal.aborted).toBe(false)
-			let lateResponse = (async () => {
-				let late = session.request(
-					{
-						':method': 'POST',
-						':path': service.unary.path,
-						'content-type': 'application/grpc',
-					},
-					{ signal: tc.signal }
-				)
-				late.end(frame('late request'))
-				let [headers] = await once(late, 'response', { signal: tc.signal })
-				return headers
-			})().catch((error: unknown) => error)
+			late.end(frame('late request'))
+			let [headers] = await once(late, 'response', { signal: tc.signal })
+			return headers
+		})().catch((error: unknown) => error)
 
-			let socket = createConnection({ host: '127.0.0.1', port })
-			try {
-				let [error] = await once(socket, 'error', { signal: tc.signal })
-				expect(error).toMatchObject({ code: 'ECONNREFUSED' })
-			} finally {
-				socket.destroy()
-			}
-
-			release.resolve()
-			expect(await ended).not.toBeInstanceOf(Error)
-			await closing
-			expect(await lateResponse).toMatchObject({
-				code: expect.stringMatching(
-					/^ERR_HTTP2_(GOAWAY_SESSION|INVALID_SESSION|STREAM_CANCEL)$/
-				),
-			})
-			expect(Buffer.concat(chunks)).toEqual(frame('completed'))
-			expect(trailers['grpc-status']).toBe(String(Status.OK))
-			expect(calls).toBe(1)
-			expect(closed).toBe(true)
+		let socket = createConnection({ host: '127.0.0.1', port })
+		try {
+			let [error] = await once(socket, 'error', { signal: tc.signal })
+			expect(error).toMatchObject({ code: 'ECONNREFUSED' })
 		} finally {
-			release.resolve()
-			session.destroy()
+			socket.destroy()
 		}
+
+		release.resolve()
+		expect(await ended).not.toBeInstanceOf(Error)
+		await closing
+		expect(await lateResponse).toMatchObject({
+			code: expect.stringMatching(
+				/^ERR_HTTP2_(GOAWAY_SESSION|INVALID_SESSION|STREAM_CANCEL)$/
+			),
+		})
+		expect(Buffer.concat(chunks)).toEqual(frame('completed'))
+		expect(trailers['grpc-status']).toBe(String(Status.OK))
+		expect(calls).toBe(1)
+		expect(closed).toBe(true)
+	} finally {
+		release.resolve()
+		session.destroy()
 	}
-)
+})
 
 test('aborts an active handler when destroyed', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let started = Promise.withResolvers<AbortSignal>()
 	let cancelled = Promise.withResolvers<void>()
 	server.add(service, {
@@ -314,10 +309,45 @@ test('aborts an active handler when destroyed', async (tc) => {
 	expect(await failure).toBeInstanceOf(Error)
 })
 
-test.for(['destroy', 'asyncDispose'] as const)(
+test('using scope exit cancels an active response stream without waiting for its handler', async (tc) => {
+	let server = new Server()
+	let port = await server.listen()
+	using transport = new Client(`http://127.0.0.1:${port}`)
+	let client = createServiceClient(service, transport)
+	let cancelled = Promise.withResolvers<AbortSignal>()
+	let release = Promise.withResolvers<void>()
+	let pending: Promise<unknown>
+	try {
+		{
+			using scopedServer = server
+			scopedServer.add(service, {
+				async *serverStream(_request, context) {
+					let aborted = once(context.signal, 'abort')
+					yield 'first response'
+					await aborted
+					cancelled.resolve(context.signal)
+					await release.promise
+				},
+			})
+			let responses = client.serverStream('request', { signal: tc.signal })
+			let iterator = responses[Symbol.asyncIterator]()
+			expect(await iterator.next()).toEqual({ value: 'first response', done: false })
+			pending = iterator.next().catch((error: unknown) => error)
+		}
+
+		let signal = await cancelled.promise
+		expect(signal.aborted).toBe(true)
+		expect(await pending).toBeInstanceOf(Error)
+	} finally {
+		release.resolve()
+		server.destroy()
+	}
+})
+
+test.for(['destroy', 'dispose'] as const)(
 	'%s closes a TCP connection before its TLS handshake completes',
 	async (operation, tc) => {
-		await using server = new Server({ tls: {} })
+		using server = new Server({ tls: {} })
 		let port = await server.listen()
 		let socket = createConnection({ host: '127.0.0.1', port })
 		let cancellation = addAbortListener(tc.signal, () => socket.destroy())
@@ -331,10 +361,10 @@ test.for(['destroy', 'asyncDispose'] as const)(
 			let disconnected = new Promise<void>((resolve) => socket.once('close', () => resolve()))
 
 			if (operation === 'destroy') server.destroy()
-			let closing = operation === 'destroy' ? server.close() : server[Symbol.asyncDispose]()
+			else server[Symbol.dispose]()
 			await disconnected
 			tc.signal.throwIfAborted()
-			await closing
+			await server.close()
 
 			expect(socket.destroyed).toBe(true)
 			expect([undefined, 'ECONNRESET']).toContain(failure?.code)
@@ -347,7 +377,7 @@ test.for(['destroy', 'asyncDispose'] as const)(
 )
 
 test('bounds response production while the peer gives no HTTP/2 flow credit', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let produced = 0
 	let stopped = Promise.withResolvers<void>()
 	let body = 'x'.repeat(128 * 1024)
@@ -388,7 +418,7 @@ test('bounds response production while the peer gives no HTTP/2 flow credit', as
 })
 
 test('preserves DEADLINE_EXCEEDED when a response is blocked on flow control', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let started = Promise.withResolvers<AbortSignal>()
 	server.add(service, {
 		async *serverStream(_request, context) {
@@ -427,7 +457,7 @@ test('preserves DEADLINE_EXCEEDED when a response is blocked on flow control', a
 })
 
 test('interrupts a handler waiting for another request at its deadline', async (tc) => {
-	await using server = new Server()
+	using server = new Server()
 	let finished = Promise.withResolvers<{ error: unknown; reason: unknown }>()
 	let received: string[] = []
 	server.add(service, {

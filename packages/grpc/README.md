@@ -52,7 +52,7 @@ For a service definition with unary `echo` and server-streaming `repeat` methods
 import { Server } from '@ydbjs/grpc'
 import { EchoServiceDefinition } from './echo.js'
 
-await using server = new Server()
+using server = new Server()
 server.add(EchoServiceDefinition, {
   echo(request) {
     return { value: request.value }
@@ -74,7 +74,9 @@ The context contains request `metadata`, an `AbortSignal`, the absolute `deadlin
 
 `listen()` defaults to `127.0.0.1:0` and returns the bound TCP port. IPv6 bind addresses use brackets, such as `[::1]:0`. A `unix:///path/to/socket` address listens on a Unix socket and returns `0`.
 
-`await server.close()` stops accepting connections and new RPCs, lets accepted RPCs finish, and then releases the remaining sockets and registered handlers. `await using` follows the same graceful shutdown sequence, with final cleanup even if closing fails. There is no automatic shutdown timeout: long-lived RPCs must finish or be cancelled by their owner. Use `server.destroy()` to interrupt active calls and connections immediately.
+`using server = new Server()` disposes the server through `destroy()`: active RPCs are cancelled and connections are destroyed without waiting for streams to finish.
+
+For graceful shutdown, explicitly `await server.close()` before leaving the scope. It stops accepting connections and new RPCs, waits for accepted RPCs to finish, and releases the remaining sockets and registered handlers. There is no automatic shutdown timeout: long-lived RPCs must finish or be cancelled by their owner.
 
 For TLS, pass Node HTTP/2 secure-server options at construction:
 
@@ -82,7 +84,7 @@ For TLS, pass Node HTTP/2 secure-server options at construction:
 import { readFile } from 'node:fs/promises'
 import { Server } from '@ydbjs/grpc'
 
-await using server = new Server({
+using server = new Server({
   tls: {
     key: await readFile('server-key.pem'),
     cert: await readFile('server-cert.pem'),

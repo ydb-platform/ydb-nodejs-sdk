@@ -71,7 +71,10 @@ server.add(definition, { unary: async () => ({ result: 'accepted' }) })
 expectTypeOf(server.listen()).toEqualTypeOf<Promise<number>>()
 expectTypeOf(server.close()).toEqualTypeOf<Promise<void>>()
 expectTypeOf(server.destroy()).toEqualTypeOf<void>()
-expectTypeOf(server[Symbol.asyncDispose]()).toEqualTypeOf<Promise<void>>()
+expectTypeOf(server[Symbol.dispose]()).toEqualTypeOf<void>()
+
+// @ts-expect-error Server disposal is synchronous; graceful shutdown uses close().
+server[Symbol.asyncDispose]()
 
 // @ts-expect-error Service definitions must not permit arbitrary handler names.
 server.add(definition, { unknown: () => ({}) })
