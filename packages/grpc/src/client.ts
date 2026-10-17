@@ -655,7 +655,7 @@ export class Client implements Transport, Disposable {
 							controller.signal
 						)
 					}
-					let response: Response
+					let response: Response | undefined
 					try {
 						response = method.responseDeserialize(bytes)
 					} catch (error) {
@@ -675,6 +675,8 @@ export class Client implements Transport, Disposable {
 					}
 					controller.signal.throwIfAborted()
 					yield response
+					// A suspended generator otherwise retains the last decoded response.
+					response = undefined
 				}
 			}
 			controller.signal.throwIfAborted()
