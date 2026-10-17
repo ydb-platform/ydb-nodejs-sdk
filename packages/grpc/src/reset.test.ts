@@ -22,21 +22,19 @@ test('receives concurrent response headers while a large request is blocked by f
 		await send.promise
 		yield payload
 	}
-	let blocked = collect(
-		client.call(
-			{
-				...service.bidi,
-				path: '/test.Transport/Large',
-				requestDeserialize: (bytes: Uint8Array) => bytes,
-				requestSerialize(value: Uint8Array) {
-					serialized.resolve()
-					return value
-				},
-			},
-			input(),
-			{ signal: AbortSignal.any([tc.signal, controller.signal]) }
-		)
-	).catch((error: unknown) => error)
+	let method = {
+		...service.bidi,
+		path: '/test.Transport/Large',
+		requestDeserialize: (bytes: Uint8Array) => bytes,
+		requestSerialize(value: Uint8Array) {
+			serialized.resolve()
+			return value
+		},
+	}
+	let call = client.call(method, input(), {
+		signal: AbortSignal.any([tc.signal, controller.signal]),
+	})
+	let blocked = collect(call).catch((error: unknown) => error)
 	await peer.wait('large-started')
 	let response = collect(client.call(service.unary, '', { signal: tc.signal }))
 	await peer.wait('small-started')
@@ -71,18 +69,15 @@ for (let [name, reset, status] of [
 			}
 			let statuses: number[] = []
 			try {
-				await expect(
-					collect(
-						client.call(
-							streaming ? service.bidi : service.unary,
-							streaming ? input() : 'request',
-							{
-								signal: tc.signal,
-								onStatus: (result) => statuses.push(result.code),
-							}
-						)
-					)
-				).rejects.toMatchObject({ code: status })
+				let method = streaming ? service.bidi : service.unary
+				let request = streaming ? input() : 'request'
+				let call = client.call(method, request, {
+					signal: tc.signal,
+					onStatus: (result) => statuses.push(result.code),
+				})
+				let responses = collect(call)
+
+				await expect(responses).rejects.toMatchObject({ code: status })
 				expect(statuses).toEqual([status])
 				expect(await peer.wait('reset-sent')).toBe(reset)
 				expect((await peer.snapshot()).attemptedResets).toEqual([reset])
@@ -158,24 +153,20 @@ for (let [name, expired] of [
 		let deadline = Date.now() + 60_000
 		let statuses: number[] = []
 		let expected = expired ? Status.DEADLINE_EXCEEDED : Status.CANCELLED
-		let response = collect(
-			client.call(
-				{
-					...service.unary,
-					requestSerialize(value: string) {
-						// Serialization follows deadline setup; changing the clock does not run its timer.
-						clock.mockReturnValue(expired ? deadline + 1 : deadline - 1)
-						return Buffer.from(value)
-					},
-				},
-				'request',
-				{
-					signal: tc.signal,
-					deadline,
-					onStatus: (status) => statuses.push(status.code),
-				}
-			)
-		)
+		let method = {
+			...service.unary,
+			requestSerialize(value: string) {
+				// Serialization follows deadline setup; changing the clock does not run its timer.
+				clock.mockReturnValue(expired ? deadline + 1 : deadline - 1)
+				return Buffer.from(value)
+			},
+		}
+		let call = client.call(method, 'request', {
+			signal: tc.signal,
+			deadline,
+			onStatus: (status) => statuses.push(status.code),
+		})
+		let response = collect(call)
 
 		await expect(response).rejects.toMatchObject({ code: expected })
 		expect(statuses).toEqual([expected])

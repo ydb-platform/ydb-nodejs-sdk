@@ -23,7 +23,7 @@ interface Session {
 	connected: boolean
 	retired: boolean
 	waiters: number
-	calls: Set<(error: unknown) => void>
+	pendingCalls: Set<(error: unknown) => void>
 	connectTimer?: NodeJS.Timeout | undefined
 	keepaliveTimer?: NodeJS.Timeout | undefined
 	pingTimer?: NodeJS.Timeout | undefined
@@ -213,7 +213,7 @@ export class Client implements Transport, Disposable {
 	#options: ClientOptions
 	#current: Session | undefined
 	#sessions = new Set<Session>()
-	#calls = new Set<(error: unknown) => void>()
+	#responseConsumers = new Set<(error: unknown) => void>()
 	#closed = false
 
 	constructor(authority: string | URL, options: ClientOptions = {}) {
@@ -334,16 +334,16 @@ export class Client implements Transport, Disposable {
 		}, options.keepaliveIntervalMs).unref()
 	}
 
-	#releaseCall(session: Session | undefined, call: (error: unknown) => void): void {
+	#releaseSessionCall(session: Session | undefined, call: (error: unknown) => void): void {
 		if (!session) {
 			return
 		}
-		session.calls.delete(call)
+		session.pendingCalls.delete(call)
 		this.#updateRef(session)
 	}
 
 	#updateRef(session: Session): void {
-		if (session.waiters === 0 && session.calls.size === 0) {
+		if (session.waiters === 0 && session.pendingCalls.size === 0) {
 			session.http2.unref()
 		}
 	}
@@ -373,7 +373,7 @@ export class Client implements Transport, Disposable {
 			connected: false,
 			retired: false,
 			waiters: 0,
-			calls: new Set(),
+			pendingCalls: new Set(),
 		}
 		this.#current = session
 		this.#sessions.add(session)
@@ -400,7 +400,7 @@ export class Client implements Transport, Disposable {
 				{ cause: error }
 			)
 			ready.reject(failure)
-			for (let fail of session.calls) {
+			for (let fail of session.pendingCalls) {
 				fail(failure)
 			}
 		})
@@ -429,7 +429,7 @@ export class Client implements Transport, Disposable {
 			}
 			let error = new RpcError(Status.UNAVAILABLE, 'HTTP/2 session closed')
 			ready.reject(error)
-			for (let fail of session.calls) {
+			for (let fail of session.pendingCalls) {
 				fail(error)
 			}
 		})
@@ -446,19 +446,19 @@ export class Client implements Transport, Disposable {
 		input: Request | AsyncIterable<Request>,
 		options: CallOptions = {}
 	): AsyncGenerator<Response, void, undefined> {
-		let controller = new AbortController()
-		let writing = new AbortController()
+		let responseController = new AbortController()
+		let requestController = new AbortController()
 		let stream: ClientHttp2Stream | undefined
 		let session: Session | undefined
 		let frames: ReturnType<typeof createFrameStream> | undefined
-		let stopReading: (() => void) | undefined
+		let stopWatchingStream: (() => void) | undefined
 		let deadline: Deadline | undefined
 		let expiresAt: number | undefined
 		let statusReported = false
-		let responseFinished = false
-		let responseFailed = false
+		let responseSettled = false
+		let hasResponseError = false
 		let responseError: unknown
-		let terminalStatus: RpcStatus | undefined
+		let serverStatus: RpcStatus | undefined
 		let encoding = 'identity'
 		let receivedMessages = 0
 		let onDeadline = () => fail(deadline!.signal.reason)
@@ -478,26 +478,26 @@ export class Client implements Transport, Disposable {
 			}
 		}
 		let fail = (error: unknown, status = errorStatus(error)) => {
-			if (responseFinished) {
+			if (responseSettled) {
 				return
 			}
-			responseFinished = true
-			responseFailed = true
+			responseSettled = true
+			hasResponseError = true
 			responseError = error
-			controller.abort(error)
-			writing.abort(error)
+			responseController.abort(error)
+			requestController.abort(error)
 			frames?.destroy()
 			stopDeadline()
 			options.signal?.removeEventListener('abort', onAbort)
-			this.#releaseCall(session, failBeforeTerminalStatus)
-			this.#calls.delete(fail)
+			this.#releaseSessionCall(session, failBeforeServerStatus)
+			this.#responseConsumers.delete(fail)
 			stream?.close(constants.NGHTTP2_CANCEL)
 			notifyStatus(status)
 		}
 		let onAbort = () =>
 			fail(options.signal!.reason, errorStatus(options.signal!.reason, Status.CANCELLED))
-		let failBeforeTerminalStatus = (error: unknown) => {
-			if (!terminalStatus) {
+		let failBeforeServerStatus = (error: unknown) => {
+			if (!serverStatus) {
 				// A peer's deadline reset can be observed before the local timer callback runs.
 				if (
 					error instanceof RpcError &&
@@ -510,24 +510,25 @@ export class Client implements Transport, Disposable {
 				fail(error)
 			}
 		}
-		let acceptTerminalStatus = (headers: IncomingHttpHeaders, rawHeaders?: string[]) => {
+		let acceptServerStatus = (headers: IncomingHttpHeaders, rawHeaders?: string[]) => {
 			let status = statusFromHeaders(headers, rawHeaders)
 			if (status) {
-				terminalStatus = status
-				writing.abort()
+				serverStatus = status
+				requestController.abort()
 				stopDeadline()
-				this.#releaseCall(session, failBeforeTerminalStatus)
+				// Buffered responses remain cancellable after the session releases this RPC.
+				this.#releaseSessionCall(session, failBeforeServerStatus)
 				options.onTrailer?.(status.metadata)
 				notifyStatus(status)
 			}
 		}
-		this.#calls.add(fail)
+		this.#responseConsumers.add(fail)
 		options.signal?.addEventListener('abort', onAbort, { once: true })
 		try {
 			if (options.signal?.aborted) {
 				onAbort()
 			}
-			controller.signal.throwIfAborted()
+			responseController.signal.throwIfAborted()
 			expiresAt = options.deadline === undefined ? undefined : Number(options.deadline)
 			deadline = createDeadline(expiresAt)
 			if (deadline?.signal.aborted) {
@@ -535,8 +536,8 @@ export class Client implements Transport, Disposable {
 			} else {
 				deadline?.signal.addEventListener('abort', onDeadline, { once: true })
 			}
-			session = await this.#session(controller.signal)
-			controller.signal.throwIfAborted()
+			session = await this.#session(responseController.signal)
+			responseController.signal.throwIfAborted()
 			let outgoingHeaders: OutgoingHttpHeaders = {
 				...requestHeaders(options.metadata),
 				':method': 'POST',
@@ -561,19 +562,19 @@ export class Client implements Transport, Disposable {
 					{ cause: error }
 				)
 			}
-			session.calls.add(failBeforeTerminalStatus)
+			session.pendingCalls.add(failBeforeServerStatus)
 			session.http2.ref()
 			stream.on('response', (headers, _flags, rawHeaders) => {
-				if (responseFinished) {
+				if (responseSettled) {
 					return
 				}
 				try {
 					options.onHeader?.(responseMetadata(headers, rawHeaders))
-					acceptTerminalStatus(headers, rawHeaders)
-					if (responseFinished) {
+					acceptServerStatus(headers, rawHeaders)
+					if (responseSettled) {
 						return
 					}
-					if (headers[':status'] !== 200 && !terminalStatus) {
+					if (headers[':status'] !== 200 && !serverStatus) {
 						throw httpError(Number(headers[':status']))
 					}
 					let contentType = headers['content-type']
@@ -592,41 +593,41 @@ export class Client implements Transport, Disposable {
 				}
 			})
 			stream.on('trailers', (headers) => {
-				if (!responseFinished) {
+				if (!responseSettled) {
 					try {
-						acceptTerminalStatus(headers)
+						acceptServerStatus(headers)
 					} catch (error) {
 						fail(error)
 					}
 				}
 			})
-			stream.on('end', () => writing.abort())
+			stream.on('end', () => requestController.abort())
 			stream.on('error', (error: NodeJS.ErrnoException) => {
 				if (error.code === 'ERR_HTTP2_STREAM_ERROR') {
-					failBeforeTerminalStatus(streamError(stream!.rstCode, session!.http2.destroyed))
+					failBeforeServerStatus(streamError(stream!.rstCode, session!.http2.destroyed))
 					return
 				}
-				failBeforeTerminalStatus(
+				failBeforeServerStatus(
 					new RpcError(Status.UNAVAILABLE, 'HTTP/2 stream failed', {}, { cause: error })
 				)
 			})
 			stream.on('aborted', () =>
-				failBeforeTerminalStatus(streamError(stream!.rstCode, session!.http2.destroyed))
+				failBeforeServerStatus(streamError(stream!.rstCode, session!.http2.destroyed))
 			)
 			stream.on('close', () => {
-				writing.abort()
+				requestController.abort()
 				// Normal EOF can precede consumption of complete buffered gRPC frames.
 				if (
-					!responseFinished &&
-					!terminalStatus &&
+					!responseSettled &&
+					!serverStatus &&
 					(stream!.rstCode !== constants.NGHTTP2_NO_ERROR || !stream!.readableEnded)
 				) {
-					failBeforeTerminalStatus(streamError(stream!.rstCode, session!.http2.destroyed))
+					failBeforeServerStatus(streamError(stream!.rstCode, session!.http2.destroyed))
 				}
 			})
 			frames = createFrameStream(this.#options.maxReceiveBytes!)
 			frames.on('error', fail)
-			stopReading = streamFinished(stream, { writable: false }, (error) => {
+			stopWatchingStream = streamFinished(stream, { writable: false }, (error) => {
 				if (error) {
 					frames!.destroy(error)
 				}
@@ -637,22 +638,22 @@ export class Client implements Transport, Disposable {
 				method,
 				input,
 				this.#options.maxSendBytes!,
-				writing.signal
+				requestController.signal
 			).catch((error) => {
-				if (!writing.signal.aborted) {
+				if (!requestController.signal.aborted) {
 					fail(error)
 				}
 			})
 			for await (let batch of frames.iterator({ destroyOnReturn: false })) {
-				controller.signal.throwIfAborted()
+				responseController.signal.throwIfAborted()
 				for (let frame of batch as Frame[]) {
-					controller.signal.throwIfAborted()
+					responseController.signal.throwIfAborted()
 					let bytes = frame.data
 					if (frame.compressed) {
 						// oxlint-disable-next-line no-await-in-loop
 						bytes = await waitWithSignal(
 							decompress(frame, encoding, this.#options.maxReceiveBytes!),
-							controller.signal
+							responseController.signal
 						)
 					}
 					let response: Response | undefined
@@ -673,41 +674,37 @@ export class Client implements Transport, Disposable {
 							'Received multiple responses for a unary RPC'
 						)
 					}
-					controller.signal.throwIfAborted()
+					responseController.signal.throwIfAborted()
 					yield response
 					// A suspended generator otherwise retains the last decoded response.
 					response = undefined
 				}
 			}
-			controller.signal.throwIfAborted()
-			if (!terminalStatus) {
+			responseController.signal.throwIfAborted()
+			if (!serverStatus) {
 				throw new RpcError(Status.UNKNOWN, 'RPC ended without grpc-status')
 			}
-			if (terminalStatus.code !== Status.OK) {
-				throw new RpcError(
-					terminalStatus.code,
-					terminalStatus.details,
-					terminalStatus.metadata
-				)
+			if (serverStatus.code !== Status.OK) {
+				throw new RpcError(serverStatus.code, serverStatus.details, serverStatus.metadata)
 			}
 			if (!method.responseStream && receivedMessages !== 1) {
 				throw new RpcError(Status.INTERNAL, 'Received no response for a unary RPC')
 			}
-			responseFinished = true
-			notifyStatus(terminalStatus)
+			responseSettled = true
+			notifyStatus(serverStatus)
 		} catch (error) {
 			fail(error)
-			throw responseFailed ? responseError : error
+			throw hasResponseError ? responseError : error
 		} finally {
-			if (!responseFinished) {
+			if (!responseSettled) {
 				fail(new RpcError(Status.CANCELLED, 'Response consumer stopped'))
 			}
-			writing.abort()
+			requestController.abort()
 			stopDeadline()
 			options.signal?.removeEventListener('abort', onAbort)
-			this.#releaseCall(session, failBeforeTerminalStatus)
-			this.#calls.delete(fail)
-			stopReading?.()
+			this.#releaseSessionCall(session, failBeforeServerStatus)
+			this.#responseConsumers.delete(fail)
+			stopWatchingStream?.()
 			if (frames) {
 				stream?.unpipe(frames)
 				frames.destroy()
@@ -722,7 +719,7 @@ export class Client implements Transport, Disposable {
 		}
 		this.#closed = true
 		let error = new RpcError(Status.CANCELLED, 'Client is closed')
-		for (let fail of this.#calls) {
+		for (let fail of this.#responseConsumers) {
 			fail(error)
 		}
 		for (let session of this.#sessions) {

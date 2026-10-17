@@ -3,6 +3,7 @@ import { expect, test } from 'vitest'
 import { deferred, service } from '../tests/fixtures.ts'
 import { nodePeer } from '../tests/node-peer.ts'
 import { Client } from './client.ts'
+import { Status } from './error.ts'
 
 // Protocol faults after accepted data require a controlled peer; YDB cannot schedule them deterministically.
 for (let [name, fault, details] of [
@@ -25,7 +26,7 @@ for (let [name, fault, details] of [
 			await terminal.promise
 		}
 		expect((await iterator.next()).value).toBe('second')
-		await expect(iterator.next()).rejects.toMatchObject({ code: 13, details })
+		await expect(iterator.next()).rejects.toMatchObject({ code: Status.INTERNAL, details })
 	})
 }
 
@@ -39,7 +40,7 @@ test('preserves the decompression error and cause after accepted responses', asy
 	await peer.command('send-tail')
 	expect((await iterator.next()).value).toBe('second')
 	await expect(iterator.next()).rejects.toMatchObject({
-		code: 13,
+		code: Status.INTERNAL,
 		details: 'Failed to decompress gRPC message',
 		cause: { code: 'Z_DATA_ERROR' },
 	})
@@ -76,5 +77,5 @@ test('settles a pending response read when the HTTP/2 session closes prematurely
 
 	await peer.command('destroy-session')
 
-	expect(await failure).toMatchObject({ code: 14 })
+	expect(await failure).toMatchObject({ code: Status.UNAVAILABLE })
 })

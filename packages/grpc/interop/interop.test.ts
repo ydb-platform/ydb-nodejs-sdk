@@ -20,7 +20,8 @@ async function collectSizes(
 
 test('exchanges an empty unary message with the official Go interop service', async (tc) => {
 	await using peer = await goPeer(tc.signal)
-	await expect(peer.client.empty({}, { signal: tc.signal })).resolves.toEqual(create(EmptySchema))
+	let response = peer.client.empty({}, { signal: tc.signal })
+	await expect(response).resolves.toEqual(create(EmptySchema))
 })
 
 test('exchanges large unary payloads with the official Go interop service', async (tc) => {
@@ -54,7 +55,8 @@ test('receives every response in a server stream from the official Go interop se
 		{ responseParameters: sizes.map((size) => ({ size })) },
 		{ signal: tc.signal }
 	)
-	await expect(collectSizes(responses)).resolves.toEqual(sizes)
+	let receivedSizes = collectSizes(responses)
+	await expect(receivedSizes).resolves.toEqual(sizes)
 })
 
 test('receives a bidi response before half-closing its request stream', async (tc) => {
@@ -67,10 +69,13 @@ test('receives a bidi response before half-closing its request stream', async (t
 	}
 	let responses = peer.client.bidi(requests(), { signal: tc.signal })[Symbol.asyncIterator]()
 	try {
-		expect((await responses.next()).value?.payload?.body.length).toBe(31415)
+		let first = await responses.next()
+		expect(first.value?.payload?.body.length).toBe(31415)
 		continueInput.resolve()
-		expect((await responses.next()).value?.payload?.body.length).toBe(9)
-		expect((await responses.next()).done).toBe(true)
+		let second = await responses.next()
+		expect(second.value?.payload?.body.length).toBe(9)
+		let end = await responses.next()
+		expect(end.done).toBe(true)
 	} finally {
 		continueInput.resolve()
 	}
@@ -79,9 +84,9 @@ test('receives a bidi response before half-closing its request stream', async (t
 test('finishes an empty bidi stream with the official Go interop service', async (tc) => {
 	await using peer = await goPeer(tc.signal)
 	async function* requests() {}
-	await expect(
-		collectSizes(peer.client.bidi(requests(), { signal: tc.signal }))
-	).resolves.toEqual([])
+	let responses = peer.client.bidi(requests(), { signal: tc.signal })
+	let receivedSizes = collectSizes(responses)
+	await expect(receivedSizes).resolves.toEqual([])
 })
 
 test('preserves request, response and binary trailer metadata across Go interop', async (tc) => {
@@ -114,12 +119,11 @@ test('preserves request, response and binary trailer metadata across Go interop'
 test('preserves a non-OK Go status and Unicode details', async (tc) => {
 	await using peer = await goPeer(tc.signal)
 	let details = '\t\ntest with whitespace\r\nand Unicode BMP ☺ and non-BMP 😃\t\n'
-	await expect(
-		peer.client.unary(
-			{ responseStatus: { code: Status.RESOURCE_EXHAUSTED, message: details } },
-			{ signal: tc.signal }
-		)
-	).rejects.toMatchObject({
+	let response = peer.client.unary(
+		{ responseStatus: { code: Status.RESOURCE_EXHAUSTED, message: details } },
+		{ signal: tc.signal }
+	)
+	await expect(response).rejects.toMatchObject({
 		code: Status.RESOURCE_EXHAUSTED,
 		details,
 	})
@@ -134,10 +138,12 @@ test('cancels a pending Go server response after receiving its first message', a
 		{ signal: AbortSignal.any([tc.signal, controller.signal]) }
 	)
 	let iterator = responses[Symbol.asyncIterator]()
-	expect((await iterator.next()).value?.payload?.body.length).toBe(1)
+	let first = await iterator.next()
+	expect(first.value?.payload?.body.length).toBe(1)
 	let failure = iterator.next().catch((error: unknown) => error)
 	controller.abort(reason)
-	expect(await failure).toBe(reason)
+	let error = await failure
+	expect(error).toBe(reason)
 })
 
 test('expires a deadline after the Go server accepts the bidi RPC', async (tc) => {
@@ -155,7 +161,8 @@ test('expires a deadline after the Go server accepts the bidi RPC', async (tc) =
 			headers = value
 		},
 	})
-	await expect(collectSizes(responses)).rejects.toMatchObject({ code: Status.DEADLINE_EXCEEDED })
+	let receivedSizes = collectSizes(responses)
+	await expect(receivedSizes).rejects.toMatchObject({ code: Status.DEADLINE_EXCEEDED })
 	expect(headers?.['x-grpc-test-echo-initial']).toBe('accepted before deadline')
 })
 
@@ -169,14 +176,12 @@ test('decodes a gzip-compressed unary response from the Go service', async (tc) 
 test('decodes gzip-compressed streaming responses from the Go service', async (tc) => {
 	await using peer = await goPeer(tc.signal, true)
 	let sizes = [31415, 9, 2653, 58979]
-	await expect(
-		collectSizes(
-			peer.client.server(
-				{ responseParameters: sizes.map((size) => ({ size })) },
-				{ signal: tc.signal }
-			)
-		)
-	).resolves.toEqual(sizes)
+	let responses = peer.client.server(
+		{ responseParameters: sizes.map((size) => ({ size })) },
+		{ signal: tc.signal }
+	)
+	let receivedSizes = collectSizes(responses)
+	await expect(receivedSizes).resolves.toEqual(sizes)
 })
 
 test('drains a large gzip response backlog after the Go server sends its trailers', async (tc) => {
@@ -186,5 +191,6 @@ test('drains a large gzip response backlog after the Go server sends its trailer
 		{ responseParameters: sizes.map((size) => ({ size })) },
 		{ signal: tc.signal }
 	)
-	await expect(collectSizes(responses)).resolves.toEqual(sizes)
+	let receivedSizes = collectSizes(responses)
+	await expect(receivedSizes).resolves.toEqual(sizes)
 })

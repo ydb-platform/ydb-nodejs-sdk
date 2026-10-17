@@ -7,6 +7,7 @@ import { expect, test } from 'vitest'
 
 import { collect, frame, rawServer, reply, service } from '../tests/fixtures.ts'
 import { Client } from './client.ts'
+import { Status } from './error.ts'
 import { createServiceClient } from './service.ts'
 import type { Metadata, RpcStatus } from './types.ts'
 
@@ -32,12 +33,10 @@ test('decodes split frame headers, split payloads and multiple frames in one chu
 	})
 	using client = new Client(peer.authority)
 
-	expect(await collect(client.call(service.serverStream, '', { signal: tc.signal }))).toEqual([
-		'first',
-		'',
-		'third',
-		'fourth',
-	])
+	let call = client.call(service.serverStream, '', { signal: tc.signal })
+	let responses = await collect(call)
+
+	expect(responses).toEqual(['first', '', 'third', 'fourth'])
 	expect(peer.errors).toEqual([])
 })
 
@@ -57,10 +56,11 @@ for (let [name, bytes] of [
 		})
 		using client = new Client(peer.authority)
 
-		await expect(
-			collect(client.call(service.serverStream, '', { signal: tc.signal }))
-		).rejects.toMatchObject({
-			code: 13,
+		let call = client.call(service.serverStream, '', { signal: tc.signal })
+		let responses = collect(call)
+
+		await expect(responses).rejects.toMatchObject({
+			code: Status.INTERNAL,
 		})
 	})
 }
@@ -80,9 +80,10 @@ for (let [encoding, compress] of [
 		})
 		using client = new Client(peer.authority)
 
-		expect(await collect(client.call(service.serverStream, '', { signal: tc.signal }))).toEqual(
-			['compressed', 'identity']
-		)
+		let call = client.call(service.serverStream, '', { signal: tc.signal })
+		let responses = await collect(call)
+
+		expect(responses).toEqual(['compressed', 'identity'])
 	})
 
 	test(`enforces the receive limit after ${encoding} decompression`, async (tc) => {
@@ -96,10 +97,11 @@ for (let [encoding, compress] of [
 		})
 		using client = new Client(peer.authority, { maxReceiveBytes: 64 })
 
-		await expect(
-			collect(client.call(service.serverStream, '', { signal: tc.signal }))
-		).rejects.toMatchObject({
-			code: 8,
+		let call = client.call(service.serverStream, '', { signal: tc.signal })
+		let responses = collect(call)
+
+		await expect(responses).rejects.toMatchObject({
+			code: Status.RESOURCE_EXHAUSTED,
 		})
 	})
 }
@@ -110,9 +112,10 @@ test('accepts an identity response encoding', async (tc) => {
 	)
 	using client = new Client(peer.authority)
 
-	expect(await collect(client.call(service.serverStream, '', { signal: tc.signal }))).toEqual([
-		'value',
-	])
+	let call = client.call(service.serverStream, '', { signal: tc.signal })
+	let responses = await collect(call)
+
+	expect(responses).toEqual(['value'])
 })
 
 test('rejects an unsupported compressed response encoding', async (tc) => {
@@ -126,10 +129,11 @@ test('rejects an unsupported compressed response encoding', async (tc) => {
 	})
 	using client = new Client(peer.authority)
 
-	await expect(
-		collect(client.call(service.serverStream, '', { signal: tc.signal }))
-	).rejects.toMatchObject({
-		code: 12,
+	let call = client.call(service.serverStream, '', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toMatchObject({
+		code: Status.UNIMPLEMENTED,
 	})
 })
 
@@ -140,10 +144,11 @@ test('rejects compressed framing without a declared encoding', async (tc) => {
 	})
 	using client = new Client(peer.authority)
 
-	await expect(
-		collect(client.call(service.serverStream, '', { signal: tc.signal }))
-	).rejects.toMatchObject({
-		code: 13,
+	let call = client.call(service.serverStream, '', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toMatchObject({
+		code: Status.INTERNAL,
 	})
 })
 
@@ -156,10 +161,11 @@ test('rejects an oversized advertised frame before waiting for its body', async 
 	})
 	using client = new Client(peer.authority, { maxReceiveBytes: 32 })
 
-	await expect(
-		collect(client.call(service.serverStream, '', { signal: tc.signal }))
-	).rejects.toMatchObject({
-		code: 8,
+	let call = client.call(service.serverStream, '', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toMatchObject({
+		code: Status.RESOURCE_EXHAUSTED,
 	})
 })
 
@@ -167,19 +173,21 @@ test('allows a receive payload exactly at its configured limit', async (tc) => {
 	await using peer = await rawServer((stream) => reply(stream, ['x'.repeat(32)]))
 	using client = new Client(peer.authority, { maxReceiveBytes: 32 })
 
-	expect(await collect(client.call(service.serverStream, '', { signal: tc.signal }))).toEqual([
-		'x'.repeat(32),
-	])
+	let call = client.call(service.serverStream, '', { signal: tc.signal })
+	let responses = await collect(call)
+
+	expect(responses).toEqual(['x'.repeat(32)])
 })
 
 test('rejects an oversized outgoing message', async (tc) => {
 	await using peer = await rawServer((stream) => reply(stream, []))
 	using client = new Client(peer.authority, { maxSendBytes: 4 })
 
-	await expect(
-		collect(client.call(service.unary, 'large', { signal: tc.signal }))
-	).rejects.toMatchObject({
-		code: 8,
+	let call = client.call(service.unary, 'large', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toMatchObject({
+		code: Status.RESOURCE_EXHAUSTED,
 	})
 })
 
@@ -207,9 +215,12 @@ test('reports trailers-only status and decodes percent-escaped details', async (
 		})
 	).catch((error: unknown) => error)
 
-	expect(failure).toMatchObject({ code: 7, details: 'access denied: тест %' })
+	expect(failure).toMatchObject({
+		code: Status.PERMISSION_DENIED,
+		details: 'access denied: тест %',
+	})
 	expect(statuses).toHaveLength(1)
-	expect(statuses[0]?.code).toBe(7)
+	expect(statuses[0]?.code).toBe(Status.PERMISSION_DENIED)
 	expect(trailers).toHaveLength(1)
 	expect([...(trailers[0]!['x-detail-bin'] as Uint8Array)]).toEqual([0, 255])
 })
@@ -223,7 +234,10 @@ test('accepts trailers-only successful completion of an empty response stream', 
 	})
 	using client = new Client(peer.authority)
 
-	expect(await collect(client.call(service.serverStream, '', { signal: tc.signal }))).toEqual([])
+	let call = client.call(service.serverStream, '', { signal: tc.signal })
+	let responses = await collect(call)
+
+	expect(responses).toEqual([])
 })
 
 test('rejects missing gRPC status instead of inferring success from HTTP 200', async (tc) => {
@@ -233,10 +247,11 @@ test('rejects missing gRPC status instead of inferring success from HTTP 200', a
 	})
 	using client = new Client(peer.authority)
 
-	await expect(
-		collect(client.call(service.serverStream, '', { signal: tc.signal }))
-	).rejects.toMatchObject({
-		code: 2,
+	let call = client.call(service.serverStream, '', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toMatchObject({
+		code: Status.UNKNOWN,
 	})
 })
 
@@ -250,24 +265,25 @@ for (let value of ['oops', '0suffix', '-1', '17']) {
 		})
 		using client = new Client(peer.authority)
 
-		await expect(
-			collect(client.call(service.unary, '', { signal: tc.signal }))
-		).rejects.toMatchObject({
-			code: 13,
+		let call = client.call(service.unary, '', { signal: tc.signal })
+		let responses = collect(call)
+
+		await expect(responses).rejects.toMatchObject({
+			code: Status.INTERNAL,
 		})
 	})
 }
 
 for (let [httpStatus, grpcStatus] of [
-	[400, 13],
-	[401, 16],
-	[403, 7],
-	[404, 12],
-	[429, 14],
-	[502, 14],
-	[503, 14],
-	[504, 14],
-	[500, 2],
+	[400, Status.INTERNAL],
+	[401, Status.UNAUTHENTICATED],
+	[403, Status.PERMISSION_DENIED],
+	[404, Status.UNIMPLEMENTED],
+	[429, Status.UNAVAILABLE],
+	[502, Status.UNAVAILABLE],
+	[503, Status.UNAVAILABLE],
+	[504, Status.UNAVAILABLE],
+	[500, Status.UNKNOWN],
 ]) {
 	test(`maps HTTP ${httpStatus} without gRPC status to code ${grpcStatus}`, async (tc) => {
 		await using peer = await rawServer((stream) => {
@@ -275,9 +291,10 @@ for (let [httpStatus, grpcStatus] of [
 		})
 		using client = new Client(peer.authority)
 
-		await expect(
-			collect(client.call(service.unary, '', { signal: tc.signal }))
-		).rejects.toMatchObject({
+		let call = client.call(service.unary, '', { signal: tc.signal })
+		let responses = collect(call)
+
+		await expect(responses).rejects.toMatchObject({
 			code: grpcStatus,
 		})
 	})
@@ -290,9 +307,10 @@ test('rejects a non-gRPC response content type', async (tc) => {
 	})
 	using client = new Client(peer.authority)
 
-	await expect(
-		collect(client.call(service.unary, '', { signal: tc.signal }))
-	).rejects.toBeInstanceOf(Error)
+	let call = client.call(service.unary, '', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toBeInstanceOf(Error)
 })
 
 test('preserves repeated binary metadata independently in headers and trailers', async (tc) => {
@@ -353,10 +371,11 @@ test('rejects an elapsed deadline without opening an RPC', async (tc) => {
 	await using peer = await rawServer((stream) => reply(stream, ['unexpected']))
 	using client = new Client(peer.authority)
 
-	await expect(
-		collect(client.call(service.unary, '', { signal: tc.signal, deadline: Date.now() - 1 }))
-	).rejects.toMatchObject({
-		code: 4,
+	let call = client.call(service.unary, '', { signal: tc.signal, deadline: Date.now() - 1 })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toMatchObject({
+		code: Status.DEADLINE_EXCEEDED,
 	})
 	expect(peer.streams).toHaveLength(0)
 })
@@ -384,7 +403,7 @@ for (let bidi of [false, true]) {
 		controller.abort(reason)
 		await expect(responses.next()).rejects.toBe(reason)
 		expect(statuses).toHaveLength(1)
-		expect(statuses[0]?.code).toBe(1)
+		expect(statuses[0]?.code).toBe(Status.CANCELLED)
 	})
 }
 
@@ -396,14 +415,13 @@ test('reports status once when an error is followed by transport close', async (
 	using client = new Client(peer.authority)
 	let statuses: RpcStatus[] = []
 
-	await expect(
-		collect(
-			client.call(service.unary, '', {
-				signal: tc.signal,
-				onStatus: (status) => statuses.push(status),
-			})
-		)
-	).rejects.toBeInstanceOf(Error)
+	let call = client.call(service.unary, '', {
+		signal: tc.signal,
+		onStatus: (status) => statuses.push(status),
+	})
+	let responses = collect(call)
+
+	await expect(responses).rejects.toBeInstanceOf(Error)
 	await setTimeout(5, undefined, { signal: tc.signal })
 	expect(statuses).toHaveLength(1)
 })
@@ -413,7 +431,9 @@ test('rejects a unary call that receives no message', async (tc) => {
 	using client = new Client(peer.authority)
 	let api = createServiceClient(service, client)
 
-	await expect(api.unary('', { signal: tc.signal })).rejects.toMatchObject({ code: 13 })
+	await expect(api.unary('', { signal: tc.signal })).rejects.toMatchObject({
+		code: Status.INTERNAL,
+	})
 })
 
 test('rejects a unary call that receives multiple messages', async (tc) => {
@@ -421,7 +441,9 @@ test('rejects a unary call that receives multiple messages', async (tc) => {
 	using client = new Client(peer.authority)
 	let api = createServiceClient(service, client)
 
-	await expect(api.unary('', { signal: tc.signal })).rejects.toMatchObject({ code: 13 })
+	await expect(api.unary('', { signal: tc.signal })).rejects.toMatchObject({
+		code: Status.INTERNAL,
+	})
 })
 
 for (let hook of ['onHeader', 'onTrailer'] as const) {
@@ -430,16 +452,15 @@ for (let hook of ['onHeader', 'onTrailer'] as const) {
 		using client = new Client(peer.authority)
 		let failure = new Error('observer failed')
 
-		await expect(
-			collect(
-				client.call(service.unary, '', {
-					signal: tc.signal,
-					[hook]() {
-						throw failure
-					},
-				})
-			)
-		).rejects.toBe(failure)
+		let call = client.call(service.unary, '', {
+			signal: tc.signal,
+			[hook]() {
+				throw failure
+			},
+		})
+		let responses = collect(call)
+
+		await expect(responses).rejects.toBe(failure)
 	})
 }
 
@@ -447,16 +468,15 @@ test('preserves the RPC outcome when its terminal status observer throws', async
 	await using peer = await rawServer((stream) => reply(stream, ['value']))
 	using client = new Client(peer.authority)
 
-	expect(
-		await collect(
-			client.call(service.unary, '', {
-				signal: tc.signal,
-				onStatus() {
-					throw new Error('observer failed')
-				},
-			})
-		)
-	).toEqual(['value'])
+	let call = client.call(service.unary, '', {
+		signal: tc.signal,
+		onStatus() {
+			throw new Error('observer failed')
+		},
+	})
+	let responses = await collect(call)
+
+	expect(responses).toEqual(['value'])
 })
 
 for (let [name, metadata] of [
@@ -469,9 +489,10 @@ for (let [name, metadata] of [
 		await using peer = await rawServer((stream) => reply(stream, ['unexpected']))
 		using client = new Client(peer.authority)
 
-		await expect(
-			collect(client.call(service.unary, '', { signal: tc.signal, metadata }))
-		).rejects.toBeInstanceOf(TypeError)
+		let call = client.call(service.unary, '', { signal: tc.signal, metadata })
+		let responses = collect(call)
+
+		await expect(responses).rejects.toBeInstanceOf(TypeError)
 		expect(peer.streams).toHaveLength(0)
 	})
 }
@@ -532,7 +553,7 @@ test('reports cancellation once when the response consumer returns early', async
 	}
 
 	expect(statuses).toHaveLength(1)
-	expect(statuses[0]?.code).toBe(1)
+	expect(statuses[0]?.code).toBe(Status.CANCELLED)
 })
 
 test('accepts a numeric gRPC status with leading zeroes', async (tc) => {
@@ -541,7 +562,10 @@ test('accepts a numeric gRPC status with leading zeroes', async (tc) => {
 	)
 	using client = new Client(peer.authority)
 
-	expect(await collect(client.call(service.unary, '', { signal: tc.signal }))).toEqual(['value'])
+	let call = client.call(service.unary, '', { signal: tc.signal })
+	let responses = await collect(call)
+
+	expect(responses).toEqual(['value'])
 })
 
 test('caller cancellation still wins over buffered responses after OK trailers', async (tc) => {
@@ -588,7 +612,10 @@ test('drains buffered responses before reporting non-OK server trailers', async 
 	finish()
 	await trailers.promise
 	expect((await iterator.next()).value).toBe('second')
-	await expect(iterator.next()).rejects.toMatchObject({ code: 13, details: 'server failed' })
+	await expect(iterator.next()).rejects.toMatchObject({
+		code: Status.INTERNAL,
+		details: 'server failed',
+	})
 })
 
 test('keeps accepted responses after the RPC deadline passes following terminal trailers', async (tc) => {
@@ -623,5 +650,5 @@ test('closing the client discards buffered responses after terminal trailers', a
 	expect((await iterator.next()).value).toBe('first')
 	await trailers.promise
 	client.close()
-	await expect(iterator.next()).rejects.toMatchObject({ code: 1 })
+	await expect(iterator.next()).rejects.toMatchObject({ code: Status.CANCELLED })
 })

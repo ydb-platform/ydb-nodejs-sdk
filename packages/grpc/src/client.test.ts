@@ -11,6 +11,7 @@ import { expect, test } from 'vitest'
 
 import { collect, deferred, frame, rawServer, reply, requests, service } from '../tests/fixtures.ts'
 import { Client } from './client.ts'
+import { Status } from './error.ts'
 
 // Loopback sessions let tests control GOAWAY and stream reset ordering independently of YDB discovery.
 
@@ -24,11 +25,12 @@ test('connects lazily and reuses one session for multiple calls', async (tc) => 
 	expect(client.state).toBe('ready')
 
 	for (let index = 0; index < 3; index++) {
+		let call = client.call(service.unary, '', { signal: tc.signal })
 		// Sequential calls must reuse the connection after the previous RPC finishes.
 		// eslint-disable-next-line no-await-in-loop
-		expect(await collect(client.call(service.unary, '', { signal: tc.signal }))).toEqual([
-			'value',
-		])
+		let responses = await collect(call)
+
+		expect(responses).toEqual(['value'])
 	}
 
 	expect(peer.sessions).toHaveLength(1)
@@ -67,9 +69,10 @@ test('close is idempotent and prevents later RPCs and reconnects', async (tc) =>
 	client.close()
 
 	await expect(client.connect(tc.signal)).rejects.toBeInstanceOf(Error)
-	await expect(
-		collect(client.call(service.unary, '', { signal: tc.signal }))
-	).rejects.toBeInstanceOf(Error)
+	let call = client.call(service.unary, '', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toBeInstanceOf(Error)
 	expect(client.state).toBe('closed')
 	expect(peer.streams).toHaveLength(0)
 })
@@ -159,9 +162,10 @@ test('lets accepted streams finish after GOAWAY and sends new calls on a new ses
 		})
 	})
 
-	expect(await collect(client.call(service.unary, '', { signal: tc.signal }))).toEqual([
-		'new connection',
-	])
+	let call = client.call(service.unary, '', { signal: tc.signal })
+	let responses = await collect(call)
+
+	expect(responses).toEqual(['new connection'])
 	let end = await finish.promise
 	end()
 	expect((await first.next()).value).toBe('after goaway')
@@ -182,13 +186,16 @@ test('does not replay an RPC after a refused stream', async (tc) => {
 	})
 	using client = new Client(peer.authority)
 
-	await expect(
-		collect(client.call(service.unary, '', { signal: tc.signal }))
-	).rejects.toBeInstanceOf(Error)
+	let call = client.call(service.unary, '', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toBeInstanceOf(Error)
 	expect(calls).toBe(1)
-	expect(await collect(client.call(service.unary, '', { signal: tc.signal }))).toEqual([
-		'explicit retry',
-	])
+
+	let retry = client.call(service.unary, '', { signal: tc.signal })
+	let retriedResponses = await collect(retry)
+
+	expect(retriedResponses).toEqual(['explicit retry'])
 	expect(calls).toBe(2)
 })
 
@@ -204,9 +211,10 @@ test('does not replay a call whose connection closes after receiving the request
 	})
 	using client = new Client(peer.authority)
 
-	await expect(
-		collect(client.call(service.unary, 'non-idempotent', { signal: tc.signal }))
-	).rejects.toBeInstanceOf(Error)
+	let call = client.call(service.unary, 'non-idempotent', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toBeInstanceOf(Error)
 	await setTimeout(10, undefined, { signal: tc.signal })
 	expect(calls).toBe(1)
 })
@@ -248,7 +256,10 @@ test('uses a custom CA and TLS server name for an IP endpoint', async (tc) => {
 		tls: { ca: certificate, servername: 'grpc.test' },
 	})
 
-	expect(await collect(client.call(service.unary, '', { signal: tc.signal }))).toEqual(['secure'])
+	let call = client.call(service.unary, '', { signal: tc.signal })
+	let responses = await collect(call)
+
+	expect(responses).toEqual(['secure'])
 })
 
 test('rejects an untrusted TLS certificate', async (tc) => {
@@ -290,9 +301,10 @@ test('rejects an untrusted TLS certificate', async (tc) => {
 		tls: { servername: 'grpc.test' },
 	})
 
-	await expect(
-		collect(client.call(service.unary, '', { signal: tc.signal }))
-	).rejects.toBeInstanceOf(Error)
+	let call = client.call(service.unary, '', { signal: tc.signal })
+	let responses = collect(call)
+
+	await expect(responses).rejects.toBeInstanceOf(Error)
 	expect(peer.streams).toHaveLength(0)
 })
 
@@ -310,7 +322,10 @@ test('calls a loopback peer through a Unix domain socket', async (tc) => {
 	)
 	using client = new Client(peer.authority)
 
-	expect(await collect(client.call(service.unary, '', { signal: tc.signal }))).toEqual(['unix'])
+	let call = client.call(service.unary, '', { signal: tc.signal })
+	let responses = await collect(call)
+
+	expect(responses).toEqual(['unix'])
 })
 
 test('drains accepted responses after OK trailers and a graceful GOAWAY session close', async (tc) => {
@@ -353,7 +368,7 @@ test('times out connection setup when a TCP peer never sends HTTP/2 settings', a
 	let { port } = server.address() as AddressInfo
 	using client = new Client(`http://127.0.0.1:${port}`, { connectTimeoutMs: 25 })
 
-	await expect(client.connect(tc.signal)).rejects.toMatchObject({ code: 14 })
+	await expect(client.connect(tc.signal)).rejects.toMatchObject({ code: Status.UNAVAILABLE })
 	expect(client.state).not.toBe('ready')
 })
 
