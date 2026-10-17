@@ -200,47 +200,92 @@ test('rejects an oversized serialized response without sending its body', async 
 	expect(response.body.length).toBe(0)
 })
 
-test('drains an active RPC before graceful close completes', async (tc) => {
-	await using server = new Server()
-	let started = Promise.withResolvers<void>()
-	let release = Promise.withResolvers<void>()
-	server.add(service, {
-		async unary() {
-			started.resolve()
-			await release.promise
-			return 'completed'
-		},
-	})
-	let port = await server.listen()
-	let session = connect(`http://127.0.0.1:${port}`)
-	try {
-		let stream = session.request(
-			{ ':method': 'POST', ':path': service.unary.path, 'content-type': 'application/grpc' },
-			{ signal: tc.signal }
-		)
-		let chunks: Buffer[] = []
-		stream.on('data', (chunk: Buffer) => chunks.push(chunk))
-		let ended = once(stream, 'end', { signal: tc.signal })
-		stream.end(frame('request'))
-		await started.promise
-		let goaway = once(session, 'goaway', { signal: tc.signal })
-		let closed = false
-		let closing = server.close().then(() => {
-			closed = true
-			return undefined
+test.for(['close', 'asyncDispose'] as const)(
+	'drains an active RPC before %s completes',
+	async (operation, tc) => {
+		await using server = new Server()
+		let started = Promise.withResolvers<AbortSignal>()
+		let release = Promise.withResolvers<void>()
+		let calls = 0
+		server.add(service, {
+			async unary(_request, context) {
+				calls++
+				started.resolve(context.signal)
+				await release.promise
+				return 'completed'
+			},
 		})
-		await goaway
-		expect(closed).toBe(false)
-		release.resolve()
-		await ended
-		await closing
-		expect(Buffer.concat(chunks)).toEqual(frame('completed'))
-		expect(closed).toBe(true)
-	} finally {
-		release.resolve()
-		session.destroy()
+		let port = await server.listen()
+		let session = connect(`http://127.0.0.1:${port}`)
+		try {
+			let stream = session.request(
+				{
+					':method': 'POST',
+					':path': service.unary.path,
+					'content-type': 'application/grpc',
+				},
+				{ signal: tc.signal }
+			)
+			let chunks: Buffer[] = []
+			let trailers: IncomingHttpHeaders = {}
+			stream.on('data', (chunk: Buffer) => chunks.push(chunk))
+			stream.on('trailers', (value) => {
+				trailers = value
+			})
+			let ended = once(stream, 'end', { signal: tc.signal }).catch((error: unknown) => error)
+			stream.end(frame('request'))
+			let signal = await started.promise
+			let goaway = once(session, 'goaway', { signal: tc.signal })
+			let closed = false
+			let closing = (
+				operation === 'close' ? server.close() : server[Symbol.asyncDispose]()
+			).then(() => {
+				closed = true
+				return undefined
+			})
+			await goaway
+			expect(closed).toBe(false)
+			expect(signal.aborted).toBe(false)
+			let lateResponse = (async () => {
+				let late = session.request(
+					{
+						':method': 'POST',
+						':path': service.unary.path,
+						'content-type': 'application/grpc',
+					},
+					{ signal: tc.signal }
+				)
+				late.end(frame('late request'))
+				let [headers] = await once(late, 'response', { signal: tc.signal })
+				return headers
+			})().catch((error: unknown) => error)
+
+			let socket = createConnection({ host: '127.0.0.1', port })
+			try {
+				let [error] = await once(socket, 'error', { signal: tc.signal })
+				expect(error).toMatchObject({ code: 'ECONNREFUSED' })
+			} finally {
+				socket.destroy()
+			}
+
+			release.resolve()
+			expect(await ended).not.toBeInstanceOf(Error)
+			await closing
+			expect(await lateResponse).toMatchObject({
+				code: expect.stringMatching(
+					/^ERR_HTTP2_(GOAWAY_SESSION|INVALID_SESSION|STREAM_CANCEL)$/
+				),
+			})
+			expect(Buffer.concat(chunks)).toEqual(frame('completed'))
+			expect(trailers['grpc-status']).toBe(String(Status.OK))
+			expect(calls).toBe(1)
+			expect(closed).toBe(true)
+		} finally {
+			release.resolve()
+			session.destroy()
+		}
 	}
-})
+)
 
 test('aborts an active handler when destroyed', async (tc) => {
 	await using server = new Server()
@@ -269,33 +314,37 @@ test('aborts an active handler when destroyed', async (tc) => {
 	expect(await failure).toBeInstanceOf(Error)
 })
 
-test('destroys a TCP connection before its TLS handshake completes', async (tc) => {
-	await using server = new Server({ tls: {} })
-	let port = await server.listen()
-	let socket = createConnection({ host: '127.0.0.1', port })
-	let cancellation = addAbortListener(tc.signal, () => socket.destroy())
-	let failure: NodeJS.ErrnoException | undefined
-	socket.on('error', (error) => {
-		failure = error
-	})
-	try {
-		await once(socket, 'connect', { signal: tc.signal })
-		await setImmediate()
-		let disconnected = new Promise<void>((resolve) => socket.once('close', () => resolve()))
+test.for(['destroy', 'asyncDispose'] as const)(
+	'%s closes a TCP connection before its TLS handshake completes',
+	async (operation, tc) => {
+		await using server = new Server({ tls: {} })
+		let port = await server.listen()
+		let socket = createConnection({ host: '127.0.0.1', port })
+		let cancellation = addAbortListener(tc.signal, () => socket.destroy())
+		let failure: NodeJS.ErrnoException | undefined
+		socket.on('error', (error) => {
+			failure = error
+		})
+		try {
+			await once(socket, 'connect', { signal: tc.signal })
+			await setImmediate()
+			let disconnected = new Promise<void>((resolve) => socket.once('close', () => resolve()))
 
-		server.destroy()
-		await disconnected
-		tc.signal.throwIfAborted()
-		await server.close()
+			if (operation === 'destroy') server.destroy()
+			let closing = operation === 'destroy' ? server.close() : server[Symbol.asyncDispose]()
+			await disconnected
+			tc.signal.throwIfAborted()
+			await closing
 
-		expect(socket.destroyed).toBe(true)
-		expect([undefined, 'ECONNRESET']).toContain(failure?.code)
-	} finally {
-		cancellation[Symbol.dispose]()
-		// A deliberate reset can make Socket.asyncDispose() reject with ECONNRESET.
-		socket.destroy()
+			expect(socket.destroyed).toBe(true)
+			expect([undefined, 'ECONNRESET']).toContain(failure?.code)
+		} finally {
+			cancellation[Symbol.dispose]()
+			// A deliberate reset can make Socket.asyncDispose() reject with ECONNRESET.
+			socket.destroy()
+		}
 	}
-})
+)
 
 test('bounds response production while the peer gives no HTTP/2 flow credit', async (tc) => {
 	await using server = new Server()

@@ -404,14 +404,31 @@ export class Server implements AsyncDisposable {
 		this.#closed = true
 		this.#closing ??= (async () => {
 			await this.#listening?.catch(() => {})
-			for (let session of this.#sessions) session.close()
-			if (!this.#server.listening) return
-			await new Promise<void>((resolve, reject) =>
+			let listenerClosed = new Promise<void>((resolve, reject) => {
+				if (!this.#server.listening) {
+					resolve()
+					return
+				}
 				this.#server.close((error) => {
 					if (error) reject(error)
 					else resolve()
 				})
-			)
+			})
+			let sessionsClosed: Promise<void>[] = []
+			for (let session of this.#sessions) {
+				if (session.destroyed) continue
+				sessionsClosed.push(new Promise<void>((resolve) => session.once('close', resolve)))
+				session.close()
+			}
+			let connectionsClosed = Promise.all(sessionsClosed).then(() => {
+				// A TCP/TLS connection without an HTTP/2 session has no RPCs to drain.
+				for (let socket of this.#sockets) socket.destroy()
+				return undefined
+			})
+			await Promise.all([listenerClosed, connectionsClosed])
+			this.#methods.clear()
+			this.#sessions.clear()
+			this.#sockets.clear()
 		})()
 		return this.#closing
 	}
@@ -420,10 +437,14 @@ export class Server implements AsyncDisposable {
 		void this.close().catch(() => {})
 		for (let session of this.#sessions) session.destroy()
 		for (let socket of this.#sockets) socket.destroy()
+		this.#methods.clear()
 	}
 
 	async [Symbol.asyncDispose](): Promise<void> {
-		this.destroy()
-		await this.close()
+		try {
+			await this.close()
+		} finally {
+			this.destroy()
+		}
 	}
 }

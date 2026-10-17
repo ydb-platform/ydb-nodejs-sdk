@@ -74,7 +74,7 @@ The context contains request `metadata`, an `AbortSignal`, the absolute `deadlin
 
 `listen()` defaults to `127.0.0.1:0` and returns the bound TCP port. IPv6 bind addresses use brackets, such as `[::1]:0`. A `unix:///path/to/socket` address listens on a Unix socket and returns `0`.
 
-`await server.close()` stops accepting calls and waits for active RPCs to finish. `server.destroy()` cancels active calls and destroys the connections immediately. `await using` performs immediate cleanup through `destroy()` and waits for the listener to close, including when a test throws.
+`await server.close()` stops accepting connections and new RPCs, lets accepted RPCs finish, and then releases the remaining sockets and registered handlers. `await using` follows the same graceful shutdown sequence, with final cleanup even if closing fails. There is no automatic shutdown timeout: long-lived RPCs must finish or be cancelled by their owner. Use `server.destroy()` to interrupt active calls and connections immediately.
 
 For TLS, pass Node HTTP/2 secure-server options at construction:
 
