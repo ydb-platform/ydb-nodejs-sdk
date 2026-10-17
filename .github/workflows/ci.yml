@@ -109,6 +109,8 @@ jobs:
             echo "GRPC_TEST_WITNESS=$RUNNER_TEMP/grpc-results/workers.jsonl"
             echo "GRPC_TEST_GO_SERVER=$RUNNER_TEMP/grpc-interop-go"
           } >> "$GITHUB_ENV"
+      - name: Build gRPC transport
+        run: npm run build --workspace=@ydbjs/grpc
       - name: Build grpc-go interoperability server
         working-directory: packages/grpc/tests/interop-go
         env:
@@ -173,6 +175,9 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: Build gRPC transport
+        run: npm run build --workspace=@ydbjs/grpc
 
       - name: Test
         if: matrix.node-version != 26
