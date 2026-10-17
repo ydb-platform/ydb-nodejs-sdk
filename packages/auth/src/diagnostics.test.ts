@@ -2,11 +2,10 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { channel as dc, tracingChannel } from 'node:diagnostics_channel'
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
-import { status } from '@grpc/grpc-js'
-import { createTestServer } from '../../../tests/grpc-server.ts'
 
 import { AuthServiceDefinition, LoginResponseSchema, LoginResultSchema } from '@ydbjs/api/auth'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
+import { RpcError, Server, Status } from '@ydbjs/grpc'
 
 import { MetadataCredentialsProvider } from './metadata.js'
 import { StaticCredentialsProvider } from './static.js'
@@ -149,14 +148,14 @@ test('publishes ydb:auth.token.expired once per incident across concurrent metad
 // simulates the UNAUTHENTICATED failure to keep both diagnostics scenarios
 // (opaque token, login failure) on one fast, deterministic fixture.
 async function startAuthServer(opts: { fail?: boolean } = {}) {
-	let server = createTestServer()
+	let server = new Server()
 
 	server.add(
 		{ login: AuthServiceDefinition.login },
 		{
 			async login() {
 				if (opts.fail) {
-					throw Object.assign(new Error('login boom'), { code: status.UNAUTHENTICATED })
+					throw new RpcError(Status.UNAUTHENTICATED, 'login boom')
 				}
 				// Plain string — not a JWT — forces the StaticCredentialsProvider
 				// fallback branch (5-minute synthetic exp).
@@ -176,7 +175,7 @@ async function startAuthServer(opts: { fail?: boolean } = {}) {
 	return {
 		endpoint: `grpc://127.0.0.1:${port}`,
 		async [Symbol.asyncDispose]() {
-			await server.shutdown()
+			await server.close()
 		},
 	}
 }

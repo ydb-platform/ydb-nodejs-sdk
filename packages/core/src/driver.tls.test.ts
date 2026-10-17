@@ -1,13 +1,12 @@
 import { create } from '@bufbuild/protobuf'
 import { DiscoveryServiceDefinition, WhoAmIResponseSchema } from '@ydbjs/api/discovery'
+import { Server } from '@ydbjs/grpc'
 import { execFile } from 'node:child_process'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 
-import { ServerCredentials } from '@grpc/grpc-js'
-import { createTestServer } from '../../../tests/grpc-server.ts'
 import { expect, test } from 'vitest'
 
 import { Driver } from './driver.ts'
@@ -51,9 +50,9 @@ test.for([
 		)
 		let ca = await readFile(certificate)
 		await using fixture = {
-			server: createTestServer(),
+			server: new Server({ tls: { key: await readFile(key), cert: ca } }),
 			[Symbol.asyncDispose]() {
-				return this.server.shutdown()
+				return this.server.close()
 			},
 		}
 		let server = fixture.server
@@ -63,12 +62,7 @@ test.for([
 				return create(WhoAmIResponseSchema, {})
 			},
 		})
-		let port = await server.listen(
-			'127.0.0.1:0',
-			ServerCredentials.createSsl(null, [
-				{ private_key: await readFile(key), cert_chain: ca },
-			])
-		)
+		let port = await server.listen('127.0.0.1:0')
 		using driver = new Driver(`${protocol}://127.0.0.1:${port}/local`, {
 			'ydb.sdk.enable_discovery': false,
 			[option]: { ca },

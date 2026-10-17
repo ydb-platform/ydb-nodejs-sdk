@@ -1,5 +1,6 @@
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { isAbsolute } from 'node:path'
+import { promisify } from 'node:util'
 
 import {
 	type DescMessage,
@@ -41,10 +42,13 @@ function method<
 		requestSerialize: (value: MessageInitShape<Request>) =>
 			toBinary(request, create(request, value)),
 		responseDeserialize: (bytes: Uint8Array) => fromBinary(response, bytes),
+		requestDeserialize: (bytes: Uint8Array) => fromBinary(request, bytes),
+		responseSerialize: (value: MessageInitShape<Response>) =>
+			toBinary(response, create(response, value)),
 	}
 }
 
-let definition = {
+export let definition = {
 	empty: method('EmptyCall', EmptySchema, EmptySchema, false, false),
 	unary: method('UnaryCall', SimpleRequestSchema, SimpleResponseSchema, false, false),
 	server: method(
@@ -70,14 +74,33 @@ let definition = {
 	),
 }
 
-export async function goPeer(signal: AbortSignal, gzip = false) {
+function goBinary(): string {
 	let binary = process.env.GRPC_TEST_GO_SERVER
 	if (!binary || !isAbsolute(binary)) {
 		throw new Error(
-			'GRPC_TEST_GO_SERVER must name the absolute path to the built Go interop server'
+			'GRPC_TEST_GO_SERVER must name the absolute path to the built Go interop peer'
 		)
 	}
-	let child = spawn(binary, gzip ? ['-gzip'] : [], { stdio: ['ignore', 'pipe', 'pipe'] })
+	return binary
+}
+
+export async function goClient(
+	address: string,
+	scenario: string,
+	signal: AbortSignal,
+	ca?: string
+): Promise<void> {
+	let args = ['-target', address, '-case', scenario]
+	if (ca) args.push('-ca', ca)
+	let { stdout, stderr } = await promisify(execFile)(goBinary(), args, { signal })
+	let result = JSON.parse(stdout) as { case: string; grpcVersion: string }
+	if (stderr !== '' || result.case !== scenario || result.grpcVersion !== '1.84.0') {
+		throw new Error(`Unexpected Go interop result: ${stdout} ${stderr}`)
+	}
+}
+
+export async function goPeer(signal: AbortSignal, gzip = false) {
+	let child = spawn(goBinary(), gzip ? ['-gzip'] : [], { stdio: ['ignore', 'pipe', 'pipe'] })
 	let ready = Promise.withResolvers<string>()
 	let exited = Promise.withResolvers<{ code: number | null; signal: string | null }>()
 	let stderr = ''

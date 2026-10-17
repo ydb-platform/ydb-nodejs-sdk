@@ -10,7 +10,7 @@ This guide outlines error classes and handling patterns used by the SDK.
 
 - `YDBError` — server-side YDB error with `code` and `issues`.
 - `CommitError` — commit failed; exposes `retryable(idempotent)`.
-- `ServiceError` — native grpc-js error with `code`, `details`, and `metadata` (e.g., `UNAVAILABLE`).
+- `RpcError` from `@ydbjs/grpc` — transport error with `code`, `details`, and `metadata` (e.g., `UNAVAILABLE`).
 
 ### Coordination errors (`@ydbjs/coordination`)
 
@@ -21,7 +21,7 @@ This guide outlines error classes and handling patterns used by the SDK.
 - `ObservationEndedError` — the `observe()` iterator finished.
 - `TryAcquireMissError` — non-blocking acquire found no available tokens (internal).
 
-Use `instanceof` for SDK error classes and `isServiceError` from `@ydbjs/error` for native gRPC errors.
+Use `instanceof` for SDK error classes and `isServiceError` from `@ydbjs/error` for gRPC status errors.
 
 ```ts
 import { YDBError, isServiceError } from '@ydbjs/error'

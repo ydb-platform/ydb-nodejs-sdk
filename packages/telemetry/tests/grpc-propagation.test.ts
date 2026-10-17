@@ -1,4 +1,3 @@
-import type { Metadata } from '@grpc/grpc-js'
 import { create } from '@bufbuild/protobuf'
 import {
 	DiscoveryServiceDefinition,
@@ -14,7 +13,7 @@ import {
 	SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base'
 import { Driver, addMetadataHook } from '@ydbjs/core'
-import { createTestServer } from '../../../tests/grpc-server.js'
+import { type Metadata, Server } from '@ydbjs/grpc'
 import { afterEach, beforeAll, expect, test } from 'vitest'
 
 import { propagator } from '../src/propagation.ts'
@@ -36,7 +35,7 @@ afterEach(() => exporter.reset())
 async function driveThroughRealDriver(signal: AbortSignal): Promise<Metadata> {
 	using _ = addMetadataHook(propagator)
 
-	let server = createTestServer()
+	let server = new Server()
 	let received: Metadata | undefined
 	let discoveryService = {
 		listEndpoints: DiscoveryServiceDefinition.listEndpoints,
@@ -69,7 +68,7 @@ async function driveThroughRealDriver(signal: AbortSignal): Promise<Metadata> {
 		return received
 	} finally {
 		driver.close()
-		await server.shutdown()
+		await server.close()
 	}
 }
 
@@ -79,7 +78,7 @@ test('injects traceparent into metadata when a span is active', async (tc) => {
 	let traceparent: string | undefined
 	await context.with(trace.setSpan(context.active(), span), async () => {
 		let received = await driveThroughRealDriver(tc.signal)
-		traceparent = String(received.get('traceparent')[0])
+		traceparent = String(received['traceparent'])
 	})
 	span.end()
 
@@ -89,7 +88,7 @@ test('injects traceparent into metadata when a span is active', async (tc) => {
 
 test('skips traceparent when no span is active', async (tc) => {
 	let received = await driveThroughRealDriver(tc.signal)
-	expect(received.get('traceparent')[0]).toBeUndefined()
+	expect(received['traceparent']).toBeUndefined()
 })
 
 test('preserves existing metadata entries alongside traceparent', async (tc) => {
@@ -101,23 +100,23 @@ test('preserves existing metadata entries alongside traceparent', async (tc) => 
 	})
 	span.end()
 
-	expect(received!.get('x-ydb-database')[0]).toBe('/local')
-	expect(received!.get('traceparent')[0]).toBeDefined()
+	expect(received!['x-ydb-database']).toBe('/local')
+	expect(received!['traceparent']).toBeDefined()
 })
 
 test('metadata hook leaves caller metadata unchanged', async (tc) => {
 	await using fixture = {
-		server: createTestServer(),
+		server: new Server(),
 		[Symbol.asyncDispose]() {
-			return this.server.shutdown()
+			return this.server.close()
 		},
 	}
-	let receivedTrace: string | Uint8Array | undefined
+	let receivedTrace: Metadata[string] | undefined
 	fixture.server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
 			async whoAmI(_request, callContext) {
-				receivedTrace = callContext.metadata.get('traceparent')[0]
+				receivedTrace = callContext.metadata['traceparent']
 				return create(WhoAmIResponseSchema, {})
 			},
 		}

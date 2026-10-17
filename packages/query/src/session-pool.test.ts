@@ -1,5 +1,4 @@
 import { afterEach, expect, test } from 'vitest'
-import { createTestServer } from '../../../tests/grpc-server.js'
 import { create } from '@bufbuild/protobuf'
 
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
@@ -11,6 +10,7 @@ import {
 } from '@ydbjs/api/query'
 import { Driver } from '@ydbjs/core'
 import { YDBError } from '@ydbjs/error'
+import { Server } from '@ydbjs/grpc'
 
 import { Session } from './session.ts'
 import { SessionLease, SessionPool } from './session-pool.ts'
@@ -24,7 +24,7 @@ import { SessionLease, SessionPool } from './session-pool.ts'
 // ../tests/session-pool.test.ts against real YDB instead.
 
 /**
- * Minimal in-memory QueryService. Tests get:
+ * Controlled loopback QueryService. Tests get:
  *  - `breakSession(id)`: server-side abort of a session's attach stream
  *    (simulates YDB-driven invalidation).
  *  - `holdCreateSession()`: blocks every subsequent `CreateSession` until
@@ -42,7 +42,7 @@ async function startQueryServer() {
 	let deleteCalls: string[] = []
 	let attachCalls: string[] = []
 
-	let server = createTestServer()
+	let server = new Server()
 	let subset = {
 		createSession: QueryServiceDefinition.createSession,
 		deleteSession: QueryServiceDefinition.deleteSession,
@@ -112,7 +112,7 @@ async function startQueryServer() {
 		async close() {
 			holdResolve?.()
 			driver.close()
-			await server.shutdown()
+			await server.close()
 		},
 	}
 }
@@ -229,7 +229,7 @@ test('Session.open aborts the attach stream when the caller signal fires mid-wai
 	// Wait for the attach RPC to reach the server.
 	await until(() => srv!.attachCalls.length > 0)
 
-	// Client aborts — nice-grpc should cancel the stream; our forward
+	// Client cancellation closes the attach stream; the forward
 	// listener in #bindAttach propagates the abort into #attach.
 	ctrl.abort(new Error('caller gave up'))
 

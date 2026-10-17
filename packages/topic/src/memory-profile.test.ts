@@ -1,31 +1,30 @@
 import { execFile } from 'node:child_process'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 
-import { Server, ServerCredentials, type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js'
+import { Server } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
 import { runMemoryProfile } from '../tests/memory-profile.ts'
 
 let execute = promisify(execFile)
-let grpcPath = createRequire(import.meta.url).resolve('@grpc/grpc-js')
+let grpcEntry = new URL('../../grpc/dist/index.js', import.meta.url).href
 let method = {
 	path: '/memory.Proxy/Probe',
 	requestStream: false,
 	responseStream: false,
 	requestSerialize: (value: string) => Buffer.from(value),
-	requestDeserialize: (value: Buffer) => value.toString(),
+	requestDeserialize: (value: Uint8Array) => Buffer.from(value).toString(),
 	responseSerialize: (value: string) => Buffer.from(value),
-	responseDeserialize: (value: Buffer) => value.toString(),
+	responseDeserialize: (value: Uint8Array) => Buffer.from(value).toString(),
 }
 
 // Certificate failures need a local server with a deliberately invalid identity.
 async function proxyFixture(signal: AbortSignal, certificateName?: string, trusted = true) {
 	let directory = await mkdtemp(join(tmpdir(), 'topic-memory-proxy-'))
-	let server = new Server()
+	let server: Server | undefined
 	let environment = new Map(
 		['GRPC_DEFAULT_SSL_ROOTS_FILE_PATH', 'no_grpc_proxy', 'no_proxy'].map((key) => [
 			key,
@@ -33,7 +32,8 @@ async function proxyFixture(signal: AbortSignal, certificateName?: string, trust
 		])
 	)
 	let dispose = async () => {
-		server.forceShutdown()
+		server?.destroy()
+		await server?.close()
 		for (let [key, value] of environment) {
 			if (value === undefined) {
 				delete process.env[key]
@@ -44,7 +44,7 @@ async function proxyFixture(signal: AbortSignal, certificateName?: string, trust
 		await rm(directory, { recursive: true, force: true })
 	}
 	try {
-		let credentials = ServerCredentials.createInsecure()
+		let tls: { key: Buffer; cert: Buffer } | undefined
 		delete process.env['GRPC_DEFAULT_SSL_ROOTS_FILE_PATH']
 		if (certificateName) {
 			let key = join(directory, 'key.pem')
@@ -70,9 +70,7 @@ async function proxyFixture(signal: AbortSignal, certificateName?: string, trust
 				],
 				{ signal }
 			)
-			credentials = ServerCredentials.createSsl(null, [
-				{ private_key: await readFile(key), cert_chain: await readFile(cert) },
-			])
+			tls = { key: await readFile(key), cert: await readFile(cert) }
 			if (trusted) {
 				process.env['GRPC_DEFAULT_SSL_ROOTS_FILE_PATH'] = cert
 			}
@@ -80,51 +78,47 @@ async function proxyFixture(signal: AbortSignal, certificateName?: string, trust
 		process.env['no_grpc_proxy'] = 'localhost'
 		process.env['no_proxy'] = 'localhost'
 		let calls = 0
-		server.addService(
+		server = new Server(tls ? { tls } : {})
+		server.add(
 			{ probe: method },
 			{
-				probe(call: ServerUnaryCall<string, string>, callback: sendUnaryData<string>) {
+				probe(_request, context) {
 					calls++
-					callback(null, call.getPeer())
+					return context.peer
 				},
 			}
 		)
-		let port = await new Promise<number>((resolve, reject) => {
-			server.bindAsync('localhost:0', credentials, (error, boundPort) => {
-				if (error) {
-					reject(error)
-				} else {
-					resolve(boundPort)
-				}
-			})
-		})
-		let worker = join(directory, 'worker.cjs')
+		let port = await server.listen('localhost:0')
+		let worker = join(directory, 'worker.mjs')
 		await writeFile(
 			worker,
-			`let assert = require('node:assert/strict')
-let { once } = require('node:events')
-let { writeFileSync } = require('node:fs')
-let grpc = require(${JSON.stringify(grpcPath)})
+			`import assert from 'node:assert/strict'
+import { once } from 'node:events'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { setImmediate } from 'node:timers/promises'
+import { Client, createServiceClient } from ${JSON.stringify(grpcEntry)}
 process.channel.ref()
-let url = new URL(process.env.YDB_CONNECTION_STRING)
-let Client = grpc.makeGenericClientConstructor({ probe: {
+let authority = new URL(process.env.YDB_CONNECTION_STRING)
+let caPath = process.env.GRPC_DEFAULT_SSL_ROOTS_FILE_PATH
+let transport = new Client(authority, {
+	tls: {
+		servername: process.env.YDB_MEMORY_TLS_SERVERNAME,
+		...(caPath && { ca: readFileSync(caPath) }),
+	},
+})
+let client = createServiceClient({ probe: {
 	path: '/memory.Proxy/Probe', requestStream: false, responseStream: false,
-	requestSerialize: value => Buffer.from(value), responseDeserialize: value => value.toString(),
-} })
-let client = new Client(url.host, url.protocol === 'grpcs:' ? grpc.credentials.createSsl() : grpc.credentials.createInsecure(), { 'grpc.ssl_target_name_override': process.env.YDB_MEMORY_TLS_SERVERNAME })
-let probe = () => new Promise((resolve, reject) => client.probe('ping', (error, reply) => error ? reject(error) : resolve(reply)))
+	requestSerialize: value => Buffer.from(value), responseDeserialize: value => Buffer.from(value).toString(),
+} }, transport)
 async function run() {
 	try {
-		let first = await probe()
+		let first = await client.probe('ping')
 		let disconnected = once(process, 'message')
 		process.send({ type: 'disconnect' })
 		await disconnected
-		let channel = client.getChannel()
-		if (channel.getConnectivityState(false) === grpc.connectivityState.READY) {
-			await new Promise((resolve, reject) => channel.watchConnectivityState(grpc.connectivityState.READY, Infinity, error => error ? reject(error) : resolve()))
-		}
-		await new Promise((resolve, reject) => client.waitForReady(Infinity, error => error ? reject(error) : resolve()))
-		let second = await probe()
+		while (transport.state === 'ready') await setImmediate()
+		await transport.connect()
+		let second = await client.probe('ping')
 		assert.notEqual(first, second, 'Disconnect did not replace the upstream TCP connection')
 		writeFileSync(process.env.MEMORY_REPORT_FILE, JSON.stringify({ node: process.version }))
 	} finally {

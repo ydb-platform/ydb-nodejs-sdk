@@ -1,10 +1,8 @@
-import { type Metadata as PeerMetadata } from '@grpc/grpc-js'
 import { CredentialsProvider } from '@ydbjs/auth'
 import { DiscoveryServiceDefinition } from '@ydbjs/api/discovery'
-import { Status } from '@ydbjs/grpc'
+import { type Metadata, Server, Status } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
-import { createTestServer } from '../../../tests/grpc-server.ts'
 import { Driver } from './driver.js'
 import { addMetadataHook } from './metadata-hooks.js'
 
@@ -16,8 +14,8 @@ class TestCredentials extends CredentialsProvider {
 
 // The loopback peer exposes headers that YDB does not return to the caller.
 test('keeps mandatory headers and auth after caller metadata and metadata hooks', async (tc) => {
-	let received: PeerMetadata | undefined
-	await using server = createTestServer()
+	let received: Metadata | undefined
+	await using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
@@ -47,23 +45,23 @@ test('keeps mandatory headers and auth after caller metadata and metadata hooks'
 
 	await client.whoAmI({}, options)
 
-	expect(received?.get('x-hook')).toEqual(['present'])
-	expect(received?.get('x-caller')).toEqual(['present'])
-	expect(received?.get('x-ydb-auth-ticket')).toEqual(['test-token'])
-	expect(received?.get('x-ydb-database')).toEqual(['/local'])
-	expect(received?.get('x-ydb-sdk-build-info')[0]).toEqual(expect.any(String))
-	expect(received?.get('x-ydb-application-name')).toEqual([driver.application])
+	expect(received?.['x-hook']).toBe('present')
+	expect(received?.['x-caller']).toBe('present')
+	expect(received?.['x-ydb-auth-ticket']).toBe('test-token')
+	expect(received?.['x-ydb-database']).toBe('/local')
+	expect(received?.['x-ydb-sdk-build-info']).toEqual(expect.any(String))
+	expect(received?.['x-ydb-application-name']).toBe(driver.application)
 	expect(options.metadata).toBe(metadata)
 })
 
 test('keeps registered metadata hooks in an existing driver after registration disposal', async (tc) => {
-	let observed: Array<string | Buffer | undefined> = []
-	await using server = createTestServer()
+	let observed: Array<Metadata[string] | undefined> = []
+	await using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
 			async whoAmI(_request, context) {
-				observed.push(context.metadata.get('x-snapshot')[0])
+				observed.push(context.metadata['x-snapshot'])
 				return {}
 			},
 		}
@@ -93,7 +91,7 @@ test('cancels authentication before opening an RPC when a token provider ignores
 	let entered = Promise.withResolvers<void>()
 	let token = Promise.withResolvers<string>()
 	let calls = 0
-	await using server = createTestServer()
+	await using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
@@ -161,7 +159,7 @@ test('does not abort completed credential requests when the RPC ends', async (tc
 			return 'cached-token'
 		}
 	}
-	await using server = createTestServer()
+	await using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{
@@ -191,7 +189,7 @@ test('reports credential failures without opening an unauthenticated RPC', async
 			throw failure
 		}
 	}
-	await using server = createTestServer()
+	await using server = new Server()
 	server.add(
 		{ whoAmI: DiscoveryServiceDefinition.whoAmI },
 		{

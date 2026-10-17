@@ -11,6 +11,7 @@ import { connect as connectSocket } from 'node:net'
 import { finished as streamFinished } from 'node:stream'
 import { connect as connectTls } from 'node:tls'
 
+import { waitWithSignal } from './abort.js'
 import { type Deadline, createDeadline } from './deadline.js'
 import { MessageSizeError, RpcError, Status } from './error.js'
 import { type Frame, createFrameStream, decompress } from './framing.js'
@@ -35,21 +36,6 @@ function errorDetails(error: unknown): string {
 
 function errorStatus(error: unknown, code = Status.UNKNOWN): RpcStatus {
 	return error instanceof RpcError ? error : { code, details: errorDetails(error), metadata: {} }
-}
-
-function waitWithSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
-	if (!signal) {
-		return promise
-	}
-	return new Promise((resolve, reject) => {
-		let abort = () => reject(signal.reason)
-		promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort))
-		if (signal.aborted) {
-			reject(signal.reason)
-			return
-		}
-		signal.addEventListener('abort', abort, { once: true })
-	})
 }
 
 function statusFromHeaders(

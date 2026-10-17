@@ -6,17 +6,16 @@ import { promisify } from 'node:util'
 
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
-import { ServerCredentials } from '@grpc/grpc-js'
 import { AuthServiceDefinition, LoginResponseSchema, LoginResultSchema } from '@ydbjs/api/auth'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
+import { Server, type ServerOptions } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
-import { createTestServer } from '../../../tests/grpc-server.ts'
 import { StaticCredentialsProvider } from './static.ts'
 
-function loginServer() {
+function loginServer(options?: ServerOptions) {
 	let requests: Array<{ user: string; password: string }> = []
-	let server = createTestServer()
+	let server = new Server(options)
 	server.add(
 		{ login: AuthServiceDefinition.login },
 		{
@@ -104,14 +103,9 @@ test.for(['grpcs', 'grpc'])(
 			{ signal: tc.signal }
 		)
 		let ca = await readFile(certificate)
-		let { server, requests } = loginServer()
+		let { server, requests } = loginServer({ tls: { key: await readFile(key), cert: ca } })
 		await using peer = server
-		let port = await peer.listen(
-			'127.0.0.1:0',
-			ServerCredentials.createSsl(null, [
-				{ private_key: await readFile(key), cert_chain: ca },
-			])
-		)
+		let port = await peer.listen('127.0.0.1:0')
 		let provider = new StaticCredentialsProvider(
 			{ username: 'test-user', password: 'test-password' },
 			`${protocol}://127.0.0.1:${port}`,

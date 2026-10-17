@@ -1,7 +1,7 @@
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { YDBError } from '@ydbjs/error'
 import { expect, test } from 'vitest'
-import { Metadata, status as Status } from '@grpc/grpc-js'
+import { Status } from '@ydbjs/grpc'
 
 import { isRetryableTopicError } from '../retry.ts'
 import {
@@ -1903,7 +1903,7 @@ test('distinguishes receive-size failures from temporary resource exhaustion', (
 			Object.assign(new Error('Received message larger than max (2097152 vs. 1048576)'), {
 				code: Status.RESOURCE_EXHAUSTED,
 				details: 'Received message larger than max (2097152 vs. 1048576)',
-				metadata: new Metadata(),
+				metadata: {},
 			})
 		)
 	).toBe(false)
@@ -1912,7 +1912,7 @@ test('distinguishes receive-size failures from temporary resource exhaustion', (
 			Object.assign(new Error('Rate limit exceeded'), {
 				code: Status.RESOURCE_EXHAUSTED,
 				details: 'Rate limit exceeded',
-				metadata: new Metadata(),
+				metadata: {},
 			})
 		)
 	).toBe(true)

@@ -19,7 +19,19 @@ import (
 func main() {
 	address := flag.String("listen", "127.0.0.1:0", "Listen address")
 	compression := flag.Bool("gzip", false, "Compress responses with gzip")
+	target := flag.String("target", "", "Run a client against this address")
+	testCase := flag.String("case", "", "Client interoperability scenario")
+	ca := flag.String("ca", "", "Server certificate authority PEM file")
 	flag.Parse()
+	if *target != "" {
+		if err := runClient(*target, *testCase, *ca); err != nil {
+			fatal(err)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(map[string]string{"case": *testCase, "grpcVersion": grpc.Version}); err != nil {
+			fatal(err)
+		}
+		return
+	}
 
 	listener, err := net.Listen("tcp", *address)
 	if err != nil {

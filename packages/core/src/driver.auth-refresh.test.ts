@@ -4,10 +4,10 @@ import { abortable } from '@ydbjs/abortable'
 import { AuthServiceDefinition, LoginResponseSchema, LoginResultSchema } from '@ydbjs/api/auth'
 import { DiscoveryServiceDefinition, WhoAmIResponseSchema } from '@ydbjs/api/discovery'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { createTestServer } from '../../../tests/grpc-server.ts'
 import { expect, test } from 'vitest'
 
 import { StaticCredentialsProvider } from '@ydbjs/auth/static'
+import { Server } from '@ydbjs/grpc'
 import { Driver } from './driver.ts'
 
 // A gated login response reproduces RPC completion during a soft-expiry refresh without clock races.
@@ -24,10 +24,10 @@ test.for([false, true])(
 		})
 		let logins = 0
 		await using fixture = {
-			server: createTestServer(),
+			server: new Server(),
 			[Symbol.asyncDispose]() {
 				allowRefresh.resolve()
-				return this.server.shutdown()
+				return this.server.close()
 			},
 		}
 		fixture.server.add(

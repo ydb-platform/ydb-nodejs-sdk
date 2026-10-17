@@ -1,7 +1,6 @@
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { YDBError } from '@ydbjs/error'
-import { Metadata, status as Status } from '@grpc/grpc-js'
-import { MessageSizeError, RpcError } from '@ydbjs/grpc'
+import { MessageSizeError, RpcError, Status } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
 import { isRetryableTopicError } from './retry.ts'
@@ -10,7 +9,7 @@ test('reconnects live topic streams after a server deadline', () => {
 	let error = Object.assign(new Error('Stream deadline expired'), {
 		code: Status.DEADLINE_EXCEEDED,
 		details: 'Stream deadline expired',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	expect(isRetryableTopicError(error)).toBe(true)
 })

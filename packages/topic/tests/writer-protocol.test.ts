@@ -1,4 +1,4 @@
-import { MessageSizeError } from '@ydbjs/grpc'
+import { MessageSizeError, type RpcError, Status } from '@ydbjs/grpc'
 import {
 	Codec,
 	CreateTopicRequestSchema,
@@ -19,7 +19,6 @@ import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { Driver } from '@ydbjs/core'
 import { YDBError } from '@ydbjs/error'
 import { AsyncPriorityQueue } from '@ydbjs/fsm/queue'
-import { type ServiceError, status as Status } from '@grpc/grpc-js'
 
 import { createTopicWriter } from '../src/writer/index.js'
 import { isRetryableTopicError } from '../src/retry.js'
@@ -222,8 +221,8 @@ test('rejects an oversized payload with a permanent error', async (tc) => {
 		}
 
 		expect(error).toBeInstanceOf(Error)
-		expect((error as ServiceError).code).toBe(Status.RESOURCE_EXHAUSTED)
-		expect((error as ServiceError).details).toMatch(/Received message larger than max/)
+		expect((error as RpcError).code).toBe(Status.RESOURCE_EXHAUSTED)
+		expect((error as RpcError).details).toMatch(/Received message larger than max/)
 		expect(isRetryableTopicError(error)).toBe(false)
 	}
 
@@ -242,7 +241,7 @@ test('rejects an oversized payload with a permanent error', async (tc) => {
 		}
 
 		expect(error).toBeInstanceOf(Error)
-		expect((error as ServiceError).code).toBe(Status.RESOURCE_EXHAUSTED)
+		expect((error as RpcError).code).toBe(Status.RESOURCE_EXHAUSTED)
 		expect(error).toBeInstanceOf(MessageSizeError)
 		expect(error).toMatchObject({ direction: 'request', limit: 64 * 1024 * 1024 })
 		expect(isRetryableTopicError(error)).toBe(false)

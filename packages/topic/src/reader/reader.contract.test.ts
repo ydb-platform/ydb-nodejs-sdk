@@ -6,7 +6,7 @@ import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { Codec, type StreamReadMessage_FromServer } from '@ydbjs/api/topic'
 import { YDBError } from '@ydbjs/error'
 import { expect, test, vi } from 'vitest'
-import { Metadata, status as Status } from '@grpc/grpc-js'
+import { Status } from '@ydbjs/grpc'
 
 import { ZSTD_CODEC } from '../codec.ts'
 import type { TopicMessage } from '../message.ts'
@@ -214,7 +214,7 @@ test.for([
 		error: Object.assign(new Error('deadline'), {
 			code: Status.DEADLINE_EXCEEDED,
 			details: 'deadline',
-			metadata: new Metadata(),
+			metadata: {},
 		}),
 	},
 	{ name: 'server timeout', error: new YDBError(StatusIds_StatusCode.TIMEOUT, []) },

@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { create } from '@bufbuild/protobuf'
 import { anyPack } from '@bufbuild/protobuf/wkt'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { createTestServer } from '../../../tests/grpc-server.ts'
+import { Server } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
 import { Driver } from './driver.ts'
@@ -23,11 +23,11 @@ test.for([false, true])(
 		let entered = Promise.withResolvers<void>()
 		let release = Promise.withResolvers<void>()
 		await using servers = {
-			first: createTestServer(),
-			second: createTestServer(),
+			first: new Server(),
+			second: new Server(),
 			async [Symbol.asyncDispose]() {
 				release.resolve()
-				await Promise.all([this.first.shutdown(), this.second.shutdown()])
+				await Promise.all([this.first.close(), this.second.close()])
 			},
 		}
 		let callsOnOriginal = 0
@@ -111,7 +111,7 @@ test.for([false, true])(
 
 		let replacement = await client.whoAmI({}, { signal: tc.signal })
 		expect(replacement.operation?.id).toBe('replacement')
-		let shutdown = goaway ? servers.first.shutdown() : undefined
+		let shutdown = goaway ? servers.first.close() : undefined
 		// Let retirement sweeps run after GOAWAY while the existing RPC is still active.
 		await delay(100, undefined, { signal: tc.signal })
 		expect(completed).toBe(false)
@@ -125,7 +125,7 @@ test.for([false, true])(
 test.for(['drain', 'return', 'abort'] as const)(
 	'graceful driver disposal waits for a buffered response consumer to %s',
 	async (mode, tc) => {
-		await using server = createTestServer()
+		await using server = new Server()
 		let port = 0
 		let service = {
 			messages: {

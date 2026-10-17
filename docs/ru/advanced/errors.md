@@ -10,7 +10,7 @@ title: Обработка ошибок
 
 - `YDBError` — серверная ошибка YDB с полями `code` и `issues`.
 - `CommitError` — неудачный коммит; содержит `retryable(idempotent)`.
-- `ServiceError` — нативная ошибка grpc-js с полями `code`, `details` и `metadata` (например, `UNAVAILABLE`).
+- `RpcError` из `@ydbjs/grpc` — ошибка транспорта с полями `code`, `details` и `metadata` (например, `UNAVAILABLE`).
 
 ### Ошибки координации (`@ydbjs/coordination`)
 

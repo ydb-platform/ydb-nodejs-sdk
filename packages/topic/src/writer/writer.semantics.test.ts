@@ -1,7 +1,7 @@
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { Codec, type StreamWriteMessage_FromServer } from '@ydbjs/api/topic'
 import { YDBError } from '@ydbjs/error'
-import { Metadata, status as Status } from '@grpc/grpc-js'
+import { Status } from '@ydbjs/grpc'
 import { expect, test } from 'vitest'
 
 import { isRetryableTopicError } from '../retry.ts'
@@ -113,7 +113,7 @@ let classifierTable: Array<{
 			{
 				code: Status.RESOURCE_EXHAUSTED,
 				details: 'Received message larger than max (66060326 vs. 64000000)',
-				metadata: new Metadata(),
+				metadata: {},
 			}
 		),
 		retryable: false,
@@ -124,7 +124,7 @@ let classifierTable: Array<{
 		error: Object.assign(new Error('Too many pending requests'), {
 			code: Status.RESOURCE_EXHAUSTED,
 			details: 'Too many pending requests',
-			metadata: new Metadata(),
+			metadata: {},
 		}),
 		retryable: true,
 	},
@@ -146,7 +146,7 @@ let classifierTable: Array<{
 		error: Object.assign(new Error(''), {
 			code: Status.CANCELLED,
 			details: '',
-			metadata: new Metadata(),
+			metadata: {},
 		}),
 		retryable: true,
 	},
@@ -156,7 +156,7 @@ let classifierTable: Array<{
 		error: Object.assign(new Error(''), {
 			code: Status.DEADLINE_EXCEEDED,
 			details: '',
-			metadata: new Metadata(),
+			metadata: {},
 		}),
 		retryable: true,
 	},
@@ -165,7 +165,7 @@ let classifierTable: Array<{
 		error: Object.assign(new Error(''), {
 			code: Status.UNAVAILABLE,
 			details: '',
-			metadata: new Metadata(),
+			metadata: {},
 		}),
 		retryable: true,
 	},

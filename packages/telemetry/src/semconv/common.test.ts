@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { Metadata, status as Status } from '@grpc/grpc-js'
+import { Status } from '@ydbjs/grpc'
 
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { YDBError } from '@ydbjs/error'
@@ -23,7 +23,7 @@ test('marks ServiceError as transport_error without a status code', () => {
 		Object.assign(new Error('down'), {
 			code: Status.UNAVAILABLE,
 			details: 'down',
-			metadata: new Metadata(),
+			metadata: {},
 		})
 	)
 	expect(attrs['db.response.status_code']).toBeUndefined()

@@ -10,7 +10,7 @@ import { afterEach, beforeEach, expect, inject, test } from 'vitest'
 import { create } from '@bufbuild/protobuf'
 import { anyUnpack } from '@bufbuild/protobuf/wkt'
 import { Driver } from '@ydbjs/core'
-import { status as Status } from '@grpc/grpc-js'
+import { Status } from '@ydbjs/grpc'
 
 import type { TopicMessage } from '../src/message.js'
 import { type TopicReader, createTopicReader } from '../src/reader/index.js'

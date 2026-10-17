@@ -10,6 +10,7 @@ export interface Frame {
 
 export class FrameDecoder {
 	#limit: number
+	#direction: 'request' | 'response'
 	#header = Buffer.allocUnsafe(5)
 	#headerBytes = 0
 	#length = 0
@@ -17,8 +18,9 @@ export class FrameDecoder {
 	#body: Buffer | undefined
 	#bodyBytes = 0
 
-	constructor(limit: number) {
+	constructor(limit: number, direction: 'request' | 'response' = 'response') {
 		this.#limit = limit
+		this.#direction = direction
 	}
 
 	push(chunk: Buffer): Frame[] {
@@ -47,7 +49,7 @@ export class FrameDecoder {
 				this.#compressed = header[0] === 1
 				this.#length = header.readUInt32BE(1)
 				if (this.#length > this.#limit) {
-					throw new MessageSizeError('response', this.#limit)
+					throw new MessageSizeError(this.#direction, this.#limit)
 				}
 				if (this.#length === 0) {
 					frames.push({ data: Buffer.alloc(0), compressed: this.#compressed })
@@ -88,8 +90,11 @@ export class FrameDecoder {
 	}
 }
 
-export function createFrameStream(limit: number): Transform {
-	let decoder = new FrameDecoder(limit)
+export function createFrameStream(
+	limit: number,
+	direction: 'request' | 'response' = 'response'
+): Transform {
+	let decoder = new FrameDecoder(limit, direction)
 	return new Transform({
 		readableObjectMode: true,
 		// Do not parse the next chunk while the consumer retains the current frame batch.
@@ -113,7 +118,12 @@ export function createFrameStream(limit: number): Transform {
 	})
 }
 
-export async function decompress(frame: Frame, encoding: string, limit: number): Promise<Buffer> {
+export async function decompress(
+	frame: Frame,
+	encoding: string,
+	limit: number,
+	direction: 'request' | 'response' = 'response'
+): Promise<Buffer> {
 	if (!frame.compressed) {
 		return frame.data
 	}
@@ -128,7 +138,7 @@ export async function decompress(frame: Frame, encoding: string, limit: number):
 		decode(frame.data, { maxOutputLength: Math.max(1, limit) }, (error, data) => {
 			if (error) {
 				if ((error as NodeJS.ErrnoException).code === 'ERR_BUFFER_TOO_LARGE') {
-					reject(new MessageSizeError('response', limit, { cause: error }))
+					reject(new MessageSizeError(direction, limit, { cause: error }))
 					return
 				}
 				reject(
@@ -142,7 +152,7 @@ export async function decompress(frame: Frame, encoding: string, limit: number):
 				return
 			}
 			if (data.length > limit) {
-				reject(new MessageSizeError('response', limit))
+				reject(new MessageSizeError(direction, limit))
 				return
 			}
 			resolve(data)

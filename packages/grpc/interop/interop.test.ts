@@ -1,14 +1,27 @@
+import { execFile } from 'node:child_process'
+import { once } from 'node:events'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
+
 import { create } from '@bufbuild/protobuf'
+import { abortable } from '@ydbjs/abortable'
 
 import { expect, test } from 'vitest'
 
-import { Status } from '../src/error.js'
+import { RpcError, Status } from '../src/error.js'
+import { Server } from '../src/server.js'
 import type { Metadata } from '../src/types.js'
-import { EmptySchema, StreamingInputCallRequestSchema } from './interop_pb.js'
-import { goPeer } from './peer.js'
+import {
+	EmptySchema,
+	StreamingInputCallRequestSchema,
+	type StreamingOutputCallResponse,
+} from './interop_pb.js'
+import { definition, goClient, goPeer } from './peer.js'
 
 async function collectSizes(
-	responses: AsyncIterable<{ payload?: { body: Uint8Array } }>
+	responses: AsyncIterable<StreamingOutputCallResponse>
 ): Promise<number[]> {
 	let sizes: number[] = []
 	for await (let response of responses) {
@@ -193,4 +206,192 @@ test('drains a large gzip response backlog after the Go server sends its trailer
 	)
 	let receivedSizes = collectSizes(responses)
 	await expect(receivedSizes).resolves.toEqual(sizes)
+})
+
+test('serves a large unary response to the official Go client', async (tc) => {
+	await using server = new Server()
+	server.add(definition, {
+		unary(request) {
+			expect(request.payload?.body.length).toBe(271828)
+			expect(request.payload?.body.every((byte) => byte === 0)).toBe(true)
+			return { payload: { body: new Uint8Array(request.responseSize) } }
+		},
+	})
+	let port = await server.listen()
+
+	let result = goClient(`127.0.0.1:${port}`, 'unary', tc.signal)
+	await expect(result).resolves.toBeUndefined()
+})
+
+test('aggregates a request stream sent by the official Go client', async (tc) => {
+	await using server = new Server()
+	let received: number[] = []
+	server.add(definition, {
+		async client(requests) {
+			for await (let request of requests) {
+				expect(request.payload?.body.every((byte) => byte === 0)).toBe(true)
+				received.push(request.payload!.body.length)
+			}
+			return { aggregatedPayloadSize: received.reduce((sum, size) => sum + size, 0) }
+		},
+	})
+	let port = await server.listen()
+
+	await goClient(`127.0.0.1:${port}`, 'client-stream', tc.signal)
+
+	expect(received).toEqual([27182, 8, 1828, 45904])
+})
+
+test('streams every requested response to the official Go client', async (tc) => {
+	await using server = new Server()
+	server.add(definition, {
+		async *server(request) {
+			for (let parameter of request.responseParameters) {
+				yield { payload: { body: new Uint8Array(parameter.size) } }
+			}
+		},
+	})
+	let port = await server.listen()
+
+	let result = goClient(`127.0.0.1:${port}`, 'server-stream', tc.signal)
+	await expect(result).resolves.toBeUndefined()
+})
+
+test('answers each Go bidi request before the client half-closes its stream', async (tc) => {
+	await using server = new Server()
+	let received: number[] = []
+	server.add(definition, {
+		async *bidi(requests) {
+			for await (let request of requests) {
+				for (let parameter of request.responseParameters) {
+					received.push(parameter.size)
+					yield { payload: { body: new Uint8Array(parameter.size) } }
+				}
+			}
+		},
+	})
+	let port = await server.listen()
+
+	await goClient(`127.0.0.1:${port}`, 'bidi', tc.signal)
+
+	expect(received).toEqual([31415, 9, 2653])
+})
+
+test('exchanges repeated and binary metadata with the official Go client', async (tc) => {
+	await using server = new Server()
+	let binary = new Uint8Array([0, 10, 255, 11])
+	server.add(definition, {
+		empty(_request, context) {
+			expect(context.metadata['x-repeated']).toEqual(['first', 'second'])
+			expect(Array.from(context.metadata['x-request-bin'] as Uint8Array)).toEqual(
+				Array.from(binary)
+			)
+			context.sendHeader({ 'x-repeated': ['first', 'second'], 'x-header-bin': binary })
+			context.setTrailer({ 'x-trailer-bin': binary, 'x-trailer': 'finished' })
+			return {}
+		},
+	})
+	let port = await server.listen()
+
+	let result = goClient(`127.0.0.1:${port}`, 'metadata', tc.signal)
+	await expect(result).resolves.toBeUndefined()
+})
+
+test('sends an error status, Unicode details and trailers to the official Go client', async (tc) => {
+	await using server = new Server()
+	server.add(definition, {
+		unary(request) {
+			let status = request.responseStatus!
+			throw new RpcError(status.code, status.message, { 'x-error': 'quota' })
+		},
+	})
+	let port = await server.listen()
+
+	let result = goClient(`127.0.0.1:${port}`, 'status', tc.signal)
+	await expect(result).resolves.toBeUndefined()
+})
+
+test('aborts its handler when the official Go client cancels a streaming response', async (tc) => {
+	await using server = new Server()
+	let cancelled = Promise.withResolvers<boolean>()
+	server.add(definition, {
+		async *server(_request, context) {
+			let aborted = once(context.signal, 'abort')
+			yield { payload: { body: new Uint8Array(1) } }
+			await aborted
+			cancelled.resolve(context.signal.aborted)
+		},
+	})
+	let port = await server.listen()
+
+	await goClient(`127.0.0.1:${port}`, 'cancel', tc.signal)
+	let aborted = await abortable(tc.signal, cancelled.promise)
+
+	expect(aborted).toBe(true)
+})
+
+test('propagates the official Go client deadline to its handler', async (tc) => {
+	await using server = new Server()
+	let expired = Promise.withResolvers<boolean>()
+	let deadline: number | undefined
+	server.add(definition, {
+		async *server(_request, context) {
+			deadline = context.deadline
+			let aborted = once(context.signal, 'abort')
+			yield { payload: { body: new Uint8Array(1) } }
+			await aborted
+			expired.resolve(context.signal.aborted)
+		},
+	})
+	let port = await server.listen()
+	let started = Date.now()
+
+	await goClient(`127.0.0.1:${port}`, 'deadline', tc.signal)
+	let aborted = await abortable(tc.signal, expired.promise)
+
+	expect(aborted).toBe(true)
+	expect(deadline).toBeGreaterThan(started)
+	expect(deadline).toBeLessThanOrEqual(Date.now() + 100)
+})
+
+test('serves a trusted TLS connection from the official Go client', async (tc) => {
+	await using files = {
+		path: await mkdtemp(join(tmpdir(), 'ydb-grpc-go-tls-')),
+		[Symbol.asyncDispose]() {
+			return rm(this.path, { recursive: true, force: true })
+		},
+	}
+	let keyPath = join(files.path, 'key.pem')
+	let certPath = join(files.path, 'certificate.pem')
+	await promisify(execFile)(
+		'openssl',
+		[
+			'req',
+			'-x509',
+			'-newkey',
+			'rsa:2048',
+			'-nodes',
+			'-keyout',
+			keyPath,
+			'-out',
+			certPath,
+			'-subj',
+			'/CN=grpc.test',
+			'-addext',
+			'subjectAltName=DNS:grpc.test',
+			'-days',
+			'1',
+		],
+		{ signal: tc.signal }
+	)
+	await using server = new Server({
+		tls: { key: await readFile(keyPath), cert: await readFile(certPath) },
+	})
+	server.add(definition, {
+		unary: (request) => ({ payload: { body: new Uint8Array(request.responseSize) } }),
+	})
+	let port = await server.listen()
+
+	let result = goClient(`127.0.0.1:${port}`, 'unary', tc.signal, certPath)
+	await expect(result).resolves.toBeUndefined()
 })

@@ -4,7 +4,7 @@ import { isRetryableTopicError } from '../retry.ts'
 import type { TransitionRuntime } from '@ydbjs/fsm'
 import { YDBError } from '@ydbjs/error'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
-import { Metadata, status as Status } from '@grpc/grpc-js'
+import { Status } from '@ydbjs/grpc'
 
 import {
 	type BufferedMessage,
@@ -150,7 +150,7 @@ test('classifies a server frame-cap rejection as fatal', () => {
 		{
 			code: Status.RESOURCE_EXHAUSTED,
 			details: 'Received message larger than max (66060326 vs. 64000000)',
-			metadata: new Metadata(),
+			metadata: {},
 		}
 	)
 	expect(isRetryableTopicError(error)).toBe(false)
@@ -162,7 +162,7 @@ test('classifies a client send-cap rejection as fatal', () => {
 		{
 			code: Status.RESOURCE_EXHAUSTED,
 			details: 'Attempted to send message with a size larger than 67108864',
-			metadata: new Metadata(),
+			metadata: {},
 		}
 	)
 	expect(isRetryableTopicError(error)).toBe(false)
@@ -173,7 +173,7 @@ test('classifies a throttling RESOURCE_EXHAUSTED as retryable', () => {
 	let error = Object.assign(new Error('Too many pending requests'), {
 		code: Status.RESOURCE_EXHAUSTED,
 		details: 'Too many pending requests',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	expect(isRetryableTopicError(error)).toBe(true)
 })

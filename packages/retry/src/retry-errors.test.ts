@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { CommitError, YDBError } from '@ydbjs/error'
-import { Metadata, status as Status } from '@grpc/grpc-js'
+import { Status } from '@ydbjs/grpc'
 
 import { defaultRetryConfig, isRetryableError } from './index.js'
 import type { RetryStrategy } from './strategy.js'
@@ -11,7 +11,7 @@ test('ServiceError with ABORTED is retryable', () => {
 	let error = Object.assign(new Error('test details'), {
 		code: Status.ABORTED,
 		details: 'test details',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	expect(isRetryableError(error)).toBe(true)
 })
@@ -20,7 +20,7 @@ test('ServiceError with INTERNAL is retryable', () => {
 	let error = Object.assign(new Error('test details'), {
 		code: Status.INTERNAL,
 		details: 'test details',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	expect(isRetryableError(error)).toBe(true)
 })
@@ -29,7 +29,7 @@ test('ServiceError with RESOURCE_EXHAUSTED is retryable', () => {
 	let error = Object.assign(new Error('test details'), {
 		code: Status.RESOURCE_EXHAUSTED,
 		details: 'test details',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	expect(isRetryableError(error)).toBe(true)
 })
@@ -38,7 +38,7 @@ test('ServiceError with UNAVAILABLE is retryable only for idempotent operations'
 	let error = Object.assign(new Error('test details'), {
 		code: Status.UNAVAILABLE,
 		details: 'test details',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	expect(isRetryableError(error, false)).toBe(false)
 	expect(isRetryableError(error, true)).toBe(true)
@@ -48,7 +48,7 @@ test('ServiceError with other statuses is not retryable', () => {
 	let error = Object.assign(new Error('test details'), {
 		code: Status.NOT_FOUND,
 		details: 'test details',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	expect(isRetryableError(error)).toBe(false)
 	expect(isRetryableError(error, true)).toBe(false)
@@ -151,7 +151,7 @@ test('defaultRetryConfig uses fixed(0) for ServiceError ABORTED', () => {
 	let error = Object.assign(new Error('test details'), {
 		code: Status.ABORTED,
 		details: 'test details',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	let ctx = { attempt: 2, error }
 
@@ -177,7 +177,7 @@ test('defaultRetryConfig uses exponential(1000) for ServiceError RESOURCE_EXHAUS
 	let error = Object.assign(new Error('test details'), {
 		code: Status.RESOURCE_EXHAUSTED,
 		details: 'test details',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	let ctx = { attempt: 0, error }
 
@@ -217,7 +217,7 @@ test('defaultRetryConfig retry function uses isRetryableError', () => {
 	let retryableError = Object.assign(new Error('test details'), {
 		code: Status.ABORTED,
 		details: 'test details',
-		metadata: new Metadata(),
+		metadata: {},
 	})
 	let nonRetryableError = new Error('Generic error')
 
