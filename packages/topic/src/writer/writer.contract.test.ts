@@ -72,11 +72,15 @@ let collectTrace = function collectTrace(
 		asyncEnd: () => (counts.asyncEnd += 1),
 		error: () => (counts.error += 1),
 	}
-	ch.subscribe(handlers)
+	ch.start.subscribe(handlers.start)
+	ch.asyncEnd.subscribe(handlers.asyncEnd)
+	ch.error.subscribe(handlers.error)
 	return {
 		counts,
 		[Symbol.dispose]() {
-			ch.unsubscribe(handlers)
+			ch.start.unsubscribe(handlers.start)
+			ch.asyncEnd.unsubscribe(handlers.asyncEnd)
+			ch.error.unsubscribe(handlers.error)
 		},
 	}
 }
@@ -2018,7 +2022,7 @@ test.for([
 			producer: 'p',
 			maxInflightCount: 3,
 		})
-		let seq = mode === 'manual' ? [10n, 20n, 30n] : [1n, 2n, 3n]
+		let seq: [bigint, bigint, bigint] = mode === 'manual' ? [10n, 20n, 30n] : [1n, 2n, 3n]
 		writer.write(bytes(1), mode === 'manual' ? { seqNo: seq[0] } : undefined)
 		let firstDone = false
 		let first = writer.flush(tc.signal).then((seqNo) => {
@@ -2043,11 +2047,11 @@ test.for([
 			stream.disconnect()
 			stream = await waitForNextStream()
 			await stream.waitForInit()
-			stream.respond(initResponse(recovery === 'dedup' ? seq[0]! : 0n))
+			stream.respond(initResponse(recovery === 'dedup' ? seq[0] : 0n))
 			await stream.waitForWrite()
 		}
 		if (recovery !== 'dedup') {
-			stream.respond(writeResponse([{ seqNo: seq[0]! }]))
+			stream.respond(writeResponse([{ seqNo: seq[0] }]))
 		}
 		await settle()
 
@@ -2056,7 +2060,7 @@ test.for([
 		await expect(first).resolves.toBe(seq[0])
 		await expect(sameBoundary).resolves.toBe(seq[0])
 
-		stream.respond(writeResponse([{ seqNo: seq[1]! }]))
+		stream.respond(writeResponse([{ seqNo: seq[1] }]))
 		await expect(second).resolves.toBe(seq[1])
 		let thirdDone = false
 		let third = writer.flush(tc.signal).then((seqNo) => {
@@ -2065,7 +2069,7 @@ test.for([
 		})
 		await settle()
 		expect(thirdDone).toBe(false)
-		stream.respond(writeResponse([{ seqNo: seq[2]! }]))
+		stream.respond(writeResponse([{ seqNo: seq[2] }]))
 		await expect(third).resolves.toBe(seq[2])
 		await writer.close()
 	}
