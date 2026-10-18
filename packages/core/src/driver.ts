@@ -474,7 +474,7 @@ export class Driver implements Disposable {
 	#getRpcToken(signal: AbortSignal): Promise<string> {
 		signal.throwIfAborted()
 		let controller = new AbortController()
-		let expiresAt = Date.now() + this.options['ydb.sdk.token_timeout_ms']!
+		let tokenRequestDeadline = Date.now() + this.options['ydb.sdk.token_timeout_ms']!
 		return new Promise((resolve, reject) => {
 			let settled = false
 			let timer: ReturnType<typeof setTimeout> | undefined
@@ -493,18 +493,24 @@ export class Driver implements Disposable {
 				reject(reason)
 				controller.abort(reason)
 			}
-			let scheduleTimeout = () => {
+			let scheduleTokenTimeout = () => {
 				if (settled) return
-				let remaining = expiresAt - Date.now()
-				if (remaining <= 0) cancel()
-				else timer = setTimeout(scheduleTimeout, Math.min(remaining, 2147483647)).unref()
+				let remainingWaitMs = tokenRequestDeadline - Date.now()
+				if (remainingWaitMs <= 0) {
+					cancel()
+					return
+				}
+				timer = setTimeout(
+					scheduleTokenTimeout,
+					Math.min(remainingWaitMs, 2147483647)
+				).unref()
 			}
 			signal.addEventListener('abort', cancel, { once: true })
 			try {
 				this.#credentialsProvider.getToken(false, controller.signal).then(
 					(token) => {
 						if (settled) return
-						if (Date.now() >= expiresAt) {
+						if (Date.now() >= tokenRequestDeadline) {
 							cancel()
 							return
 						}
@@ -519,7 +525,7 @@ export class Driver implements Disposable {
 					}
 				)
 				// Already-fulfilled cached tokens settle before a timer needs to be allocated.
-				queueMicrotask(scheduleTimeout)
+				queueMicrotask(scheduleTokenTimeout)
 			} catch (error) {
 				cleanup()
 				reject(error)

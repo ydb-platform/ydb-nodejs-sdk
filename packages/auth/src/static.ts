@@ -94,13 +94,10 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 	/**
 	 * Returns the token from the credentials.
 	 * @param force - if true, forces a new token to be fetched
-	 * @param signal - an optional AbortSignal to cancel the request. Defaults to a timeout of 5 seconds.
+	 * @param signal - an optional AbortSignal to cancel token acquisition. New requests default to a 5-second timeout.
 	 * @returns the token
 	 */
-	async getToken(
-		force = false,
-		signal: AbortSignal = AbortSignal.timeout(ACQUIRE_TOKEN_TIMEOUT_MS)
-	): Promise<string> {
+	async getToken(force = false, signal?: AbortSignal): Promise<string> {
 		let currentTimeSeconds = Date.now() / 1000
 
 		// If token is still valid (hard buffer), return it
@@ -120,11 +117,11 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 			) {
 				debug.log('token approaching soft expiry, starting background refresh')
 				// Fire and forget background refresh with timeout
-				this.#backgroundRefreshPromise = this.#refreshTokenInBackground(signal).finally(
-					() => {
-						this.#backgroundRefreshPromise = undefined
-					}
-				)
+				this.#backgroundRefreshPromise = this.#refreshTokenInBackground(
+					signal ?? AbortSignal.timeout(ACQUIRE_TOKEN_TIMEOUT_MS)
+				).finally(() => {
+					this.#backgroundRefreshPromise = undefined
+				})
 			}
 
 			return this.#token.value
@@ -159,7 +156,7 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 			force,
 			this.#token ? 'true' : 'false'
 		)
-		return this.#refreshToken(signal)
+		return this.#refreshToken(signal ?? AbortSignal.timeout(ACQUIRE_TOKEN_TIMEOUT_MS))
 	}
 
 	/**
