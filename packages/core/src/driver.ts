@@ -235,9 +235,8 @@ export class Driver implements Disposable {
 	}
 
 	get token(): Promise<string> {
-		let signal = AbortSignal.timeout(this.options['ydb.sdk.token_timeout_ms']!)
-
-		return this.#credentialsProvider.getToken(false, signal)
+		let signal = this.#closedController.signal
+		return signal.aborted ? Promise.reject(signal.reason) : this.#getRpcToken(signal)
 	}
 
 	get database(): string {
@@ -473,8 +472,15 @@ export class Driver implements Disposable {
 
 	#getRpcToken(signal: AbortSignal): Promise<string> {
 		signal.throwIfAborted()
-		let controller = new AbortController()
 		let tokenRequestDeadline = Date.now() + this.options['ydb.sdk.token_timeout_ms']!
+		let token: Promise<string>
+		try {
+			token = this.#credentialsProvider.getToken(false)
+		} catch (error) {
+			signal.throwIfAborted()
+			throw error
+		}
+
 		return new Promise((resolve, reject) => {
 			let settled = false
 			let timer: ReturnType<typeof setTimeout> | undefined
@@ -484,14 +490,12 @@ export class Driver implements Disposable {
 				signal.removeEventListener('abort', cancel)
 			}
 			let cancel = () => {
-				if (settled) return
-				let reason = signal.aborted
-					? signal.reason
-					: new RpcError(Status.DEADLINE_EXCEEDED, 'Token acquisition timed out')
 				cleanup()
-				// Preserve the cancellation reason even if the provider rejects with its own error.
-				reject(reason)
-				controller.abort(reason)
+				reject(
+					signal.aborted
+						? signal.reason
+						: new RpcError(Status.DEADLINE_EXCEEDED, 'Token acquisition timed out')
+				)
 			}
 			let scheduleTokenTimeout = () => {
 				if (settled) return
@@ -506,30 +510,25 @@ export class Driver implements Disposable {
 				).unref()
 			}
 			signal.addEventListener('abort', cancel, { once: true })
-			try {
-				this.#credentialsProvider.getToken(false, controller.signal).then(
-					(token) => {
-						if (settled) return
-						if (Date.now() >= tokenRequestDeadline) {
-							cancel()
-							return
-						}
-						// A cached token can leave a background refresh using the provider signal.
-						cleanup()
-						resolve(token)
-						return undefined
-					},
-					(error: unknown) => {
-						cleanup()
-						reject(error)
+			if (signal.aborted) cancel()
+			token.then(
+				(value) => {
+					if (settled) return
+					if (Date.now() >= tokenRequestDeadline) {
+						cancel()
+						return
 					}
-				)
-				// Already-fulfilled cached tokens settle before a timer needs to be allocated.
-				queueMicrotask(scheduleTokenTimeout)
-			} catch (error) {
-				cleanup()
-				reject(error)
-			}
+					cleanup()
+					resolve(value)
+					return undefined
+				},
+				(error: unknown) => {
+					cleanup()
+					reject(error)
+				}
+			)
+			// Already-fulfilled cached tokens settle before a timer needs to be allocated.
+			queueMicrotask(scheduleTokenTimeout)
 		})
 	}
 

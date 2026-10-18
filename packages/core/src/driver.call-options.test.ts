@@ -101,7 +101,7 @@ test('keeps registered metadata hooks in an existing driver after registration d
 	expect(observed).toEqual(['retained', undefined])
 })
 
-test('cancels authentication before opening an RPC when a token provider ignores the signal', async (tc) => {
+test('cancels only the token wait before opening an RPC', async (tc) => {
 	let entered = Promise.withResolvers<void>()
 	let token = Promise.withResolvers<string>()
 	let calls = 0
@@ -140,23 +140,22 @@ test('cancels authentication before opening an RPC when a token provider ignores
 	controller.abort(reason)
 
 	await expect(pending).rejects.toBe(reason)
-	expect(providerSignal?.reason).toBe(reason)
+	expect(providerSignal).toBeUndefined()
 	token.resolve('late-token')
 	await new Promise<void>((resolve) => setImmediate(resolve))
 	expect(calls).toBe(0)
 })
 
-test('preserves caller cancellation when the provider rejects with its own abort error', async (tc) => {
+test('preserves caller cancellation when the provider later rejects', async (tc) => {
 	let entered = Promise.withResolvers<void>()
 	let providerSignal: AbortSignal | undefined
 	let providerError = new DOMException('Token request aborted', 'AbortError')
+	let token = Promise.withResolvers<string>()
 	class CancellableCredentials extends CredentialsProvider {
 		getToken(_force?: boolean, signal?: AbortSignal): Promise<string> {
 			providerSignal = signal
-			return new Promise((_, reject) => {
-				signal?.addEventListener('abort', () => reject(providerError), { once: true })
-				entered.resolve()
-			})
+			entered.resolve()
+			return token.promise
 		}
 	}
 	using driver = new Driver('grpc://127.0.0.1:1/local', {
@@ -174,7 +173,10 @@ test('preserves caller cancellation when the provider rejects with its own abort
 	controller.abort(reason)
 
 	await expect(pending).rejects.toBe(reason)
-	expect(providerSignal?.reason).toBe(reason)
+	expect(providerSignal).toBeUndefined()
+	token.reject(providerError)
+	await new Promise<void>((resolve) => setImmediate(resolve))
+	await expect(pending).rejects.toBe(reason)
 })
 
 test('applies the RPC deadline while credentials are pending', async (tc) => {
@@ -195,7 +197,7 @@ test('applies the RPC deadline while credentials are pending', async (tc) => {
 	let pending = client.whoAmI({}, { signal: tc.signal, deadline: Date.now() + 30 })
 
 	await expect(pending).rejects.toMatchObject({ code: Status.DEADLINE_EXCEEDED })
-	expect(providerSignal?.aborted).toBe(true)
+	expect(providerSignal).toBeUndefined()
 })
 
 test.for([
@@ -237,16 +239,25 @@ test.for([
 	let options: CallOptions = { signal: tc.signal }
 	if (deadlineMs !== undefined) options.deadline = Date.now() + deadlineMs
 	let pending = client.whoAmI({}, options)
+	let settled = false
 	let failure = pending.then(
-		() => undefined,
-		(error: unknown) => error
+		() => {
+			settled = true
+			return undefined
+		},
+		(error: unknown) => {
+			settled = true
+			return error
+		}
 	)
 	await entered.promise
 
 	await vi.advanceTimersByTimeAsync(99)
-	expect(providerSignal?.aborted).toBe(false)
+	expect(settled).toBe(false)
+	expect(providerSignal).toBeUndefined()
 	await vi.advanceTimersByTimeAsync(1)
-	expect(providerSignal?.aborted).toBe(true)
+	expect(settled).toBe(true)
+	expect(providerSignal).toBeUndefined()
 	expect(await failure).toMatchObject({ code: Status.DEADLINE_EXCEEDED })
 
 	token.resolve('late-token')
@@ -384,13 +395,13 @@ test('stops the token timer after authentication without shortening the RPC', as
 	await received.promise
 
 	await vi.advanceTimersByTimeAsync(500)
-	expect(providerSignal?.aborted).toBe(false)
+	expect(providerSignal).toBeUndefined()
 	response.resolve()
 	await pending
 	controller.abort(new Error('caller finished'))
 	driver.close()
 
-	expect(providerSignal?.aborted).toBe(false)
+	expect(providerSignal).toBeUndefined()
 })
 
 test.for(['synchronous', 'asynchronous'])(
@@ -434,7 +445,35 @@ test.for(['synchronous', 'asynchronous'])(
 		await vi.advanceTimersByTimeAsync(200)
 		driver.close()
 
-		expect(providerSignal?.aborted).toBe(false)
+		expect(providerSignal).toBeUndefined()
 		expect(calls).toBe(0)
+	}
+)
+
+test.for(['resolve', 'reject', 'throw'])(
+	'preserves cancellation during a synchronous provider %s',
+	async (outcome, tc) => {
+		let caller = new AbortController()
+		let reason = new Error('Caller cancelled during token acquisition')
+		let providerError = new Error('Provider failed')
+		class CancellingCredentials extends CredentialsProvider {
+			getToken(): Promise<string> {
+				caller.abort(reason)
+				if (outcome === 'throw') throw providerError
+				return outcome === 'reject'
+					? Promise.reject(providerError)
+					: Promise.resolve('token')
+			}
+		}
+		using driver = new Driver('grpc://127.0.0.1:1/local', {
+			'ydb.sdk.enable_discovery': false,
+			credentialsProvider: new CancellingCredentials(),
+		})
+		let client = driver.createClient(DiscoveryServiceDefinition)
+		let signal = AbortSignal.any([tc.signal, caller.signal])
+		let pending = client.whoAmI({}, { signal })
+
+		await expect(pending).rejects.toBe(reason)
+		await new Promise<void>((resolve) => setImmediate(resolve))
 	}
 )

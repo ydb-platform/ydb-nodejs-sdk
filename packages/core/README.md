@@ -96,9 +96,9 @@ You can also use `AccessTokenCredentialsProvider`, `AnonymousCredentialsProvider
 
 ### Token acquisition timeout
 
-`ydb.sdk.token_timeout_ms` limits the time spent waiting for `credentialsProvider.getToken()` before each RPC (default 10000 ms). Values must be integers from 0 to 4294967295; zero leaves no time budget. Expiry rejects the call with `RpcError` and `Status.DEADLINE_EXCEEDED` and aborts the provider signal, even if the provider ignores cancellation. No RPC is sent after token acquisition fails or times out.
+`ydb.sdk.token_timeout_ms` limits the time spent waiting for `credentialsProvider.getToken()` before each RPC (default 10000 ms). Values must be integers from 0 to 4294967295; zero leaves no time budget. Expiry rejects the call with `RpcError` and `Status.DEADLINE_EXCEEDED` without cancelling the provider's refresh. No RPC is sent after token acquisition fails or its wait times out.
 
-An earlier call deadline or caller cancellation takes precedence. The original absolute deadline still covers both authentication and the RPC; obtaining a token does not restart it. Once `getToken()` completes, its token timeout and RPC cancellation forwarding stop, so a background refresh started by the provider can continue under the provider's own policy.
+An earlier call deadline or caller cancellation takes precedence. The original absolute deadline still covers both authentication and the RPC; obtaining a token does not restart it. Driver calls `getToken()` without forwarding the RPC signal. Each caller owns only its wait: cancelling one RPC or closing its Driver does not interrupt a refresh shared with another caller. Providers bound their own network work independently. The `driver.token` getter follows the same wait timeout and is cancelled when its Driver closes.
 
 ```ts
 using driver = new Driver(connectionString, {

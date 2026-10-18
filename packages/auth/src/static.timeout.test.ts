@@ -23,7 +23,7 @@ function loginResponse(expiresIn = 600) {
 	})
 }
 
-test('allocates no default timeout for caller signals or cached tokens', async (tc) => {
+test('allocates a provider timeout only when starting a login', async (tc) => {
 	using server = new Server()
 	let logins = 0
 	server.add(
@@ -45,7 +45,7 @@ test('allocates no default timeout for caller signals or cached tokens', async (
 	let token = await provider.getToken(false, tc.signal)
 	expect(await provider.getToken()).toBe(token)
 	expect(await provider.getToken()).toBe(token)
-	expect(timeout).not.toHaveBeenCalled()
+	expect(timeout.mock.calls).toEqual([[5000]])
 	expect(logins).toBe(1)
 })
 
@@ -83,7 +83,7 @@ test('allocates one default timeout when concurrent calls share a refresh', asyn
 	expect(third).toBe(first)
 })
 
-test('allocates background refresh timeouts only for the call that starts it', async (tc) => {
+test('keeps a background refresh independent of the caller signal', async (tc) => {
 	using server = new Server()
 	let started = Promise.withResolvers<void>()
 	let release = Promise.withResolvers<void>()
@@ -109,15 +109,124 @@ test('allocates background refresh timeouts only for the call that starts it', a
 	let token = await provider.getToken(false, tc.signal)
 	using timeout = vi.spyOn(AbortSignal, 'timeout')
 
-	expect(await provider.getToken()).toBe(token)
+	let caller = new AbortController()
+	expect(await provider.getToken(false, caller.signal)).toBe(token)
+	caller.abort(new Error('Caller finished'))
 	await abortable(tc.signal, started.promise)
 	expect(await provider.getToken()).toBe(token)
 	expect(await provider.getToken()).toBe(token)
-	expect(timeout.mock.calls).toEqual([[5000], [30000]])
+	expect(timeout.mock.calls).toEqual([[30000]])
 	expect(logins).toBe(2)
 	let refreshed = provider.getToken(true, tc.signal)
 	release.resolve()
 	expect(await refreshed).not.toBe(token)
 	expect(await provider.getToken()).not.toBe(token)
-	expect(timeout.mock.calls).toEqual([[5000], [30000]])
+	expect(timeout.mock.calls).toEqual([[30000]])
 })
+
+test('cancels initiating and joining waits without cancelling the shared login', async (tc) => {
+	using server = new Server()
+	let started = Promise.withResolvers<AbortSignal>()
+	let release = Promise.withResolvers<void>()
+	let logins = 0
+	server.add(
+		{ login: AuthServiceDefinition.login },
+		{
+			async login(_request, context) {
+				logins++
+				started.resolve(context.signal)
+				await abortable(context.signal, release.promise)
+				return loginResponse()
+			},
+		}
+	)
+	let port = await server.listen('127.0.0.1:0')
+	let provider = new StaticCredentialsProvider(
+		{ username: 'test', password: 'test' },
+		`grpc://127.0.0.1:${port}`
+	)
+	let initiating = new AbortController()
+	let joining = new AbortController()
+	let firstReason = new Error('Initiating caller cancelled')
+	let secondReason = new Error('Joining caller cancelled')
+	let first = provider.getToken(false, initiating.signal)
+	let second = provider.getToken(false, joining.signal)
+	let surviving = provider.getToken(false, tc.signal)
+	void first.catch(() => {})
+	void second.catch(() => {})
+	let requestSignal = await abortable(tc.signal, started.promise)
+
+	initiating.abort(firstReason)
+	joining.abort(secondReason)
+	await expect(first).rejects.toBe(firstReason)
+	await expect(second).rejects.toBe(secondReason)
+	expect(requestSignal.aborted).toBe(false)
+	expect(logins).toBe(1)
+
+	release.resolve()
+	let token = await surviving
+	expect(await provider.getToken(false, tc.signal)).toBe(token)
+	expect(logins).toBe(1)
+})
+
+test('rejects an already cancelled token request without starting login', async () => {
+	using server = new Server()
+	let logins = 0
+	server.add(
+		{ login: AuthServiceDefinition.login },
+		{
+			async login() {
+				logins++
+				return loginResponse()
+			},
+		}
+	)
+	let port = await server.listen('127.0.0.1:0')
+	let provider = new StaticCredentialsProvider(
+		{ username: 'test', password: 'test' },
+		`grpc://127.0.0.1:${port}`
+	)
+	using timeout = vi.spyOn(AbortSignal, 'timeout')
+	let reason = new Error('Caller already cancelled')
+
+	await expect(provider.getToken(false, AbortSignal.abort(reason))).rejects.toBe(reason)
+	expect(logins).toBe(0)
+	expect(timeout).not.toHaveBeenCalled()
+})
+
+test('bounds a shared login by its own timeout after all callers cancel', async (tc) => {
+	using server = new Server()
+	let started = Promise.withResolvers<AbortSignal>()
+	let logins = 0
+	server.add(
+		{ login: AuthServiceDefinition.login },
+		{
+			async login(_request, context) {
+				logins++
+				started.resolve(context.signal)
+				await abortable(context.signal, new Promise<void>(() => {}))
+				return loginResponse()
+			},
+		}
+	)
+	let port = await server.listen('127.0.0.1:0')
+	let provider = new StaticCredentialsProvider(
+		{ username: 'test', password: 'test' },
+		`grpc://127.0.0.1:${port}`
+	)
+	let caller = new AbortController()
+	let reason = new Error('Caller cancelled')
+	using timeout = vi.spyOn(AbortSignal, 'timeout')
+	let cancelled = provider.getToken(false, caller.signal)
+	void cancelled.catch(() => {})
+	let requestSignal = await abortable(tc.signal, started.promise)
+	caller.abort(reason)
+	await expect(cancelled).rejects.toBe(reason)
+	expect(requestSignal.aborted).toBe(false)
+
+	let later = provider.getToken(false, tc.signal)
+	await expect(later).rejects.toMatchObject({ name: 'TimeoutError' })
+	await expect.poll(() => requestSignal.aborted).toBe(true)
+	expect(logins).toBe(1)
+	expect(timeout.mock.calls).toEqual([[5000]])
+}, 10_000)

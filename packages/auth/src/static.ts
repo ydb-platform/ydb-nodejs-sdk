@@ -8,7 +8,7 @@ import { StatusIds_StatusCode } from '@ydbjs/api/operation'
 import { loggers } from '@ydbjs/debug'
 import { YDBError } from '@ydbjs/error'
 import { type RetryContext, defaultRetryConfig, retry } from '@ydbjs/retry'
-import { linkSignals } from '@ydbjs/abortable'
+import { abortable } from '@ydbjs/abortable'
 
 import { CredentialsProvider } from './index.js'
 
@@ -50,7 +50,6 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 
 	#token: StaticCredentialsToken | undefined = undefined
 	#promise: Promise<string> | undefined = undefined
-	#backgroundRefreshPromise: Promise<void> | undefined = undefined
 
 	// Tracks whether the current token has already triggered a `token.expired`
 	// event so concurrent getToken() calls don't fan out into N events for the
@@ -94,10 +93,11 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 	/**
 	 * Returns the token from the credentials.
 	 * @param force - if true, forces a new token to be fetched
-	 * @param signal - an optional AbortSignal to cancel token acquisition. New requests default to a 5-second timeout.
+	 * @param signal - cancels this caller’s wait without cancelling the shared refresh.
 	 * @returns the token
 	 */
 	async getToken(force = false, signal?: AbortSignal): Promise<string> {
+		signal?.throwIfAborted()
 		let currentTimeSeconds = Date.now() / 1000
 
 		// If token is still valid (hard buffer), return it
@@ -112,16 +112,12 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 			// Start background refresh if approaching soft expiry
 			if (
 				this.#token.exp <= currentTimeSeconds + SOFT_EXPIRY_BUFFER_SECONDS &&
-				!this.#promise &&
-				!this.#backgroundRefreshPromise
+				!this.#promise
 			) {
 				debug.log('token approaching soft expiry, starting background refresh')
-				// Fire and forget background refresh with timeout
-				this.#backgroundRefreshPromise = this.#refreshTokenInBackground(
-					signal ?? AbortSignal.timeout(ACQUIRE_TOKEN_TIMEOUT_MS)
-				).finally(() => {
-					this.#backgroundRefreshPromise = undefined
-				})
+				void this.#refreshToken(AbortSignal.timeout(BACKGROUND_REFRESH_TIMEOUT_MS)).catch(
+					() => {}
+				)
 			}
 
 			return this.#token.value
@@ -129,7 +125,7 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 
 		if (this.#promise) {
 			debug.log('token refresh already in progress, waiting for result')
-			return this.#promise
+			return signal ? abortable(signal, this.#promise) : this.#promise
 		}
 
 		// Fire `token.expired` at most once per incident: only the first caller
@@ -156,23 +152,8 @@ export class StaticCredentialsProvider extends CredentialsProvider {
 			force,
 			this.#token ? 'true' : 'false'
 		)
-		return this.#refreshToken(signal ?? AbortSignal.timeout(ACQUIRE_TOKEN_TIMEOUT_MS))
-	}
-
-	/**
-	 * Refreshes the token in the background without blocking current requests
-	 * @param signal - an optional AbortSignal to cancel the request
-	 */
-	async #refreshTokenInBackground(signal: AbortSignal): Promise<void> {
-		if (this.#promise || this.#backgroundRefreshPromise) {
-			debug.log('background refresh skipped, already refreshing')
-			return // Already refreshing (either sync or background)
-		}
-
-		debug.log('starting background token refresh')
-		using linkedSignal = linkSignals(signal, AbortSignal.timeout(BACKGROUND_REFRESH_TIMEOUT_MS))
-
-		await this.#refreshToken(linkedSignal.signal).catch(() => {})
+		let refresh = this.#refreshToken(AbortSignal.timeout(ACQUIRE_TOKEN_TIMEOUT_MS))
+		return signal ? abortable(signal, refresh) : refresh
 	}
 
 	/**
