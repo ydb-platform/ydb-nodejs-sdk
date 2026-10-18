@@ -172,7 +172,7 @@ async function consumeEpoch(reader: TopicReader): Promise<void> {
 }
 
 async function run() {
-	await using driver = new Driver(process.env['YDB_CONNECTION_STRING']!, {
+	using driver = new Driver(process.env['YDB_CONNECTION_STRING']!, {
 		'ydb.sdk.enable_discovery': false,
 		transportOptions: { tls: { servername: process.env['YDB_MEMORY_TLS_SERVERNAME'] } },
 	})
