@@ -44,6 +44,17 @@ test('throws immediately when signal aborted with reason', async () => {
 	await expect(result).rejects.toThrow('Custom abort reason')
 })
 
+test('observes a later rejection when the signal was already aborted', async () => {
+	let pending = Promise.withResolvers<string>()
+	let reason = new Error('Caller already cancelled')
+	let result = abortable(AbortSignal.abort(reason), pending.promise)
+
+	await expect(result).rejects.toBe(reason)
+	pending.reject(new Error('Independent operation failed later'))
+	await new Promise<void>((resolve) => setImmediate(resolve))
+	await expect(result).rejects.toBe(reason)
+})
+
 test('aborts when signal aborted during promise execution', async () => {
 	let controller = new AbortController()
 	let promise = new Promise((resolve) => {

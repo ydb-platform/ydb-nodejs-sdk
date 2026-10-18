@@ -1,5 +1,8 @@
 export async function abortable<T>(signal: AbortSignal, promise: Promise<T>): Promise<T> {
-	signal.throwIfAborted()
+	if (signal.aborted) {
+		void promise.catch(() => {})
+		throw signal.reason
+	}
 
 	let abortHandler: () => void
 	let abortPromise = new Promise<T>((_, reject) => {
