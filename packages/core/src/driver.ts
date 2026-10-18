@@ -481,31 +481,31 @@ export class Driver implements Disposable {
 			let cleanup = () => {
 				settled = true
 				clearTimeout(timer)
-				signal.removeEventListener('abort', onAbort)
+				signal.removeEventListener('abort', cancel)
 			}
-			let cancel = (reason: unknown) => {
+			let cancel = () => {
 				if (settled) return
+				let reason = signal.aborted
+					? signal.reason
+					: new RpcError(Status.DEADLINE_EXCEEDED, 'Token acquisition timed out')
 				cleanup()
 				// Preserve the cancellation reason even if the provider rejects with its own error.
 				reject(reason)
 				controller.abort(reason)
 			}
-			let onAbort = () => cancel(signal.reason)
-			let expire = () =>
-				cancel(new RpcError(Status.DEADLINE_EXCEEDED, 'Token acquisition timed out'))
 			let scheduleTimeout = () => {
 				if (settled) return
 				let remaining = expiresAt - Date.now()
-				if (remaining <= 0) expire()
+				if (remaining <= 0) cancel()
 				else timer = setTimeout(scheduleTimeout, Math.min(remaining, 2147483647)).unref()
 			}
-			signal.addEventListener('abort', onAbort, { once: true })
+			signal.addEventListener('abort', cancel, { once: true })
 			try {
 				this.#credentialsProvider.getToken(false, controller.signal).then(
 					(token) => {
 						if (settled) return
 						if (Date.now() >= expiresAt) {
-							expire()
+							cancel()
 							return
 						}
 						// A cached token can leave a background refresh using the provider signal.
