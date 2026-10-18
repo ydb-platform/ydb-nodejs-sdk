@@ -7,8 +7,10 @@ import { anyUnpack } from '@bufbuild/protobuf/wkt'
 import {
 	type ClientOptions,
 	type Metadata,
+	RpcError,
 	type ServiceClient,
 	type ServiceDefinition,
+	Status,
 	createServiceClient,
 } from '@ydbjs/grpc'
 import { abortable, linkSignals } from '@ydbjs/abortable'
@@ -87,6 +89,7 @@ export type DriverOptions = {
 
 	'ydb.sdk.application'?: string
 	'ydb.sdk.ready_timeout_ms'?: number
+	/** Maximum token acquisition time before an RPC, in milliseconds. Defaults to 10000. */
 	'ydb.sdk.token_timeout_ms'?: number
 	'ydb.sdk.enable_discovery'?: boolean
 	'ydb.sdk.discovery_timeout_ms'?: number
@@ -184,6 +187,12 @@ export class Driver implements Disposable {
 
 		this.cs = this.#parseConnectionString(connectionString)
 		this.options = this.#mergeOptions(userOptions)
+		let tokenTimeout = this.options['ydb.sdk.token_timeout_ms']!
+		if (!Number.isInteger(tokenTimeout) || tokenTimeout < 0 || tokenTimeout > 0xffffffff) {
+			throw new RangeError(
+				'ydb.sdk.token_timeout_ms must be an integer between 0 and 4294967295'
+			)
+		}
 		this.#assertDiscoveryTimings()
 
 		this.#identity = this.#buildIdentity()
@@ -453,26 +462,69 @@ export class Driver implements Disposable {
 			)
 		}
 
-		let tokenController = new AbortController()
-		let onAbort = () => tokenController.abort(signal.reason)
-		signal.throwIfAborted()
-		signal.addEventListener('abort', onAbort, { once: true })
-		let token: string
-		try {
-			token = await abortable(
-				signal,
-				this.#credentialsProvider.getToken(false, tokenController.signal)
-			)
-		} finally {
-			// A completed getToken() may have started a background refresh that outlives this RPC.
-			signal.removeEventListener('abort', onAbort)
-		}
+		let token = await this.#getRpcToken(signal)
 
 		metadata['x-ydb-sdk-build-info'] = this.#buildInfo
 		metadata['x-ydb-database'] = this.database
 		metadata['x-ydb-application-name'] = this.application
 		metadata['x-ydb-auth-ticket'] = token
 		return metadata
+	}
+
+	#getRpcToken(signal: AbortSignal): Promise<string> {
+		signal.throwIfAborted()
+		let controller = new AbortController()
+		let expiresAt = Date.now() + this.options['ydb.sdk.token_timeout_ms']!
+		return new Promise((resolve, reject) => {
+			let settled = false
+			let timer: ReturnType<typeof setTimeout> | undefined
+			let cleanup = () => {
+				settled = true
+				clearTimeout(timer)
+				signal.removeEventListener('abort', onAbort)
+			}
+			let cancel = (reason: unknown) => {
+				if (settled) return
+				cleanup()
+				// Preserve the cancellation reason even if the provider rejects with its own error.
+				reject(reason)
+				controller.abort(reason)
+			}
+			let onAbort = () => cancel(signal.reason)
+			let expire = () =>
+				cancel(new RpcError(Status.DEADLINE_EXCEEDED, 'Token acquisition timed out'))
+			let scheduleTimeout = () => {
+				if (settled) return
+				let remaining = expiresAt - Date.now()
+				if (remaining <= 0) expire()
+				else timer = setTimeout(scheduleTimeout, Math.min(remaining, 2147483647)).unref()
+			}
+			signal.addEventListener('abort', onAbort, { once: true })
+			try {
+				this.#credentialsProvider.getToken(false, controller.signal).then(
+					(token) => {
+						if (settled) return
+						if (Date.now() >= expiresAt) {
+							expire()
+							return
+						}
+						// A cached token can leave a background refresh using the provider signal.
+						cleanup()
+						resolve(token)
+						return undefined
+					},
+					(error: unknown) => {
+						cleanup()
+						reject(error)
+					}
+				)
+				// Already-fulfilled cached tokens settle before a timer needs to be allocated.
+				queueMicrotask(scheduleTimeout)
+			} catch (error) {
+				cleanup()
+				reject(error)
+			}
+		})
 	}
 
 	// The listEndpoints seam handed to the endpoints runtime. One plain RPC — the

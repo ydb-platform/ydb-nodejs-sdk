@@ -210,7 +210,8 @@ Tips:
 
 ### Why AbortSignal matters and how to handle aborts
 
-- The driver passes a timed `signal` to `getToken()` (`ydb.sdk.token_timeout_ms`) so token retrieval won’t hang and blow overall SLA.
+- Before each RPC, the driver bounds `getToken()` with `ydb.sdk.token_timeout_ms` (default 10000 ms), the call deadline, and caller cancellation. Token timeout rejects with `Status.DEADLINE_EXCEEDED`; caller cancellation preserves its original reason. The RPC keeps its original absolute deadline, including time spent obtaining credentials.
+- When `getToken()` completes, its timeout and RPC cancellation forwarding are removed. A provider may continue a background refresh under its own timeout.
 - Your provider must:
   - propagate this `signal` to network calls (fetch/gRPC/HTTP);
   - abort quickly when `signal.aborted` (typically throwing an `AbortError`).
