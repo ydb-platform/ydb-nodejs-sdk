@@ -477,7 +477,9 @@ export class Client implements Transport, Disposable {
 			options.signal?.removeEventListener('abort', onAbort)
 			this.#releaseSessionCall(session, failBeforeServerStatus)
 			this.#responseConsumers.delete(fail)
-			stream?.close(constants.NGHTTP2_CANCEL)
+			if (stream && !(stream.readableEnded && stream.writableFinished)) {
+				stream.close(constants.NGHTTP2_CANCEL)
+			}
 			notifyStatus(status)
 		}
 		let onAbort = () =>
@@ -695,7 +697,9 @@ export class Client implements Transport, Disposable {
 				stream?.unpipe(frames)
 				frames.destroy()
 			}
-			stream?.close(constants.NGHTTP2_CANCEL)
+			if (stream && !(stream.readableEnded && stream.writableFinished)) {
+				stream.close(constants.NGHTTP2_CANCEL)
+			}
 		}
 	}
 

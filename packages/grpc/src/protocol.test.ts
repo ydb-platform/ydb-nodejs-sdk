@@ -5,13 +5,61 @@ import { deflateSync, gzipSync } from 'node:zlib'
 
 import { expect, test } from 'vitest'
 
-import { collect, frame, rawServer, reply, service } from '../tests/fixtures.ts'
+import { collect, frame, rawServer, reply, requests, service } from '../tests/fixtures.ts'
 import { Client } from './client.ts'
-import { Status } from './error.ts'
+import { RpcError, Status } from './error.ts'
 import { createServiceClient } from './service.ts'
 import type { Metadata, RpcStatus } from './types.ts'
 
 // A controlled HTTP/2 peer can send malformed framing and trailers that a real YDB server cannot produce on demand.
+
+for (let [outcome, status] of [
+	['successful', Status.OK],
+	['failed', Status.INVALID_ARGUMENT],
+] as const) {
+	test(`reuses one session after repeated ${outcome} unary calls`, async (tc) => {
+		await using peer = await rawServer(async (stream) => {
+			await requests(stream)
+			reply(
+				stream,
+				status === Status.OK ? ['response'] : [],
+				{},
+				{
+					'grpc-status': String(status),
+					'grpc-message': 'result',
+				}
+			)
+		})
+		using transport = new Client(peer.authority)
+		let client = createServiceClient(service, transport)
+
+		// Exceed the peer's reset burst limit without replacing its HTTP/2 session.
+		await Promise.all(
+			Array.from({ length: 16 }, async () => {
+				for (let index = 0; index < 100; index++) {
+					let response = client.unary('request', { signal: tc.signal }).then(
+						(value) => ({ code: Status.OK, value }),
+						(error: unknown) => {
+							if (!(error instanceof RpcError)) throw error
+							return { code: error.code, value: error.details }
+						}
+					)
+					// Each worker keeps one RPC in flight, below the concurrent-stream limit.
+					// eslint-disable-next-line no-await-in-loop
+					let result = await response
+					expect(result).toEqual({
+						code: status,
+						value: status === Status.OK ? 'response' : 'result',
+					})
+				}
+			})
+		)
+
+		expect(peer.sessions).toHaveLength(1)
+		expect(peer.streams).toHaveLength(1600)
+		expect(peer.errors).toEqual([])
+	})
+}
 
 test('decodes split frame headers, split payloads and multiple frames in one chunk', async (tc) => {
 	await using peer = await rawServer(async (stream) => {
