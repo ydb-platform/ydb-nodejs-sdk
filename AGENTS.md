@@ -1,597 +1,137 @@
-# Agent Instructions for YDB JavaScript SDK
+# Engineering Principles for YDB JavaScript SDK
 
-**Purpose:** This file contains rules and conventions for AI agents, IDE assistants, and developers working with this codebase. It defines how code should be written, tested, and maintained.
+## Values and priorities
 
-## Our Principles
+We build a database SDK that applications trust with their data and availability. Our priorities are:
 
-**Maintainability first** - This code will be maintained by others after you. Write for the next person, not for yourself. LLMs and AI agents will work with this code - keep it simple and clear.
+1. **Reliability.** Preserve correctness, data integrity, security, and availability, including when an operation's outcome is uncertain. Make contracts predictable; compatibility includes runtime behavior, not just types.
+2. **Efficiency in real use.** Latency, throughput, CPU cost, and memory use are product requirements, not optional polish. Avoid unnecessary work, allocations, retained state, and dependencies, especially on frequently used paths. Judge improvements by their effect on representative application workloads.
+3. **Simplicity and maintainability.** Meet those requirements with the fewest concepts, states, and moving parts. Seek elegant designs that eliminate work and code rather than accumulating mechanisms. The project must remain understandable and maintainable without its original authors.
 
-**Simple over clever** - Choose elegant, straightforward solutions. Avoid deep nesting and excessive abstractions. If a concept is hard to explain, the implementation is probably wrong.
+Do not trade correctness for speed or dismiss a meaningful resource cost for implementation convenience. When a real performance requirement needs complexity, make the tradeoff explicit and verify the benefit.
 
-**Readability over micro-optimizations** - Code that's easy to understand is easier to extend and debug. Prioritize clarity over marginal performance gains.
+## Make efficiency a design constraint
 
-**Explicit over implicit** - Type annotations in public APIs, clear variable names, meaningful comments that explain WHY. No magic, no surprises.
+Look for ways to avoid work before making it faster: unnecessary copies, conversions, allocations, buffering, and repeated computation. Rethinking ownership or data flow can remove the cost with less code than an additional cache, fast path, or configuration option.
 
-**Consistency over convenience** - Strict style rules (tabs, `let`, no semicolons) make code predictable. Consistency reduces cognitive load.
+Prefer capabilities of the supported runtime and existing project primitives over adding external dependencies. A dependency needs a benefit that justifies its runtime, memory, distribution, and maintenance costs; replacing it with a large homegrown subsystem is not automatically simpler or cheaper.
 
-## Core Values
+Use measurements to test performance hypotheses, not intuition alone. Compare representative workloads before and after, accounting for latency, throughput, allocation pressure, and retained memory where relevant. A microbenchmark improvement is not enough if it does not help an application or merely shifts the cost elsewhere.
 
-- **Easy to maintain:** Flat structure, clear naming, minimal abstractions. Future developers should grasp concepts quickly.
-- **Easy to extend:** Adding features shouldn't require rewriting existing code. Modular design with explicit boundaries.
-- **Reliable:** Every public API has tests. Type safety is non-negotiable. Errors are caught early, not at runtime.
-- **Performant:** This is a database driver - efficiency matters. But not at the cost of code clarity.
-- **Secure:** Never log credentials or tokens. Validate external inputs. Handle sensitive data carefully.
+## Understand the system, not just the symptom
 
----
+Start with the behavior the user needs, the failure being addressed, and the constraints that matter. Distinguish observations from assumptions. Read the implementation and its callers before deciding where the change belongs.
 
-## Repository Structure
+Trace the relevant behavior from the public entry point through the components that own it, including affected consumers and other implementations of the same rule. A local symptom may come from a misplaced responsibility or an inconsistent contract elsewhere. Understand enough of that path to explain both the cause and the consequences of the fix; reading the entire repository is not the goal.
 
-**Type:** npm workspaces monorepo
-**Package Manager:** npm >= 10
-**Runtime:** Node >= 20.19
-**Build Tool:** Turbo
-**Test Framework:** Vitest
+Before copying an existing approach, establish why it exists and whether its constraints still apply. Check for shared mechanisms and newer approaches already adopted in the project, including capabilities of the supported runtime and dependencies. Prefer the approach that fits the current system, not automatically the nearest example or the newest technique.
 
-### Package Architecture
+Use that understanding to choose the right change boundary. Repair the shared rule when several paths depend on it, rather than adding another local workaround. If the necessary correction requires a broader migration, explain why and propose a scope instead of silently expanding the task or hiding the defect behind a patch.
 
-```
-@ydbjs/core
-  └── depends on: api, auth, error, retry
-      Core connection and driver functionality
+Proceed independently when the intent is clear and the decision is local and reversible. Ask when uncertainty changes a public contract, correctness guarantee, or scope. Bring a recommendation and the meaningful tradeoff, rather than asking the user to choose implementation details.
 
-@ydbjs/query
-  └── depends on: core, value, error
-      YQL query execution and transactions
+## Ground YDB decisions in upstream evidence
 
-@ydbjs/topic
-  └── depends on: core, value, error
-      Topic API (producers, consumers)
+For changes that depend on YDB behavior, inspect the relevant database source and protocol definitions, not only this SDK or documentation. Establish what the server actually does, distinguish implementation details from supported guarantees, and account for the server versions the SDK supports. Do not guess server semantics from client-side behavior.
 
-@ydbjs/value
-  └── depends on: api
-      YDB type system and values
+Investigate how other YDB SDKs solve the same problem. Read the relevant implementation together with its history, issues, and bug fixes to understand the failure modes and constraints behind the design. Treat these as evidence to evaluate, not authority to copy; another SDK may carry historical workarounds or make different guarantees.
 
-@ydbjs/auth
-  └── depends on: (minimal)
-      Authentication (tokens, anonymous, metadata)
+Transfer the underlying invariant and reasoning, not the implementation wholesale. Adapt the solution to this project's architecture and direction, JavaScript's execution model, and the SDK's contracts and constraints. Preserve useful source references for non-obvious decisions. If upstream evidence is unavailable or inconclusive, make the uncertainty explicit rather than presenting an assumption as a verified fact.
 
-@ydbjs/retry
-  └── depends on: error
-      Retry policies and backoff strategies
+## Prefer coherent rules to accumulated exceptions
 
-@ydbjs/error
-  └── depends on: api
-      YDB error types and handling
+Fix the rule that caused the problem, not just the example that exposed it. Behavior that should be the same should have one source of truth.
 
-@ydbjs/debug
-  └── standalone (no internal deps)
-      Centralized logging for all packages
+The best code is code we do not need to write or maintain. Before adding a mechanism, look for a way to remove the need for it: reuse an existing capability, simplify the data flow, or make an invalid state unrepresentable. Do not remove required behavior or safeguards to reduce code.
 
-@ydbjs/api
-  └── standalone
-      gRPC/Protobuf service definitions
-```
+Simplicity means fewer concepts and fewer invalid states, not merely fewer lines. Treat the effort to read, review, and safely change code as part of its cost. Prefer explicit ownership and straightforward control flow over clever compression or indirection that requires reconstructing hidden context.
 
-**Important:** Breaking changes require coordination across dependent packages. Examples in `examples/` consume published packages, not local workspace versions
+Introduce abstractions when they clarify a stable responsibility or invariant. Do not generalize for hypothetical consumers, hide meaningful differences behind a common interface, or add fallback behavior without a defined contract.
 
----
+Keep changes focused, but not artificially small: include what is necessary for a coherent fix. Do not preserve a known defect merely to minimize the diff.
 
-## Code Style Rules
+## Deliver changes in reviewable units
 
-### Formatting
+Split substantial work into pull requests by coherent purpose, not by file count or arbitrary size. Each PR should have a clear reason to exist, an understandable diff, and the tests and documentation needed to establish its own guarantees. Keep intermediate states valid; do not separate a behavior change from the evidence needed to review it.
 
-- **Indentation:** Tabs (width: 4), always
-- **Quotes:** Single quotes for strings
-- **Semicolons:** None (semi: false)
-- **Line length:** 120 characters max
+Put incidental refactoring, cleanup, optimizations, and independent fixes in separate PRs rather than burying them in the main task. Distinguish prerequisites from discoveries: a prerequisite can be an earlier PR, while an unrelated finding should be proposed separately, not silently added to the agreed scope.
 
-**Exception:** Markdown and YAML files use 2 spaces
+Use [stacked pull requests](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) for dependent steps of a larger change. Put prerequisites in lower layers and build on them in higher layers, so each PR can be reviewed against the layer below it. Keep independent work outside the dependency chain. A stack can land together once the included PRs meet their review and check requirements; this does not remove the need for authorization to merge.
 
-### Variable Declarations
+## Make maintenance independent of the author
 
-```typescript
-// DO: Always use let, even if never reassigned
-let count = 0
-let config = { timeout: 1000 }
+Leave the knowledge needed to maintain a decision in the repository, not only in a conversation or someone's memory. Express contracts and invariants in code, types, and tests; record non-obvious rationale and operational constraints where future maintainers will encounter them. Explain why an alternative was rejected when that knowledge prevents someone from reintroducing the same problem.
 
-// DON'T: Never use const
-const value = 42 // ❌
-```
+When correctness depends on a rule repeatedly remembered during review, prefer making violations impossible or automatically detectable. Avoid creating parallel documentation that must be manually kept in sync with an existing source of truth.
 
-### TypeScript
-
-- Use `#` prefix for private fields
-- Prefer explicit types in public APIs
-- Enable strict mode
-
-### Resource Cleanup
-
-- Prefer `using`/`await using` over manual `afterEach`/shared-variable teardown
-- Check for `[Symbol.dispose]`/`[Symbol.asyncDispose]` on the type before writing manual cleanup
-
-```typescript
-// DO
-test('acquires and releases', async (tc) => {
-  await using pool = new SessionPool(driver, { maxSize: 2 })
-  let lease = await pool.acquire(tc.signal)
-})
-
-// DON'T
-let pool: SessionPool | undefined
-afterEach(async () => {
-  await pool?.close()
-  pool = undefined
-})
-```
-
-### Comments
-
-- Write in English, always
-- Explain WHY, not WHAT
-- Avoid obvious comments
-
-```typescript
-// DON'T: Obvious
-let retries = 3 // Set retries to 3
+Judge the result from the position of a maintainer who was not present: can they diagnose a failure, verify the guarantees, and safely change or replace the implementation without asking its author? Reduce that dependency as part of the change, not by documenting every line.
 
-// DO: Explains decision
-let retries = 3 // AWS Lambda timeout is 3s, match retry window
-```
+## Make distributed-system semantics explicit
 
----
+The difficult cases are part of the design, not cleanup after the happy path:
 
-## Testing Rules
+- **Uncertain outcomes:** a lost response does not prove an operation failed. Retry only when the operation's semantics and transaction state allow it; do not turn uncertainty into a claim of success or failure.
+- **Cancellation and deadlines:** define which work stops, which resources are released, and what the caller can conclude. Propagate the caller's budget rather than silently creating a new one.
+- **Resource ownership:** make it clear who owns sessions, connections, streams, timers, listeners, and background tasks. Every acquisition needs a release path, including partial initialization and failure.
+- **Concurrency and backpressure:** reason about ordering, bounded work, and state transitions. Slow consumers, database outages, and recovery must not cause unbounded growth in retained memory, pending work, or retries. Do not let retries amplify overload. Avoid accidental serialization and races hidden by timing assumptions.
+- **Errors:** preserve the information callers need to decide what to do next. Do not swallow failures or retry them indiscriminately.
 
-### Structure
+Use structured disposal where the resource supports it. Make lifecycle guarantees understandable without requiring readers to reconstruct every asynchronous interleaving.
 
-**CRITICAL:** Tests must be flat, never nested.
+## Design for the SDK's users
 
-```typescript
-// DO: Flat structure with test()
-import { test, expect } from 'vitest'
+Design public APIs to make correct use natural and efficient, and incorrect use difficult. Evaluate the whole application workflow, not just the convenience of an individual method. Users should not need to reconstruct SDK internals or write error-prone coordination code to use it safely.
 
-test('processes string template', () => {
-  let result = process('hello')
-  expect(result).toBe('HELLO')
-})
+Prevent mistakes through the API's structure rather than relying on warnings in documentation. Minimize independent options, invalid combinations, and ordering or lifecycle rules the caller must remember. Use types and explicit ownership to rule out invalid states where possible. Choose safe defaults without hiding meaningful costs or uncertainty.
 
-test('handles empty input', () => {
-  let result = process('')
-  expect(result).toBe('')
-})
+TypeScript types alone do not protect JavaScript callers or runtime inputs. Where misuse cannot be prevented structurally, reject it with a clear, actionable error at the responsible boundary, before side effects where possible. Do not silently turn invalid usage into apparent success. Keep safeguards focused on actual risks rather than layering redundant checks on frequently used paths.
 
-// DON'T: Nested describe/it blocks
-describe('MyClass', () => {
-  // ❌
-  describe('method', () => {
-    // ❌
-    it('should work', () => {
-      // ❌
-      // ...
-    })
-  })
-})
-```
+Consider dependent packages and existing applications when changing exports, defaults, error behavior, or diagnostics. Treat compatibility as a deliberate decision; do not introduce breaking changes incidentally.
 
-### Rules
+Preserve supported contracts, not every internal detail or hypothetical use. Transitional adapters and parallel implementations need a clear reason to exist and a condition for removal. Complete migrations by removing superseded mechanisms when compatibility permits, rather than accumulating permanent layers.
 
-- Use `test()` function only, never `it()`
-- One test per `test()` call
-- Import: `import { test, expect } from 'vitest'`
+Keep implementation details private. Update user-facing documentation when the contract changes, explaining guarantees and limitations rather than only showing syntax. Record changes to published packages through the repository's release process; repository-instruction changes alone do not require a package release.
 
-### Naming
+## Verify claims with representative evidence
 
-- Be specific about scenario
-- Use action verbs when helpful: `processes`, `handles`, `expects`, `creates`, `accepts`
-- Never use "should" in test names
-- No redundant context (don't repeat function name)
+Choose verification based on what could fail and where the behavior is observable. A passing test suite is evidence, not proof that the requested outcome works.
 
-```typescript
-// DO
-test('processes string template')
-test('handles single issue')
-test('creates commit error')
-test('stops when limit exceeded')
+Actively use disposable experiments, prototypes, diagnostic scripts, tests, and benchmarks to challenge assumptions and compare approaches during development. They are working tools, not automatically deliverables. Remove your one-off scaffolding from the final change unless it has lasting value. Retain focused regression coverage, reusable checks, and evidence needed to maintain correctness or performance guarantees; do not preserve every exploratory case or freeze a discarded implementation in tests.
 
-// DON'T
-test('should process correctly') // ❌ "should" + vague
-test('validates input properly') // ❌ vague adverb
-test('function with custom parameter') // ❌ redundant prefix
-test('leader() reflects the pre-created-but-vacant semaphore as no leader') // ❌ prefix repeats "leader"
-```
+For behavior involving YDB, prefer integration coverage through public entry points against real YDB. Unit tests are valuable for pure logic and controlled failure scenarios, but internal coverage does not replace evidence that an application can use the feature.
 
-### Cancellation and Timeouts
+Use fakes when they provide necessary, deterministic control that real YDB cannot reasonably provide. Explain the boundary being simulated and why it is needed. Do not mock away the behavior the test is meant to establish.
 
-- Use the test context's `tc.signal` (or hook's `ctx.signal`) for real operations, not ad-hoc `AbortSignal.timeout(N)`
-- Exception: cleanup (`onTestFinished`/`afterEach`) keeps its own short timeout — the test's own signal may already be aborted by then
+For a bug fix, add a regression test that distinguishes the old behavior from the intended behavior. Assert observable contracts rather than incidental implementation steps. Cover relevant failure, cancellation, and cleanup paths, not every imaginable input.
 
-```typescript
-// DO
-test('creates a node', async (tc) => {
-  await client.createNode(path, {}, tc.signal)
-})
+Keep tests deterministic and independently understandable. Synchronize on events or state instead of arbitrary sleeps. Use the test's cancellation budget for real operations and a separate bounded budget for cleanup when necessary.
 
-// DON'T
-test('creates a node', async () => {
-  await client.createNode(path, {}, AbortSignal.timeout(5000)) // ❌ magic number, own budget
-})
-```
+When changes affect exports, build output, or packaging, verify the built package as an external application would consume it. Check the relevant entry points, JavaScript, type declarations, and required files; tests that resolve directly to workspace source can miss defects in what users receive.
 
-### Test Types
+Check affected consumers as well as the changed package. Validate types, builds, style, and runtime behavior in proportion to the change; do not weaken checks or alter expectations just to obtain a green result. For documentation-only changes, check accuracy and consistency rather than running unrelated runtime tests.
 
-- **Unit tests** (`npm run test:uni`) - fast, no external dependencies, always run
-- **Integration tests** (`npm run test:int`) - require Docker + local YDB, run for core/driver changes
-- **E2E tests** (`npm run test:e2e`) - full system tests, run for breaking changes
+## Preserve useful observability without exposing data
 
-### Integration Tests Over Mocks
+Use the SDK's shared logging and diagnostics mechanisms rather than parallel instrumentation. Diagnostics are a contract with telemetry consumers: preserve consistent naming, ownership, identity, and units across producers and subscribers.
 
-- Every package's public entry point (`src/index.ts` exports) needs golden-path coverage under `tests/**` against real YDB — internal unit coverage doesn't substitute
-- Default to `tests/**` (real YDB) for CRUD, session/connection lifecycle, concurrent-actor scenarios
-- Reach for a fake driver / `nice-grpc` mock (`packages/*/src/**/*.test.ts`) only when the scenario is unreachable via real YDB deterministically (e.g. reconnect/retry-backoff races) — justify in a comment, and verify that claim against the implementation, not intuition
+Pass database identity explicitly in database-scoped events. Keep it stable for the driver's lifetime, and do not mutate publisher-owned contexts. Keep configuration snapshots separate from per-operation data and convert measurement units at the telemetry boundary.
 
----
+Make failures diagnosable without logging credentials, tokens, or user data. Instrumentation must not change operation semantics or introduce unbounded work.
 
-## Debug Logging
+## Work within the repository, not around it
 
-**Package:** `@ydbjs/debug` (centralized logging for all packages)
+Follow the surrounding conventions and use existing tooling for mechanical rules. Keep code, tests, and documentation consistent with the design; do not copy an old pattern when it contradicts the intended contract.
 
-### Usage Pattern
+Some repository conventions are deliberate even when other projects differ: use `let` rather than `const`, `#` private fields, and flat `test()` declarations rather than nested `describe`/`it` suites. Write code comments and pull request descriptions in English. Comments should explain decisions, constraints, and non-obvious invariants rather than narrate the code.
 
-```typescript
-import { loggers } from '@ydbjs/debug'
+Preserve unrelated work, including edits made concurrently. Do not broaden a task into dependency upgrades, generated-file rewrites, or repository-wide formatting without a reason tied to the requested outcome.
 
-// Create scoped logger
-let dbg = loggers.topic.extend('writer')
+Use non-interactive tooling without bypassing safety checks. Treat destructive actions, publication, and changes to shared history as separate decisions requiring authorization, not as an automatic consequence of finishing implementation.
 
-// Log messages (use .log() method)
-dbg.log('creating writer with producer: %s', producerId)
-dbg.log('error during %s: %O', operation, error)
-```
+## Leave a reviewable result
 
-### Available Loggers
+Review the final diff as a maintainer would. Can someone understand why the change exists, which invariant it establishes, and what evidence supports it without replaying the conversation?
 
-Main categories: `api`, `auth`, `grpc`, `driver`, `query`, `topic`, `tx`, `retry`, `error`, `perf`
+Report the outcome, consequential decisions, and checks actually performed. Distinguish verified behavior from assumptions, and name unavailable checks or remaining risks. Do not describe a check as passing if it was not run.
 
-### Formatting
-
-- `%s` for strings
-- `%d` for numbers
-- `%O` for objects/errors
-
-### Rules
-
-- Always import `loggers` directly: `import { loggers } from '@ydbjs/debug'`
-- Create scoped loggers: `loggers.category.extend('subcategory')`
-- Use `dbg.log()` method, not `dbg()` directly
-- Use present tense for ongoing actions, past tense for completed
-- Never log sensitive data (tokens, passwords, user data)
-- Conditional logging for expensive operations: `if (dbg.enabled) { ... }`
-
----
-
-## Diagnostics Channels
-
-**Module:** `node:diagnostics_channel` — the SDK publishes structured events
-that `@ydbjs/telemetry` and future metrics/logs subscribers consume.
-
-### Channel naming
-
-```
-ydb:<subsystem>.<concept>[.<sub>].<action>
-tracing:ydb:<subsystem>.<concept>[.<sub>].<operation>
-```
-
-- **`<subsystem>`** — the package or logical owner of the event:
-  `driver`, `query`, `auth`. Add new ones (e.g. `topic`) as packages publish channels.
-- **`<concept>`** — the noun the event is about: `connection`, `session`,
-  `transaction`, `token`, `discovery`, etc.
-- **`<action>`** — verb / state in past tense for plain events
-  (`added`, `removed`, `closed`, `completed`) or operation name for tracing
-  (`acquire`, `create`, `execute`).
-- **`pool`** appears only when the event is about the pool _itself_
-  (`opened`, `closed`, `stats`), not about its contents. Events about
-  contents drop the `pool` segment because the pool is the implicit owner.
-
-**Examples (correct):**
-
-```
-ydb:driver.connection.added           // ConnectionPool added a connection
-ydb:query.session.created             // SessionPool created a session
-ydb:query.session.pool.opened         // SessionPool itself was opened
-tracing:ydb:driver.discovery          // discovery operation tracing
-tracing:ydb:query.session.acquire     // session acquisition tracing
-```
-
-**Examples (wrong):**
-
-```
-ydb:pool.connection.added             // ❌ which pool? core/ConnectionPool, query/SessionPool, ...
-ydb:session.created                   // ❌ whose session?
-tracing:ydb:discovery                 // ❌ missing subsystem prefix
-```
-
-### Exception: `retry`
-
-`@ydbjs/retry` keeps the `ydb:` / `tracing:ydb:` vendor prefix but omits
-the subsystem segment:
-
-```
-tracing:ydb:retry.run
-tracing:ydb:retry.attempt
-ydb:retry.exhausted
-```
-
-### Payload rules
-
-- Every db-scoped channel carries `driver: DriverIdentity`. No ALS for identity.
-- `DriverIdentity` is opaque; reference is stable for the driver's lifetime — safe as a `Map`/`WeakMap` key.
-- Per-event channels carry only event data. Config snapshots go on `*.pool.opened`, fired once.
-- Durations/timestamps in payloads are ms. OTel-second conversion happens in the telemetry subscriber, not in producers.
-- Don't mutate the publisher's `ctx`. Key per-call state by `ctx` reference in a private `WeakMap<object, T>`.
-
----
-
-## Development Workflow
-
-### Essential Commands
-
-```bash
-npm run build           # Build all packages (Turbo)
-npm run test:uni        # Unit tests (fast, no Docker)
-npm run test:int        # Integration tests (requires Docker + YDB)
-npm run test:all        # All tests (uni + int + e2e)
-npm run lint            # Run oxlint
-```
-
-### Before Committing (Required)
-
-- ✅ Build passes: `npm run build`
-- ✅ Tests pass: `npm run test:uni` (minimum)
-- ✅ Lint clean: `npm run lint`
-- ✅ Add/update tests for changes
-- ✅ Update package README if public API changed
-
-**No shortcuts. No "fix later".**
-
----
-
-## Agent Workflow
-
-### Command Execution Rules
-
-**CRITICAL:** Never use interactive commands that require user input or interaction.
-
-**Rules:**
-
-- Always use non-interactive flags or parameters for all commands
-- Never open editors or interactive prompts that require user input
-- Prefer file-based input over interactive prompts
-- Use appropriate flags (`--yes`, `--no-interaction`, `--force`) to avoid prompts
-- Provide all required parameters directly via command-line arguments or input files
-
-**General principle:** If a command might open an editor, prompt for confirmation, or wait for user input, it must be made non-interactive using appropriate flags or alternative methods.
-
-### Development Process
-
-**Order of operations** (priority: functionality → correctness → style):
-
-1. **Write code** - implement the required functionality
-2. **Write tests** - add tests alongside code changes
-3. **Verify functionality** - run tests to ensure code works
-4. **Check types & build** - verify type safety and successful compilation
-5. **Check style** - lint and format (least critical, done last)
-
-### Step-by-Step
-
-**1. Implement changes:**
-
-```bash
-# Write code in relevant package(s)
-# Write/update tests in the same commit
-```
-
-**2. Verify functionality works:**
-
-```bash
-npm run test:uni              # Always run unit tests first
-npm run test:int              # If core/driver/connection changes
-```
-
-**3. Check types and build:**
-
-```bash
-npm run build                 # Verify TypeScript compilation and types
-```
-
-**4. Check style (last):**
-
-```bash
-npm run lint                  # Fix formatting and style issues
-```
-
-**5. Add changeset (only when feature complete):**
-
-```bash
-npx changeset                 # After all functionality is ready, before/after PR
-```
-
-### Cross-Package Changes
-
-When changes affect package dependencies:
-
-**If you modify `@ydbjs/core`:**
-
-- Must test `@ydbjs/query` and `@ydbjs/topic` (they depend on core)
-- Run `test:uni` for all affected packages
-- Run `test:int` if connection/driver logic changed
-
-**If you modify `@ydbjs/value`:**
-
-- Must test `@ydbjs/query` and `@ydbjs/topic` (they depend on value)
-- Especially critical if public types changed
-
-**If you modify `@ydbjs/api`:**
-
-- Rebuild ALL packages (api is foundational)
-- Test dependent packages thoroughly
-
-**If you modify public API in any package:**
-
-- Update package README
-- Test all packages that import from this package
-- Consider if this is breaking change (major version bump)
-
-### Handling Errors
-
-**Test failures** (highest priority):
-
-- Fix immediately - broken functionality
-- If test expectations changed, update with clear reason in commit
-
-**Type errors** (high priority):
-
-- Must fix - indicates API contract violation
-- Check if dependent packages are affected
-
-**Build failures** (high priority):
-
-- Check circular dependencies
-- Verify all imports resolve
-- Run from root: `npm run build`
-
-**Lint failures** (lowest priority):
-
-- Fix formatting issues last
-- Most are auto-fixable
-
-### Completion Checklist
-
-Before considering changes complete:
-
-- [ ] Code written and tests added in same commit
-- [ ] Tests pass: `npm run test:uni` (minimum)
-- [ ] Build succeeds: `npm run build`
-- [ ] Lint clean: `npm run lint`
-- [ ] If public API changed → README updated
-- [ ] If dependent packages → tested together
-- [ ] If all functionality complete → changeset added
-- [ ] No credentials/tokens in logs
-
-**Important:** Changeset is added LAST, when you're confident all required functionality is implemented and tested.
-
----
-
-## Commits & Pull Requests
-
-### Commit Messages
-
-**Format:**
-
-```
-Short summary (50 chars max)
-
-- Bullet point describing what was added/changed
-- Another bullet point with details
-- Focus on WHAT and WHY, not HOW
-
-Optional: Additional context or reasoning
-```
-
-**Rules:**
-
-- First line: action verb + what changed (e.g., "Add", "Fix", "Update", "Refactor")
-- Focus on the main goal, not implementation details
-- If multiple files changed, describe the feature/fix, not individual files
-- Use present tense: "Add feature" not "Added feature"
-
-**Good examples:**
-
-```
-Add retry backoff strategy for transient errors
-
-- Implement exponential backoff with jitter
-- Add tests for retry behavior
-- Update documentation
-```
-
-```
-Fix memory leak in connection pool
-
-- Close idle connections after timeout
-- Add connection lifecycle tests
-```
-
-**Bad examples:**
-
-```
-Remove old file                          # ❌ What was added? Focus on main goal
-Update files                             # ❌ Too vague
-Fixed bug                                # ❌ What bug? Where?
-```
-
-### Pull Request Descriptions
-
-GitHub automatically loads `.github/pull_request_template.md` when creating a PR.
-
-**IMPORTANT:** Pull request descriptions must be written in English.
-
-**Key points:**
-
-- **What** - describe what the PR does (focus on main goal)
-- **Why** - explain the problem being solved
-- **Changes** - list main changes, mention breaking changes
-- **Testing** - what tests were added/updated
-- **Checklist** - changeset (if package changes), README (if public API changed)
-
-### When to Commit
-
-**Commit when:**
-
-- Logical unit of work is complete
-- Tests pass for that unit
-- Code compiles without errors
-
-**Don't commit:**
-
-- Broken code that doesn't compile
-- Failing tests (unless explicitly testing failure)
-- Work in progress without clear boundary
-
-**Multiple commits vs single commit:**
-
-- Related changes in same package → single commit
-- Independent features → separate commits
-- Bug fix + refactor → separate commits (easier to review/revert)
-
----
-
-## Versioning & Changesets
-
-**We use [Changesets](https://github.com/changesets/changesets) for version management.**
-
-When your changes affect published packages, add a changeset:
-
-```bash
-npx changeset
-```
-
-Select affected packages, choose bump type (major/minor/patch), write user-facing description.
-
-**Semantic Versioning:**
-
-- **MAJOR:** Breaking API changes
-- **MINOR:** Backwards-compatible features
-- **PATCH:** Bug fixes, docs, typings
-
-**Important Rules:**
-
-- **DO NOT create CHANGELOG.md files manually** - Changesets automatically generates them from changeset files in `.changeset/` directory
-- **Do not add packages to the `fixed` array in `.changeset/config.json`** - we publish packages independently; only introduce fixed groups if we explicitly decide to lock versions again
-- Third-parties packages (`third-parties/`) are NOT included in `fixed` array - they version independently
-
-See `RELEASING.md` and `VERSIONING.md` for full release process
-
----
-
-**Last Updated:** November 2025
-**Questions?** Open an issue or see CONTRIBUTING.md
+Work is complete when the requested behavior works, the change fits the surrounding system, and the next person can confidently maintain it—not merely when the code compiles or the diff is small.
