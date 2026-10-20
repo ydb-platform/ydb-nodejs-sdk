@@ -51,13 +51,16 @@ let verifyReleasedCapture = async function verifyReleasedCapture(
 	owner: 'onAck' | 'codec',
 	tc: TestContext
 ): Promise<{ collected: boolean; acks: bigint[]; writer: TopicWriter }> {
-	let collected = false
-	let registry = new FinalizationRegistry<void>(() => {
-		collected = true
-	})
+	// The observer must retain the registry until GC has delivered its callbacks.
+	let observed = {
+		collected: false,
+		registry: new FinalizationRegistry<void>(() => {
+			observed.collected = true
+		}),
+	}
 	let { driver, waitForNextStream } = makeFakeTopicDriver()
 	let acks: bigint[] = []
-	using writer = capturingWriter(driver, owner, registry, acks)
+	using writer = capturingWriter(driver, owner, observed.registry, acks)
 	let stream = await waitForNextStream()
 	stream.respond(initResponse(0n))
 	writer.write(new Uint8Array([1]))
@@ -68,13 +71,13 @@ let verifyReleasedCapture = async function verifyReleasedCapture(
 
 	// The registry callback updates this condition between GC rounds.
 	// oxlint-disable-next-line no-unmodified-loop-condition
-	for (let attempt = 0; attempt < 40 && !collected; attempt++) {
+	for (let attempt = 0; attempt < 40 && !observed.collected; attempt++) {
 		globalThis.gc!()
 		// oxlint-disable-next-line no-await-in-loop
 		await sleep(10, undefined, { signal: tc.signal })
 	}
 	await writer.close(tc.signal)
-	return { collected, acks, writer }
+	return { ...observed, acks, writer }
 }
 
 test('releases onAck captures while a closed writer remains reachable', async (tc) => {
@@ -88,6 +91,37 @@ test('releases custom codec captures while a closed writer remains reachable', a
 	expect(result).toMatchObject({ collected: true, acks: [1n] })
 	await expect(result.writer.close(tc.signal)).resolves.toBeUndefined()
 })
+
+test.for(['onAck', 'codec'] as const)(
+	'releases %s captures while a destroyed writer remains reachable',
+	async (owner, tc) => {
+		let observed = {
+			collected: false,
+			registry: new FinalizationRegistry<void>(() => {
+				observed.collected = true
+			}),
+		}
+		let { driver, waitForNextStream } = makeFakeTopicDriver()
+		let acknowledged: bigint[] = []
+		using writer = capturingWriter(driver, owner, observed.registry, acknowledged)
+		let stream = await waitForNextStream()
+		writer.write(new Uint8Array([1]))
+		let reason = new Error('Hard stop')
+		writer.destroy(reason)
+		expect(stream.wasAborted()).toBe(true)
+
+		// The registry callback updates this condition between GC rounds.
+		// oxlint-disable-next-line no-unmodified-loop-condition
+		for (let attempt = 0; attempt < 40 && !observed.collected; attempt++) {
+			globalThis.gc!()
+			// oxlint-disable-next-line no-await-in-loop
+			await sleep(10, undefined, { signal: tc.signal })
+		}
+		expect(observed.collected).toBe(true)
+		expect(acknowledged).toEqual([])
+		await expect(writer.flush()).rejects.toBe(reason)
+	}
+)
 
 let bytes = (...values: number[]) => new Uint8Array(values)
 
