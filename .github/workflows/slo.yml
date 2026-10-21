@@ -146,7 +146,7 @@ jobs:
             "$GITHUB_WORKSPACE/baseline/tests/slo"
 
       - name: Run ${{ matrix.topology.name }} SLO Tests
-        uses: ydb-platform/ydb-slo-action/init@6b8e6cd4b96d70e747fbba2f2cfa196a6e2b2717
+        uses: ydb-platform/ydb-slo-action/init@v3
         timeout-minutes: 35
         with:
           github_issue: ${{ github.event.pull_request.number }}
@@ -167,3 +167,4 @@ jobs:
             ${{ matrix.sdk.command }}
             --kv.read.rps=1000
             --kv.write.rps=100
+          metrics_schema: legacy_table
