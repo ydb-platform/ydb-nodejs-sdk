@@ -146,7 +146,8 @@ jobs:
             "$GITHUB_WORKSPACE/baseline/tests/slo"
 
       - name: Run ${{ matrix.topology.name }} SLO Tests
-        uses: ydb-platform/ydb-slo-action/init@v3
+        # Pin legacy telemetry fixes until ydb-slo-action#81 is merged.
+        uses: ydb-platform/ydb-slo-action/init@e136720bca3783a0bd2d14e78ac591275573c0b3
         timeout-minutes: 35
         with:
           github_issue: ${{ github.event.pull_request.number }}
