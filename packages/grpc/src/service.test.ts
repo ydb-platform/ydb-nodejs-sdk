@@ -628,9 +628,9 @@ test('rejects a close RPC without calling or closing the transport', () => {
 			closes++
 		},
 	}
-	let definition = { close: method('Close', false, false) }
+	let reserved = { close: method('Close', false, false) }
 
-	expect(() => createServiceClient(definition, transport)).toThrow(
+	expect(() => createServiceClient(reserved, transport)).toThrow(
 		new TypeError('Service method "close" conflicts with the client lifecycle method')
 	)
 	expect(calls).toBe(0)
