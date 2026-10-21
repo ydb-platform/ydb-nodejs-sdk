@@ -1,14 +1,16 @@
 // Some peer handlers intentionally consume requests without producing any response.
 /* oxlint-disable require-yield */
-import { constants } from 'node:http2'
+import { type ServerHttp2Stream, constants, createServer } from 'node:http2'
 import { setTimeout } from 'node:timers/promises'
+
+import { abortable } from '@ydbjs/abortable'
 
 import { expect, test } from 'vitest'
 
 import { rawServer, reply, service } from '../tests/fixtures.ts'
-import { nodePeer } from '../tests/node-peer.ts'
 import { Client } from './client.ts'
 import { RpcError, Status } from './error.ts'
+import { FrameDecoder } from './framing.ts'
 import { Server } from './server.ts'
 import { createServiceClient } from './service.ts'
 import type { Metadata as CallMetadata, ServiceImplementation, Transport } from './types.ts'
@@ -365,7 +367,25 @@ test('propagates a client-streaming producer failure', async (tc) => {
 test('bounds request production while a peer stops reading', async (tc) => {
 	let produced = 0
 	let padding = new Uint8Array(128 * 1024)
-	await using peer = await nodePeer({ type: 'backpressure', initialWindowSize: 65535 }, tc.signal)
+	let started = Promise.withResolvers<ServerHttp2Stream>()
+	let consumedBytes = 0
+	let receivedMessages = 0
+	await using peer = await rawServer((stream) => {
+		let decoder = new FrameDecoder(padding.byteLength + 4, 'request')
+		stream.on('data', (chunk: Buffer) => {
+			consumedBytes += chunk.byteLength
+			for (let frame of decoder.push(chunk)) {
+				if (frame.compressed) throw new Error('Unexpected compressed request')
+				receivedMessages++
+			}
+		})
+		stream.once('end', () => {
+			decoder.finish()
+			reply(stream, [serialize({ value: receivedMessages })])
+		})
+		stream.pause()
+		started.resolve(stream)
+	})
 	using transport = new Client(peer.authority)
 	let client = createServiceClient(definition, transport)
 	async function* input() {
@@ -375,28 +395,49 @@ test('bounds request production while a peer stops reading', async (tc) => {
 		}
 	}
 	let pendingResponse = client.client(input(), { signal: tc.signal })
-	await peer.wait('request-started')
+	let stream = await abortable(tc.signal, started.promise)
 	try {
 		await setTimeout(50, undefined, { signal: tc.signal })
 		expect(produced).toBeGreaterThan(0)
 		expect(produced).toBeLessThan(256)
-		let blocked = await peer.snapshot()
-		expect(blocked.consumedRequestBytes).toBe(0)
+		expect(consumedBytes).toBe(0)
 	} finally {
-		await peer.command('resume-requests')
+		stream.resume()
 	}
 
 	let response = await pendingResponse
 	expect(response.value).toBe(256)
-	let received = await peer.snapshot()
-	expect(received.requestMessages).toBe(256)
+	expect(receivedMessages).toBe(256)
 })
 
 test('aborts a drain wait and closes the request producer', async (tc) => {
 	let produced = 0
 	let closed = false
 	let padding = new Uint8Array(128 * 1024)
-	await using peer = await nodePeer({ type: 'backpressure', initialWindowSize: 0 }, tc.signal)
+	let started = Promise.withResolvers<ServerHttp2Stream>()
+	let reset = Promise.withResolvers<number>()
+	let consumedBytes = 0
+	let receivedMessages = 0
+	let resetCodes: number[] = []
+	await using peer = await rawServer(
+		(stream) => {
+			let decoder = new FrameDecoder(padding.byteLength + 4, 'request')
+			stream.on('data', (chunk: Buffer) => {
+				consumedBytes += chunk.byteLength
+				for (let frame of decoder.push(chunk)) {
+					if (frame.compressed) throw new Error('Unexpected compressed request')
+					receivedMessages++
+				}
+			})
+			stream.once('close', () => {
+				resetCodes.push(stream.rstCode)
+				reset.resolve(stream.rstCode)
+			})
+			stream.pause()
+			started.resolve(stream)
+		},
+		createServer({ settings: { initialWindowSize: 0 } })
+	)
 	using transport = new Client(peer.authority)
 	let client = createServiceClient(definition, transport)
 	async function* input() {
@@ -416,23 +457,21 @@ test('aborts a drain wait and closes the request producer', async (tc) => {
 	})
 	let response = collect(responses)
 	let failure = response.catch((error: unknown) => error)
-	await peer.wait('request-started')
+	let stream = await abortable(tc.signal, started.promise)
 	await setTimeout(50, undefined, { signal: tc.signal })
 	expect(produced).toBeGreaterThan(0)
 	expect(produced).toBeLessThan(256)
-	let blocked = await peer.snapshot()
-	expect(blocked.consumedRequestBytes).toBe(0)
+	expect(consumedBytes).toBe(0)
 	controller.abort(reason)
 	let error = await failure
 	expect(error).toBe(reason)
 	expect(closed).toBe(true)
-	let resetCode = await peer.wait('request-closed')
+	let resetCode = await abortable(tc.signal, reset.promise)
 	expect(resetCode).toBe(constants.NGHTTP2_CANCEL)
-	let received = await peer.snapshot()
-	expect(received.consumedRequestBytes).toBe(0)
-	expect(received.bufferedRequestBytes).toBe(0)
-	expect(received.requestMessages).toBe(0)
-	expect(received.requestResetCodes).toEqual([constants.NGHTTP2_CANCEL])
+	expect(consumedBytes).toBe(0)
+	expect(stream.readableLength).toBe(0)
+	expect(receivedMessages).toBe(0)
+	expect(resetCodes).toEqual([constants.NGHTTP2_CANCEL])
 })
 
 function blockedInput() {
