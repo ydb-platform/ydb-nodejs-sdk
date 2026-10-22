@@ -147,7 +147,7 @@ jobs:
 
       - name: Run ${{ matrix.topology.name }} SLO Tests
         # Pin legacy telemetry fixes until ydb-slo-action#81 is merged.
-        uses: ydb-platform/ydb-slo-action/init@e136720bca3783a0bd2d14e78ac591275573c0b3
+        uses: ydb-platform/ydb-slo-action/init@d66bd1e10f893e5f70d542c4430a3cffb6d6f9f8
         timeout-minutes: 35
         with:
           github_issue: ${{ github.event.pull_request.number }}
@@ -168,4 +168,4 @@ jobs:
             ${{ matrix.sdk.command }}
             --kv.read.rps=1000
             --kv.write.rps=100
-          metrics_schema: legacy_table
+          workload_type: table
